@@ -1,7 +1,12 @@
+import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import ReconciliationPanel from "@/components/reconciliation/ReconciliationPanel";
 
 const Reconciliation = () => {
+  const [searchParams] = useSearchParams();
+  const initialSiteId = searchParams.get("siteId") || undefined;
+  const initialUploadId = searchParams.get("uploadId") || undefined;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -12,7 +17,10 @@ const Reconciliation = () => {
           </p>
         </div>
 
-        <ReconciliationPanel />
+        <ReconciliationPanel 
+          initialSiteId={initialSiteId} 
+          initialUploadId={initialUploadId} 
+        />
       </div>
     </DashboardLayout>
   );

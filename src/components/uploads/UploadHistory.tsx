@@ -1,8 +1,9 @@
 import { FileUploadRecord, getUploadHistory } from "@/services/uploadService";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, FileSpreadsheet, File, Eye, Link2 } from "lucide-react";
+import { FileText, FileSpreadsheet, File, Eye, Link2, GitCompare } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 
@@ -38,6 +39,7 @@ const UploadHistory = ({
   const [sites, setSites] = useState<Record<string, SiteInfo>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,6 +80,13 @@ const UploadHistory = ({
 
     fetchData();
   }, [visitId, siteId, refreshTrigger]);
+
+  const handleReconcile = (upload: FileUploadRecord) => {
+    const params = new URLSearchParams();
+    if (upload.site_id) params.set("siteId", upload.site_id);
+    params.set("uploadId", upload.id);
+    navigate(`/dashboard/reconciliation?${params.toString()}`);
+  };
 
   if (loading) {
     return (
@@ -150,6 +159,18 @@ const UploadHistory = ({
               onClick={() => onViewUpload(upload.id)}
             >
               <Eye className="w-4 h-4" />
+            </Button>
+          )}
+
+          {upload.site_id && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleReconcile(upload)}
+              className="text-accent hover:text-accent"
+            >
+              <GitCompare className="w-4 h-4 mr-1" />
+              Reconcile
             </Button>
           )}
         </div>
