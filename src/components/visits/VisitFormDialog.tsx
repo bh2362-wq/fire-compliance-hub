@@ -43,12 +43,10 @@ const visitFormSchema = z.object({
 type VisitFormData = z.infer<typeof visitFormSchema>;
 
 const VISIT_TYPES = [
-  "Quarterly Service",
-  "Annual Inspection",
-  "Emergency Callout",
-  "Installation",
-  "Remedial Works",
-  "Commissioning",
+  { value: "quarterly_service", label: "Quarterly Service" },
+  { value: "annual_inspection", label: "Annual Inspection" },
+  { value: "emergency", label: "Emergency Callout" },
+  { value: "remedial", label: "Remedial Works" },
 ];
 
 interface Site {
@@ -222,8 +220,8 @@ const VisitFormDialog = ({
                     </FormControl>
                     <SelectContent>
                       {VISIT_TYPES.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
