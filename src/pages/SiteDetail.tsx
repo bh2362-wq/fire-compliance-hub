@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import DeviceInventory from "@/components/sites/DeviceInventory";
 import SiteUploadHistory from "@/components/sites/SiteUploadHistory";
 import SiteReconciliationHistory from "@/components/sites/SiteReconciliationHistory";
+import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { Button } from "@/components/ui/button";
@@ -177,6 +178,9 @@ const SiteDetail = () => {
             </p>
           </div>
         </div>
+
+        {/* Service Contracts */}
+        <SiteServiceContracts siteId={site.id} />
 
         {/* Device Inventory */}
         <DeviceInventory siteId={site.id} onImportClick={() => setImportOpen(true)} />
