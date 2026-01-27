@@ -5,13 +5,15 @@ import DeviceInventory from "@/components/sites/DeviceInventory";
 import SiteUploadHistory from "@/components/sites/SiteUploadHistory";
 import SiteReconciliationHistory from "@/components/sites/SiteReconciliationHistory";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
+import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Site } from "@/services/siteService";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
+import { useToast } from "@/hooks/use-toast";
 
 const statusConfig = {
   active: { label: "Active", className: "bg-success/10 text-success border-success/20" },
@@ -137,10 +139,25 @@ const SiteDetail = () => {
               </div>
             </div>
           </div>
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil className="w-4 h-4 mr-2" />
-            Edit Site
-          </Button>
+          <div className="flex items-center gap-3">
+            <VisitFormDialog
+              siteId={site.id}
+              siteName={site.name}
+              onVisitCreated={() => {
+                // Optionally navigate to visits or refresh
+              }}
+              trigger={
+                <Button variant="hero" size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Visit
+                </Button>
+              }
+            />
+            <Button variant="outline" onClick={() => setEditOpen(true)}>
+              <Pencil className="w-4 h-4 mr-2" />
+              Edit Site
+            </Button>
+          </div>
         </div>
 
         {/* Stats Summary */}
