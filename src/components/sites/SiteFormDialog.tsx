@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { Site, SiteFormData, createSite, updateSite } from "@/services/siteService";
 import { useToast } from "@/hooks/use-toast";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 
 interface SiteFormDialogProps {
   open: boolean;
@@ -120,16 +121,25 @@ const SiteFormDialog = ({ open, onOpenChange, site, onSuccess }: SiteFormDialogP
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="address">Address</Label>
+            <AddressAutocomplete
+              value={formData.address}
+              onChange={(value) => setFormData((prev) => ({ ...prev, address: value }))}
+              onAddressSelect={(details) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  address: details.address,
+                  city: details.city,
+                  postcode: details.postcode,
+                }));
+              }}
+              placeholder="Start typing to search UK addresses..."
+              disabled={loading}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={handleChange("address")}
-                placeholder="Street address"
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="city">City</Label>
               <Input
@@ -139,17 +149,15 @@ const SiteFormDialog = ({ open, onOpenChange, site, onSuccess }: SiteFormDialogP
                 placeholder="City"
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="postcode">Postcode</Label>
-            <Input
-              id="postcode"
-              value={formData.postcode}
-              onChange={handleChange("postcode")}
-              placeholder="e.g., M13 9WL"
-              className="w-32"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="postcode">Postcode</Label>
+              <Input
+                id="postcode"
+                value={formData.postcode}
+                onChange={handleChange("postcode")}
+                placeholder="e.g., M13 9WL"
+              />
+            </div>
           </div>
 
           <div className="border-t border-border pt-4">
