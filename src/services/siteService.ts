@@ -358,10 +358,33 @@ export interface ManualValues {
   zone?: string;
 }
 
+export interface BulkReplace {
+  find: string;
+  replace: string;
+}
+
+export interface BulkReplaceMap {
+  loop?: BulkReplace;
+  address?: BulkReplace;
+  type?: BulkReplace;
+  location?: BulkReplace;
+  zone?: BulkReplace;
+}
+
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function applyBulkReplace(value: string, bulkReplace?: BulkReplace): string {
+  if (!bulkReplace?.find) return value;
+  return value.replace(new RegExp(escapeRegExp(bulkReplace.find), 'g'), bulkReplace.replace || '');
+}
+
 export function parseDeviceRowsWithMapping(
   rows: Record<string, unknown>[],
   mapping: ColumnMapping,
-  manualValues: ManualValues = {}
+  manualValues: ManualValues = {},
+  bulkReplaces: BulkReplaceMap = {}
 ): { devices: DeviceImport[]; errors: string[] } {
   const errors: string[] = [];
   const devices: DeviceImport[] = [];
@@ -383,21 +406,35 @@ export function parseDeviceRowsWithMapping(
 
   rows.forEach((row, i) => {
     // Use manual value if column not mapped, otherwise use column value
-    const loop = manualValues.loop?.trim() || (mapping.loop ? String(row[mapping.loop] ?? "").trim() : "");
-    const address = manualValues.address?.trim() || (mapping.address ? String(row[mapping.address] ?? "").trim() : "");
-    const device_type = manualValues.type?.trim() || (mapping.type ? String(row[mapping.type] ?? "").trim() : "");
+    let loop = manualValues.loop?.trim() || (mapping.loop ? String(row[mapping.loop] ?? "").trim() : "");
+    let address = manualValues.address?.trim() || (mapping.address ? String(row[mapping.address] ?? "").trim() : "");
+    let device_type = manualValues.type?.trim() || (mapping.type ? String(row[mapping.type] ?? "").trim() : "");
+
+    // Apply bulk replacements if not using manual values
+    if (!manualValues.loop?.trim()) {
+      loop = applyBulkReplace(loop, bulkReplaces.loop);
+    }
+    if (!manualValues.address?.trim()) {
+      address = applyBulkReplace(address, bulkReplaces.address);
+    }
+    if (!manualValues.type?.trim()) {
+      device_type = applyBulkReplace(device_type, bulkReplaces.type);
+    }
 
     if (!loop || !address || !device_type) {
       errors.push(`Row ${i + 2}: Missing required field (loop, address, or type)`);
       return;
     }
 
-    // For optional fields, prefer manual value, then column value
+    // For optional fields, prefer manual value, then column value with bulk replace
     let location: string | undefined;
     if (manualValues.location?.trim()) {
       location = manualValues.location.trim();
     } else if (mapping.location) {
       location = String(row[mapping.location] ?? "").trim() || undefined;
+      if (location) {
+        location = applyBulkReplace(location, bulkReplaces.location);
+      }
     }
 
     let zone: string | undefined;
@@ -405,6 +442,9 @@ export function parseDeviceRowsWithMapping(
       zone = manualValues.zone.trim();
     } else if (mapping.zone) {
       zone = String(row[mapping.zone] ?? "").trim() || undefined;
+      if (zone) {
+        zone = applyBulkReplace(zone, bulkReplaces.zone);
+      }
     }
 
     devices.push({

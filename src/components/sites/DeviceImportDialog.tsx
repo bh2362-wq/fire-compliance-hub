@@ -26,8 +26,10 @@ import {
   importDevices, 
   DeviceImport,
   ColumnMapping,
-  ManualValues 
+  ManualValues,
+  BulkReplaceMap
 } from "@/services/siteService";
+import { BulkReplaceMap as DialogBulkReplaceMap } from "./ColumnMappingDialog";
 import { useToast } from "@/hooks/use-toast";
 import ColumnMappingDialog from "./ColumnMappingDialog";
 import * as XLSX from "xlsx";
@@ -54,14 +56,21 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
   const [suggestedMapping, setSuggestedMapping] = useState<Partial<ColumnMapping>>({});
   const [currentMapping, setCurrentMapping] = useState<ColumnMapping | null>(null);
   const [currentManualValues, setCurrentManualValues] = useState<ManualValues>({});
+  const [currentBulkReplaces, setCurrentBulkReplaces] = useState<BulkReplaceMap>({});
   const { toast } = useToast();
 
-  const parseWithMapping = useCallback((rows: Record<string, unknown>[], mapping: ColumnMapping, manualValues: ManualValues = {}) => {
-    const { devices, errors } = parseDeviceRowsWithMapping(rows, mapping, manualValues);
+  const parseWithMapping = useCallback((
+    rows: Record<string, unknown>[], 
+    mapping: ColumnMapping, 
+    manualValues: ManualValues = {},
+    bulkReplaces: BulkReplaceMap = {}
+  ) => {
+    const { devices, errors } = parseDeviceRowsWithMapping(rows, mapping, manualValues, bulkReplaces);
     setParsedDevices(devices);
     setParseErrors(errors);
     setCurrentMapping(mapping);
     setCurrentManualValues(manualValues);
+    setCurrentBulkReplaces(bulkReplaces);
 
     if (devices.length === 0 && errors.length > 0) {
       toast({
@@ -135,6 +144,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setAvailableColumns([]);
     setCurrentMapping(null);
     setCurrentManualValues({});
+    setCurrentBulkReplaces({});
 
     try {
       const isExcel = file.name.match(/\.(xlsx?|xls)$/i);
@@ -201,9 +211,9 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setLoading(false);
   }, [toast, parseSheet]);
 
-  const handleMappingConfirm = useCallback((mapping: ColumnMapping, manualValues: ManualValues) => {
+  const handleMappingConfirm = useCallback((mapping: ColumnMapping, manualValues: ManualValues, bulkReplaces: DialogBulkReplaceMap) => {
     setShowMappingDialog(false);
-    parseWithMapping(rawRows, mapping, manualValues);
+    parseWithMapping(rawRows, mapping, manualValues, bulkReplaces as BulkReplaceMap);
   }, [rawRows, parseWithMapping]);
 
   const handleOpenMappingDialog = () => {
@@ -243,6 +253,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       setAvailableColumns([]);
       setCurrentMapping(null);
       setCurrentManualValues({});
+      setCurrentBulkReplaces({});
     }
   };
 
@@ -257,7 +268,8 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setRawRows([]);
     setAvailableColumns([]);
     setCurrentMapping(null);
-    setCurrentManualValues({})
+    setCurrentManualValues({});
+    setCurrentBulkReplaces({});
   };
 
   return (
