@@ -7,15 +7,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, GitCompare, AlertCircle } from "lucide-react";
+import { Loader2, GitCompare, AlertCircle, CheckCircle, FileText } from "lucide-react";
 import { getSites, getSiteUploads, reconcileDevices, ReconciliationResult } from "@/services/reconciliationService";
+import { updateVisitStatus } from "@/hooks/useVisits";
 import ReconciliationResults from "./ReconciliationResults";
 import ReconciliationSkeleton from "./ReconciliationSkeleton";
+import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ReconciliationPanelProps {
   initialSiteId?: string;
   initialUploadId?: string;
+  initialVisitId?: string;
 }
 
 interface Upload {
@@ -25,9 +29,19 @@ interface Upload {
   devices_found: number | null;
   site_id: string | null;
   site_name?: string;
+  visit_id?: string | null;
 }
 
-const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationPanelProps) => {
+interface VisitInfo {
+  id: string;
+  visit_type: string;
+  visit_date: string;
+  status: string | null;
+  site_id: string;
+  site?: { name: string } | null;
+}
+
+const ReconciliationPanel = ({ initialSiteId, initialUploadId, initialVisitId }: ReconciliationPanelProps) => {
   const [sites, setSites] = useState<{ id: string; name: string; total_devices: number | null }[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [selectedSite, setSelectedSite] = useState<string>(initialSiteId || "");
@@ -35,7 +49,28 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
   const [loading, setLoading] = useState(false);
   const [reconciling, setReconciling] = useState(false);
   const [result, setResult] = useState<ReconciliationResult | null>(null);
+  const [visitInfo, setVisitInfo] = useState<VisitInfo | null>(null);
+  const [completingVisit, setCompletingVisit] = useState(false);
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const { toast } = useToast();
+
+  // Load visit info if visitId is provided
+  useEffect(() => {
+    if (initialVisitId) {
+      const loadVisitInfo = async () => {
+        const { data } = await supabase
+          .from("visits")
+          .select("id, visit_type, visit_date, status, site_id, site:sites(name)")
+          .eq("id", initialVisitId)
+          .maybeSingle();
+        
+        if (data) {
+          setVisitInfo(data as VisitInfo);
+        }
+      };
+      loadVisitInfo();
+    }
+  }, [initialVisitId]);
 
   // Load sites and uploads on mount
   useEffect(() => {
@@ -44,7 +79,7 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
       
       const [sitesResult, uploadsResult] = await Promise.all([
         getSites(),
-        getSiteUploads(initialSiteId), // Load uploads for initial site or all uploads
+        getSiteUploads(initialSiteId),
       ]);
 
       if (sitesResult.error) {
@@ -75,9 +110,8 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
     loadData();
   }, [initialSiteId, initialUploadId, toast]);
 
-  // Load uploads when site filter changes (after initial load)
+  // Load uploads when site filter changes
   useEffect(() => {
-    // Skip if this is initial load (handled above)
     if (loading) return;
 
     const loadUploads = async () => {
@@ -92,7 +126,6 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
         });
       } else {
         setUploads(uploadData);
-        // Reset upload selection if it's no longer in the list
         if (selectedUpload && !uploadData.some(u => u.id === selectedUpload)) {
           setSelectedUpload("");
         }
@@ -101,7 +134,7 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
     loadUploads();
   }, [selectedSite, loading, toast]);
 
-  // Auto-run reconciliation when both initial parameters are provided
+  // Auto-run reconciliation when parameters are provided
   useEffect(() => {
     if (initialSiteId && initialUploadId && selectedUpload === initialUploadId && !result && !reconciling && !loading) {
       handleReconcile();
@@ -111,7 +144,6 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
   const handleReconcile = async () => {
     if (!selectedUpload) return;
 
-    // Get site_id from the selected upload if not explicitly selected
     const upload = uploads.find(u => u.id === selectedUpload);
     const siteId = selectedSite && selectedSite !== "all" ? selectedSite : upload?.site_id;
 
@@ -146,7 +178,28 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
     setReconciling(false);
   };
 
-  // Filter uploads based on selected site
+  const handleCompleteVisit = async () => {
+    if (!visitInfo) return;
+
+    setCompletingVisit(true);
+    const { error } = await updateVisitStatus(visitInfo.id, "completed");
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to complete visit. Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      setVisitInfo({ ...visitInfo, status: "completed" });
+      toast({
+        title: "Visit completed",
+        description: "The visit has been marked as complete. You can now create an invoice.",
+      });
+    }
+    setCompletingVisit(false);
+  };
+
   const filteredUploads = selectedSite && selectedSite !== "all" 
     ? uploads.filter(u => u.site_id === selectedSite)
     : uploads;
@@ -259,7 +312,75 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
       {reconciling && <ReconciliationSkeleton />}
 
       {/* Results */}
-      {result && !reconciling && <ReconciliationResults result={result} />}
+      {result && !reconciling && (
+        <>
+          <ReconciliationResults result={result} />
+          
+          {/* Complete & Invoice Actions */}
+          {visitInfo && (
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-foreground">Visit Actions</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {visitInfo.visit_type} - {visitInfo.site?.name}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {visitInfo.status !== "completed" ? (
+                    <Button
+                      variant="hero"
+                      onClick={handleCompleteVisit}
+                      disabled={completingVisit}
+                    >
+                      {completingVisit ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Completing...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Complete Visit
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <>
+                      <span className="text-sm text-success flex items-center gap-1">
+                        <CheckCircle className="w-4 h-4" />
+                        Completed
+                      </span>
+                      <Button
+                        variant="hero"
+                        onClick={() => setShowInvoiceDialog(true)}
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Create Invoice
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Invoice Dialog */}
+      {visitInfo && showInvoiceDialog && (
+        <CreateInvoiceDialog
+          open={showInvoiceDialog}
+          onOpenChange={setShowInvoiceDialog}
+          visit={{
+            id: visitInfo.id,
+            visit_type: visitInfo.visit_type,
+            visit_date: visitInfo.visit_date,
+            site_id: visitInfo.site_id,
+            sites: visitInfo.site,
+          }}
+        />
+      )}
     </div>
   );
 };

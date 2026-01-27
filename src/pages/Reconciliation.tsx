@@ -6,6 +6,7 @@ const Reconciliation = () => {
   const [searchParams] = useSearchParams();
   const initialSiteId = searchParams.get("siteId") || undefined;
   const initialUploadId = searchParams.get("uploadId") || undefined;
+  const initialVisitId = searchParams.get("visitId") || undefined;
 
   return (
     <DashboardLayout>
@@ -19,7 +20,8 @@ const Reconciliation = () => {
 
         <ReconciliationPanel 
           initialSiteId={initialSiteId} 
-          initialUploadId={initialUploadId} 
+          initialUploadId={initialUploadId}
+          initialVisitId={initialVisitId}
         />
       </div>
     </DashboardLayout>
