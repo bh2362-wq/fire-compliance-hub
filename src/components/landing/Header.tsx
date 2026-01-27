@@ -39,14 +39,14 @@ const Header = () => {
             <Button 
               variant="ghost" 
               className="text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/auth')}
             >
               Sign In
             </Button>
             <Button 
               variant="hero" 
               size="sm"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/auth')}
             >
               Get Started
             </Button>
@@ -79,14 +79,14 @@ const Header = () => {
                 <Button 
                   variant="ghost" 
                   className="w-full justify-center text-primary-foreground/70"
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate('/auth')}
                 >
                   Sign In
                 </Button>
                 <Button 
                   variant="hero" 
                   className="w-full"
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate('/auth')}
                 >
                   Get Started
                 </Button>

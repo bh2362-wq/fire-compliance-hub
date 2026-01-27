@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -35,6 +36,18 @@ const navigation = [
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  const userInitials = user?.user_metadata?.full_name
+    ? user.user_metadata.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    : user?.email?.slice(0, 2).toUpperCase() || 'U';
+
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
 
   return (
     <div className="min-h-screen flex w-full bg-background">
@@ -93,17 +106,17 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             collapsed ? "justify-center" : ""
           )}>
             <div className="w-9 h-9 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-semibold text-sidebar-foreground">JD</span>
+              <span className="text-sm font-semibold text-sidebar-foreground">{userInitials}</span>
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">John Doe</p>
+                <p className="text-sm font-medium text-sidebar-foreground truncate">{userName}</p>
                 <p className="text-xs text-sidebar-foreground/60 truncate">Engineer</p>
               </div>
             )}
             {!collapsed && (
               <button 
-                onClick={() => navigate('/')}
+                onClick={handleSignOut}
                 className="p-1.5 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
               >
                 <LogOut className="w-4 h-4" />
@@ -121,7 +134,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* Top bar */}
         <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6 sticky top-0 z-30">
           <div>
-            <h1 className="text-lg font-semibold text-foreground">Welcome back, John</h1>
+            <h1 className="text-lg font-semibold text-foreground">Welcome back, {userName.split(' ')[0]}</h1>
             <p className="text-sm text-muted-foreground">Acme Fire Services Ltd</p>
           </div>
           <div className="flex items-center gap-4">
