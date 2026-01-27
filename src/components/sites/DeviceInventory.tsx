@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Cpu, Search, ChevronLeft, ChevronRight, Upload, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Cpu, Search, ChevronLeft, ChevronRight, Upload, Pencil, Trash2, Loader2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -231,8 +231,8 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
           </div>
           {onImportClick && (
             <Button variant="outline" size="sm" onClick={onImportClick}>
-              <Upload className="w-4 h-4 mr-2" />
-              Import
+              <Plus className="w-4 h-4 mr-2" />
+              Add Devices
             </Button>
           )}
         </div>
