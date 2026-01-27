@@ -439,7 +439,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     if (parsedDevices.length === 0) return;
 
     setImporting(true);
-    const { imported, errors, error } = await importDevices(site.id, parsedDevices);
+    const { imported, skipped, errors, error } = await importDevices(site.id, parsedDevices);
     setImporting(false);
 
     if (error) {
@@ -449,9 +449,13 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
         variant: "destructive",
       });
     } else {
+      const parts = [`${imported} imported`];
+      if (skipped > 0) parts.push(`${skipped} duplicates skipped`);
+      if (errors.length > 0) parts.push(`${errors.length} errors`);
+      
       toast({
         title: "Import complete",
-        description: `Successfully imported ${imported} devices${errors.length > 0 ? ` with ${errors.length} errors` : ""}`,
+        description: parts.join(", "),
       });
       onSuccess();
       onOpenChange(false);
