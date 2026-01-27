@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Sites from "./pages/Sites";
 import Visits from "./pages/Visits";
 import UploadDemo from "./pages/UploadDemo";
+import Reconciliation from "./pages/Reconciliation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/dashboard/sites" element={<Sites />} />
           <Route path="/dashboard/visits" element={<Visits />} />
           <Route path="/dashboard/upload" element={<UploadDemo />} />
+          <Route path="/dashboard/reconciliation" element={<Reconciliation />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
