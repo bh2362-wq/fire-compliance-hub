@@ -160,37 +160,53 @@ const UploadDemo = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            <FileUpload onFilesSelected={handleFilesSelected} maxFiles={5} maxSizeMB={20} />
-          </div>
-          <div className="lg:col-span-1 space-y-4">
-            <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-              <SiteSelector
-                value={selectedSiteId}
-                onValueChange={(value) => {
-                  setSelectedSiteId(value);
-                  setSelectedVisitId(""); // Reset visit when site changes
-                }}
+        {/* Site selection - required first */}
+        <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+          <SiteSelector
+            value={selectedSiteId}
+            onValueChange={(value) => {
+              setSelectedSiteId(value);
+              setSelectedVisitId(""); // Reset visit when site changes
+            }}
+            disabled={saving}
+            placeholder="Select a site to upload files"
+          />
+          {selectedSiteId && selectedSiteId !== "none" && (
+            <>
+              <div className="flex items-center gap-2 text-sm text-success">
+                <Link className="w-4 h-4" />
+                <span>Uploads will be linked to this site</span>
+              </div>
+              <VisitSelector
+                siteId={selectedSiteId}
+                siteName={sites.find((s) => s.id === selectedSiteId)?.name}
+                value={selectedVisitId}
+                onValueChange={setSelectedVisitId}
                 disabled={saving}
               />
-              {selectedSiteId && selectedSiteId !== "none" && (
-                <>
-                  <div className="flex items-center gap-2 text-sm text-success">
-                    <Link className="w-4 h-4" />
-                    <span>Uploads will be linked to this site</span>
-                  </div>
-                  <VisitSelector
-                    siteId={selectedSiteId}
-                    siteName={sites.find((s) => s.id === selectedSiteId)?.name}
-                    value={selectedVisitId}
-                    onValueChange={setSelectedVisitId}
-                    disabled={saving}
-                  />
-                </>
-              )}
+            </>
+          )}
+        </div>
+
+        {/* File upload - only enabled when site is selected */}
+        <div className="grid grid-cols-1 gap-6">
+          {!selectedSiteId || selectedSiteId === "none" ? (
+            <div className="border-2 border-dashed border-border rounded-xl p-12 text-center bg-muted/30">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+                  <Link className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Select a site first</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    You must select a site before uploading panel log files
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <FileUpload onFilesSelected={handleFilesSelected} maxFiles={5} maxSizeMB={20} />
+          )}
         </div>
 
         {parsing && (
