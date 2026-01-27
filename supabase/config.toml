@@ -2,3 +2,9 @@ project_id = "qtsboanwhzskkdvkfcdt"
 
 [functions.parse-pdf]
 verify_jwt = false
+
+[functions.places-autocomplete]
+verify_jwt = false
+
+[functions.places-details]
+verify_jwt = false
