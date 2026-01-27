@@ -8,3 +8,15 @@ verify_jwt = false
 
 [functions.places-details]
 verify_jwt = false
+
+[functions.xero-auth]
+verify_jwt = false
+
+[functions.xero-callback]
+verify_jwt = false
+
+[functions.xero-contacts]
+verify_jwt = false
+
+[functions.xero-create-invoice]
+verify_jwt = false

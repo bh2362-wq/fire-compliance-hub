@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Building2, Eye, Download, GitCompare } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
+import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 
 interface VisitsTableProps {
   visits: Visit[];
@@ -27,8 +29,9 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   },
 };
 
-const VisitsTable = ({ visits, loading }: VisitsTableProps) => {
+const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
   const navigate = useNavigate();
+  const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
 
   if (loading) {
     return (
@@ -163,11 +166,30 @@ const VisitsTable = ({ visits, loading }: VisitsTableProps) => {
                   <GitCompare className="w-4 h-4 mr-1" />
                   Reconcile
                 </Button>
+                {visit.status === "completed" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setInvoiceVisit(visit)}
+                  >
+                    <FileText className="w-4 h-4 mr-1" />
+                    Invoice
+                  </Button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {invoiceVisit && (
+        <CreateInvoiceDialog
+          open={!!invoiceVisit}
+          onOpenChange={(open) => !open && setInvoiceVisit(null)}
+          visit={{ ...invoiceVisit, sites: invoiceVisit.site }}
+          onSuccess={onRefresh}
+        />
+      )}
     </div>
   );
 };
