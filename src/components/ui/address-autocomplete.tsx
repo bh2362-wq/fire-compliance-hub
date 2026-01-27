@@ -39,6 +39,7 @@ export function AddressAutocomplete({
   const [predictions, setPredictions] = useState<AddressPrediction[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [sessionToken] = useState(() => crypto.randomUUID());
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
@@ -47,6 +48,7 @@ export function AddressAutocomplete({
   const searchPlaces = useCallback(async (input: string) => {
     if (input.trim().length < 3) {
       setPredictions([]);
+      setHasSearched(false);
       return;
     }
 
@@ -58,10 +60,12 @@ export function AddressAutocomplete({
 
       if (error) throw error;
       setPredictions(data.predictions || []);
+      setHasSearched(true);
       setIsOpen(true);
     } catch (err) {
       console.error('Autocomplete error:', err);
       setPredictions([]);
+      setHasSearched(true);
     } finally {
       setLoading(false);
     }
@@ -149,27 +153,34 @@ export function AddressAutocomplete({
         </div>
       </div>
 
-      {isOpen && predictions.length > 0 && (
+      {isOpen && (hasSearched || predictions.length > 0) && (
         <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg">
-          <ul className="max-h-60 overflow-auto py-1">
-            {predictions.map((prediction) => (
-              <li
-                key={prediction.place_id}
-                onClick={() => handleSelect(prediction)}
-                className="flex cursor-pointer items-start gap-2 px-3 py-2 hover:bg-accent"
-              >
-                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {prediction.structured_formatting.main_text}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {prediction.structured_formatting.secondary_text}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {predictions.length > 0 ? (
+            <ul className="max-h-60 overflow-auto py-1">
+              {predictions.map((prediction) => (
+                <li
+                  key={prediction.place_id}
+                  onClick={() => handleSelect(prediction)}
+                  className="flex cursor-pointer items-start gap-2 px-3 py-2 hover:bg-accent"
+                >
+                  <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {prediction.structured_formatting.main_text}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {prediction.structured_formatting.secondary_text}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="px-3 py-4 text-center">
+              <p className="text-sm text-muted-foreground">No results found</p>
+              <p className="text-xs text-muted-foreground mt-1">Try a different search term</p>
+            </div>
+          )}
           <div className="border-t border-border px-3 py-1.5">
             <p className="text-[10px] text-muted-foreground">Powered by Google</p>
           </div>
