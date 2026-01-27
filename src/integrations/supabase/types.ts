@@ -291,6 +291,111 @@ export type Database = {
         }
         Relationships: []
       }
+      service_reports: {
+        Row: {
+          checklist: Json
+          client_name: string | null
+          client_signature: string | null
+          created_at: string
+          created_by: string
+          defects_found: string | null
+          devices_count: number | null
+          engineer_name: string | null
+          engineer_signature: string | null
+          id: string
+          next_service_due: string | null
+          notes: string | null
+          panel_location: string | null
+          panel_manufacturer: string | null
+          panel_model: string | null
+          parts_used: string | null
+          recommendations: string | null
+          report_date: string
+          report_number: string | null
+          site_id: string
+          status: string
+          system_condition: string | null
+          system_type: string | null
+          updated_at: string
+          visit_id: string
+          work_carried_out: string | null
+          zones_count: number | null
+        }
+        Insert: {
+          checklist?: Json
+          client_name?: string | null
+          client_signature?: string | null
+          created_at?: string
+          created_by: string
+          defects_found?: string | null
+          devices_count?: number | null
+          engineer_name?: string | null
+          engineer_signature?: string | null
+          id?: string
+          next_service_due?: string | null
+          notes?: string | null
+          panel_location?: string | null
+          panel_manufacturer?: string | null
+          panel_model?: string | null
+          parts_used?: string | null
+          recommendations?: string | null
+          report_date?: string
+          report_number?: string | null
+          site_id: string
+          status?: string
+          system_condition?: string | null
+          system_type?: string | null
+          updated_at?: string
+          visit_id: string
+          work_carried_out?: string | null
+          zones_count?: number | null
+        }
+        Update: {
+          checklist?: Json
+          client_name?: string | null
+          client_signature?: string | null
+          created_at?: string
+          created_by?: string
+          defects_found?: string | null
+          devices_count?: number | null
+          engineer_name?: string | null
+          engineer_signature?: string | null
+          id?: string
+          next_service_due?: string | null
+          notes?: string | null
+          panel_location?: string | null
+          panel_manufacturer?: string | null
+          panel_model?: string | null
+          parts_used?: string | null
+          recommendations?: string | null
+          report_date?: string
+          report_number?: string | null
+          site_id?: string
+          status?: string
+          system_condition?: string | null
+          system_type?: string | null
+          updated_at?: string
+          visit_id?: string
+          work_carried_out?: string | null
+          zones_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_reports_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_reports_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sites: {
         Row: {
           address: string | null

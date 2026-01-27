@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Building2, Eye, GitCompare, FileText } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
+import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 
 interface VisitsTableProps {
   visits: Visit[];
@@ -32,6 +33,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
   const navigate = useNavigate();
   const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
+  const [reportVisit, setReportVisit] = useState<Visit | null>(null);
 
   if (loading) {
     return (
@@ -147,14 +149,14 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
                   </div>
                 </div>
               </div>
-              <div className="col-span-3 flex items-center gap-2">
+              <div className="col-span-3 flex items-center gap-2 flex-wrap">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate(`/dashboard/sites/${visit.site_id}`)}
                 >
                   <Eye className="w-4 h-4 mr-1" />
-                  View Site
+                  Site
                 </Button>
                 <Button
                   variant="ghost"
@@ -165,6 +167,14 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
                 >
                   <GitCompare className="w-4 h-4 mr-1" />
                   Reconcile
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setReportVisit(visit)}
+                >
+                  <ClipboardCheck className="w-4 h-4 mr-1" />
+                  Report
                 </Button>
                 <Button
                   variant="ghost"
@@ -185,6 +195,15 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
           open={!!invoiceVisit}
           onOpenChange={(open) => !open && setInvoiceVisit(null)}
           visit={{ ...invoiceVisit, sites: invoiceVisit.site }}
+          onSuccess={onRefresh}
+        />
+      )}
+
+      {reportVisit && (
+        <ServiceReportDialog
+          open={!!reportVisit}
+          onOpenChange={(open) => !open && setReportVisit(null)}
+          visit={{ ...reportVisit, sites: reportVisit.site }}
           onSuccess={onRefresh}
         />
       )}
