@@ -149,15 +149,45 @@ export async function getSiteDevices(siteId: string) {
 export async function importDevices(
   siteId: string,
   devices: DeviceImport[]
-): Promise<{ imported: number; errors: string[]; error: Error | null }> {
+): Promise<{ imported: number; skipped: number; errors: string[]; error: Error | null }> {
   const errors: string[] = [];
   let imported = 0;
+  let skipped = 0;
 
   try {
-    // Insert devices in batches
+    // First, fetch existing devices for this site to check for duplicates
+    const { data: existingDevices, error: fetchError } = await supabase
+      .from("devices")
+      .select("loop, address")
+      .eq("site_id", siteId);
+
+    if (fetchError) {
+      throw fetchError;
+    }
+
+    // Create a Set of existing device keys for fast lookup
+    const existingKeys = new Set(
+      (existingDevices || []).map((d) => `${d.loop}-${d.address}`)
+    );
+
+    // Filter out duplicates
+    const newDevices = devices.filter((d) => {
+      const key = `${d.loop}-${d.address}`;
+      if (existingKeys.has(key)) {
+        skipped++;
+        return false;
+      }
+      return true;
+    });
+
+    if (newDevices.length === 0) {
+      return { imported: 0, skipped, errors, error: null };
+    }
+
+    // Insert only new devices in batches
     const batchSize = 50;
-    for (let i = 0; i < devices.length; i += batchSize) {
-      const batch = devices.slice(i, i + batchSize).map((d) => ({
+    for (let i = 0; i < newDevices.length; i += batchSize) {
+      const batch = newDevices.slice(i, i + batchSize).map((d) => ({
         site_id: siteId,
         loop: d.loop,
         address: d.address,
@@ -169,10 +199,7 @@ export async function importDevices(
 
       const { data, error } = await supabase
         .from("devices")
-        .upsert(batch, { 
-          onConflict: "site_id,loop,address",
-          ignoreDuplicates: false 
-        })
+        .insert(batch)
         .select();
 
       if (error) {
@@ -193,10 +220,10 @@ export async function importDevices(
       .update({ total_devices: count || 0 })
       .eq("id", siteId);
 
-    return { imported, errors, error: null };
+    return { imported, skipped, errors, error: null };
   } catch (error) {
     console.error("Error importing devices:", error);
-    return { imported, errors, error: error as Error };
+    return { imported, skipped, errors, error: error as Error };
   }
 }
 
