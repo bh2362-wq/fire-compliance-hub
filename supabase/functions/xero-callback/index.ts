@@ -16,12 +16,15 @@ Deno.serve(async (req) => {
     const state = url.searchParams.get("state");
     const error = url.searchParams.get("error");
 
-    // Get the app URL for redirects
-    const appUrl = Deno.env.get("APP_URL") || "https://id-preview--60f2dd2f-93eb-4403-836f-4c40ebb0815e.lovable.app";
-
     if (error) {
       console.error("OAuth error:", error);
-      return Response.redirect(`${appUrl}/dashboard/settings?xero_error=${encodeURIComponent(error)}`, 302);
+      return new Response(
+        `<!doctype html><html><body>
+          <p>Xero connection failed: ${error}</p>
+          <script>setTimeout(() => window.close(), 300);</script>
+        </body></html>`,
+        { headers: { "Content-Type": "text/html" } }
+      );
     }
 
     if (!code) {
@@ -110,12 +113,23 @@ Deno.serve(async (req) => {
 
     console.log("Connection saved successfully for user:", userId);
 
-    // Redirect back to settings page with success
-    return Response.redirect(`${appUrl}/dashboard/settings?xero_connected=true&tenant=${encodeURIComponent(tenant.tenantName)}`, 302);
+    // Close the popup window. The main app polls for the saved connection.
+    return new Response(
+      `<!doctype html><html><body>
+        <p>Connected to ${tenant.tenantName}. You can close this window.</p>
+        <script>setTimeout(() => window.close(), 300);</script>
+      </body></html>`,
+      { headers: { "Content-Type": "text/html" } }
+    );
   } catch (error: unknown) {
     console.error("Callback error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
-    const appUrl = Deno.env.get("APP_URL") || "https://id-preview--60f2dd2f-93eb-4403-836f-4c40ebb0815e.lovable.app";
-    return Response.redirect(`${appUrl}/dashboard/settings?xero_error=${encodeURIComponent(message)}`, 302);
+    return new Response(
+      `<!doctype html><html><body>
+        <p>Xero connection failed: ${message}</p>
+        <script>setTimeout(() => window.close(), 300);</script>
+      </body></html>`,
+      { headers: { "Content-Type": "text/html" } }
+    );
   }
 });

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +14,6 @@ import {
 
 export function XeroConnectionCard() {
   const { user } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [connection, setConnection] = useState<XeroConnection | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -26,27 +24,6 @@ export function XeroConnectionCard() {
       loadConnection();
     }
   }, [user]);
-
-  // Handle redirect params from Xero OAuth callback
-  useEffect(() => {
-    const xeroConnected = searchParams.get("xero_connected");
-    const xeroError = searchParams.get("xero_error");
-    const tenantName = searchParams.get("tenant");
-
-    if (xeroConnected === "true") {
-      toast.success(`Connected to ${tenantName || "Xero"}`);
-      loadConnection();
-      // Clean up URL params
-      searchParams.delete("xero_connected");
-      searchParams.delete("tenant");
-      setSearchParams(searchParams, { replace: true });
-    } else if (xeroError) {
-      toast.error(`Xero connection failed: ${xeroError}`);
-      // Clean up URL params
-      searchParams.delete("xero_error");
-      setSearchParams(searchParams, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
 
   const loadConnection = async () => {
     if (!user) return;
@@ -66,8 +43,58 @@ export function XeroConnectionCard() {
     setConnecting(true);
     try {
       const { authUrl } = await initiateXeroAuth();
-      // Navigate in the same window - callback will redirect back
-      window.location.href = authUrl;
+
+      // Use a popup window. In the Lovable preview iframe, full-page redirects to external domains
+      // may be blocked, but popups work.
+      const popup = window.open(authUrl, "xero-auth", "width=600,height=700");
+      if (!popup) {
+        toast.error("Popup blocked. Please allow popups and try again.");
+        setConnecting(false);
+        return;
+      }
+
+      // Poll for the connection to appear (callback now saves server-side)
+      const startedAt = Date.now();
+      const pollIntervalMs = 1500;
+      const timeoutMs = 90_000;
+
+      const timer = window.setInterval(async () => {
+        try {
+          const conn = await getXeroConnection(user!.id);
+          if (conn) {
+            setConnection(conn);
+            toast.success(`Connected to ${conn.tenant_name || "Xero"}`);
+            window.clearInterval(timer);
+            setConnecting(false);
+            try {
+              popup.close();
+            } catch {
+              // ignore
+            }
+            return;
+          }
+
+          const elapsed = Date.now() - startedAt;
+          const isClosed = popup.closed;
+          if (elapsed > timeoutMs || isClosed) {
+            window.clearInterval(timer);
+            setConnecting(false);
+            if (isClosed) {
+              toast.error("Xero connection not completed. Please try again.");
+            } else {
+              toast.error("Timed out waiting for Xero connection. Please try again.");
+            }
+          }
+        } catch {
+          // If polling fails transiently, keep trying until timeout
+          const elapsed = Date.now() - startedAt;
+          if (elapsed > timeoutMs) {
+            window.clearInterval(timer);
+            setConnecting(false);
+            toast.error("Timed out waiting for Xero connection. Please try again.");
+          }
+        }
+      }, pollIntervalMs);
     } catch (error) {
       console.error("Failed to initiate Xero auth:", error);
       toast.error("Failed to connect to Xero");
