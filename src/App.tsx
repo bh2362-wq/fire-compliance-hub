@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Sites from "./pages/Sites";
 import SiteDetail from "./pages/SiteDetail";
 import Visits from "./pages/Visits";
+import Reports from "./pages/Reports";
 import UploadDemo from "./pages/UploadDemo";
 import Reconciliation from "./pages/Reconciliation";
 import Settings from "./pages/Settings";
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/dashboard/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
             <Route path="/dashboard/sites/:siteId" element={<ProtectedRoute><SiteDetail /></ProtectedRoute>} />
             <Route path="/dashboard/visits" element={<ProtectedRoute><Visits /></ProtectedRoute>} />
+            <Route path="/dashboard/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/dashboard/upload" element={<ProtectedRoute><UploadDemo /></ProtectedRoute>} />
             <Route path="/dashboard/reconciliation" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

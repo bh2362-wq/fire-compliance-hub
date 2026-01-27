@@ -5,6 +5,7 @@ import DeviceInventory from "@/components/sites/DeviceInventory";
 import SiteUploadHistory from "@/components/sites/SiteUploadHistory";
 import SiteReconciliationHistory from "@/components/sites/SiteReconciliationHistory";
 import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
+import { SiteServiceReports } from "@/components/sites/SiteServiceReports";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { Button } from "@/components/ui/button";
@@ -184,6 +185,9 @@ const SiteDetail = () => {
 
         {/* Device Inventory */}
         <DeviceInventory siteId={site.id} onImportClick={() => setImportOpen(true)} />
+
+        {/* Service Reports */}
+        <SiteServiceReports siteId={site.id} siteName={site.name} />
 
         {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
