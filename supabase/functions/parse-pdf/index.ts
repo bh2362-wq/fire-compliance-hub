@@ -92,13 +92,106 @@ function normalizeStatus(status: string): string {
   return STATUS_MAPPING[normalized] || "untested";
 }
 
+function filterGentDeviceLabelPages(text: string): string {
+  // For Gent logs, we only want pages that contain "Device Labels" section
+  // This helps filter out configuration, event logs, and other non-device pages
+  
+  // Check if this appears to be a Gent/Honeywell format by looking for typical markers
+  const isGentFormat = /Lp\s+\d+\s+\w+\s+ZONE/i.test(text) || 
+                       /device\s*labels/i.test(text) ||
+                       /gent|honeywell|vigilon/i.test(text);
+  
+  if (!isGentFormat) {
+    // Not a Gent format, return all text
+    return text;
+  }
+  
+  console.log("Detected Gent/Honeywell format, filtering for Device Labels pages");
+  
+  // Split by common page markers in PDFs
+  // Look for page breaks or section headers
+  const pageMarkers = [
+    /Page\s+\d+\s+of\s+\d+/gi,
+    /\f/g, // Form feed character (page break)
+    /={10,}/g, // Separator lines
+    /-{10,}/g,
+  ];
+  
+  // Try to identify sections by looking for headers
+  const sections: string[] = [];
+  let currentSection = "";
+  const lines = text.split('\n');
+  
+  for (const line of lines) {
+    currentSection += line + '\n';
+    
+    // Check if this line indicates a new page/section
+    if (/Page\s+\d+\s+of\s+\d+/i.test(line) || 
+        /^\s*={10,}\s*$/.test(line) ||
+        /^\s*-{10,}\s*$/.test(line)) {
+      if (currentSection.trim()) {
+        sections.push(currentSection);
+        currentSection = "";
+      }
+    }
+  }
+  
+  // Don't forget the last section
+  if (currentSection.trim()) {
+    sections.push(currentSection);
+  }
+  
+  // If we couldn't split into sections, check the whole text
+  if (sections.length <= 1) {
+    // Check if the entire text contains device labels section
+    if (/device\s*labels/i.test(text)) {
+      console.log("Found 'Device Labels' in document, processing entire content");
+      return text;
+    }
+    // If no device labels found but we have Gent-style device lines, process anyway
+    if (/^\d+\s+Lp\s+\d+\s+\w+\s+ZONE\s+\d+/im.test(text)) {
+      console.log("Found Gent device format lines, processing content");
+      return text;
+    }
+    console.log("Warning: No 'Device Labels' section found in Gent format PDF");
+    return text;
+  }
+  
+  // Filter sections to only include those with "Device Labels"
+  const deviceLabelSections = sections.filter(section => 
+    /device\s*labels/i.test(section)
+  );
+  
+  if (deviceLabelSections.length > 0) {
+    console.log(`Found ${deviceLabelSections.length} sections with 'Device Labels'`);
+    return deviceLabelSections.join('\n');
+  }
+  
+  // Fallback: look for sections with actual device data patterns
+  const sectionsWithDevices = sections.filter(section =>
+    /^\d+\s+Lp\s+\d+\s+\w+\s+ZONE\s+\d+/im.test(section)
+  );
+  
+  if (sectionsWithDevices.length > 0) {
+    console.log(`Found ${sectionsWithDevices.length} sections with device data`);
+    return sectionsWithDevices.join('\n');
+  }
+  
+  // No filtering applied, return original
+  console.log("No Device Labels sections found, processing all content");
+  return text;
+}
+
 function parseTextContent(text: string): ParseResult {
-  const lines = text.split("\n");
+  // Filter for Device Labels pages if this is a Gent format
+  const filteredText = filterGentDeviceLabelPages(text);
+  
+  const lines = filteredText.split("\n");
   const devices: ParsedDevice[] = [];
   const errors: string[] = [];
   const seenDevices = new Set<string>();
 
-  console.log(`Parsing ${lines.length} lines of text`);
+  console.log(`Parsing ${lines.length} lines of text (after filtering)`);
 
   // First try Gent/Honeywell specific format
   // Format: [Address] Lp [Loop] [DeviceType] ZONE [Zone] [Location]
@@ -169,7 +262,7 @@ function parseTextContent(text: string): ParseResult {
     console.log("No devices found with patterns, trying fallback extraction");
     const loopAddrPattern = /(\d{1,2})[-\/](\d{1,3})/g;
     let match;
-    while ((match = loopAddrPattern.exec(text)) !== null) {
+    while ((match = loopAddrPattern.exec(filteredText)) !== null) {
       const loop = match[1].padStart(2, "0");
       const address = match[2].padStart(3, "0");
       const deviceKey = `${loop}-${address}`;
@@ -179,8 +272,8 @@ function parseTextContent(text: string): ParseResult {
 
       // Try to find status near this match
       const contextStart = Math.max(0, match.index - 50);
-      const contextEnd = Math.min(text.length, match.index + 100);
-      const context = text.substring(contextStart, contextEnd).toLowerCase();
+      const contextEnd = Math.min(filteredText.length, match.index + 100);
+      const context = filteredText.substring(contextStart, contextEnd).toLowerCase();
 
       let status = "untested";
       if (context.includes("pass") || context.includes(" ok")) status = "pass";
@@ -193,7 +286,7 @@ function parseTextContent(text: string): ParseResult {
         deviceType: null,
         location: null,
         status,
-        rawData: { context: text.substring(contextStart, contextEnd).trim() },
+        rawData: { context: filteredText.substring(contextStart, contextEnd).trim() },
       });
     }
   }
@@ -207,7 +300,7 @@ function parseTextContent(text: string): ParseResult {
 
   if (devices.length === 0) {
     errors.push(
-      "No device data could be extracted from this PDF. The format may not be supported."
+      "No device data could be extracted from this PDF. The format may not be supported or no 'Device Labels' pages were found."
     );
   }
 
