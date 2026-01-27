@@ -341,7 +341,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setLoading(true);
 
     try {
-      // Split into lines and detect delimiter (tab or comma)
+      // Split into lines
       const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(l => l.trim());
       
       if (lines.length === 0) {
@@ -350,7 +350,23 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
         return;
       }
 
-      // Detect delimiter: tab-separated (from Excel/sheets) or comma-separated
+      // First, try to detect Gent/Honeywell format
+      const gentDevices = parseGentTextFormat(text);
+      
+      if (gentDevices.length > 0) {
+        // Gent format detected - use auto-parsed devices
+        setIsPdfFile(true); // Same UI treatment (no column mapping needed)
+        setParsedDevices(gentDevices);
+        setParseErrors([]);
+        toast({
+          title: "Data parsed",
+          description: `${gentDevices.length} Gent panel devices ready to import`,
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Not Gent format - try CSV/spreadsheet format
       const firstLine = lines[0];
       const hasTab = firstLine.includes("\t");
       const delimiter = hasTab ? "\t" : ",";
@@ -372,7 +388,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       }
 
       if (rows.length === 0) {
-        setParseErrors(["No data rows found. Make sure to include a header row."]);
+        setParseErrors(["No data rows found. Make sure to include a header row or use Gent panel format."]);
         setLoading(false);
         return;
       }
@@ -586,9 +602,12 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
 
             <TabsContent value="paste" className="space-y-4 mt-4">
               {/* Paste Instructions */}
-              <div className="p-3 bg-muted/50 rounded-lg text-sm">
+              <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
                 <p className="text-muted-foreground">
-                  Paste data from Excel or any spreadsheet. Include a header row with columns like <code className="text-accent">loop</code>, <code className="text-accent">address</code>, <code className="text-accent">type</code>
+                  <strong>Gent/Honeywell format:</strong> Paste panel log output directly
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Or spreadsheet data with columns: <code className="text-accent">loop</code>, <code className="text-accent">address</code>, <code className="text-accent">type</code>
                 </p>
               </div>
 
@@ -597,9 +616,9 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
                 <Label htmlFor="paste-data">Paste Device Data</Label>
                 <Textarea
                   id="paste-data"
-                  placeholder="loop&#9;address&#9;type&#9;location
-1&#9;001&#9;Optical Smoke&#9;Ground Floor
-1&#9;002&#9;Heat Detector&#9;Kitchen
+                  placeholder="1 Lp 1 MCP ZONE 30 BASEMENT CORRIDOR
+2 Lp 1 QOH ZONE 29 LIFT LOBBY
+3 Lp 1 q2HV3 ZONE 30 MALE WC
 ..."
                   className="min-h-[150px] font-mono text-sm"
                   value={pastedText}
