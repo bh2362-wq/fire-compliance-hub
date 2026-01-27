@@ -314,3 +314,77 @@ export function parseDeviceRows(rows: Record<string, unknown>[]): { devices: Dev
 
   return { devices, errors };
 }
+
+export interface ColumnMapping {
+  loop: string | null;
+  address: string | null;
+  type: string | null;
+  location: string | null;
+  zone: string | null;
+}
+
+export function detectColumnMapping(columns: string[]): { mapping: Partial<ColumnMapping>; complete: boolean } {
+  const headerMap = new Map<string, string>();
+  columns.forEach((col) => {
+    headerMap.set(col.toLowerCase().trim(), col);
+  });
+
+  const findColumn = (aliases: string[]): string | null => {
+    for (const alias of aliases) {
+      const key = headerMap.get(alias);
+      if (key) return key;
+    }
+    return null;
+  };
+
+  const mapping: Partial<ColumnMapping> = {
+    loop: findColumn(["loop", "loop_no", "circuit"]),
+    address: findColumn(["address", "addr", "point"]),
+    type: findColumn(["type", "device_type", "device", "equipment"]),
+    location: findColumn(["location", "loc", "description", "desc"]),
+    zone: findColumn(["zone", "area"]),
+  };
+
+  const complete = !!(mapping.loop && mapping.address && mapping.type);
+
+  return { mapping, complete };
+}
+
+export function parseDeviceRowsWithMapping(
+  rows: Record<string, unknown>[],
+  mapping: ColumnMapping
+): { devices: DeviceImport[]; errors: string[] } {
+  const errors: string[] = [];
+  const devices: DeviceImport[] = [];
+
+  if (rows.length === 0) {
+    errors.push("No data rows found in the sheet");
+    return { devices, errors };
+  }
+
+  if (!mapping.loop || !mapping.address || !mapping.type) {
+    errors.push("Required columns (loop, address, type) must be mapped");
+    return { devices, errors };
+  }
+
+  rows.forEach((row, i) => {
+    const loop = String(row[mapping.loop!] ?? "").trim();
+    const address = String(row[mapping.address!] ?? "").trim();
+    const device_type = String(row[mapping.type!] ?? "").trim();
+
+    if (!loop || !address || !device_type) {
+      errors.push(`Row ${i + 2}: Missing required field (loop, address, or type)`);
+      return;
+    }
+
+    devices.push({
+      loop,
+      address,
+      device_type,
+      location: mapping.location ? String(row[mapping.location] ?? "").trim() || undefined : undefined,
+      zone: mapping.zone ? String(row[mapping.zone] ?? "").trim() || undefined : undefined,
+    });
+  });
+
+  return { devices, errors };
+}
