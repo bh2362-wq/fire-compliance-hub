@@ -169,6 +169,7 @@ Deno.serve(async (req) => {
     // Validate auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      console.error("Missing or invalid Authorization header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -192,8 +193,21 @@ Deno.serve(async (req) => {
     }
 
     // Parse the incoming form data
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
+    const contentType = req.headers.get("content-type") || "";
+    console.log("Content-Type:", contentType);
+    
+    let file: File | null = null;
+    
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      file = formData.get("file") as File;
+    } else {
+      console.error("Invalid content type:", contentType);
+      return new Response(JSON.stringify({ error: "Invalid content type. Expected multipart/form-data" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!file) {
       return new Response(JSON.stringify({ error: "No file provided" }), {
