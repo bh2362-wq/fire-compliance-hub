@@ -18,9 +18,18 @@ interface ReconciliationPanelProps {
   initialUploadId?: string;
 }
 
+interface Upload {
+  id: string;
+  file_name: string;
+  created_at: string;
+  devices_found: number | null;
+  site_id: string | null;
+  site_name?: string;
+}
+
 const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationPanelProps) => {
   const [sites, setSites] = useState<{ id: string; name: string; total_devices: number | null }[]>([]);
-  const [uploads, setUploads] = useState<{ id: string; file_name: string; created_at: string; devices_found: number | null }[]>([]);
+  const [uploads, setUploads] = useState<Upload[]>([]);
   const [selectedSite, setSelectedSite] = useState<string>(initialSiteId || "");
   const [selectedUpload, setSelectedUpload] = useState<string>(initialUploadId || "");
   const [loading, setLoading] = useState(false);
@@ -28,35 +37,53 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
   const [result, setResult] = useState<ReconciliationResult | null>(null);
   const { toast } = useToast();
 
-  // Load sites on mount
+  // Load sites and uploads on mount
   useEffect(() => {
-    const loadSites = async () => {
+    const loadData = async () => {
       setLoading(true);
-      const { sites: siteData, error } = await getSites();
-      if (error) {
+      
+      const [sitesResult, uploadsResult] = await Promise.all([
+        getSites(),
+        getSiteUploads(initialSiteId), // Load uploads for initial site or all uploads
+      ]);
+
+      if (sitesResult.error) {
         toast({
           title: "Error loading sites",
-          description: error.message,
+          description: sitesResult.error.message,
           variant: "destructive",
         });
       } else {
-        setSites(siteData);
+        setSites(sitesResult.sites);
       }
+
+      if (uploadsResult.error) {
+        toast({
+          title: "Error loading uploads",
+          description: uploadsResult.error.message,
+          variant: "destructive",
+        });
+      } else {
+        setUploads(uploadsResult.uploads);
+        if (initialUploadId && uploadsResult.uploads.some(u => u.id === initialUploadId)) {
+          setSelectedUpload(initialUploadId);
+        }
+      }
+
       setLoading(false);
     };
-    loadSites();
-  }, [toast]);
+    loadData();
+  }, [initialSiteId, initialUploadId, toast]);
 
-  // Load uploads when site changes
+  // Load uploads when site filter changes (after initial load)
   useEffect(() => {
-    if (!selectedSite) {
-      setUploads([]);
-      setSelectedUpload("");
-      return;
-    }
+    // Skip if this is initial load (handled above)
+    if (loading) return;
 
     const loadUploads = async () => {
-      const { uploads: uploadData, error } = await getSiteUploads(selectedSite);
+      const siteToFilter = selectedSite === "all" ? undefined : selectedSite || undefined;
+      const { uploads: uploadData, error } = await getSiteUploads(siteToFilter);
+      
       if (error) {
         toast({
           title: "Error loading uploads",
@@ -65,30 +92,42 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
         });
       } else {
         setUploads(uploadData);
-        if (initialUploadId && uploadData.some(u => u.id === initialUploadId)) {
-          setSelectedUpload(initialUploadId);
-        } else {
+        // Reset upload selection if it's no longer in the list
+        if (selectedUpload && !uploadData.some(u => u.id === selectedUpload)) {
           setSelectedUpload("");
         }
       }
     };
     loadUploads();
-  }, [selectedSite, initialUploadId, toast]);
+  }, [selectedSite, loading, toast]);
 
   // Auto-run reconciliation when both initial parameters are provided
   useEffect(() => {
-    if (initialSiteId && initialUploadId && selectedSite === initialSiteId && selectedUpload === initialUploadId && !result && !reconciling) {
+    if (initialSiteId && initialUploadId && selectedUpload === initialUploadId && !result && !reconciling && !loading) {
       handleReconcile();
     }
-  }, [selectedSite, selectedUpload, initialSiteId, initialUploadId, result, reconciling]);
+  }, [selectedUpload, initialSiteId, initialUploadId, result, reconciling, loading]);
 
   const handleReconcile = async () => {
-    if (!selectedSite || !selectedUpload) return;
+    if (!selectedUpload) return;
+
+    // Get site_id from the selected upload if not explicitly selected
+    const upload = uploads.find(u => u.id === selectedUpload);
+    const siteId = selectedSite && selectedSite !== "all" ? selectedSite : upload?.site_id;
+
+    if (!siteId) {
+      toast({
+        title: "Site required",
+        description: "The selected upload must be associated with a site for reconciliation.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setReconciling(true);
     setResult(null);
 
-    const { result: reconciliationResult, error } = await reconcileDevices(selectedSite, selectedUpload);
+    const { result: reconciliationResult, error } = await reconcileDevices(siteId, selectedUpload);
 
     if (error) {
       toast({
@@ -106,6 +145,11 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
 
     setReconciling(false);
   };
+
+  // Filter uploads based on selected site
+  const filteredUploads = selectedSite && selectedSite !== "all" 
+    ? uploads.filter(u => u.site_id === selectedSite)
+    : uploads;
 
   if (loading) {
     return (
@@ -133,21 +177,20 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Site</label>
+            <label className="text-sm font-medium text-foreground">
+              Site <span className="text-muted-foreground font-normal">(optional filter)</span>
+            </label>
             <Select value={selectedSite} onValueChange={setSelectedSite}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a site" />
+                <SelectValue placeholder="All sites" />
               </SelectTrigger>
               <SelectContent>
-                {sites.length === 0 ? (
-                  <SelectItem value="none" disabled>No sites available</SelectItem>
-                ) : (
-                  sites.map((site) => (
-                    <SelectItem key={site.id} value={site.id}>
-                      {site.name} ({site.total_devices || 0} devices)
-                    </SelectItem>
-                  ))
-                )}
+                <SelectItem value="all">All sites</SelectItem>
+                {sites.map((site) => (
+                  <SelectItem key={site.id} value={site.id}>
+                    {site.name} ({site.total_devices || 0} devices)
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -157,18 +200,19 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
             <Select
               value={selectedUpload}
               onValueChange={setSelectedUpload}
-              disabled={!selectedSite || uploads.length === 0}
+              disabled={filteredUploads.length === 0}
             >
               <SelectTrigger>
-                <SelectValue placeholder={selectedSite ? "Select an upload" : "Select a site first"} />
+                <SelectValue placeholder="Select an upload" />
               </SelectTrigger>
               <SelectContent>
-                {uploads.length === 0 ? (
-                  <SelectItem value="none" disabled>No uploads for this site</SelectItem>
+                {filteredUploads.length === 0 ? (
+                  <SelectItem value="none" disabled>No uploads available</SelectItem>
                 ) : (
-                  uploads.map((upload) => (
+                  filteredUploads.map((upload) => (
                     <SelectItem key={upload.id} value={upload.id}>
                       {upload.file_name} ({upload.devices_found || 0} devices)
+                      {!selectedSite || selectedSite === "all" ? ` - ${upload.site_name}` : ""}
                     </SelectItem>
                   ))
                 )}
@@ -180,7 +224,7 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
             <Button
               variant="hero"
               onClick={handleReconcile}
-              disabled={!selectedSite || !selectedUpload || reconciling}
+              disabled={!selectedUpload || reconciling}
               className="w-full"
             >
               {reconciling ? (
@@ -198,13 +242,13 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
           </div>
         </div>
 
-        {sites.length === 0 && !loading && (
+        {uploads.length === 0 && !loading && (
           <div className="mt-4 p-4 bg-warning/10 border border-warning/20 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-warning">No sites found</p>
+              <p className="text-sm font-medium text-warning">No uploads found</p>
               <p className="text-sm text-muted-foreground">
-                Add sites and their device inventory before reconciling uploads.
+                Upload test results to a site before reconciling.
               </p>
             </div>
           </div>

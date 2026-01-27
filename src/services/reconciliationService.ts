@@ -209,19 +209,34 @@ export async function getSites(): Promise<{ sites: { id: string; name: string; t
   }
 }
 
-export async function getSiteUploads(siteId: string): Promise<{ uploads: { id: string; file_name: string; created_at: string; devices_found: number | null }[]; error: Error | null }> {
+export async function getSiteUploads(siteId?: string): Promise<{ uploads: { id: string; file_name: string; created_at: string; devices_found: number | null; site_id: string | null; site_name?: string }[]; error: Error | null }> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("file_uploads")
-      .select("id, file_name, created_at, devices_found")
-      .eq("site_id", siteId)
+      .select("id, file_name, created_at, devices_found, site_id, site:sites(name)")
       .order("created_at", { ascending: false });
+
+    if (siteId) {
+      query = query.eq("site_id", siteId);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
-    return { uploads: data || [], error: null };
+    // Flatten site name into the upload object
+    const uploads = (data || []).map((upload: any) => ({
+      id: upload.id,
+      file_name: upload.file_name,
+      created_at: upload.created_at,
+      devices_found: upload.devices_found,
+      site_id: upload.site_id,
+      site_name: upload.site?.name || "No site",
+    }));
+
+    return { uploads, error: null };
   } catch (error) {
-    console.error("Error fetching site uploads:", error);
+    console.error("Error fetching uploads:", error);
     return { uploads: [], error: error as Error };
   }
 }
