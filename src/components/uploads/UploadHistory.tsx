@@ -1,8 +1,9 @@
 import { FileUploadRecord, getUploadHistory } from "@/services/uploadService";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, FileSpreadsheet, File, Eye, Trash2 } from "lucide-react";
+import { FileText, FileSpreadsheet, File, Eye, Link2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 
 interface UploadHistoryProps {
@@ -22,6 +23,11 @@ const getFileIcon = (fileType: string) => {
   return <File className="w-5 h-5 text-muted-foreground" />;
 };
 
+interface SiteInfo {
+  id: string;
+  name: string;
+}
+
 const UploadHistory = ({
   visitId,
   siteId,
@@ -29,12 +35,15 @@ const UploadHistory = ({
   refreshTrigger,
 }: UploadHistoryProps) => {
   const [uploads, setUploads] = useState<FileUploadRecord[]>([]);
+  const [sites, setSites] = useState<Record<string, SiteInfo>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchUploads = async () => {
+    const fetchData = async () => {
       setLoading(true);
+      
+      // Fetch uploads
       const { uploads: data, error: fetchError } = await getUploadHistory({
         visitId,
         siteId,
@@ -43,13 +52,31 @@ const UploadHistory = ({
 
       if (fetchError) {
         setError(fetchError.message);
-      } else {
-        setUploads(data);
+        setLoading(false);
+        return;
       }
+      
+      setUploads(data);
+
+      // Fetch site names for linked uploads
+      const siteIds = [...new Set(data.filter(u => u.site_id).map(u => u.site_id!))];
+      if (siteIds.length > 0) {
+        const { data: siteData } = await supabase
+          .from("sites")
+          .select("id, name")
+          .in("id", siteIds);
+        
+        if (siteData) {
+          const siteMap: Record<string, SiteInfo> = {};
+          siteData.forEach(s => { siteMap[s.id] = s; });
+          setSites(siteMap);
+        }
+      }
+      
       setLoading(false);
     };
 
-    fetchUploads();
+    fetchData();
   }, [visitId, siteId, refreshTrigger]);
 
   if (loading) {
@@ -97,6 +124,12 @@ const UploadHistory = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {upload.site_id && sites[upload.site_id] && (
+              <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20 flex items-center gap-1">
+                <Link2 className="w-3 h-3" />
+                {sites[upload.site_id].name}
+              </Badge>
+            )}
             <Badge variant="outline" className="bg-success/10 text-success border-success/20">
               {upload.devices_passed} passed
             </Badge>
