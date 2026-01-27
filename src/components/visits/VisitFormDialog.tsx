@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 const visitFormSchema = z.object({
+  site_id: z.string().min(1, "Site is required"),
   visit_date: z.string().min(1, "Visit date is required"),
   visit_type: z.string().min(1, "Visit type is required"),
   notes: z.string().max(1000).optional(),
@@ -50,9 +51,15 @@ const VISIT_TYPES = [
   "Commissioning",
 ];
 
+interface Site {
+  id: string;
+  name: string;
+}
+
 interface VisitFormDialogProps {
-  siteId: string;
+  siteId?: string;
   siteName?: string;
+  sites?: Site[];
   onVisitCreated?: (visitId: string) => void;
   trigger?: React.ReactNode;
 }
@@ -60,6 +67,7 @@ interface VisitFormDialogProps {
 const VisitFormDialog = ({
   siteId,
   siteName,
+  sites = [],
   onVisitCreated,
   trigger,
 }: VisitFormDialogProps) => {
@@ -70,11 +78,23 @@ const VisitFormDialog = ({
   const form = useForm<VisitFormData>({
     resolver: zodResolver(visitFormSchema),
     defaultValues: {
+      site_id: siteId || "",
       visit_date: format(new Date(), "yyyy-MM-dd"),
       visit_type: "",
       notes: "",
     },
   });
+
+  // Update site_id when siteId prop changes
+  useEffect(() => {
+    if (siteId) {
+      form.setValue("site_id", siteId);
+    }
+  }, [siteId, form]);
+
+  const showSiteSelector = !siteId && sites.length > 0;
+  const selectedSiteId = form.watch("site_id");
+  const selectedSiteName = sites.find(s => s.id === selectedSiteId)?.name || siteName;
 
   const onSubmit = async (data: VisitFormData) => {
     setLoading(true);
@@ -85,7 +105,7 @@ const VisitFormDialog = ({
       const { data: visit, error } = await supabase
         .from("visits")
         .insert({
-          site_id: siteId,
+          site_id: data.site_id,
           visit_date: data.visit_date,
           visit_type: data.visit_type,
           notes: data.notes || null,
@@ -102,7 +122,12 @@ const VisitFormDialog = ({
         description: `New ${data.visit_type} visit created successfully.`,
       });
 
-      form.reset();
+      form.reset({
+        site_id: siteId || "",
+        visit_date: format(new Date(), "yyyy-MM-dd"),
+        visit_type: "",
+        notes: "",
+      });
       setOpen(false);
       onVisitCreated?.(visit.id);
     } catch (error) {
@@ -134,14 +159,41 @@ const VisitFormDialog = ({
             Create New Visit
           </DialogTitle>
           <DialogDescription>
-            {siteName
-              ? `Create a new service visit for ${siteName}`
-              : "Create a new service visit for this site"}
+            {selectedSiteName
+              ? `Create a new service visit for ${selectedSiteName}`
+              : "Select a site and create a new service visit"}
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {showSiteSelector && (
+              <FormField
+                control={form.control}
+                name="site_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Site</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a site" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {sites.map((site) => (
+                          <SelectItem key={site.id} value={site.id}>
+                            {site.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <FormField
               control={form.control}
               name="visit_date"
