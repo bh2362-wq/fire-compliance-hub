@@ -8,9 +8,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Loader2, Upload, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
-import { Site, parseDeviceCSV, importDevices, DeviceImport } from "@/services/siteService";
+import { Site, parseDeviceCSV, parseDeviceRows, importDevices, DeviceImport } from "@/services/siteService";
 import { useToast } from "@/hooks/use-toast";
+import * as XLSX from "xlsx";
 
 interface DeviceImportDialogProps {
   open: boolean;
@@ -25,7 +34,33 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
   const [parsedDevices, setParsedDevices] = useState<DeviceImport[]>([]);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [fileName, setFileName] = useState<string>("");
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>("");
+  const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
   const { toast } = useToast();
+
+  const parseSheet = useCallback((wb: XLSX.WorkBook, sheetName: string) => {
+    const sheet = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+    const { devices, errors } = parseDeviceRows(rows);
+    setParsedDevices(devices);
+    setParseErrors(errors);
+
+    if (devices.length === 0 && errors.length > 0) {
+      toast({
+        title: "Parse failed",
+        description: errors[0],
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  const handleSheetChange = useCallback((sheetName: string) => {
+    setSelectedSheet(sheetName);
+    if (workbook) {
+      parseSheet(workbook, sheetName);
+    }
+  }, [workbook, parseSheet]);
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,30 +70,57 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setFileName(file.name);
     setParsedDevices([]);
     setParseErrors([]);
+    setSheetNames([]);
+    setSelectedSheet("");
+    setWorkbook(null);
 
     try {
-      const content = await file.text();
-      const { devices, errors } = parseDeviceCSV(content);
-      setParsedDevices(devices);
-      setParseErrors(errors);
+      const isExcel = file.name.match(/\.(xlsx?|xls)$/i);
 
-      if (devices.length === 0 && errors.length > 0) {
-        toast({
-          title: "Parse failed",
-          description: errors[0],
-          variant: "destructive",
-        });
+      if (isExcel) {
+        // Handle Excel files
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: "array" });
+        const sheets = wb.SheetNames;
+        
+        setWorkbook(wb);
+        setSheetNames(sheets);
+
+        if (sheets.length === 1) {
+          // Single sheet - parse immediately
+          setSelectedSheet(sheets[0]);
+          parseSheet(wb, sheets[0]);
+        } else {
+          // Multiple sheets - let user select
+          setSelectedSheet(sheets[0]);
+          parseSheet(wb, sheets[0]);
+        }
+      } else {
+        // Handle CSV files
+        const content = await file.text();
+        const { devices, errors } = parseDeviceCSV(content);
+        setParsedDevices(devices);
+        setParseErrors(errors);
+
+        if (devices.length === 0 && errors.length > 0) {
+          toast({
+            title: "Parse failed",
+            description: errors[0],
+            variant: "destructive",
+          });
+        }
       }
     } catch (error) {
+      console.error("File parse error:", error);
       toast({
         title: "File read error",
-        description: "Could not read the CSV file",
+        description: "Could not read the file. Please check the format.",
         variant: "destructive",
       });
     }
 
     setLoading(false);
-  }, [toast]);
+  }, [toast, parseSheet]);
 
   const handleImport = async () => {
     if (parsedDevices.length === 0) return;
@@ -84,6 +146,9 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       setParsedDevices([]);
       setParseErrors([]);
       setFileName("");
+      setSheetNames([]);
+      setSelectedSheet("");
+      setWorkbook(null);
     }
   };
 
@@ -92,6 +157,9 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setParsedDevices([]);
     setParseErrors([]);
     setFileName("");
+    setSheetNames([]);
+    setSelectedSheet("");
+    setWorkbook(null);
   };
 
   return (
@@ -100,14 +168,17 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
         <DialogHeader>
           <DialogTitle>Import Device Inventory</DialogTitle>
           <DialogDescription>
-            Import devices for <span className="font-medium text-foreground">{site.name}</span> from a CSV file.
+            Import devices for <span className="font-medium text-foreground">{site.name}</span> from a CSV or Excel file.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* CSV Format Info */}
+          {/* Format Info */}
           <div className="p-4 bg-muted/50 rounded-lg text-sm">
-            <p className="font-medium text-foreground mb-2">CSV Format</p>
+            <p className="font-medium text-foreground mb-2">Supported Formats</p>
+            <p className="text-muted-foreground mb-2">
+              <code className="text-accent">.csv</code>, <code className="text-accent">.xls</code>, <code className="text-accent">.xlsx</code>
+            </p>
             <p className="text-muted-foreground mb-2">
               Required columns: <code className="text-accent">loop</code>, <code className="text-accent">address</code>, <code className="text-accent">type</code>
             </p>
@@ -119,7 +190,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
           {/* File Upload */}
           <div className="space-y-3">
             <label
-              htmlFor="csv-file"
+              htmlFor="import-file"
               className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors"
             >
               {loading ? (
@@ -140,19 +211,38 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
                   <p className="text-sm text-muted-foreground">
                     Click to upload or drag and drop
                   </p>
-                  <p className="text-xs text-muted-foreground">CSV files only</p>
+                  <p className="text-xs text-muted-foreground">CSV or Excel files</p>
                 </>
               )}
               <input
-                id="csv-file"
+                id="import-file"
                 type="file"
-                accept=".csv"
+                accept=".csv,.xls,.xlsx"
                 className="hidden"
                 onChange={handleFileSelect}
                 disabled={loading || importing}
               />
             </label>
           </div>
+
+          {/* Sheet Selector for Excel files with multiple sheets */}
+          {sheetNames.length > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="sheet-select">Select Sheet</Label>
+              <Select value={selectedSheet} onValueChange={handleSheetChange}>
+                <SelectTrigger id="sheet-select">
+                  <SelectValue placeholder="Select a sheet" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sheetNames.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Parse Results */}
           {parsedDevices.length > 0 && (

@@ -254,3 +254,63 @@ export function parseDeviceCSV(content: string): { devices: DeviceImport[]; erro
 
   return { devices, errors };
 }
+
+export function parseDeviceRows(rows: Record<string, unknown>[]): { devices: DeviceImport[]; errors: string[] } {
+  const errors: string[] = [];
+  const devices: DeviceImport[] = [];
+
+  if (rows.length === 0) {
+    errors.push("No data rows found in the sheet");
+    return { devices, errors };
+  }
+
+  // Get headers from first row keys (normalized to lowercase)
+  const sampleRow = rows[0];
+  const headerMap = new Map<string, string>();
+  
+  Object.keys(sampleRow).forEach((key) => {
+    headerMap.set(key.toLowerCase().trim(), key);
+  });
+
+  // Find column mappings
+  const findColumn = (aliases: string[]): string | null => {
+    for (const alias of aliases) {
+      const key = headerMap.get(alias);
+      if (key) return key;
+    }
+    return null;
+  };
+
+  const loopCol = findColumn(["loop", "loop_no", "circuit"]);
+  const addrCol = findColumn(["address", "addr", "point"]);
+  const typeCol = findColumn(["type", "device_type", "device", "equipment"]);
+  const locCol = findColumn(["location", "loc", "description", "desc"]);
+  const zoneCol = findColumn(["zone", "area"]);
+
+  if (!loopCol || !addrCol || !typeCol) {
+    errors.push("Sheet must contain loop, address, and type columns");
+    return { devices, errors };
+  }
+
+  // Parse data rows
+  rows.forEach((row, i) => {
+    const loop = String(row[loopCol] ?? "").trim();
+    const address = String(row[addrCol] ?? "").trim();
+    const device_type = String(row[typeCol] ?? "").trim();
+
+    if (!loop || !address || !device_type) {
+      errors.push(`Row ${i + 2}: Missing required field (loop, address, or type)`);
+      return;
+    }
+
+    devices.push({
+      loop,
+      address,
+      device_type,
+      location: locCol ? String(row[locCol] ?? "").trim() || undefined : undefined,
+      zone: zoneCol ? String(row[zoneCol] ?? "").trim() || undefined : undefined,
+    });
+  });
+
+  return { devices, errors };
+}
