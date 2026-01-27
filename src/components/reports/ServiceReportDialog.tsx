@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardCheck, Settings, FileCheck } from "lucide-react";
+import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   ServiceReport,
@@ -32,13 +32,15 @@ import {
   SYSTEM_TYPES,
 } from "@/services/serviceReportService";
 import { ServiceReportChecklist } from "./ServiceReportChecklist";
+import { generateServiceReportPDF } from "@/lib/pdfGenerator";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VisitForReport {
   id: string;
   visit_type: string;
   visit_date: string;
   site_id: string;
-  sites?: { name: string } | null;
+  sites?: { name: string; address?: string | null; city?: string | null; postcode?: string | null; contact_name?: string | null; contact_phone?: string | null; contact_email?: string | null } | null;
 }
 
 interface ServiceReportDialogProps {
@@ -158,6 +160,49 @@ export function ServiceReportDialog({
       toast.error("Failed to save service report");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!report) return;
+
+    try {
+      // Fetch full site info for PDF
+      const { data: siteData } = await supabase
+        .from("sites")
+        .select("name, address, city, postcode, contact_name, contact_phone, contact_email")
+        .eq("id", visit.site_id)
+        .maybeSingle();
+
+      const siteInfo = siteData || { name: visit.sites?.name || "Unknown Site" };
+
+      generateServiceReportPDF(
+        {
+          ...report,
+          engineer_name: engineerName,
+          client_name: clientName,
+          panel_manufacturer: panelManufacturer,
+          panel_model: panelModel,
+          panel_location: panelLocation,
+          system_type: systemType,
+          zones_count: zonesCount === "" ? null : zonesCount,
+          devices_count: devicesCount === "" ? null : devicesCount,
+          checklist,
+          system_condition: systemCondition,
+          defects_found: defectsFound,
+          recommendations,
+          work_carried_out: workCarriedOut,
+          parts_used: partsUsed,
+          notes,
+        },
+        siteInfo,
+        { visit_type: visit.visit_type, visit_date: visit.visit_date }
+      );
+
+      toast.success("PDF downloaded successfully");
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      toast.error("Failed to generate PDF");
     }
   };
 
@@ -368,7 +413,11 @@ export function ServiceReportDialog({
           </div>
         </Tabs>
 
-        <DialogFooter className="border-t pt-4">
+        <DialogFooter className="border-t pt-4 flex-wrap gap-2">
+          <Button variant="outline" onClick={handleDownloadPDF} className="mr-auto">
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
+          </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
