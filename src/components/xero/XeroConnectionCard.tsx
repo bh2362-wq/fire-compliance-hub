@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Loader2, Link2, Unlink, CheckCircle2, RefreshCw, AlertCircle } from "lucide-react";
+import { Loader2, Link2, Unlink, CheckCircle2, RefreshCw, AlertCircle, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   initiateXeroAuth,
@@ -22,12 +22,21 @@ export function XeroConnectionCard() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
+  const [healthStatus, setHealthStatus] = useState<"healthy" | "expiring" | "expired" | "invalid" | "checking" | null>(null);
+  const [healthMessage, setHealthMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       loadConnection();
     }
   }, [user]);
+
+  // Run health check when connection changes
+  useEffect(() => {
+    if (connection) {
+      checkConnectionHealth();
+    }
+  }, [connection]);
 
   const loadConnection = async () => {
     if (!user) return;
@@ -40,6 +49,53 @@ export function XeroConnectionCard() {
     } finally {
       setLoading(false);
       setConnecting(false);
+    }
+  };
+
+  const checkConnectionHealth = async () => {
+    if (!connection) return;
+
+    setHealthStatus("checking");
+    setHealthMessage(null);
+
+    // Check token expiry first
+    const expiresAt = new Date(connection.expires_at);
+    const now = new Date();
+    const minutesUntilExpiry = (expiresAt.getTime() - now.getTime()) / (1000 * 60);
+
+    if (minutesUntilExpiry <= 0) {
+      setHealthStatus("expired");
+      setHealthMessage("Your Xero token has expired. The system will attempt to refresh it automatically, or you can reconnect.");
+      return;
+    }
+
+    if (minutesUntilExpiry <= 30) {
+      setHealthStatus("expiring");
+      setHealthMessage(`Your Xero token expires in ${Math.round(minutesUntilExpiry)} minutes. It will be refreshed automatically on next use.`);
+    }
+
+    // Verify connection is actually valid by pinging the API
+    try {
+      await fetchXeroContacts();
+      if (minutesUntilExpiry > 30) {
+        setHealthStatus("healthy");
+        setHealthMessage(null);
+      }
+    } catch (error) {
+      console.error("Health check failed:", error);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      
+      if (message.includes("Unauthorized") || message.includes("401") || message.includes("refresh")) {
+        setHealthStatus("invalid");
+        setHealthMessage("Your Xero connection is no longer valid. Please disconnect and reconnect to Xero.");
+      } else if (message.includes("Failed to send") || message.includes("Failed to fetch")) {
+        // Network issue, don't mark as invalid
+        setHealthStatus("healthy");
+        setHealthMessage(null);
+      } else {
+        setHealthStatus("invalid");
+        setHealthMessage(`Connection issue: ${message}. Try reconnecting to Xero.`);
+      }
     }
   };
 
@@ -180,10 +236,35 @@ export function XeroConnectionCard() {
         {connection ? (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-              <span className="font-medium">Connected</span>
+              {healthStatus === "checking" ? (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              ) : healthStatus === "expired" || healthStatus === "invalid" ? (
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              ) : healthStatus === "expiring" ? (
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+              )}
+              <span className="font-medium">
+                {healthStatus === "checking" ? "Checking..." : 
+                 healthStatus === "expired" ? "Token Expired" :
+                 healthStatus === "invalid" ? "Connection Invalid" :
+                 healthStatus === "expiring" ? "Token Expiring Soon" :
+                 "Connected"}
+              </span>
               <Badge variant="secondary">{connection.tenant_name}</Badge>
             </div>
+            
+            {healthMessage && (
+              <Alert variant={healthStatus === "expiring" ? "default" : "destructive"}>
+                {healthStatus === "expiring" ? (
+                  <AlertTriangle className="h-4 w-4" />
+                ) : (
+                  <AlertCircle className="h-4 w-4" />
+                )}
+                <AlertDescription>{healthMessage}</AlertDescription>
+              </Alert>
+            )}
             
             {testError && (
               <Alert variant="destructive">
