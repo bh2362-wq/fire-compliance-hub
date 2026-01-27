@@ -28,6 +28,7 @@ import {
   XeroContact,
   InvoiceLineItem,
 } from "@/services/xeroService";
+
 interface VisitForInvoice {
   id: string;
   visit_type: string;
@@ -42,6 +43,44 @@ interface CreateInvoiceDialogProps {
   visit: VisitForInvoice;
   onSuccess?: () => void;
 }
+
+// Default line items based on visit type
+const VISIT_TYPE_LINE_ITEMS: Record<string, InvoiceLineItem[]> = {
+  quarterly_service: [
+    { description: "Fire Alarm Quarterly Service - Routine testing and maintenance of fire alarm system", quantity: 1, unitAmount: 150 },
+    { description: "Engineer labour (hourly rate)", quantity: 2, unitAmount: 65 },
+  ],
+  annual_inspection: [
+    { description: "Fire Alarm Annual Inspection - Full system inspection and certification", quantity: 1, unitAmount: 350 },
+    { description: "Engineer labour (hourly rate)", quantity: 4, unitAmount: 65 },
+    { description: "Annual certification documentation", quantity: 1, unitAmount: 50 },
+  ],
+  emergency: [
+    { description: "Emergency Callout - Out of hours response", quantity: 1, unitAmount: 195 },
+    { description: "Engineer labour (emergency rate)", quantity: 1, unitAmount: 95 },
+  ],
+  remedial: [
+    { description: "Remedial Works - Fault repair and system restoration", quantity: 1, unitAmount: 0 },
+    { description: "Engineer labour (hourly rate)", quantity: 1, unitAmount: 65 },
+    { description: "Parts and materials", quantity: 1, unitAmount: 0 },
+  ],
+  installation: [
+    { description: "Fire Alarm Installation", quantity: 1, unitAmount: 0 },
+    { description: "Engineer labour (hourly rate)", quantity: 8, unitAmount: 65 },
+    { description: "Equipment and materials", quantity: 1, unitAmount: 0 },
+  ],
+  commissioning: [
+    { description: "Fire Alarm System Commissioning", quantity: 1, unitAmount: 250 },
+    { description: "Engineer labour (hourly rate)", quantity: 4, unitAmount: 65 },
+    { description: "Commissioning certificate", quantity: 1, unitAmount: 75 },
+  ],
+};
+
+const getDefaultLineItems = (visitType: string): InvoiceLineItem[] => {
+  return VISIT_TYPE_LINE_ITEMS[visitType] || [
+    { description: "", quantity: 1, unitAmount: 0 },
+  ];
+};
 
 export function CreateInvoiceDialog({
   open,
@@ -66,6 +105,8 @@ export function CreateInvoiceDialog({
       loadContacts();
       // Pre-fill reference with visit info
       setReference(`${visit.visit_type} - ${visit.sites?.name || "Site"} - ${visit.visit_date}`);
+      // Auto-fill line items based on visit type
+      setLineItems(getDefaultLineItems(visit.visit_type));
     }
   }, [open, user, visit]);
 
