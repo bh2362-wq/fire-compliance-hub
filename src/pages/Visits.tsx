@@ -62,19 +62,18 @@ const Visits = () => {
                 ))}
               </SelectContent>
             </Select>
-            {selectedSiteId && selectedSiteId !== "all" && (
-              <VisitFormDialog
-                siteId={selectedSiteId}
-                siteName={sites.find((s) => s.id === selectedSiteId)?.name}
-                onVisitCreated={refetch}
-                trigger={
-                  <Button variant="hero" size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Visit
-                  </Button>
-                }
-              />
-            )}
+            <VisitFormDialog
+              siteId={selectedSiteId && selectedSiteId !== "all" ? selectedSiteId : undefined}
+              siteName={sites.find((s) => s.id === selectedSiteId)?.name}
+              sites={sites}
+              onVisitCreated={refetch}
+              trigger={
+                <Button variant="hero" size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Visit
+                </Button>
+              }
+            />
           </div>
         </div>
 
