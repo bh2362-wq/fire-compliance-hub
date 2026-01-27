@@ -28,12 +28,18 @@ import {
   XeroContact,
   InvoiceLineItem,
 } from "@/services/xeroService";
-import { Tables } from "@/integrations/supabase/types";
+interface VisitForInvoice {
+  id: string;
+  visit_type: string;
+  visit_date: string;
+  site_id: string;
+  sites?: { name: string } | null;
+}
 
 interface CreateInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  visit: Tables<"visits"> & { sites?: { name: string } | null };
+  visit: VisitForInvoice;
   onSuccess?: () => void;
 }
 
