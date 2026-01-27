@@ -3,12 +3,14 @@ import FileUpload from "@/components/uploads/FileUpload";
 import ParsedResultsTable from "@/components/uploads/ParsedResultsTable";
 import UploadHistory from "@/components/uploads/UploadHistory";
 import SiteSelector from "@/components/uploads/SiteSelector";
+import VisitSelector from "@/components/uploads/VisitSelector";
 import { parseCSV, parseTXT, ParseResult } from "@/lib/parsers/csvParser";
 import { saveFileUpload } from "@/services/uploadService";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Loader2, CheckCircle, AlertCircle, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ParsedFile {
   file: File;
@@ -17,13 +19,32 @@ interface ParsedFile {
   uploadId?: string;
 }
 
+interface Site {
+  id: string;
+  name: string;
+}
+
 const UploadDemo = () => {
   const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([]);
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
+  const [selectedVisitId, setSelectedVisitId] = useState<string>("");
+  const [sites, setSites] = useState<Site[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchSites = async () => {
+      const { data } = await supabase
+        .from("sites")
+        .select("id, name")
+        .eq("status", "active")
+        .order("name");
+      if (data) setSites(data);
+    };
+    fetchSites();
+  }, []);
 
   const handleFilesSelected = useCallback(async (files: File[]) => {
     if (files.length === 0) {
@@ -90,6 +111,7 @@ const UploadDemo = () => {
         file,
         parseResult: result,
         siteId: selectedSiteId && selectedSiteId !== "none" ? selectedSiteId : undefined,
+        visitId: selectedVisitId && selectedVisitId !== "none" ? selectedVisitId : undefined,
       });
 
       if (error) {
@@ -137,18 +159,30 @@ const UploadDemo = () => {
           <div className="lg:col-span-3">
             <FileUpload onFilesSelected={handleFilesSelected} maxFiles={5} maxSizeMB={20} />
           </div>
-          <div className="lg:col-span-1">
-            <div className="bg-card border border-border rounded-xl p-4">
+          <div className="lg:col-span-1 space-y-4">
+            <div className="bg-card border border-border rounded-xl p-4 space-y-4">
               <SiteSelector
                 value={selectedSiteId}
-                onValueChange={setSelectedSiteId}
+                onValueChange={(value) => {
+                  setSelectedSiteId(value);
+                  setSelectedVisitId(""); // Reset visit when site changes
+                }}
                 disabled={saving}
               />
               {selectedSiteId && selectedSiteId !== "none" && (
-                <div className="mt-3 flex items-center gap-2 text-sm text-success">
-                  <Link className="w-4 h-4" />
-                  <span>Uploads will be linked to this site</span>
-                </div>
+                <>
+                  <div className="flex items-center gap-2 text-sm text-success">
+                    <Link className="w-4 h-4" />
+                    <span>Uploads will be linked to this site</span>
+                  </div>
+                  <VisitSelector
+                    siteId={selectedSiteId}
+                    siteName={sites.find((s) => s.id === selectedSiteId)?.name}
+                    value={selectedVisitId}
+                    onValueChange={setSelectedVisitId}
+                    disabled={saving}
+                  />
+                </>
               )}
             </div>
           </div>
