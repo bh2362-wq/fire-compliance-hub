@@ -5,6 +5,7 @@ import UploadHistory from "@/components/uploads/UploadHistory";
 import SiteSelector from "@/components/uploads/SiteSelector";
 import VisitSelector from "@/components/uploads/VisitSelector";
 import { parseCSV, parseTXT, ParseResult } from "@/lib/parsers/csvParser";
+import { parsePDF } from "@/lib/parsers/pdfParser";
 import { saveFileUpload } from "@/services/uploadService";
 import { useState, useCallback, useEffect } from "react";
 import { Loader2, CheckCircle, AlertCircle, Link } from "lucide-react";
@@ -57,21 +58,25 @@ const UploadDemo = () => {
 
     for (const file of files) {
       try {
-        const content = await file.text();
         const extension = file.name.split(".").pop()?.toLowerCase();
 
         let result: ParseResult;
         if (extension === "csv") {
+          const content = await file.text();
           result = parseCSV(content);
         } else if (extension === "txt") {
+          const content = await file.text();
           result = parseTXT(content);
+        } else if (extension === "pdf") {
+          // Use edge function for PDF parsing
+          result = await parsePDF(file);
         } else {
           result = {
             success: false,
             devices: [],
             headers: [],
             totalRows: 0,
-            errors: ["PDF parsing requires server-side processing"],
+            errors: ["Unsupported file format"],
             summary: { totalDevices: 0, testedDevices: 0, faultDevices: 0, unknownDevices: 0 },
           };
         }
