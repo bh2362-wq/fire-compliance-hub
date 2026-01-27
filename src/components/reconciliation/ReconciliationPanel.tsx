@@ -74,6 +74,13 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
     loadUploads();
   }, [selectedSite, initialUploadId, toast]);
 
+  // Auto-run reconciliation when both initial parameters are provided
+  useEffect(() => {
+    if (initialSiteId && initialUploadId && selectedSite === initialSiteId && selectedUpload === initialUploadId && !result && !reconciling) {
+      handleReconcile();
+    }
+  }, [selectedSite, selectedUpload, initialSiteId, initialUploadId, result, reconciling]);
+
   const handleReconcile = async () => {
     if (!selectedSite || !selectedUpload) return;
 
