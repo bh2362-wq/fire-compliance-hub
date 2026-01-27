@@ -30,11 +30,12 @@ serve(async (req) => {
       );
     }
 
-    // Call Google Places Autocomplete API - restrict to UK, search establishments and addresses
+    // Call Google Places Autocomplete API - restrict to UK addresses
     const params = new URLSearchParams({
       input: input.trim(),
       key: apiKey,
       components: 'country:gb',
+      types: 'address',
     });
 
     if (sessionToken) {
