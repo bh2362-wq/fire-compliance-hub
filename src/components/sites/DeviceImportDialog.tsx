@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Loader2, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Settings2 } from "lucide-react";
+import { Loader2, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Settings2, FileText } from "lucide-react";
 import { 
   Site, 
   parseDeviceCSV, 
@@ -32,6 +32,7 @@ import {
 import { BulkReplaceMap as DialogBulkReplaceMap } from "./ColumnMappingDialog";
 import { useToast } from "@/hooks/use-toast";
 import ColumnMappingDialog from "./ColumnMappingDialog";
+import { parsePDF } from "@/lib/parsers/pdfParser";
 import * as XLSX from "xlsx";
 
 interface DeviceImportDialogProps {
@@ -57,6 +58,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
   const [currentMapping, setCurrentMapping] = useState<ColumnMapping | null>(null);
   const [currentManualValues, setCurrentManualValues] = useState<ManualValues>({});
   const [currentBulkReplaces, setCurrentBulkReplaces] = useState<BulkReplaceMap>({});
+  const [isPdfFile, setIsPdfFile] = useState(false);
   const { toast } = useToast();
 
   const parseWithMapping = useCallback((
@@ -145,11 +147,38 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setCurrentMapping(null);
     setCurrentManualValues({});
     setCurrentBulkReplaces({});
+    setIsPdfFile(false);
 
     try {
+      const isPdf = file.name.match(/\.pdf$/i);
       const isExcel = file.name.match(/\.(xlsx?|xls)$/i);
 
-      if (isExcel) {
+      if (isPdf) {
+        // Handle PDF files - no column mapping needed
+        setIsPdfFile(true);
+        const result = await parsePDF(file);
+        
+        if (result.success && result.devices.length > 0) {
+          // Convert parsed PDF devices to DeviceImport format
+          const devices: DeviceImport[] = result.devices.map((d) => ({
+            loop: String(d.loop || "1"),
+            address: String(d.address || ""),
+            device_type: d.deviceType || "Unknown",
+            location: d.location || undefined,
+            zone: undefined,
+          }));
+          
+          setParsedDevices(devices);
+          setParseErrors(result.errors || []);
+        } else {
+          setParseErrors(result.errors || ["Failed to parse PDF"]);
+          toast({
+            title: "Parse failed",
+            description: result.errors?.[0] || "Could not extract devices from PDF",
+            variant: "destructive",
+          });
+        }
+      } else if (isExcel) {
         // Handle Excel files
         const buffer = await file.arrayBuffer();
         const wb = XLSX.read(buffer, { type: "array" });
@@ -254,6 +283,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       setCurrentMapping(null);
       setCurrentManualValues({});
       setCurrentBulkReplaces({});
+      setIsPdfFile(false);
     }
   };
 
@@ -270,6 +300,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setCurrentMapping(null);
     setCurrentManualValues({});
     setCurrentBulkReplaces({});
+    setIsPdfFile(false);
   };
 
   return (
@@ -279,7 +310,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
           <DialogHeader>
             <DialogTitle>Import Device Inventory</DialogTitle>
             <DialogDescription>
-              Import devices for <span className="font-medium text-foreground">{site.name}</span> from a CSV or Excel file.
+              Import devices for <span className="font-medium text-foreground">{site.name}</span> from a file.
             </DialogDescription>
           </DialogHeader>
 
@@ -288,13 +319,13 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
             <div className="p-4 bg-muted/50 rounded-lg text-sm">
               <p className="font-medium text-foreground mb-2">Supported Formats</p>
               <p className="text-muted-foreground mb-2">
-                <code className="text-accent">.csv</code>, <code className="text-accent">.xls</code>, <code className="text-accent">.xlsx</code>
+                <code className="text-accent">.csv</code>, <code className="text-accent">.xls</code>, <code className="text-accent">.xlsx</code>, <code className="text-accent">.pdf</code>
               </p>
               <p className="text-muted-foreground mb-2">
-                Required columns: <code className="text-accent">loop</code>, <code className="text-accent">address</code>, <code className="text-accent">type</code>
+                CSV/Excel require columns: <code className="text-accent">loop</code>, <code className="text-accent">address</code>, <code className="text-accent">type</code>
               </p>
               <p className="text-muted-foreground">
-                Optional columns: <code className="text-accent">location</code>, <code className="text-accent">zone</code>
+                PDF files are parsed automatically (no column mapping needed)
               </p>
             </div>
 
@@ -308,11 +339,16 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
                   <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                 ) : fileName ? (
                   <div className="flex items-center gap-3">
-                    <FileSpreadsheet className="w-8 h-8 text-accent" />
+                    {isPdfFile ? (
+                      <FileText className="w-8 h-8 text-accent" />
+                    ) : (
+                      <FileSpreadsheet className="w-8 h-8 text-accent" />
+                    )}
                     <div className="text-left">
                       <p className="font-medium text-foreground">{fileName}</p>
                       <p className="text-sm text-muted-foreground">
                         {parsedDevices.length} devices parsed
+                        {isPdfFile && " (PDF - auto-mapped)"}
                       </p>
                     </div>
                   </div>
@@ -322,13 +358,13 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
                     <p className="text-sm text-muted-foreground">
                       Click to upload or drag and drop
                     </p>
-                    <p className="text-xs text-muted-foreground">CSV or Excel files</p>
+                    <p className="text-xs text-muted-foreground">CSV, Excel, or PDF files</p>
                   </>
                 )}
                 <input
                   id="import-file"
                   type="file"
-                  accept=".csv,.xls,.xlsx"
+                  accept=".csv,.xls,.xlsx,.pdf"
                   className="hidden"
                   onChange={handleFileSelect}
                   disabled={loading || importing}
@@ -355,8 +391,8 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
               </div>
             )}
 
-            {/* Column Mapping Button */}
-            {availableColumns.length > 0 && (
+            {/* Column Mapping Button - only for CSV/Excel, not PDF */}
+            {availableColumns.length > 0 && !isPdfFile && (
               <Button
                 type="button"
                 variant="outline"
