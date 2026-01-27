@@ -396,6 +396,56 @@ export type Database = {
           },
         ]
       }
+      site_service_contracts: {
+        Row: {
+          contract_end: string | null
+          contract_start: string | null
+          created_at: string
+          description: string | null
+          id: string
+          included_visits: number | null
+          notes: string | null
+          service_type: string
+          site_id: string
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          contract_end?: string | null
+          contract_start?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          included_visits?: number | null
+          notes?: string | null
+          service_type: string
+          site_id: string
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          contract_end?: string | null
+          contract_start?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          included_visits?: number | null
+          notes?: string | null
+          service_type?: string
+          site_id?: string
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_service_contracts_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sites: {
         Row: {
           address: string | null
