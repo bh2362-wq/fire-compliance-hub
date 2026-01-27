@@ -3,9 +3,6 @@ import { ParseResult } from "@/lib/parsers/csvParser";
 
 export async function parsePDF(file: File): Promise<ParseResult> {
   try {
-    const formData = new FormData();
-    formData.append("file", file);
-
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
 
@@ -25,18 +22,28 @@ export async function parsePDF(file: File): Promise<ParseResult> {
       };
     }
 
-    const response = await supabase.functions.invoke("parse-pdf", {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // Use direct fetch instead of supabase.functions.invoke for FormData
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const response = await fetch(`${supabaseUrl}/functions/v1/parse-pdf`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
       body: formData,
     });
 
-    if (response.error) {
-      console.error("PDF parse error:", response.error);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("PDF parse error:", errorData);
       return {
         success: false,
         devices: [],
         headers: [],
         totalRows: 0,
-        errors: [response.error.message || "Failed to parse PDF"],
+        errors: [errorData.error || `Failed to parse PDF (${response.status})`],
         summary: {
           totalDevices: 0,
           testedDevices: 0,
@@ -46,7 +53,7 @@ export async function parsePDF(file: File): Promise<ParseResult> {
       };
     }
 
-    const result = response.data;
+    const result = await response.json();
 
     // Normalize the response to match ParseResult interface
     if (result.devices) {
