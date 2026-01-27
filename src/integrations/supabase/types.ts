@@ -14,16 +14,421 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      devices: {
+        Row: {
+          address: string
+          created_at: string
+          device_type: string
+          id: string
+          installed_at: string | null
+          last_tested_at: string | null
+          location: string | null
+          loop: string
+          site_id: string
+          status: string | null
+          updated_at: string
+          zone: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          device_type: string
+          id?: string
+          installed_at?: string | null
+          last_tested_at?: string | null
+          location?: string | null
+          loop: string
+          site_id: string
+          status?: string | null
+          updated_at?: string
+          zone?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          device_type?: string
+          id?: string
+          installed_at?: string | null
+          last_tested_at?: string | null
+          location?: string | null
+          loop?: string
+          site_id?: string
+          status?: string | null
+          updated_at?: string
+          zone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devices_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_uploads: {
+        Row: {
+          created_at: string
+          devices_failed: number | null
+          devices_found: number | null
+          devices_passed: number | null
+          file_name: string
+          file_size: number | null
+          file_type: string
+          id: string
+          parsed_at: string | null
+          parsing_errors: Json | null
+          site_id: string | null
+          storage_path: string | null
+          uploaded_by: string | null
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          devices_failed?: number | null
+          devices_found?: number | null
+          devices_passed?: number | null
+          file_name: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          parsed_at?: string | null
+          parsing_errors?: Json | null
+          site_id?: string | null
+          storage_path?: string | null
+          uploaded_by?: string | null
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          devices_failed?: number | null
+          devices_found?: number | null
+          devices_passed?: number | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          parsed_at?: string | null
+          parsing_errors?: Json | null
+          site_id?: string | null
+          storage_path?: string | null
+          uploaded_by?: string | null
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_uploads_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_uploads_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      issues: {
+        Row: {
+          created_at: string
+          description: string | null
+          device_id: string | null
+          id: string
+          issue_type: string
+          resolution: string | null
+          resolved_at: string | null
+          severity: string | null
+          site_id: string
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          device_id?: string | null
+          id?: string
+          issue_type: string
+          resolution?: string | null
+          resolved_at?: string | null
+          severity?: string | null
+          site_id: string
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          device_id?: string | null
+          id?: string
+          issue_type?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          severity?: string | null
+          site_id?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issues_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parsed_device_tests: {
+        Row: {
+          address: string
+          created_at: string
+          device_id: string | null
+          device_type: string | null
+          id: string
+          location: string | null
+          loop: string
+          matched: boolean | null
+          raw_data: Json | null
+          status: string
+          upload_id: string
+          visit_id: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          device_id?: string | null
+          device_type?: string | null
+          id?: string
+          location?: string | null
+          loop: string
+          matched?: boolean | null
+          raw_data?: Json | null
+          status: string
+          upload_id: string
+          visit_id?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          device_id?: string | null
+          device_type?: string | null
+          id?: string
+          location?: string | null
+          loop?: string
+          matched?: boolean | null
+          raw_data?: Json | null
+          status?: string
+          upload_id?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parsed_device_tests_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parsed_device_tests_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "file_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parsed_device_tests_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sites: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          name: string
+          postcode: string | null
+          status: string | null
+          total_devices: number | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          postcode?: string | null
+          status?: string | null
+          total_devices?: number | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          postcode?: string | null
+          status?: string | null
+          total_devices?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      visits: {
+        Row: {
+          coverage_percentage: number | null
+          created_at: string
+          devices_tested: number | null
+          engineer_id: string | null
+          id: string
+          issues_count: number | null
+          notes: string | null
+          site_id: string
+          status: string | null
+          total_devices: number | null
+          updated_at: string
+          visit_date: string
+          visit_type: string
+        }
+        Insert: {
+          coverage_percentage?: number | null
+          created_at?: string
+          devices_tested?: number | null
+          engineer_id?: string | null
+          id?: string
+          issues_count?: number | null
+          notes?: string | null
+          site_id: string
+          status?: string | null
+          total_devices?: number | null
+          updated_at?: string
+          visit_date?: string
+          visit_type: string
+        }
+        Update: {
+          coverage_percentage?: number | null
+          created_at?: string
+          devices_tested?: number | null
+          engineer_id?: string | null
+          id?: string
+          issues_count?: number | null
+          notes?: string | null
+          site_id?: string
+          status?: string | null
+          total_devices?: number | null
+          updated_at?: string
+          visit_date?: string
+          visit_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visits_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "owner" | "admin" | "engineer" | "client" | "auditor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +555,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["owner", "admin", "engineer", "client", "auditor"],
+    },
   },
 } as const
