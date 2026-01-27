@@ -25,7 +25,8 @@ import {
   detectColumnMapping,
   importDevices, 
   DeviceImport,
-  ColumnMapping 
+  ColumnMapping,
+  ManualValues 
 } from "@/services/siteService";
 import { useToast } from "@/hooks/use-toast";
 import ColumnMappingDialog from "./ColumnMappingDialog";
@@ -52,13 +53,15 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
   const [showMappingDialog, setShowMappingDialog] = useState(false);
   const [suggestedMapping, setSuggestedMapping] = useState<Partial<ColumnMapping>>({});
   const [currentMapping, setCurrentMapping] = useState<ColumnMapping | null>(null);
+  const [currentManualValues, setCurrentManualValues] = useState<ManualValues>({});
   const { toast } = useToast();
 
-  const parseWithMapping = useCallback((rows: Record<string, unknown>[], mapping: ColumnMapping) => {
-    const { devices, errors } = parseDeviceRowsWithMapping(rows, mapping);
+  const parseWithMapping = useCallback((rows: Record<string, unknown>[], mapping: ColumnMapping, manualValues: ManualValues = {}) => {
+    const { devices, errors } = parseDeviceRowsWithMapping(rows, mapping, manualValues);
     setParsedDevices(devices);
     setParseErrors(errors);
     setCurrentMapping(mapping);
+    setCurrentManualValues(manualValues);
 
     if (devices.length === 0 && errors.length > 0) {
       toast({
@@ -131,6 +134,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setRawRows([]);
     setAvailableColumns([]);
     setCurrentMapping(null);
+    setCurrentManualValues({});
 
     try {
       const isExcel = file.name.match(/\.(xlsx?|xls)$/i);
@@ -197,9 +201,9 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setLoading(false);
   }, [toast, parseSheet]);
 
-  const handleMappingConfirm = useCallback((mapping: ColumnMapping) => {
+  const handleMappingConfirm = useCallback((mapping: ColumnMapping, manualValues: ManualValues) => {
     setShowMappingDialog(false);
-    parseWithMapping(rawRows, mapping);
+    parseWithMapping(rawRows, mapping, manualValues);
   }, [rawRows, parseWithMapping]);
 
   const handleOpenMappingDialog = () => {
@@ -238,6 +242,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       setRawRows([]);
       setAvailableColumns([]);
       setCurrentMapping(null);
+      setCurrentManualValues({});
     }
   };
 
@@ -252,6 +257,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setRawRows([]);
     setAvailableColumns([]);
     setCurrentMapping(null);
+    setCurrentManualValues({})
   };
 
   return (

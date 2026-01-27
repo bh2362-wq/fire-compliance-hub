@@ -350,9 +350,18 @@ export function detectColumnMapping(columns: string[]): { mapping: Partial<Colum
   return { mapping, complete };
 }
 
+export interface ManualValues {
+  loop?: string;
+  address?: string;
+  type?: string;
+  location?: string;
+  zone?: string;
+}
+
 export function parseDeviceRowsWithMapping(
   rows: Record<string, unknown>[],
-  mapping: ColumnMapping
+  mapping: ColumnMapping,
+  manualValues: ManualValues = {}
 ): { devices: DeviceImport[]; errors: string[] } {
   const errors: string[] = [];
   const devices: DeviceImport[] = [];
@@ -362,27 +371,48 @@ export function parseDeviceRowsWithMapping(
     return { devices, errors };
   }
 
-  if (!mapping.loop || !mapping.address || !mapping.type) {
-    errors.push("Required columns (loop, address, type) must be mapped");
+  // Check if required fields have either a mapping or a manual value
+  const hasLoop = mapping.loop || manualValues.loop?.trim();
+  const hasAddress = mapping.address || manualValues.address?.trim();
+  const hasType = mapping.type || manualValues.type?.trim();
+
+  if (!hasLoop || !hasAddress || !hasType) {
+    errors.push("Required columns (loop, address, type) must be mapped or manually provided");
     return { devices, errors };
   }
 
   rows.forEach((row, i) => {
-    const loop = String(row[mapping.loop!] ?? "").trim();
-    const address = String(row[mapping.address!] ?? "").trim();
-    const device_type = String(row[mapping.type!] ?? "").trim();
+    // Use manual value if column not mapped, otherwise use column value
+    const loop = manualValues.loop?.trim() || (mapping.loop ? String(row[mapping.loop] ?? "").trim() : "");
+    const address = manualValues.address?.trim() || (mapping.address ? String(row[mapping.address] ?? "").trim() : "");
+    const device_type = manualValues.type?.trim() || (mapping.type ? String(row[mapping.type] ?? "").trim() : "");
 
     if (!loop || !address || !device_type) {
       errors.push(`Row ${i + 2}: Missing required field (loop, address, or type)`);
       return;
     }
 
+    // For optional fields, prefer manual value, then column value
+    let location: string | undefined;
+    if (manualValues.location?.trim()) {
+      location = manualValues.location.trim();
+    } else if (mapping.location) {
+      location = String(row[mapping.location] ?? "").trim() || undefined;
+    }
+
+    let zone: string | undefined;
+    if (manualValues.zone?.trim()) {
+      zone = manualValues.zone.trim();
+    } else if (mapping.zone) {
+      zone = String(row[mapping.zone] ?? "").trim() || undefined;
+    }
+
     devices.push({
       loop,
       address,
       device_type,
-      location: mapping.location ? String(row[mapping.location] ?? "").trim() || undefined : undefined,
-      zone: mapping.zone ? String(row[mapping.zone] ?? "").trim() || undefined : undefined,
+      location,
+      zone,
     });
   });
 
