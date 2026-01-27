@@ -166,16 +166,14 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
                   <GitCompare className="w-4 h-4 mr-1" />
                   Reconcile
                 </Button>
-                {visit.status === "completed" && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setInvoiceVisit(visit)}
-                  >
-                    <FileText className="w-4 h-4 mr-1" />
-                    Invoice
-                  </Button>
-                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setInvoiceVisit(visit)}
+                >
+                  <FileText className="w-4 h-4 mr-1" />
+                  Invoice
+                </Button>
               </div>
             </div>
           );
