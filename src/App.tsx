@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Sites from "./pages/Sites";
+import SiteDetail from "./pages/SiteDetail";
 import Visits from "./pages/Visits";
 import UploadDemo from "./pages/UploadDemo";
 import Reconciliation from "./pages/Reconciliation";
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/sites" element={<Sites />} />
+          <Route path="/dashboard/sites/:siteId" element={<SiteDetail />} />
           <Route path="/dashboard/visits" element={<Visits />} />
           <Route path="/dashboard/upload" element={<UploadDemo />} />
           <Route path="/dashboard/reconciliation" element={<Reconciliation />} />
