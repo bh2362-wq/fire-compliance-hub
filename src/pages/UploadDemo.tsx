@@ -1,18 +1,27 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import FileUpload from "@/components/uploads/FileUpload";
 import ParsedResultsTable from "@/components/uploads/ParsedResultsTable";
+import UploadHistory from "@/components/uploads/UploadHistory";
 import { parseCSV, parseTXT, ParseResult } from "@/lib/parsers/csvParser";
+import { saveFileUpload } from "@/services/uploadService";
 import { useState, useCallback } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface ParsedFile {
   file: File;
   result: ParseResult;
+  saved?: boolean;
+  uploadId?: string;
 }
 
 const UploadDemo = () => {
   const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([]);
   const [parsing, setParsing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const { toast } = useToast();
 
   const handleFilesSelected = useCallback(async (files: File[]) => {
     if (files.length === 0) {
@@ -34,7 +43,6 @@ const UploadDemo = () => {
         } else if (extension === "txt") {
           result = parseTXT(content);
         } else {
-          // For PDFs, we'll need server-side parsing
           result = {
             success: false,
             devices: [],
@@ -65,6 +73,53 @@ const UploadDemo = () => {
     setParsing(false);
   }, []);
 
+  const handleSaveToDatabase = async () => {
+    setSaving(true);
+    const updatedFiles = [...parsedFiles];
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < updatedFiles.length; i++) {
+      const { file, result, saved } = updatedFiles[i];
+      
+      if (saved || !result.success) continue;
+
+      const { uploadId, error } = await saveFileUpload({
+        file,
+        parseResult: result,
+      });
+
+      if (error) {
+        errorCount++;
+        console.error(`Failed to save ${file.name}:`, error);
+      } else {
+        successCount++;
+        updatedFiles[i] = { ...updatedFiles[i], saved: true, uploadId };
+      }
+    }
+
+    setParsedFiles(updatedFiles);
+    setSaving(false);
+    setRefreshTrigger((prev) => prev + 1);
+
+    if (successCount > 0) {
+      toast({
+        title: "Upload saved",
+        description: `Successfully saved ${successCount} file${successCount > 1 ? "s" : ""} to the database.`,
+      });
+    }
+
+    if (errorCount > 0) {
+      toast({
+        title: "Some uploads failed",
+        description: `Failed to save ${errorCount} file${errorCount > 1 ? "s" : ""}. You may need to sign in.`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const hasUnsavedFiles = parsedFiles.some((f) => f.result.success && !f.saved);
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -85,13 +140,47 @@ const UploadDemo = () => {
         )}
 
         {!parsing && parsedFiles.length > 0 && (
-          <div className="space-y-8">
-            {parsedFiles.map(({ file, result }) => (
+          <div className="space-y-6">
+            {/* Save button */}
+            {hasUnsavedFiles && (
+              <div className="flex items-center justify-between p-4 bg-accent/5 border border-accent/20 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-accent" />
+                  <span className="text-foreground">
+                    {parsedFiles.filter((f) => f.result.success && !f.saved).length} file(s) ready to save
+                  </span>
+                </div>
+                <Button
+                  variant="hero"
+                  onClick={handleSaveToDatabase}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save to Database"
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* Parsed results */}
+            {parsedFiles.map(({ file, result, saved }) => (
               <div key={file.name} className="space-y-4">
                 <div className="flex items-center gap-3">
                   <h3 className="text-lg font-semibold text-foreground">{file.name}</h3>
                   {result.success ? (
-                    <span className="text-sm text-success">Successfully parsed</span>
+                    saved ? (
+                      <span className="flex items-center gap-1 text-sm text-success">
+                        <CheckCircle className="w-4 h-4" />
+                        Saved
+                      </span>
+                    ) : (
+                      <span className="text-sm text-accent">Ready to save</span>
+                    )
                   ) : (
                     <span className="text-sm text-destructive">Parsing failed</span>
                   )}
@@ -112,6 +201,12 @@ const UploadDemo = () => {
             ))}
           </div>
         )}
+
+        {/* Upload History */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-foreground">Recent Uploads</h3>
+          <UploadHistory refreshTrigger={refreshTrigger} />
+        </div>
       </div>
     </DashboardLayout>
   );
