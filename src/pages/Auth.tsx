@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Flame, Loader2 } from 'lucide-react';
+import { Flame, Loader2, ArrowLeft, Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,13 +24,21 @@ const signupSchema = loginSchema.extend({
   path: ['confirmPassword'],
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+});
+
 type LoginFormValues = z.infer<typeof loginSchema>;
 type SignupFormValues = z.infer<typeof signupSchema>;
+type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+
+type AuthView = 'login' | 'signup' | 'forgot-password';
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [view, setView] = useState<AuthView>('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { user, loading, signIn, signUp } = useAuth();
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const { user, loading, signIn, signUp, resetPassword } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -42,6 +50,11 @@ export default function Auth() {
   const signupForm = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: { email: '', password: '', confirmPassword: '', fullName: '' },
+  });
+
+  const forgotPasswordForm = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: '' },
   });
 
   useEffect(() => {
@@ -89,10 +102,65 @@ export default function Auth() {
     }
   };
 
+  const handleForgotPassword = async (values: ForgotPasswordFormValues) => {
+    setIsSubmitting(true);
+    const { error } = await resetPassword(values.email);
+    setIsSubmitting(false);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Reset failed',
+        description: error.message,
+      });
+    } else {
+      setResetEmailSent(true);
+    }
+  };
+
+  const switchView = (newView: AuthView) => {
+    setView(newView);
+    setResetEmailSent(false);
+    loginForm.reset();
+    signupForm.reset();
+    forgotPasswordForm.reset();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Forgot password email sent confirmation
+  if (view === 'forgot-password' && resetEmailSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center space-y-4">
+            <div className="mx-auto w-12 h-12 rounded-xl bg-success/20 flex items-center justify-center">
+              <Mail className="w-6 h-6 text-success" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl">Check your email</CardTitle>
+              <CardDescription>
+                We've sent a password reset link to your email address. Click the link to set a new password.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={() => switchView('login')} 
+              className="w-full" 
+              variant="outline"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to sign in
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -106,17 +174,19 @@ export default function Auth() {
           </div>
           <div>
             <CardTitle className="text-2xl">
-              {isLogin ? 'Welcome back' : 'Create account'}
+              {view === 'login' && 'Welcome back'}
+              {view === 'signup' && 'Create account'}
+              {view === 'forgot-password' && 'Reset password'}
             </CardTitle>
             <CardDescription>
-              {isLogin 
-                ? 'Sign in to access your FireLogbook dashboard' 
-                : 'Sign up to start managing fire alarm compliance'}
+              {view === 'login' && 'Sign in to access your FireLogbook dashboard'}
+              {view === 'signup' && 'Sign up to start managing fire alarm compliance'}
+              {view === 'forgot-password' && 'Enter your email to receive a reset link'}
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
-          {isLogin ? (
+          {view === 'login' && (
             <Form {...loginForm}>
               <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
                 <FormField
@@ -137,7 +207,16 @@ export default function Auth() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Password</FormLabel>
+                        <button
+                          type="button"
+                          onClick={() => switchView('forgot-password')}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
                       <FormControl>
                         <Input type="password" placeholder="••••••••" {...field} />
                       </FormControl>
@@ -151,7 +230,9 @@ export default function Auth() {
                 </Button>
               </form>
             </Form>
-          ) : (
+          )}
+
+          {view === 'signup' && (
             <Form {...signupForm}>
               <form onSubmit={signupForm.handleSubmit(handleSignup)} className="space-y-4">
                 <FormField
@@ -214,21 +295,65 @@ export default function Auth() {
             </Form>
           )}
 
+          {view === 'forgot-password' && (
+            <Form {...forgotPasswordForm}>
+              <form onSubmit={forgotPasswordForm.handleSubmit(handleForgotPassword)} className="space-y-4">
+                <FormField
+                  control={forgotPasswordForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="you@company.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" variant="hero" disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Send reset link
+                </Button>
+              </form>
+            </Form>
+          )}
+
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">
-              {isLogin ? "Don't have an account? " : 'Already have an account? '}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                loginForm.reset();
-                signupForm.reset();
-              }}
-              className="text-primary hover:underline font-medium"
-            >
-              {isLogin ? 'Sign up' : 'Sign in'}
-            </button>
+            {view === 'login' && (
+              <>
+                <span className="text-muted-foreground">Don't have an account? </span>
+                <button
+                  type="button"
+                  onClick={() => switchView('signup')}
+                  className="text-primary hover:underline font-medium"
+                >
+                  Sign up
+                </button>
+              </>
+            )}
+            {view === 'signup' && (
+              <>
+                <span className="text-muted-foreground">Already have an account? </span>
+                <button
+                  type="button"
+                  onClick={() => switchView('login')}
+                  className="text-primary hover:underline font-medium"
+                >
+                  Sign in
+                </button>
+              </>
+            )}
+            {view === 'forgot-password' && (
+              <button
+                type="button"
+                onClick={() => switchView('login')}
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to sign in
+              </button>
+            )}
           </div>
         </CardContent>
       </Card>
