@@ -358,6 +358,9 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
         setIsPdfFile(true); // Same UI treatment (no column mapping needed)
         setParsedDevices(gentDevices);
         setParseErrors([]);
+        setRawRows([]); // Clear to prevent mapping dialog
+        setAvailableColumns([]); // Clear to prevent mapping dialog
+        setShowMappingDialog(false); // Ensure mapping dialog is closed
         toast({
           title: "Data parsed",
           description: `${gentDevices.length} Gent panel devices ready to import`,
