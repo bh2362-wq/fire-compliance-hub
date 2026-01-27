@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +8,6 @@ import { Loader2, Link2, Unlink, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   initiateXeroAuth,
-  saveXeroConnection,
   getXeroConnection,
   deleteXeroConnection,
   XeroConnection,
@@ -15,6 +15,7 @@ import {
 
 export function XeroConnectionCard() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [connection, setConnection] = useState<XeroConnection | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -26,39 +27,26 @@ export function XeroConnectionCard() {
     }
   }, [user]);
 
+  // Handle redirect params from Xero OAuth callback
   useEffect(() => {
-    const handleMessage = async (event: MessageEvent) => {
-      if (event.data.type === "xero-auth-success") {
-        const { accessToken, refreshToken, expiresAt, connections } = event.data.data;
-        
-        if (connections && connections.length > 0 && user) {
-          const tenant = connections[0];
-          try {
-            await saveXeroConnection(
-              user.id,
-              tenant.tenantId,
-              tenant.tenantName,
-              accessToken,
-              refreshToken,
-              expiresAt
-            );
-            await loadConnection();
-            toast.success(`Connected to ${tenant.tenantName}`);
-          } catch (error) {
-            console.error("Failed to save connection:", error);
-            toast.error("Failed to save Xero connection");
-          }
-        }
-        setConnecting(false);
-      } else if (event.data.type === "xero-auth-error") {
-        toast.error(`Xero authentication failed: ${event.data.error}`);
-        setConnecting(false);
-      }
-    };
+    const xeroConnected = searchParams.get("xero_connected");
+    const xeroError = searchParams.get("xero_error");
+    const tenantName = searchParams.get("tenant");
 
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [user]);
+    if (xeroConnected === "true") {
+      toast.success(`Connected to ${tenantName || "Xero"}`);
+      loadConnection();
+      // Clean up URL params
+      searchParams.delete("xero_connected");
+      searchParams.delete("tenant");
+      setSearchParams(searchParams, { replace: true });
+    } else if (xeroError) {
+      toast.error(`Xero connection failed: ${xeroError}`);
+      // Clean up URL params
+      searchParams.delete("xero_error");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const loadConnection = async () => {
     if (!user) return;
@@ -70,6 +58,7 @@ export function XeroConnectionCard() {
       console.error("Failed to load Xero connection:", error);
     } finally {
       setLoading(false);
+      setConnecting(false);
     }
   };
 
@@ -77,7 +66,8 @@ export function XeroConnectionCard() {
     setConnecting(true);
     try {
       const { authUrl } = await initiateXeroAuth();
-      window.open(authUrl, "xero-auth", "width=600,height=700");
+      // Navigate in the same window - callback will redirect back
+      window.location.href = authUrl;
     } catch (error) {
       console.error("Failed to initiate Xero auth:", error);
       toast.error("Failed to connect to Xero");

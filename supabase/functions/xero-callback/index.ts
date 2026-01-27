@@ -16,12 +16,12 @@ Deno.serve(async (req) => {
     const state = url.searchParams.get("state");
     const error = url.searchParams.get("error");
 
+    // Get the app URL for redirects
+    const appUrl = Deno.env.get("APP_URL") || "https://id-preview--60f2dd2f-93eb-4403-836f-4c40ebb0815e.lovable.app";
+
     if (error) {
       console.error("OAuth error:", error);
-      return new Response(
-        `<html><body><script>window.opener.postMessage({ type: 'xero-auth-error', error: '${error}' }, '*'); window.close();</script></body></html>`,
-        { headers: { "Content-Type": "text/html" } }
-      );
+      return Response.redirect(`${appUrl}/dashboard/settings?xero_error=${encodeURIComponent(error)}`, 302);
     }
 
     if (!code) {
@@ -31,6 +31,7 @@ Deno.serve(async (req) => {
     const clientId = Deno.env.get("XERO_CLIENT_ID")!;
     const clientSecret = Deno.env.get("XERO_CLIENT_SECRET")!;
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const redirectUri = `${supabaseUrl}/functions/v1/xero-callback`;
 
     // Exchange code for tokens
@@ -71,31 +72,50 @@ Deno.serve(async (req) => {
     const connections = await connectionsResponse.json();
     console.log("Got connections:", connections.length);
 
-    // Return success with tokens and tenant info for the frontend to store
-    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+    if (!connections || connections.length === 0) {
+      throw new Error("No Xero organizations found");
+    }
+
+    // Parse the state to get user_id (we'll encode user_id in state)
+    // State format: "userId:randomUUID"
+    const [userId] = state?.split(":") || [];
     
-    // Return HTML that posts message to opener and closes
-    return new Response(
-      `<html><body><script>
-        window.opener.postMessage({ 
-          type: 'xero-auth-success', 
-          data: {
-            accessToken: '${tokens.access_token}',
-            refreshToken: '${tokens.refresh_token}',
-            expiresAt: '${expiresAt}',
-            connections: ${JSON.stringify(connections)}
-          }
-        }, '*'); 
-        window.close();
-      </script></body></html>`,
-      { headers: { "Content-Type": "text/html" } }
-    );
+    if (!userId) {
+      throw new Error("Invalid state - missing user ID");
+    }
+
+    // Use service role to save the connection
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const tenant = connections[0];
+    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+
+    const { error: upsertError } = await supabase
+      .from("xero_connections")
+      .upsert({
+        user_id: userId,
+        tenant_id: tenant.tenantId,
+        tenant_name: tenant.tenantName,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: expiresAt,
+      }, {
+        onConflict: "user_id,tenant_id",
+      });
+
+    if (upsertError) {
+      console.error("Failed to save connection:", upsertError);
+      throw new Error("Failed to save Xero connection");
+    }
+
+    console.log("Connection saved successfully for user:", userId);
+
+    // Redirect back to settings page with success
+    return Response.redirect(`${appUrl}/dashboard/settings?xero_connected=true&tenant=${encodeURIComponent(tenant.tenantName)}`, 302);
   } catch (error: unknown) {
     console.error("Callback error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(
-      `<html><body><script>window.opener.postMessage({ type: 'xero-auth-error', error: '${message}' }, '*'); window.close();</script></body></html>`,
-      { headers: { "Content-Type": "text/html" } }
-    );
+    const appUrl = Deno.env.get("APP_URL") || "https://id-preview--60f2dd2f-93eb-4403-836f-4c40ebb0815e.lovable.app";
+    return Response.redirect(`${appUrl}/dashboard/settings?xero_error=${encodeURIComponent(message)}`, 302);
   }
 });

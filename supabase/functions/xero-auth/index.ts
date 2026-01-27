@@ -11,16 +11,42 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claims, error: claimsError } = await supabase.auth.getClaims(token);
+    
+    if (claimsError || !claims?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claims.claims.sub;
+
     const clientId = Deno.env.get("XERO_CLIENT_ID");
     if (!clientId) {
       throw new Error("XERO_CLIENT_ID not configured");
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const redirectUri = `${supabaseUrl}/functions/v1/xero-callback`;
     
-    // Generate a random state for CSRF protection
-    const state = crypto.randomUUID();
+    // Generate state with user ID for the callback to use
+    const state = `${userId}:${crypto.randomUUID()}`;
     
     // Xero OAuth 2.0 authorization URL
     const authUrl = new URL("https://login.xero.com/identity/connect/authorize");
