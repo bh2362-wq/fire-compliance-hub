@@ -37,6 +37,59 @@ import ColumnMappingDialog from "./ColumnMappingDialog";
 import { parsePDF } from "@/lib/parsers/pdfParser";
 import * as XLSX from "xlsx";
 
+// Gent device type code mappings
+const GENT_DEVICE_TYPES: Record<string, string> = {
+  "MCP": "Manual Call Point",
+  "QOH": "Quad Optical Heat Detector",
+  "QH": "Quad Heat Detector", 
+  "Q2H": "Quad 2 Heat Detector",
+  "qHV1": "Optical Heat Sounder",
+  "q2HV1": "Dual Optical Heat Sounder",
+  "q2HV3": "Dual Optical Heat Sounder VAD",
+  "q2H1": "Dual Optical Heat Detector",
+  "qHS": "Heat Sounder",
+  "MVI": "Input Module",
+  "MVO": "Output Module",
+  "S-Quad": "S-Quad Detector",
+};
+
+function parseGentTextFormat(content: string): DeviceImport[] {
+  const lines = content.split("\n");
+  const devices: DeviceImport[] = [];
+  const seenDevices = new Set<string>();
+  
+  // Gent format: [Address] Lp [Loop] [DeviceType] ZONE [Zone] [Location]
+  const gentPattern = /^(\d+)\s+Lp\s+(\d+)\s+(\S+)\s+ZONE\s+(\d+)\s+(.+)$/i;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    const match = trimmed.match(gentPattern);
+    if (match) {
+      const address = match[1].padStart(3, "0");
+      const loop = match[2];
+      const deviceCode = match[3];
+      const zone = match[4];
+      const location = match[5].trim();
+      
+      const deviceKey = `${loop}-${address}`;
+      if (seenDevices.has(deviceKey)) continue;
+      seenDevices.add(deviceKey);
+      
+      devices.push({
+        loop,
+        address,
+        device_type: GENT_DEVICE_TYPES[deviceCode] || GENT_DEVICE_TYPES[deviceCode.toUpperCase()] || deviceCode,
+        location: location || undefined,
+        zone: zone || undefined,
+      });
+    }
+  }
+  
+  return devices;
+}
+
 interface DeviceImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -155,6 +208,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
 
     try {
       const isPdf = file.name.match(/\.pdf$/i);
+      const isTxt = file.name.match(/\.txt$/i);
       const isExcel = file.name.match(/\.(xlsx?|xls)$/i);
 
       if (isPdf) {
@@ -169,7 +223,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
             address: String(d.address || ""),
             device_type: d.deviceType || "Unknown",
             location: d.location || undefined,
-            zone: undefined,
+            zone: d.rawData?.zone ? String(d.rawData.zone) : undefined,
           }));
           
           setParsedDevices(devices);
@@ -179,6 +233,26 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
           toast({
             title: "Parse failed",
             description: result.errors?.[0] || "Could not extract devices from PDF",
+            variant: "destructive",
+          });
+        }
+      } else if (isTxt) {
+        // Handle TXT files - parse Gent/Honeywell format directly
+        setIsPdfFile(true); // Same UI treatment as PDF (no column mapping)
+        const content = await file.text();
+        const devices = parseGentTextFormat(content);
+        
+        if (devices.length > 0) {
+          setParsedDevices(devices);
+          toast({
+            title: "File parsed",
+            description: `${devices.length} devices extracted from Gent panel log`,
+          });
+        } else {
+          setParseErrors(["Could not extract devices from text file. Check the format."]);
+          toast({
+            title: "Parse failed",
+            description: "No devices found in the text file",
             variant: "destructive",
           });
         }
@@ -442,7 +516,10 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
               {/* Format Info */}
               <div className="p-3 bg-muted/50 rounded-lg text-sm">
                 <p className="text-muted-foreground">
-                  Supported: <code className="text-accent">.csv</code>, <code className="text-accent">.xls</code>, <code className="text-accent">.xlsx</code>, <code className="text-accent">.pdf</code>
+                  Supported: <code className="text-accent">.csv</code>, <code className="text-accent">.xls</code>, <code className="text-accent">.xlsx</code>, <code className="text-accent">.txt</code>, <code className="text-accent">.pdf</code>
+                </p>
+                <p className="text-muted-foreground text-xs mt-1">
+                  Gent/Honeywell panel exports are auto-detected
                 </p>
               </div>
 
@@ -464,7 +541,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
                       <p className="font-medium text-foreground">{fileName}</p>
                       <p className="text-sm text-muted-foreground">
                         {parsedDevices.length} devices parsed
-                        {isPdfFile && " (PDF - auto-mapped)"}
+                        {isPdfFile && " (auto-parsed)"}
                       </p>
                     </div>
                   </div>
@@ -474,13 +551,13 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
                     <p className="text-sm text-muted-foreground">
                       Click to upload or drag and drop
                     </p>
-                    <p className="text-xs text-muted-foreground">CSV, Excel, or PDF files</p>
+                    <p className="text-xs text-muted-foreground">CSV, Excel, TXT, or PDF files</p>
                   </>
                 )}
                 <input
                   id="import-file"
                   type="file"
-                  accept=".csv,.xls,.xlsx,.pdf"
+                  accept=".csv,.xls,.xlsx,.pdf,.txt"
                   className="hidden"
                   onChange={handleFileSelect}
                   disabled={loading || importing}
