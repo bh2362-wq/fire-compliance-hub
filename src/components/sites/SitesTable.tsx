@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Building2, MapPin, Cpu, Calendar, MoreHorizontal, Plus, Pencil, Trash2, Upload, Loader2 } from "lucide-react";
+import { Building2, MapPin, Cpu, MoreHorizontal, Plus, Pencil, Trash2, Upload, Loader2, Eye } from "lucide-react";
 import { Site, getSites, deleteSite } from "@/services/siteService";
 import SiteFormDialog from "./SiteFormDialog";
 import DeviceImportDialog from "./DeviceImportDialog";
@@ -39,6 +40,7 @@ const SitesTable = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const loadSites = async () => {
     setLoading(true);
@@ -154,7 +156,8 @@ const SitesTable = () => {
                 return (
                   <div
                     key={site.id}
-                    className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/30 transition-colors items-center"
+                    className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/30 transition-colors items-center cursor-pointer"
+                    onClick={() => navigate(`/dashboard/sites/${site.id}`)}
                   >
                     <div className="col-span-4">
                       <div className="flex items-center gap-3">
@@ -196,25 +199,49 @@ const SitesTable = () => {
                         {status.label}
                       </Badge>
                     </div>
-                    <div className="col-span-2 flex items-center justify-end">
+                    <div className="col-span-2 flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/dashboard/sites/${site.id}`);
+                        }}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <MoreHorizontal className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => handleEditSite(site)}>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditSite(site);
+                          }}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Edit Site
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleImportDevices(site)}>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            handleImportDevices(site);
+                          }}>
                             <Upload className="w-4 h-4 mr-2" />
                             Import Devices
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            onClick={() => handleDeleteClick(site)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteClick(site);
+                            }}
                             className="text-destructive focus:text-destructive"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
