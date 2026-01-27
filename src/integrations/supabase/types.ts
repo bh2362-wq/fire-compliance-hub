@@ -413,6 +413,89 @@ export type Database = {
           },
         ]
       }
+      xero_connections: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          id: string
+          refresh_token: string
+          tenant_id: string
+          tenant_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          refresh_token: string
+          tenant_id: string
+          tenant_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          tenant_id?: string
+          tenant_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      xero_invoices: {
+        Row: {
+          contact_id: string
+          contact_name: string | null
+          created_at: string
+          created_by: string
+          id: string
+          status: string | null
+          total_amount: number | null
+          visit_id: string
+          xero_invoice_id: string
+          xero_invoice_number: string | null
+        }
+        Insert: {
+          contact_id: string
+          contact_name?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          status?: string | null
+          total_amount?: number | null
+          visit_id: string
+          xero_invoice_id: string
+          xero_invoice_number?: string | null
+        }
+        Update: {
+          contact_id?: string
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          status?: string | null
+          total_amount?: number | null
+          visit_id?: string
+          xero_invoice_id?: string
+          xero_invoice_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xero_invoices_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
