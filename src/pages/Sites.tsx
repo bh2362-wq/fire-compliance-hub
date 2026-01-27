@@ -1,5 +1,5 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import SitesList from "@/components/dashboard/SitesList";
+import SitesTable from "@/components/sites/SitesTable";
 
 const Sites = () => {
   return (
@@ -11,7 +11,7 @@ const Sites = () => {
           <p className="text-muted-foreground">Manage fire alarm installations and device inventories</p>
         </div>
 
-        <SitesList />
+        <SitesTable />
       </div>
     </DashboardLayout>
   );
