@@ -32,7 +32,7 @@ export function AddressAutocomplete({
   value,
   onChange,
   onAddressSelect,
-  placeholder = "Start typing an address...",
+  placeholder = "Search by company name or address...",
   disabled = false,
   className,
 }: AddressAutocompleteProps) {
