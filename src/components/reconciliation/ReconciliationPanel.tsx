@@ -10,6 +10,7 @@ import {
 import { Loader2, GitCompare, AlertCircle } from "lucide-react";
 import { getSites, getSiteUploads, reconcileDevices, ReconciliationResult } from "@/services/reconciliationService";
 import ReconciliationResults from "./ReconciliationResults";
+import ReconciliationSkeleton from "./ReconciliationSkeleton";
 import { useToast } from "@/hooks/use-toast";
 
 interface ReconciliationPanelProps {
@@ -210,8 +211,11 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId }: ReconciliationP
         )}
       </div>
 
+      {/* Loading Skeleton */}
+      {reconciling && <ReconciliationSkeleton />}
+
       {/* Results */}
-      {result && <ReconciliationResults result={result} />}
+      {result && !reconciling && <ReconciliationResults result={result} />}
     </div>
   );
 };
