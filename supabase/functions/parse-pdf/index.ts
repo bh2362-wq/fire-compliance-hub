@@ -31,15 +31,41 @@ interface ParseResult {
 
 // Fire panel log patterns for text extraction
 const DEVICE_LINE_PATTERNS = [
+  // Gent/Honeywell format: "1 Lp 1 MCP ZONE 30 BASEMENT CORRIDOR"
+  // Pattern: [Address] Lp [Loop] [DeviceType] ZONE [Zone] [Location]
+  /^(\d+)\s+Lp\s+(\d+)\s+(\S+)\s+ZONE\s+(\d+)\s+(.+)$/i,
+  
+  // Alternative Gent format without "Lp": "1 Loop 1 MCP Zone 30 Location"
+  /^(\d+)\s+Loop\s+(\d+)\s+(\S+)\s+Zone\s+(\d+)\s+(.+)$/i,
+  
   // Pattern: "Loop 1 Addr 001 - Smoke Detector - PASS"
   /loop\s*(\d+)\s*addr(?:ess)?\s*(\d+)[^\n]*?([A-Za-z\s]+detector|sounder|call\s*point|module|beacon)[^\n]*?(pass|fail|fault|ok|tested|untested)/i,
+  
   // Pattern: "1-001 Optical Smoke PASS"
   /(\d+)-(\d+)\s+([A-Za-z\s]+)\s+(pass|fail|fault|ok|tested|untested)/i,
+  
   // Pattern: "L01/A001 Type:Smoke Status:OK"
   /L(\d+)\/A(\d+)\s+Type:([^\s]+)\s+Status:(\w+)/i,
+  
   // CSV-like: "1,1,Smoke Detector,Pass"
   /^(\d+),(\d+),([^,]+),(pass|fail|fault|ok|tested|untested)/im,
 ];
+
+// Gent device type code mappings
+const GENT_DEVICE_TYPES: Record<string, string> = {
+  "MCP": "Manual Call Point",
+  "QOH": "Quad Optical Heat Detector",
+  "QH": "Quad Heat Detector", 
+  "Q2H": "Quad 2 Heat Detector",
+  "qHV1": "Optical Heat Sounder",
+  "q2HV1": "Dual Optical Heat Sounder",
+  "q2HV3": "Dual Optical Heat Sounder VAD",
+  "q2H1": "Dual Optical Heat Detector",
+  "qHS": "Heat Sounder",
+  "MVI": "Input Module",
+  "MVO": "Output Module",
+  "S-Quad": "S-Quad Detector",
+};
 
 const STATUS_MAPPING: Record<string, string> = {
   pass: "pass",
@@ -57,6 +83,10 @@ const STATUS_MAPPING: Record<string, string> = {
   "n/a": "untested",
 };
 
+function normalizeDeviceType(code: string): string {
+  return GENT_DEVICE_TYPES[code] || GENT_DEVICE_TYPES[code.toUpperCase()] || code;
+}
+
 function normalizeStatus(status: string): string {
   const normalized = status.toLowerCase().trim();
   return STATUS_MAPPING[normalized] || "untested";
@@ -70,18 +100,52 @@ function parseTextContent(text: string): ParseResult {
 
   console.log(`Parsing ${lines.length} lines of text`);
 
+  // First try Gent/Honeywell specific format
+  // Format: [Address] Lp [Loop] [DeviceType] ZONE [Zone] [Location]
+  const gentPattern = /^(\d+)\s+Lp\s+(\d+)\s+(\S+)\s+ZONE\s+(\d+)\s+(.+)$/i;
+  
   for (const line of lines) {
     const trimmedLine = line.trim();
     if (!trimmedLine) continue;
 
-    for (const pattern of DEVICE_LINE_PATTERNS) {
+    // Try Gent format first
+    const gentMatch = trimmedLine.match(gentPattern);
+    if (gentMatch) {
+      const address = gentMatch[1].padStart(3, "0");
+      const loop = gentMatch[2].padStart(2, "0");
+      const deviceTypeCode = gentMatch[3];
+      const zone = gentMatch[4];
+      const location = gentMatch[5].trim();
+      
+      const deviceKey = `${loop}-${address}`;
+      if (seenDevices.has(deviceKey)) continue;
+      seenDevices.add(deviceKey);
+
+      const device: ParsedDevice = {
+        loop,
+        address,
+        deviceType: normalizeDeviceType(deviceTypeCode),
+        location: location || null,
+        status: "untested", // Gent logs don't include status
+        rawData: { 
+          originalLine: trimmedLine,
+          zone,
+          deviceCode: deviceTypeCode,
+        },
+      };
+
+      devices.push(device);
+      continue;
+    }
+
+    // Try other patterns for different panel formats
+    for (const pattern of DEVICE_LINE_PATTERNS.slice(2)) { // Skip Gent patterns already tried
       const match = trimmedLine.match(pattern);
       if (match) {
         const loop = match[1].padStart(2, "0");
         const address = match[2].padStart(3, "0");
         const deviceKey = `${loop}-${address}`;
 
-        // Avoid duplicates
         if (seenDevices.has(deviceKey)) continue;
         seenDevices.add(deviceKey);
 
