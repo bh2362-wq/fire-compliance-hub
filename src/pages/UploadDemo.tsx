@@ -2,10 +2,11 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import FileUpload from "@/components/uploads/FileUpload";
 import ParsedResultsTable from "@/components/uploads/ParsedResultsTable";
 import UploadHistory from "@/components/uploads/UploadHistory";
+import SiteSelector from "@/components/uploads/SiteSelector";
 import { parseCSV, parseTXT, ParseResult } from "@/lib/parsers/csvParser";
 import { saveFileUpload } from "@/services/uploadService";
 import { useState, useCallback } from "react";
-import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,6 +21,7 @@ const UploadDemo = () => {
   const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([]);
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedSiteId, setSelectedSiteId] = useState<string>("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { toast } = useToast();
 
@@ -87,6 +89,7 @@ const UploadDemo = () => {
       const { uploadId, error } = await saveFileUpload({
         file,
         parseResult: result,
+        siteId: selectedSiteId && selectedSiteId !== "none" ? selectedSiteId : undefined,
       });
 
       if (error) {
@@ -130,7 +133,26 @@ const UploadDemo = () => {
           </p>
         </div>
 
-        <FileUpload onFilesSelected={handleFilesSelected} maxFiles={5} maxSizeMB={20} />
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3">
+            <FileUpload onFilesSelected={handleFilesSelected} maxFiles={5} maxSizeMB={20} />
+          </div>
+          <div className="lg:col-span-1">
+            <div className="bg-card border border-border rounded-xl p-4">
+              <SiteSelector
+                value={selectedSiteId}
+                onValueChange={setSelectedSiteId}
+                disabled={saving}
+              />
+              {selectedSiteId && selectedSiteId !== "none" && (
+                <div className="mt-3 flex items-center gap-2 text-sm text-success">
+                  <Link className="w-4 h-4" />
+                  <span>Uploads will be linked to this site</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         {parsing && (
           <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground">
