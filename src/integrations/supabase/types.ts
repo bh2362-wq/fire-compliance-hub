@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      contract_assets: {
+        Row: {
+          contract_id: string
+          created_at: string
+          id: string
+          item_name: string
+          item_type: string | null
+          location: string | null
+          loops_count: number | null
+          manufacturer: string | null
+          model: string | null
+          notes: string | null
+          serial_number: string | null
+          updated_at: string
+          zones_count: number | null
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          id?: string
+          item_name: string
+          item_type?: string | null
+          location?: string | null
+          loops_count?: number | null
+          manufacturer?: string | null
+          model?: string | null
+          notes?: string | null
+          serial_number?: string | null
+          updated_at?: string
+          zones_count?: number | null
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          id?: string
+          item_name?: string
+          item_type?: string | null
+          location?: string | null
+          loops_count?: number | null
+          manufacturer?: string | null
+          model?: string | null
+          notes?: string | null
+          serial_number?: string | null
+          updated_at?: string
+          zones_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_assets_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "site_service_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null

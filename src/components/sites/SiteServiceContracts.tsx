@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Package } from "lucide-react";
 import { format } from "date-fns";
 import {
   ServiceContract,
@@ -15,6 +15,7 @@ import {
   getFrequencyLabel,
 } from "@/services/serviceContractService";
 import { ServiceContractDialog } from "./ServiceContractDialog";
+import { ContractAssetsDialog } from "./ContractAssetsDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +37,7 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editContract, setEditContract] = useState<ServiceContract | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [assetsContract, setAssetsContract] = useState<ServiceContract | null>(null);
 
   useEffect(() => {
     loadContracts();
@@ -196,6 +198,14 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => setAssetsContract(contract)}
+                          title="Manage Assets"
+                        >
+                          <Package className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleEdit(contract)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -225,6 +235,14 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
         existingTypes={contracts.map((c) => c.service_type)}
         onSaved={loadContracts}
       />
+
+      {assetsContract && (
+        <ContractAssetsDialog
+          open={!!assetsContract}
+          onOpenChange={(open) => !open && setAssetsContract(null)}
+          contract={assetsContract}
+        />
+      )}
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
