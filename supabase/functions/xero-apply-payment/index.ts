@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
 
     // Parse body params
     const body = await req.json();
-    const { invoiceId, bankTransactionId, amount, date, accountCode } = body;
+    const { invoiceId, bankTransactionId, amount, date, bankAccountCode } = body;
 
     if (!invoiceId || !amount) {
       return new Response(
@@ -110,9 +110,32 @@ Deno.serve(async (req) => {
       );
     }
 
-    // First, get the bank account from the transaction if provided
+    // Find the bank account - prefer specified code, then from transaction, then first active
     let bankAccountId = null;
-    if (bankTransactionId) {
+    let bankAccountName = null;
+
+    // If bank account code is specified (e.g., "090" for a specific bank account)
+    if (bankAccountCode) {
+      const accountsUrl = `https://api.xero.com/api.xro/2.0/Accounts?where=Code=="${bankAccountCode}"&&Type=="BANK"&&Status=="ACTIVE"`;
+      const accountsResponse = await fetch(accountsUrl, {
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Xero-Tenant-Id": connection.tenant_id,
+          "Accept": "application/json",
+        },
+      });
+      
+      if (accountsResponse.ok) {
+        const accountsData = await accountsResponse.json();
+        if (accountsData.Accounts?.length > 0) {
+          bankAccountId = accountsData.Accounts[0].AccountID;
+          bankAccountName = accountsData.Accounts[0].Name;
+        }
+      }
+    }
+
+    // Try to get bank account from the transaction if provided
+    if (!bankAccountId && bankTransactionId) {
       const txUrl = `https://api.xero.com/api.xro/2.0/BankTransactions/${bankTransactionId}`;
       const txResponse = await fetch(txUrl, {
         headers: {
@@ -125,10 +148,11 @@ Deno.serve(async (req) => {
       if (txResponse.ok) {
         const txData = await txResponse.json();
         bankAccountId = txData.BankTransactions?.[0]?.BankAccount?.AccountID;
+        bankAccountName = txData.BankTransactions?.[0]?.BankAccount?.Name;
       }
     }
 
-    // If no bank account from transaction, get the first bank account
+    // Fallback to first active bank account
     if (!bankAccountId) {
       const accountsUrl = `https://api.xero.com/api.xro/2.0/Accounts?where=Type=="BANK"&&Status=="ACTIVE"`;
       const accountsResponse = await fetch(accountsUrl, {
@@ -141,7 +165,10 @@ Deno.serve(async (req) => {
       
       if (accountsResponse.ok) {
         const accountsData = await accountsResponse.json();
-        bankAccountId = accountsData.Accounts?.[0]?.AccountID;
+        if (accountsData.Accounts?.length > 0) {
+          bankAccountId = accountsData.Accounts[0].AccountID;
+          bankAccountName = accountsData.Accounts[0].Name;
+        }
       }
     }
 
@@ -151,6 +178,9 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log(`Using bank account: ${bankAccountName} (${bankAccountId})`);
+    console.log("Note: Sales account 200 was credited when the invoice was created. This payment clears the receivable.");
 
     // Create the payment in Xero
     // This posts the payment against the invoice and reconciles to the bank account
@@ -202,17 +232,21 @@ Deno.serve(async (req) => {
 
     if (updateError) {
       console.log("Note: Could not update local invoice status:", updateError.message);
+    } else {
+      console.log("Local invoice status updated to PAID");
     }
 
     return new Response(
       JSON.stringify({
         success: true,
+        message: "Payment applied successfully. Invoice marked as paid.",
         payment: {
           paymentId: payment.PaymentID,
           invoiceId: payment.Invoice?.InvoiceID,
           amount: payment.Amount,
           date: payment.Date,
           status: payment.Status,
+          bankAccount: bankAccountName,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
