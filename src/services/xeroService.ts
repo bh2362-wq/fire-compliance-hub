@@ -9,12 +9,31 @@ export interface XeroConnection {
   created_at: string;
 }
 
+export interface XeroAddress {
+  AddressType: string;
+  AddressLine1?: string;
+  AddressLine2?: string;
+  City?: string;
+  Region?: string;
+  PostalCode?: string;
+  Country?: string;
+}
+
+export interface XeroPhone {
+  PhoneType: string;
+  PhoneNumber?: string;
+  PhoneAreaCode?: string;
+  PhoneCountryCode?: string;
+}
+
 export interface XeroContact {
   ContactID: string;
   Name: string;
   EmailAddress?: string;
   FirstName?: string;
   LastName?: string;
+  Addresses?: XeroAddress[];
+  Phones?: XeroPhone[];
 }
 
 export interface XeroInvoice {
