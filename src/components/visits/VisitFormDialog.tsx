@@ -44,6 +44,7 @@ type VisitFormData = z.infer<typeof visitFormSchema>;
 
 const VISIT_TYPES = [
   { value: "quarterly_service", label: "Quarterly Service" },
+  { value: "biannual_service", label: "6-Monthly Service" },
   { value: "annual_inspection", label: "Annual Inspection" },
   { value: "emergency", label: "Emergency Callout" },
   { value: "remedial", label: "Remedial Works" },

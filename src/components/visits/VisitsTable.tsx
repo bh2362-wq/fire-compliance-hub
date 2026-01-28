@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
-
+import { SmokeSprayEstimate } from "./SmokeSprayEstimate";
 interface VisitsTableProps {
   visits: Visit[];
   loading: boolean;
@@ -79,8 +79,9 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
         <div className="col-span-3">Site</div>
         <div className="col-span-2">Date / Type</div>
         <div className="col-span-2">Devices</div>
-        <div className="col-span-2">Coverage</div>
-        <div className="col-span-3">Actions</div>
+        <div className="col-span-1">Coverage</div>
+        <div className="col-span-2">Smoke Spray</div>
+        <div className="col-span-2">Actions</div>
       </div>
 
       {/* Table body */}
@@ -128,9 +129,9 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
                   )}
                 </div>
               </div>
-              <div className="col-span-2">
+              <div className="col-span-1">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${
@@ -143,13 +144,16 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
                         style={{ width: `${coverage}%` }}
                       />
                     </div>
-                    <span className="text-sm font-medium text-foreground w-10">
+                    <span className="text-xs font-medium text-foreground w-8">
                       {coverage}%
                     </span>
                   </div>
                 </div>
               </div>
-              <div className="col-span-3 flex items-center gap-2 flex-wrap">
+              <div className="col-span-2">
+                <SmokeSprayEstimate siteId={visit.site_id} visitType={visit.visit_type} />
+              </div>
+              <div className="col-span-2 flex items-center gap-2 flex-wrap">
                 <Button
                   variant="ghost"
                   size="sm"
