@@ -99,16 +99,40 @@ Deno.serve(async (req) => {
     const accessToken = await refreshTokenIfNeeded(supabase, connection);
 
     const body = await req.json().catch(() => ({}));
-    const { invoiceId, contactName } = body;
+    const { invoiceId, contactName, daysBack = 60 } = body;
 
     const results: any = {
       bankTransactions: [],
       payments: [],
       invoiceDetails: null,
+      bankAccounts: [],
+      creditNotes: [],
     };
 
-    // 1. Get ALL bank transactions (not just RECEIVE) from the last 14 days
-    const fromDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    // 1. Get bank accounts first
+    const accountsUrl = `https://api.xero.com/api.xro/2.0/Accounts?where=${encodeURIComponent('Type=="BANK"')}`;
+    console.log("Fetching bank accounts:", accountsUrl);
+    
+    const accountsResponse = await fetch(accountsUrl, {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Xero-Tenant-Id": connection.tenant_id,
+        "Accept": "application/json",
+      },
+    });
+
+    if (accountsResponse.ok) {
+      const accountsData = await accountsResponse.json();
+      results.bankAccounts = (accountsData.Accounts || []).map((a: any) => ({
+        accountId: a.AccountID,
+        name: a.Name,
+        code: a.Code,
+        status: a.Status,
+      }));
+    }
+
+    // 2. Get ALL bank transactions from configurable days back
+    const fromDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const toDate = new Date().toISOString().split("T")[0];
     
     const allTxUrl = `https://api.xero.com/api.xro/2.0/BankTransactions?where=${encodeURIComponent(`Date>=DateTime(${fromDate.replace(/-/g, ",")})`)}`;
@@ -176,7 +200,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Get recent payments
+    // 4. Get recent payments
     const paymentsUrl = `https://api.xero.com/api.xro/2.0/Payments?where=${encodeURIComponent(`Date>=DateTime(${fromDate.replace(/-/g, ",")})`)}`;
     console.log("Fetching recent payments:", paymentsUrl);
     
@@ -193,7 +217,6 @@ Deno.serve(async (req) => {
       results.payments = (paymentsData.Payments || [])
         .filter((p: any) => {
           if (!contactName) return true;
-          // Try to match by invoice contact if available
           return true; // Return all for now
         })
         .map((p: any) => ({
@@ -206,7 +229,39 @@ Deno.serve(async (req) => {
         }));
     }
 
-    console.log(`Found ${results.bankTransactions.length} bank transactions, ${results.payments.length} payments`);
+    // 5. Get credit notes for the contact
+    if (contactName) {
+      const creditNotesUrl = `https://api.xero.com/api.xro/2.0/CreditNotes?where=${encodeURIComponent(`Status=="AUTHORISED"`)}`;
+      console.log("Fetching credit notes:", creditNotesUrl);
+      
+      const creditNotesResponse = await fetch(creditNotesUrl, {
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Xero-Tenant-Id": connection.tenant_id,
+          "Accept": "application/json",
+        },
+      });
+
+      if (creditNotesResponse.ok) {
+        const creditNotesData = await creditNotesResponse.json();
+        results.creditNotes = (creditNotesData.CreditNotes || [])
+          .filter((cn: any) => {
+            const name = cn.Contact?.Name?.toLowerCase() || "";
+            return name.includes(contactName.toLowerCase());
+          })
+          .map((cn: any) => ({
+            creditNoteId: cn.CreditNoteID,
+            creditNoteNumber: cn.CreditNoteNumber,
+            date: cn.Date,
+            contact: cn.Contact?.Name,
+            total: cn.Total,
+            remainingCredit: cn.RemainingCredit,
+            status: cn.Status,
+          }));
+      }
+    }
+
+    console.log(`Found ${results.bankTransactions.length} bank transactions, ${results.payments.length} payments, ${results.creditNotes.length} credit notes`);
 
     return new Response(
       JSON.stringify(results),
