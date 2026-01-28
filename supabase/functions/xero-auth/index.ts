@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     authUrl.searchParams.set("response_type", "code");
     authUrl.searchParams.set("client_id", clientId);
     authUrl.searchParams.set("redirect_uri", redirectUri);
-    authUrl.searchParams.set("scope", "openid profile email accounting.transactions accounting.contacts offline_access");
+    authUrl.searchParams.set("scope", "openid profile email accounting.transactions accounting.contacts accounting.settings offline_access");
     authUrl.searchParams.set("state", state);
 
     return new Response(
