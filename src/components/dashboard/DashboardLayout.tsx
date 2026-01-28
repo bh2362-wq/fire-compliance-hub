@@ -24,12 +24,12 @@ interface DashboardLayoutProps {
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Sites", href: "/dashboard/sites", icon: Building2 },
+  { name: "Customers", href: "/customers", icon: Users },
+  { name: "Sites", href: "/sites", icon: Building2 },
   { name: "Visits", href: "/dashboard/visits", icon: ClipboardList },
   { name: "Uploads", href: "/dashboard/upload", icon: Upload },
   { name: "Reconciliation", href: "/dashboard/reconciliation", icon: GitCompare },
   { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
-  { name: "Team", href: "/dashboard/team", icon: Users },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 

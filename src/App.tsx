@@ -11,6 +11,8 @@ import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Sites from "./pages/Sites";
 import SiteDetail from "./pages/SiteDetail";
+import Customers from "./pages/Customers";
+import CustomerDetail from "./pages/CustomerDetail";
 import Visits from "./pages/Visits";
 import Reports from "./pages/Reports";
 import UploadDemo from "./pages/UploadDemo";
@@ -32,6 +34,10 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+            <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
+            <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
+            <Route path="/sites/:siteId" element={<ProtectedRoute><SiteDetail /></ProtectedRoute>} />
             <Route path="/dashboard/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
             <Route path="/dashboard/sites/:siteId" element={<ProtectedRoute><SiteDetail /></ProtectedRoute>} />
             <Route path="/dashboard/visits" element={<ProtectedRoute><Visits /></ProtectedRoute>} />
