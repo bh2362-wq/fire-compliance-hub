@@ -2,6 +2,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RecentVisits from "@/components/dashboard/RecentVisits";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
+import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { Building2, ClipboardCheck, AlertTriangle, Percent } from "lucide-react";
 
 const Dashboard = () => {
@@ -47,10 +48,15 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Charts and lists */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          <ComplianceChart />
-          <RecentVisits />
+        {/* Charts, lists, and financials */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <ComplianceChart />
+            <RecentVisits />
+          </div>
+          <div>
+            <FinancialSummary />
+          </div>
         </div>
       </div>
     </DashboardLayout>

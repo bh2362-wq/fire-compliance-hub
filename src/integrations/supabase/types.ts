@@ -84,6 +84,7 @@ export type Database = {
           postcode: string | null
           status: string | null
           updated_at: string
+          xero_contact_id: string | null
         }
         Insert: {
           address?: string | null
@@ -98,6 +99,7 @@ export type Database = {
           postcode?: string | null
           status?: string | null
           updated_at?: string
+          xero_contact_id?: string | null
         }
         Update: {
           address?: string | null
@@ -112,6 +114,7 @@ export type Database = {
           postcode?: string | null
           status?: string | null
           updated_at?: string
+          xero_contact_id?: string | null
         }
         Relationships: []
       }

@@ -18,6 +18,9 @@ verify_jwt = false
 [functions.xero-contacts]
 verify_jwt = false
 
+[functions.xero-create-contact]
+verify_jwt = false
+
 [functions.xero-create-invoice]
 verify_jwt = false
 

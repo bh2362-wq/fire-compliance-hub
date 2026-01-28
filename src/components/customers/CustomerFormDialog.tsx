@@ -27,12 +27,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Download, Users } from "lucide-react";
-import { Customer, createCustomer, updateCustomer } from "@/services/customerService";
+import { Loader2, Users, Link2, Plus } from "lucide-react";
+import { Customer, createCustomer, updateCustomer, createXeroContact } from "@/services/customerService";
 import { fetchXeroContacts, getXeroConnection, XeroContact } from "@/services/xeroService";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { Badge } from "@/components/ui/badge";
 
 const customerSchema = z.object({
   name: z.string().min(1, "Customer name is required"),
@@ -65,6 +66,7 @@ export function CustomerFormDialog({
   const [xeroContacts, setXeroContacts] = useState<XeroContact[]>([]);
   const [selectedXeroContact, setSelectedXeroContact] = useState<string>("");
   const [hasXeroConnection, setHasXeroConnection] = useState(false);
+  const [createInXero, setCreateInXero] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
   const isEditing = !!customer;
@@ -97,6 +99,7 @@ export function CustomerFormDialog({
         notes: customer?.notes || "",
       });
       setSelectedXeroContact("");
+      setCreateInXero(true);
       checkXeroAndLoadContacts();
     }
   }, [open, customer]);
@@ -128,6 +131,7 @@ export function CustomerFormDialog({
 
   const handleXeroContactSelect = (contactId: string) => {
     setSelectedXeroContact(contactId);
+    setCreateInXero(false); // They're importing, so don't create new
     const contact = xeroContacts.find(c => c.ContactID === contactId);
     if (contact) {
       // Parse address from Xero contact
@@ -156,6 +160,50 @@ export function CustomerFormDialog({
   const onSubmit = async (data: CustomerFormData) => {
     setSaving(true);
 
+    let xeroContactId: string | null = null;
+
+    // If we're importing from Xero, use the selected contact ID
+    if (selectedXeroContact) {
+      xeroContactId = selectedXeroContact;
+    } 
+    // If creating a new customer and Xero is connected, create in Xero too
+    else if (!isEditing && hasXeroConnection && createInXero) {
+      toast({
+        title: "Creating in Xero...",
+        description: "Syncing customer to your Xero account.",
+      });
+
+      // Parse contact name into first/last
+      const nameParts = (data.contact_name || "").split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      const { contactId, error: xeroError } = await createXeroContact({
+        name: data.name,
+        email: data.contact_email || undefined,
+        phone: data.contact_phone || undefined,
+        firstName,
+        lastName,
+        addressLine1: data.address || undefined,
+        city: data.city || undefined,
+        postalCode: data.postcode || undefined,
+      });
+
+      if (xeroError) {
+        toast({
+          title: "Xero sync failed",
+          description: `Customer will be saved locally. Xero error: ${xeroError.message}`,
+          variant: "destructive",
+        });
+      } else {
+        xeroContactId = contactId;
+        toast({
+          title: "Xero contact created",
+          description: "Customer has been synced to Xero.",
+        });
+      }
+    }
+
     const customerData = {
       name: data.name,
       contact_name: data.contact_name || null,
@@ -166,6 +214,7 @@ export function CustomerFormDialog({
       postcode: data.postcode || null,
       notes: data.notes || null,
       status: "active",
+      ...(xeroContactId && { xero_contact_id: xeroContactId }),
     };
 
     const result = isEditing
@@ -181,7 +230,7 @@ export function CustomerFormDialog({
     } else {
       toast({
         title: isEditing ? "Customer updated" : "Customer created",
-        description: `${data.name} has been ${isEditing ? "updated" : "added"} successfully.`,
+        description: `${data.name} has been ${isEditing ? "updated" : "added"} successfully.${xeroContactId ? " Linked to Xero." : ""}`,
       });
       onSuccess();
       onOpenChange(false);
@@ -204,32 +253,74 @@ export function CustomerFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Xero Import Section - Only show when adding new customer and Xero is connected */}
+        {/* Xero Sync Section - Only show when Xero is connected */}
         {!isEditing && hasXeroConnection && (
-          <div className="border border-border rounded-lg p-4 bg-muted/30">
-            <div className="flex items-center gap-2 mb-3">
-              <Users className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">Import from Xero</span>
+          <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Xero Integration</span>
+              </div>
+              {selectedXeroContact && (
+                <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                  <Link2 className="w-3 h-3 mr-1" />
+                  Linked
+                </Badge>
+              )}
             </div>
-            <Select 
-              value={selectedXeroContact} 
-              onValueChange={handleXeroContactSelect}
-              disabled={loadingContacts}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={loadingContacts ? "Loading contacts..." : "Select a Xero contact"} />
-              </SelectTrigger>
-              <SelectContent>
-                {xeroContacts.map((contact) => (
-                  <SelectItem key={contact.ContactID} value={contact.ContactID}>
-                    {contact.Name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-2">
-              Select a contact to auto-fill the form. You can edit the details before saving.
+
+            {/* Import existing contact */}
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">Import existing Xero contact:</label>
+              <Select 
+                value={selectedXeroContact} 
+                onValueChange={handleXeroContactSelect}
+                disabled={loadingContacts}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingContacts ? "Loading contacts..." : "Select a Xero contact"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {xeroContacts.map((contact) => (
+                    <SelectItem key={contact.ContactID} value={contact.ContactID}>
+                      {contact.Name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Or create new in Xero */}
+            {!selectedXeroContact && (
+              <div className="flex items-center gap-2 pt-2 border-t border-border">
+                <input
+                  type="checkbox"
+                  id="createInXero"
+                  checked={createInXero}
+                  onChange={(e) => setCreateInXero(e.target.checked)}
+                  className="rounded border-border"
+                />
+                <label htmlFor="createInXero" className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Plus className="w-3 h-3" />
+                  Create as new contact in Xero
+                </label>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              Linking to Xero enables invoice tracking and financial visibility.
             </p>
+          </div>
+        )}
+
+        {/* Show Xero link status for existing customers */}
+        {isEditing && customer?.xero_contact_id && (
+          <div className="flex items-center gap-2 p-3 border border-border rounded-lg bg-muted/30">
+            <Link2 className="w-4 h-4 text-success" />
+            <span className="text-sm text-muted-foreground">Linked to Xero contact</span>
+            <Badge variant="outline" className="ml-auto bg-success/10 text-success border-success/20">
+              Synced
+            </Badge>
           </div>
         )}
 
