@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import DeviceInventory from "@/components/sites/DeviceInventory";
 import SiteUploadHistory from "@/components/sites/SiteUploadHistory";
@@ -11,9 +11,10 @@ import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Site } from "@/services/siteService";
+import { Customer } from "@/services/customerService";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,6 +28,7 @@ const SiteDetail = () => {
   const { siteId } = useParams<{ siteId: string }>();
   const navigate = useNavigate();
   const [site, setSite] = useState<Site | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -43,6 +45,21 @@ const SiteDetail = () => {
 
     if (!error && data) {
       setSite(data as Site);
+      
+      // Fetch customer if site has customer_id
+      if (data.customer_id) {
+        const { data: customerData } = await supabase
+          .from("customers")
+          .select("*")
+          .eq("id", data.customer_id)
+          .maybeSingle();
+        
+        if (customerData) {
+          setCustomer(customerData as Customer);
+        }
+      } else {
+        setCustomer(null);
+      }
     }
     setLoading(false);
   };
@@ -113,6 +130,15 @@ const SiteDetail = () => {
                   {status.label}
                 </Badge>
               </div>
+              {customer && (
+                <Link 
+                  to={`/dashboard/customers/${customer.id}`}
+                  className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  {customer.name}
+                </Link>
+              )}
               {(site.address || site.city) && (
                 <p className="text-muted-foreground flex items-center gap-1 mt-1">
                   <MapPin className="w-4 h-4" />
