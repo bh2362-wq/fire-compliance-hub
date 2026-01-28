@@ -307,6 +307,10 @@ export function CustomerFormDialog({
                         form.setValue("address", details.address);
                         form.setValue("city", details.city);
                         form.setValue("postcode", details.postcode);
+                        // Auto-fill customer name if a business was selected and name is empty
+                        if (details.businessName && !form.getValues("name")) {
+                          form.setValue("name", details.businessName);
+                        }
                       }}
                       placeholder="Start typing to search UK addresses..."
                       disabled={saving}

@@ -35,7 +35,7 @@ serve(async (req) => {
     const params = new URLSearchParams({
       place_id: placeId,
       key: apiKey,
-      fields: 'address_components,formatted_address',
+      fields: 'address_components,formatted_address,name,types',
     });
 
     if (sessionToken) {
@@ -70,7 +70,14 @@ serve(async (req) => {
     const city = getComponent('postal_town') || getComponent('locality');
     const postcode = getComponent('postal_code');
 
-    console.log('Parsed address:', { address, city, postcode });
+    // Check if this is a business/establishment and get the name
+    const types = detailsData.result.types || [];
+    const isEstablishment = types.some((t: string) => 
+      ['establishment', 'point_of_interest', 'store', 'food', 'health', 'finance', 'lodging', 'premise'].includes(t)
+    );
+    const businessName = isEstablishment ? (detailsData.result.name || '') : '';
+
+    console.log('Parsed address:', { address, city, postcode, businessName, types });
 
     return new Response(
       JSON.stringify({
@@ -78,6 +85,7 @@ serve(async (req) => {
         city,
         postcode,
         formatted_address: detailsData.result.formatted_address,
+        businessName,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -265,6 +265,8 @@ const SiteFormDialog = ({
                   address: details.address,
                   city: details.city,
                   postcode: details.postcode,
+                  // Auto-fill site name if a business was selected and name is empty
+                  ...(details.businessName && !prev.name ? { name: details.businessName } : {}),
                 }));
               }}
               placeholder="Start typing to search UK addresses..."
