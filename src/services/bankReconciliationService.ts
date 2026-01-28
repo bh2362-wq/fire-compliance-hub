@@ -63,3 +63,35 @@ export async function fetchBankTransactions(options?: {
     },
   };
 }
+
+export interface ApplyPaymentResult {
+  success: boolean;
+  payment: {
+    paymentId: string;
+    invoiceId: string;
+    amount: number;
+    date: string;
+    status: string;
+  };
+}
+
+export async function applyPaymentToInvoice(options: {
+  invoiceId: string;
+  bankTransactionId?: string;
+  amount: number;
+  date?: string;
+}): Promise<ApplyPaymentResult> {
+  const { data, error } = await supabase.functions.invoke("xero-apply-payment", {
+    body: {
+      invoiceId: options.invoiceId,
+      bankTransactionId: options.bankTransactionId,
+      amount: options.amount,
+      date: options.date,
+    },
+  });
+
+  if (error) throw new Error(error.message);
+  if (data.error) throw new Error(data.error);
+
+  return data;
+}
