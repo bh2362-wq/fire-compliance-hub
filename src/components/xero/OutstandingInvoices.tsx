@@ -10,7 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -26,6 +28,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface XeroInvoice {
   invoiceId: string;
@@ -66,6 +76,10 @@ export function OutstandingInvoices() {
   const [error, setError] = useState<string | null>(null);
   const [deletingInvoice, setDeletingInvoice] = useState<XeroInvoice | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [payingInvoice, setPayingInvoice] = useState<XeroInvoice | null>(null);
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [paymentAmount, setPaymentAmount] = useState("");
   const { toast } = useToast();
 
   const fetchOutstandingInvoices = async () => {
@@ -118,6 +132,46 @@ export function OutstandingInvoices() {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleMarkAsPaid = async () => {
+    if (!payingInvoice) return;
+    
+    setIsPaying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("xero-apply-payment", {
+        body: {
+          invoiceId: payingInvoice.invoiceId,
+          amount: parseFloat(paymentAmount) || payingInvoice.amountDue,
+          date: paymentDate,
+        },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+
+      toast({
+        title: "Payment Applied",
+        description: `Invoice ${payingInvoice.invoiceNumber} marked as paid in Xero`,
+      });
+      setPayingInvoice(null);
+      fetchOutstandingInvoices();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to apply payment";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsPaying(false);
+    }
+  };
+
+  const openPaymentDialog = (invoice: XeroInvoice) => {
+    setPayingInvoice(invoice);
+    setPaymentAmount(invoice.amountDue.toString());
+    setPaymentDate(format(new Date(), "yyyy-MM-dd"));
   };
 
   const canDeleteInvoice = (invoice: XeroInvoice) => {
@@ -278,7 +332,7 @@ export function OutstandingInvoices() {
                           <TableHead className="text-right">Total</TableHead>
                           <TableHead className="text-right">Amount Due</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead className="w-[100px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -310,16 +364,28 @@ export function OutstandingInvoices() {
                               )}
                             </TableCell>
                             <TableCell>
-                              {canDeleteInvoice(invoice) && (
+                              <div className="flex items-center gap-1">
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                  onClick={() => setDeletingInvoice(invoice)}
+                                  className="h-8 w-8 text-muted-foreground hover:text-green-600"
+                                  onClick={() => openPaymentDialog(invoice)}
+                                  title="Mark as Paid"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <CheckCircle className="h-4 w-4" />
                                 </Button>
-                              )}
+                                {canDeleteInvoice(invoice) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    onClick={() => setDeletingInvoice(invoice)}
+                                    title="Delete Invoice"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -410,6 +476,62 @@ export function OutstandingInvoices() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Mark as Paid Dialog */}
+      <Dialog open={!!payingInvoice} onOpenChange={(open) => !open && setPayingInvoice(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark Invoice as Paid</DialogTitle>
+            <DialogDescription>
+              Record a payment for invoice <strong>{payingInvoice?.invoiceNumber}</strong> ({payingInvoice?.contactName}).
+              This will create a payment record in Xero and reconcile the invoice.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="paymentAmount">Payment Amount</Label>
+              <Input
+                id="paymentAmount"
+                type="number"
+                step="0.01"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder={payingInvoice?.amountDue.toString()}
+              />
+              <p className="text-xs text-muted-foreground">
+                Invoice total: {payingInvoice && formatCurrency(payingInvoice.amountDue, payingInvoice.currencyCode)}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="paymentDate">Payment Date</Label>
+              <Input
+                id="paymentDate"
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayingInvoice(null)} disabled={isPaying}>
+              Cancel
+            </Button>
+            <Button onClick={handleMarkAsPaid} disabled={isPaying}>
+              {isPaying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Applying...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Apply Payment
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
