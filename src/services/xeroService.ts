@@ -34,6 +34,11 @@ export interface XeroContact {
   LastName?: string;
   Addresses?: XeroAddress[];
   Phones?: XeroPhone[];
+  IsCustomer?: boolean;
+  IsSupplier?: boolean;
+  ContactStatus?: string;
+  HasOutstandingBalance?: boolean;
+  OutstandingBalance?: number;
 }
 
 export interface XeroInvoice {
@@ -106,10 +111,17 @@ export async function deleteXeroConnection(connectionId: string): Promise<void> 
   if (error) throw error;
 }
 
-export async function fetchXeroContacts(search?: string): Promise<XeroContact[]> {
-  const url = search ? `xero-contacts?search=${encodeURIComponent(search)}` : "xero-contacts";
+export async function fetchXeroContacts(options?: { search?: string; customersOnly?: boolean }): Promise<XeroContact[]> {
+  const params = new URLSearchParams();
+  if (options?.search) {
+    params.set("search", options.search);
+  }
+  if (options?.customersOnly) {
+    params.set("customersOnly", "true");
+  }
+  
   const { data, error } = await supabase.functions.invoke("xero-contacts", {
-    body: search ? undefined : undefined,
+    body: {},
   });
 
   if (error) throw new Error(error.message);

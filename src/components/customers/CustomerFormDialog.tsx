@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,19 +21,26 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Loader2, Users, Link2, Plus } from "lucide-react";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Loader2, Users, Link2, Plus, Check, ChevronsUpDown, PoundSterling } from "lucide-react";
 import { Customer, createCustomer, updateCustomer, createXeroContact } from "@/services/customerService";
 import { fetchXeroContacts, getXeroConnection, XeroContact } from "@/services/xeroService";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const customerSchema = z.object({
   name: z.string().min(1, "Customer name is required"),
@@ -67,6 +74,8 @@ export function CustomerFormDialog({
   const [selectedXeroContact, setSelectedXeroContact] = useState<string>("");
   const [hasXeroConnection, setHasXeroConnection] = useState(false);
   const [createInXero, setCreateInXero] = useState(true);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
   const isEditing = !!customer;
@@ -85,6 +94,30 @@ export function CustomerFormDialog({
     },
   });
 
+  // Filter contacts based on search query with predictive matching
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery) return xeroContacts;
+    const query = searchQuery.toLowerCase();
+    return xeroContacts.filter((contact) =>
+      contact.Name.toLowerCase().includes(query) ||
+      contact.EmailAddress?.toLowerCase().includes(query)
+    );
+  }, [xeroContacts, searchQuery]);
+
+  // Sort contacts: customers with outstanding balance first, then active customers, then others
+  const sortedContacts = useMemo(() => {
+    return [...filteredContacts].sort((a, b) => {
+      // Outstanding balance first
+      if (a.HasOutstandingBalance && !b.HasOutstandingBalance) return -1;
+      if (!a.HasOutstandingBalance && b.HasOutstandingBalance) return 1;
+      // Then by customer status
+      if (a.IsCustomer && !b.IsCustomer) return -1;
+      if (!a.IsCustomer && b.IsCustomer) return 1;
+      // Then alphabetically
+      return a.Name.localeCompare(b.Name);
+    });
+  }, [filteredContacts]);
+
   // Reset form when dialog opens/closes or customer changes
   useEffect(() => {
     if (open) {
@@ -99,6 +132,7 @@ export function CustomerFormDialog({
         notes: customer?.notes || "",
       });
       setSelectedXeroContact("");
+      setSearchQuery("");
       setCreateInXero(true);
       checkXeroAndLoadContacts();
     }
@@ -120,7 +154,8 @@ export function CustomerFormDialog({
   const loadXeroContacts = async () => {
     setLoadingContacts(true);
     try {
-      const contacts = await fetchXeroContacts();
+      // Load customers only (those with invoice history)
+      const contacts = await fetchXeroContacts({ customersOnly: true });
       setXeroContacts(contacts);
     } catch (error) {
       console.error("Failed to load Xero contacts:", error);
@@ -131,10 +166,10 @@ export function CustomerFormDialog({
 
   const handleXeroContactSelect = (contactId: string) => {
     setSelectedXeroContact(contactId);
-    setCreateInXero(false); // They're importing, so don't create new
+    setComboboxOpen(false);
+    setCreateInXero(false);
     const contact = xeroContacts.find(c => c.ContactID === contactId);
     if (contact) {
-      // Parse address from Xero contact
       const address = contact.Addresses?.find(a => a.AddressType === "POBOX" || a.AddressType === "STREET");
       const phone = contact.Phones?.find(p => p.PhoneType === "DEFAULT" || p.PhoneType === "MOBILE");
       
@@ -157,23 +192,21 @@ export function CustomerFormDialog({
     }
   };
 
+  const selectedContact = xeroContacts.find(c => c.ContactID === selectedXeroContact);
+
   const onSubmit = async (data: CustomerFormData) => {
     setSaving(true);
 
     let xeroContactId: string | null = null;
 
-    // If we're importing from Xero, use the selected contact ID
     if (selectedXeroContact) {
       xeroContactId = selectedXeroContact;
-    } 
-    // If creating a new customer and Xero is connected, create in Xero too
-    else if (!isEditing && hasXeroConnection && createInXero) {
+    } else if (!isEditing && hasXeroConnection && createInXero) {
       toast({
         title: "Creating in Xero...",
         description: "Syncing customer to your Xero account.",
       });
 
-      // Parse contact name into first/last
       const nameParts = (data.contact_name || "").split(" ");
       const firstName = nameParts[0] || "";
       const lastName = nameParts.slice(1).join(" ") || "";
@@ -239,6 +272,13 @@ export function CustomerFormDialog({
     setSaving(false);
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: "GBP",
+    }).format(amount);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -253,7 +293,7 @@ export function CustomerFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Xero Sync Section - Only show when Xero is connected */}
+        {/* Xero Sync Section */}
         {!isEditing && hasXeroConnection && (
           <div className="border border-border rounded-lg p-4 bg-muted/30 space-y-3">
             <div className="flex items-center justify-between">
@@ -269,28 +309,97 @@ export function CustomerFormDialog({
               )}
             </div>
 
-            {/* Import existing contact */}
+            {/* Predictive search combobox for Xero contacts */}
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Import existing Xero contact:</label>
-              <Select 
-                value={selectedXeroContact} 
-                onValueChange={handleXeroContactSelect}
-                disabled={loadingContacts}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={loadingContacts ? "Loading contacts..." : "Select a Xero contact"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {xeroContacts.map((contact) => (
-                    <SelectItem key={contact.ContactID} value={contact.ContactID}>
-                      {contact.Name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-xs text-muted-foreground">Import existing customer from Xero:</label>
+              <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={comboboxOpen}
+                    className="w-full justify-between"
+                    disabled={loadingContacts}
+                  >
+                    {loadingContacts ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Loading customers...
+                      </span>
+                    ) : selectedContact ? (
+                      <span className="flex items-center gap-2">
+                        {selectedContact.Name}
+                        {selectedContact.HasOutstandingBalance && (
+                          <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 text-xs">
+                            <PoundSterling className="w-3 h-3 mr-1" />
+                            {formatCurrency(selectedContact.OutstandingBalance || 0)}
+                          </Badge>
+                        )}
+                      </span>
+                    ) : (
+                      "Search customers..."
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0" align="start">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Type to search customers..." 
+                      value={searchQuery}
+                      onValueChange={setSearchQuery}
+                    />
+                    <CommandList>
+                      <CommandEmpty>No customer found.</CommandEmpty>
+                      <CommandGroup heading="Customers">
+                        {sortedContacts.map((contact) => (
+                          <CommandItem
+                            key={contact.ContactID}
+                            value={contact.ContactID}
+                            onSelect={() => handleXeroContactSelect(contact.ContactID)}
+                            className="flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Check
+                                className={cn(
+                                  "h-4 w-4",
+                                  selectedXeroContact === contact.ContactID
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              <div>
+                                <div className="font-medium">{contact.Name}</div>
+                                {contact.EmailAddress && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {contact.EmailAddress}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {contact.HasOutstandingBalance && (
+                                <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 text-xs">
+                                  <PoundSterling className="w-3 h-3 mr-0.5" />
+                                  {formatCurrency(contact.OutstandingBalance || 0)}
+                                </Badge>
+                              )}
+                              {contact.IsCustomer && !contact.HasOutstandingBalance && (
+                                <Badge variant="outline" className="text-xs">
+                                  Customer
+                                </Badge>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
-            {/* Or create new in Xero */}
+            {/* Create new in Xero option */}
             {!selectedXeroContact && (
               <div className="flex items-center gap-2 pt-2 border-t border-border">
                 <input
@@ -308,7 +417,7 @@ export function CustomerFormDialog({
             )}
 
             <p className="text-xs text-muted-foreground">
-              Linking to Xero enables invoice tracking and financial visibility.
+              Showing customers with invoice history. Outstanding balances are highlighted.
             </p>
           </div>
         )}
@@ -398,7 +507,6 @@ export function CustomerFormDialog({
                         form.setValue("address", details.address);
                         form.setValue("city", details.city);
                         form.setValue("postcode", details.postcode);
-                        // Auto-fill customer name if a business was selected and name is empty
                         if (details.businessName && !form.getValues("name")) {
                           form.setValue("name", details.businessName);
                         }

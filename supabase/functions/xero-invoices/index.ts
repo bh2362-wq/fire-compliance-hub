@@ -51,6 +51,17 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
   return connection.access_token;
 }
 
+// Parse Xero's /Date(timestamp)/ format to ISO string
+function parseXeroDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const match = dateStr.match(/\/Date\((\d+)([+-]\d{4})?\)\//);
+  if (match) {
+    const timestamp = parseInt(match[1], 10);
+    return new Date(timestamp).toISOString();
+  }
+  return dateStr;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -157,31 +168,39 @@ Deno.serve(async (req) => {
       }));
     }
 
-    // Calculate summary
+    // Calculate summary - parse dates properly
+    const now = new Date();
     const totalOutstanding = invoices.reduce((sum: number, inv: any) => sum + (inv.AmountDue || 0), 0);
     const overdueInvoices = invoices.filter((inv: any) => {
-      const dueDate = new Date(inv.DueDate);
-      return dueDate < new Date() && inv.AmountDue > 0;
+      const dueDateStr = parseXeroDate(inv.DueDate);
+      const dueDate = new Date(dueDateStr);
+      return dueDate < now && inv.AmountDue > 0;
     });
     const totalOverdue = overdueInvoices.reduce((sum: number, inv: any) => sum + (inv.AmountDue || 0), 0);
 
     return new Response(
       JSON.stringify({ 
-        invoices: invoices.map((inv: any) => ({
-          invoiceId: inv.InvoiceID,
-          invoiceNumber: inv.InvoiceNumber,
-          reference: inv.Reference,
-          contactId: inv.Contact?.ContactID,
-          contactName: inv.Contact?.Name,
-          date: inv.Date,
-          dueDate: inv.DueDate,
-          status: inv.Status,
-          total: inv.Total,
-          amountDue: inv.AmountDue,
-          amountPaid: inv.AmountPaid,
-          currencyCode: inv.CurrencyCode,
-          isOverdue: new Date(inv.DueDate) < new Date() && inv.AmountDue > 0,
-        })),
+        invoices: invoices.map((inv: any) => {
+          const dueDateStr = parseXeroDate(inv.DueDate);
+          const dateStr = parseXeroDate(inv.Date);
+          const dueDate = new Date(dueDateStr);
+          
+          return {
+            invoiceId: inv.InvoiceID,
+            invoiceNumber: inv.InvoiceNumber,
+            reference: inv.Reference,
+            contactId: inv.Contact?.ContactID,
+            contactName: inv.Contact?.Name,
+            date: dateStr,
+            dueDate: dueDateStr,
+            status: inv.Status,
+            total: inv.Total,
+            amountDue: inv.AmountDue,
+            amountPaid: inv.AmountPaid,
+            currencyCode: inv.CurrencyCode,
+            isOverdue: dueDate < now && inv.AmountDue > 0,
+          };
+        }),
         contactBalances: contactsWithBalances,
         summary: {
           totalOutstanding,
