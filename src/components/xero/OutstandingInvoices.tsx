@@ -94,6 +94,17 @@ export function OutstandingInvoices() {
     }).format(amount);
   };
 
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "-";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "-";
+      return format(date, "dd MMM yyyy");
+    } catch {
+      return "-";
+    }
+  };
+
   if (error && !loading) {
     return (
       <Card>
@@ -236,7 +247,7 @@ export function OutstandingInvoices() {
                             </TableCell>
                             <TableCell>
                               <span className={invoice.isOverdue ? "text-destructive font-medium" : ""}>
-                                {format(new Date(invoice.dueDate), "dd MMM yyyy")}
+                                {formatDate(invoice.dueDate)}
                               </span>
                             </TableCell>
                             <TableCell className="text-right">
