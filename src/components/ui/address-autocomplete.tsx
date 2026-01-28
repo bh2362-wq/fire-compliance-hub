@@ -17,6 +17,7 @@ interface AddressDetails {
   address: string;
   city: string;
   postcode: string;
+  businessName?: string;
 }
 
 interface AddressAutocompleteProps {
@@ -103,6 +104,7 @@ export function AddressAutocomplete({
         address: data.address || '',
         city: data.city || '',
         postcode: data.postcode || '',
+        businessName: data.businessName || '',
       });
     } catch (err) {
       console.error('Details error:', err);
