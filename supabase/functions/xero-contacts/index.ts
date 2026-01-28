@@ -103,14 +103,28 @@ Deno.serve(async (req) => {
     // Refresh token if needed
     const accessToken = await refreshTokenIfNeeded(supabase, connection);
 
-    // Fetch contacts from Xero
+    // Parse query params
     const url = new URL(req.url);
     const search = url.searchParams.get("search") || "";
+    const customersOnly = url.searchParams.get("customersOnly") === "true";
+    
+    // Build where clause - filter to customers only (those with invoices/purchases history)
+    let whereClause = "";
+    if (customersOnly) {
+      // IsCustomer=true means they have at least one invoice
+      whereClause = "IsCustomer==true";
+    }
+    if (search) {
+      const searchFilter = `Name.Contains("${search}")`;
+      whereClause = whereClause ? `${whereClause}&&${searchFilter}` : searchFilter;
+    }
     
     let xeroUrl = `https://api.xero.com/api.xro/2.0/Contacts`;
-    if (search) {
-      xeroUrl += `?where=Name.Contains("${search}")`;
+    if (whereClause) {
+      xeroUrl += `?where=${encodeURIComponent(whereClause)}`;
     }
+
+    console.log("Fetching contacts from Xero:", xeroUrl);
 
     const contactsResponse = await fetch(xeroUrl, {
       headers: {
@@ -127,9 +141,23 @@ Deno.serve(async (req) => {
     }
 
     const contactsData = await contactsResponse.json();
+    const contacts = (contactsData.Contacts || []).map((c: any) => ({
+      ContactID: c.ContactID,
+      Name: c.Name,
+      EmailAddress: c.EmailAddress,
+      FirstName: c.FirstName,
+      LastName: c.LastName,
+      Addresses: c.Addresses,
+      Phones: c.Phones,
+      IsCustomer: c.IsCustomer,
+      IsSupplier: c.IsSupplier,
+      ContactStatus: c.ContactStatus,
+      HasOutstandingBalance: (c.Balances?.AccountsReceivable?.Outstanding || 0) > 0,
+      OutstandingBalance: c.Balances?.AccountsReceivable?.Outstanding || 0,
+    }));
 
     return new Response(
-      JSON.stringify({ contacts: contactsData.Contacts || [] }),
+      JSON.stringify({ contacts }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
