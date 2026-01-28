@@ -342,22 +342,22 @@ export function CustomerFormDialog({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0" align="start">
-                  <Command>
+                <PopoverContent className="w-[400px] p-0 z-50" align="start">
+                  <Command shouldFilter={false}>
                     <CommandInput 
                       placeholder="Type to search customers..." 
                       value={searchQuery}
                       onValueChange={setSearchQuery}
                     />
-                    <CommandList>
+                    <CommandList className="max-h-[300px] overflow-y-auto">
                       <CommandEmpty>No customer found.</CommandEmpty>
                       <CommandGroup heading="Customers">
                         {sortedContacts.map((contact) => (
                           <CommandItem
                             key={contact.ContactID}
-                            value={contact.ContactID}
+                            value={`${contact.Name} ${contact.EmailAddress || ""}`}
                             onSelect={() => handleXeroContactSelect(contact.ContactID)}
-                            className="flex items-center justify-between"
+                            className="flex items-center justify-between cursor-pointer"
                           >
                             <div className="flex items-center gap-2">
                               <Check
