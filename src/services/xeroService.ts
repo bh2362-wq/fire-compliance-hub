@@ -112,16 +112,11 @@ export async function deleteXeroConnection(connectionId: string): Promise<void> 
 }
 
 export async function fetchXeroContacts(options?: { search?: string; customersOnly?: boolean }): Promise<XeroContact[]> {
-  const params = new URLSearchParams();
-  if (options?.search) {
-    params.set("search", options.search);
-  }
-  if (options?.customersOnly) {
-    params.set("customersOnly", "true");
-  }
-  
   const { data, error } = await supabase.functions.invoke("xero-contacts", {
-    body: {},
+    body: {
+      search: options?.search || "",
+      customersOnly: options?.customersOnly || false,
+    },
   });
 
   if (error) throw new Error(error.message);

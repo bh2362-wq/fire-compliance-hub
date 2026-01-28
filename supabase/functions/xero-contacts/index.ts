@@ -103,10 +103,10 @@ Deno.serve(async (req) => {
     // Refresh token if needed
     const accessToken = await refreshTokenIfNeeded(supabase, connection);
 
-    // Parse query params
-    const url = new URL(req.url);
-    const search = url.searchParams.get("search") || "";
-    const customersOnly = url.searchParams.get("customersOnly") === "true";
+    // Parse body params
+    const body = await req.json().catch(() => ({}));
+    const search = body.search || "";
+    const customersOnly = body.customersOnly === true;
     
     // Build where clause - filter to customers only (those with invoices/purchases history)
     let whereClause = "";
@@ -115,7 +115,8 @@ Deno.serve(async (req) => {
       whereClause = "IsCustomer==true";
     }
     if (search) {
-      const searchFilter = `Name.Contains("${search}")`;
+      // Use case-insensitive search by converting to uppercase
+      const searchFilter = `Name.ToUpper().Contains("${search.toUpperCase()}")`;
       whereClause = whereClause ? `${whereClause}&&${searchFilter}` : searchFilter;
     }
     
