@@ -7,12 +7,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function refreshTokenIfNeeded(supabase: any, connection: any) {
+async function refreshTokenIfNeeded(supabase: any, connection: any, forceRefresh = false) {
   const now = new Date();
   const expiresAt = new Date(connection.expires_at);
   
-  if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
-    console.log("Refreshing Xero token...");
+  // Force refresh or refresh if token expires in less than 10 minutes
+  const shouldRefresh = forceRefresh || (expiresAt.getTime() - now.getTime() < 10 * 60 * 1000);
+  
+  if (shouldRefresh) {
+    console.log("Refreshing Xero token...", forceRefresh ? "(forced)" : "(near expiry)");
     
     const clientId = Deno.env.get("XERO_CLIENT_ID")!;
     const clientSecret = Deno.env.get("XERO_CLIENT_SECRET")!;
@@ -30,6 +33,8 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Token refresh failed:", errorText);
       throw new Error("Failed to refresh token");
     }
 
@@ -45,6 +50,7 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
       })
       .eq("id", connection.id);
     
+    console.log("Token refreshed successfully, new expiry:", newExpiresAt);
     return tokens.access_token;
   }
   
@@ -83,7 +89,7 @@ Deno.serve(async (req) => {
 
     const userId = claims.claims.sub;
 
-    // Get user's Xero connection
+    // Get user's Xero connection (same pattern as xero-invoices)
     const { data: connection, error: connError } = await supabase
       .from("xero_connections")
       .select("*")
@@ -91,13 +97,19 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (connError || !connection) {
+      console.error("Connection error:", connError);
       return new Response(
         JSON.stringify({ error: "No Xero connection found" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const accessToken = await refreshTokenIfNeeded(supabase, connection);
+    console.log("Connection found:", connection.tenant_name, "expires:", connection.expires_at);
+    console.log("Access token exists:", !!connection.access_token, "length:", connection.access_token?.length);
+
+    // Force refresh to get a fresh token
+    const accessToken = await refreshTokenIfNeeded(supabase, connection, true);
+    console.log("Using access token (first 20 chars):", accessToken?.substring(0, 20));
 
     // Parse body params
     const body = await req.json();
@@ -114,23 +126,34 @@ Deno.serve(async (req) => {
     let bankAccountId = null;
     let bankAccountName = null;
 
-    // If bank account code is specified (e.g., "090" for a specific bank account)
-    if (bankAccountCode) {
-      const accountsUrl = `https://api.xero.com/api.xro/2.0/Accounts?where=Code=="${bankAccountCode}"&&Type=="BANK"&&Status=="ACTIVE"`;
-      const accountsResponse = await fetch(accountsUrl, {
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Xero-Tenant-Id": connection.tenant_id,
-          "Accept": "application/json",
-        },
-      });
-      
-      if (accountsResponse.ok) {
-        const accountsData = await accountsResponse.json();
-        if (accountsData.Accounts?.length > 0) {
-          bankAccountId = accountsData.Accounts[0].AccountID;
-          bankAccountName = accountsData.Accounts[0].Name;
-        }
+    // First, fetch all accounts and filter for bank accounts
+    const allAccountsUrl = `https://api.xero.com/api.xro/2.0/Accounts`;
+    const allAccountsResponse = await fetch(allAccountsUrl, {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Xero-Tenant-Id": connection.tenant_id,
+        "Accept": "application/json",
+      },
+    });
+
+    let bankAccounts: any[] = [];
+    if (allAccountsResponse.ok) {
+      const allAccountsData = await allAccountsResponse.json();
+      // Filter for active bank accounts
+      bankAccounts = (allAccountsData.Accounts || []).filter(
+        (acc: any) => acc.Type === "BANK" && acc.Status === "ACTIVE"
+      );
+      console.log(`Found ${bankAccounts.length} active bank accounts:`, bankAccounts.map((a: any) => a.Name));
+    } else {
+      console.error("Failed to fetch accounts:", await allAccountsResponse.text());
+    }
+
+    // If bank account code is specified, find matching account
+    if (bankAccountCode && bankAccounts.length > 0) {
+      const matchedAccount = bankAccounts.find((acc: any) => acc.Code === bankAccountCode);
+      if (matchedAccount) {
+        bankAccountId = matchedAccount.AccountID;
+        bankAccountName = matchedAccount.Name;
       }
     }
 
@@ -152,29 +175,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fallback to first active bank account
-    if (!bankAccountId) {
-      const accountsUrl = `https://api.xero.com/api.xro/2.0/Accounts?where=Type=="BANK"&&Status=="ACTIVE"`;
-      const accountsResponse = await fetch(accountsUrl, {
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Xero-Tenant-Id": connection.tenant_id,
-          "Accept": "application/json",
-        },
-      });
-      
-      if (accountsResponse.ok) {
-        const accountsData = await accountsResponse.json();
-        if (accountsData.Accounts?.length > 0) {
-          bankAccountId = accountsData.Accounts[0].AccountID;
-          bankAccountName = accountsData.Accounts[0].Name;
-        }
-      }
+    // Fallback to first active bank account from our fetched list
+    if (!bankAccountId && bankAccounts.length > 0) {
+      bankAccountId = bankAccounts[0].AccountID;
+      bankAccountName = bankAccounts[0].Name;
+      console.log(`Using first available bank account: ${bankAccountName}`);
     }
 
     if (!bankAccountId) {
       return new Response(
-        JSON.stringify({ error: "No bank account found in Xero" }),
+        JSON.stringify({ error: "No bank account found in Xero. Please ensure you have an active bank account set up." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
