@@ -110,10 +110,10 @@ Deno.serve(async (req) => {
 
     const accessToken = await refreshTokenIfNeeded(supabase, connection);
 
-    // Parse query params
-    const url = new URL(req.url);
-    const status = url.searchParams.get("status") || "AUTHORISED"; // DRAFT, SUBMITTED, AUTHORISED, PAID, VOIDED
-    const contactId = url.searchParams.get("contactId");
+    // Parse body params
+    const body = await req.json().catch(() => ({}));
+    const status = body.status || "AUTHORISED"; // DRAFT, SUBMITTED, AUTHORISED, PAID, VOIDED
+    const contactId = body.contactId || null;
 
     // Build Xero API URL for invoices
     // Fetch outstanding invoices (AUTHORISED = approved but unpaid)
