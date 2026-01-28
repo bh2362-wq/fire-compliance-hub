@@ -30,6 +30,9 @@ verify_jwt = false
 [functions.xero-create-invoice]
 verify_jwt = false
 
+[functions.xero-delete-invoice]
+verify_jwt = false
+
 [functions.xero-invoices]
 verify_jwt = false
 

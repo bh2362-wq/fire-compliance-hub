@@ -232,3 +232,14 @@ export async function getCustomerOutstandingBalance(xeroContactId: string): Prom
     return { outstanding: 0, overdue: 0, invoiceCount: 0 };
   }
 }
+
+export async function deleteXeroInvoice(invoiceId: string): Promise<{ success: boolean; method: string; message: string }> {
+  const { data, error } = await supabase.functions.invoke("xero-delete-invoice", {
+    body: { invoiceId },
+  });
+
+  if (error) throw new Error(error.message);
+  if (data.error) throw new Error(data.error);
+  
+  return data;
+}
