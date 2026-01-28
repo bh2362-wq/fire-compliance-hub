@@ -11,6 +11,7 @@ export interface ServiceContract {
   contract_end: string | null;
   notes: string | null;
   po_number: string | null;
+  frequency: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +26,7 @@ export interface ServiceContractInsert {
   contract_end?: string | null;
   notes?: string | null;
   po_number?: string | null;
+  frequency?: string | null;
 }
 
 export async function getServiceContracts(siteId: string): Promise<ServiceContract[]> {
@@ -59,12 +61,28 @@ export async function deleteServiceContract(id: string): Promise<void> {
 }
 
 export const SERVICE_TYPES = [
-  { value: "quarterly_service", label: "Quarterly Service" },
-  { value: "annual_inspection", label: "Annual Inspection" },
-  { value: "emergency", label: "Emergency Call-out" },
-  { value: "remedial", label: "Remedial Works" },
+  { value: "fire", label: "Fire" },
+  { value: "aspirator", label: "Aspirator" },
+  { value: "gas_suppression", label: "Gas Suppression" },
+  { value: "room_integrity", label: "Room Integrity" },
+  { value: "fire_curtain", label: "Fire Curtain" },
+  { value: "disabled_refuge", label: "Disabled Refuge" },
+  { value: "emergency_lighting", label: "Emergency Lighting" },
+  { value: "intruder_alarm", label: "Intruder Alarm" },
+  { value: "nurse_call", label: "Nurse Call" },
+] as const;
+
+export const SERVICE_FREQUENCIES = [
+  { value: "1m", label: "Monthly" },
+  { value: "3m", label: "Quarterly" },
+  { value: "6m", label: "Bi-Annual" },
+  { value: "12m", label: "Annual" },
 ] as const;
 
 export function getServiceTypeLabel(value: string): string {
   return SERVICE_TYPES.find((t) => t.value === value)?.label || value;
+}
+
+export function getFrequencyLabel(value: string): string {
+  return SERVICE_FREQUENCIES.find((f) => f.value === value)?.label || value;
 }
