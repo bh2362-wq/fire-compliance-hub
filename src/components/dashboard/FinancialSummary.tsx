@@ -12,13 +12,13 @@ import {
   ExternalLink 
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { 
+import {
   fetchOutstandingInvoices, 
   getXeroConnection,
   XeroOutstandingInvoice,
   XeroInvoiceSummary 
 } from "@/services/xeroService";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, isValid, parseISO } from "date-fns";
 
 export function FinancialSummary() {
   const { user } = useAuth();
@@ -144,6 +144,26 @@ export function FinancialSummary() {
     }).format(amount);
   };
 
+  const formatDueDate = (dateStr: string | undefined | null): string => {
+    if (!dateStr) return "N/A";
+    try {
+      const date = parseISO(dateStr);
+      return isValid(date) ? format(date, "d MMM") : "N/A";
+    } catch {
+      return "N/A";
+    }
+  };
+
+  const calculateDaysOverdue = (dateStr: string | undefined | null): number => {
+    if (!dateStr) return 0;
+    try {
+      const date = parseISO(dateStr);
+      return isValid(date) ? differenceInDays(new Date(), date) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -192,7 +212,7 @@ export function FinancialSummary() {
             </h4>
             {invoices.map((invoice) => {
               const daysOverdue = invoice.isOverdue 
-                ? differenceInDays(new Date(), new Date(invoice.dueDate))
+                ? calculateDaysOverdue(invoice.dueDate)
                 : 0;
 
               return (
@@ -210,7 +230,7 @@ export function FinancialSummary() {
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {invoice.invoiceNumber} • Due {format(new Date(invoice.dueDate), "d MMM")}
+                      {invoice.invoiceNumber} • Due {formatDueDate(invoice.dueDate)}
                     </div>
                   </div>
                   <div className="text-right">
