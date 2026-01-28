@@ -1,6 +1,5 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
-import RecentVisits from "@/components/dashboard/RecentVisits";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { Building2, ClipboardCheck, AlertTriangle, Percent } from "lucide-react";
 
@@ -47,10 +46,9 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Charts and lists */}
+        {/* Charts */}
         <div className="grid lg:grid-cols-2 gap-6">
           <ComplianceChart />
-          <RecentVisits />
         </div>
       </div>
     </DashboardLayout>
