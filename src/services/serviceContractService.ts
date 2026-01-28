@@ -10,6 +10,7 @@ export interface ServiceContract {
   contract_start: string | null;
   contract_end: string | null;
   notes: string | null;
+  po_number: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +24,7 @@ export interface ServiceContractInsert {
   contract_start?: string | null;
   contract_end?: string | null;
   notes?: string | null;
+  po_number?: string | null;
 }
 
 export async function getServiceContracts(siteId: string): Promise<ServiceContract[]> {

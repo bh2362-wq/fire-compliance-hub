@@ -450,6 +450,7 @@ export type Database = {
           id: string
           included_visits: number | null
           notes: string | null
+          po_number: string | null
           service_type: string
           site_id: string
           unit_price: number
@@ -463,6 +464,7 @@ export type Database = {
           id?: string
           included_visits?: number | null
           notes?: string | null
+          po_number?: string | null
           service_type: string
           site_id: string
           unit_price?: number
@@ -476,6 +478,7 @@ export type Database = {
           id?: string
           included_visits?: number | null
           notes?: string | null
+          po_number?: string | null
           service_type?: string
           site_id?: string
           unit_price?: number

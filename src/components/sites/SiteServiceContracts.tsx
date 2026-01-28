@@ -134,6 +134,7 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
                 <TableRow>
                   <TableHead>Service Type</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead>PO Number</TableHead>
                   <TableHead className="text-right">Unit Price</TableHead>
                   <TableHead className="text-center">Visits/Year</TableHead>
                   <TableHead>Contract Period</TableHead>
@@ -148,6 +149,9 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {contract.description || "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {contract.po_number || "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       £{contract.unit_price.toFixed(2)}

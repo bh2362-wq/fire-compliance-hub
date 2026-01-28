@@ -39,6 +39,7 @@ export function ServiceContractDialog({
   const [contractStart, setContractStart] = useState(contract?.contract_start || "");
   const [contractEnd, setContractEnd] = useState(contract?.contract_end || "");
   const [notes, setNotes] = useState(contract?.notes || "");
+  const [poNumber, setPoNumber] = useState(contract?.po_number || "");
 
   useEffect(() => {
     if (open) {
@@ -49,6 +50,7 @@ export function ServiceContractDialog({
       setContractStart(contract?.contract_start || "");
       setContractEnd(contract?.contract_end || "");
       setNotes(contract?.notes || "");
+      setPoNumber(contract?.po_number || "");
     }
   }, [open, contract]);
 
@@ -77,6 +79,7 @@ export function ServiceContractDialog({
         contract_start: contractStart || null,
         contract_end: contractEnd || null,
         notes: notes || null,
+        po_number: poNumber || null,
       };
 
       await upsertServiceContract(data);
@@ -179,15 +182,25 @@ export function ServiceContractDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Additional contract details..."
-              rows={2}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="po-number">PO Number</Label>
+              <Input
+                id="po-number"
+                value={poNumber}
+                onChange={(e) => setPoNumber(e.target.value)}
+                placeholder="e.g., PO-12345"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Input
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Additional details..."
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-2">
