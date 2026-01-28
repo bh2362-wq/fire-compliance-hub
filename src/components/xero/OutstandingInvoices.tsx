@@ -10,11 +10,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { deleteXeroInvoice } from "@/services/xeroService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface XeroInvoice {
   invoiceId: string;
@@ -53,6 +64,8 @@ export function OutstandingInvoices() {
   const [contactBalances, setContactBalances] = useState<ContactBalance[]>([]);
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deletingInvoice, setDeletingInvoice] = useState<XeroInvoice | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const fetchOutstandingInvoices = async () => {
@@ -81,6 +94,38 @@ export function OutstandingInvoices() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteInvoice = async () => {
+    if (!deletingInvoice) return;
+    
+    setIsDeleting(true);
+    try {
+      const result = await deleteXeroInvoice(deletingInvoice.invoiceId);
+      toast({
+        title: "Success",
+        description: result.message,
+      });
+      setDeletingInvoice(null);
+      fetchOutstandingInvoices();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete invoice";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const canDeleteInvoice = (invoice: XeroInvoice) => {
+    // Can only delete DRAFT or AUTHORISED invoices with no payments
+    return (
+      (invoice.status === "DRAFT" || invoice.status === "AUTHORISED") &&
+      invoice.amountPaid === 0
+    );
   };
 
   useEffect(() => {
@@ -233,6 +278,7 @@ export function OutstandingInvoices() {
                           <TableHead className="text-right">Total</TableHead>
                           <TableHead className="text-right">Amount Due</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -261,6 +307,18 @@ export function OutstandingInvoices() {
                                 <Badge variant="destructive">Overdue</Badge>
                               ) : (
                                 <Badge variant="secondary">{invoice.status}</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {canDeleteInvoice(invoice) && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setDeletingInvoice(invoice)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               )}
                             </TableCell>
                           </TableRow>
@@ -318,6 +376,40 @@ export function OutstandingInvoices() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingInvoice} onOpenChange={(open) => !open && setDeletingInvoice(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete invoice <strong>{deletingInvoice?.invoiceNumber}</strong> for{" "}
+              <strong>{deletingInvoice?.contactName}</strong>?
+              <br /><br />
+              {deletingInvoice?.status === "AUTHORISED" 
+                ? "This invoice will be voided in Xero as it has already been authorised."
+                : "This invoice will be permanently deleted from Xero."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteInvoice}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                deletingInvoice?.status === "AUTHORISED" ? "Void Invoice" : "Delete Invoice"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

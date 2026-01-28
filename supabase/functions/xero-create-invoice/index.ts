@@ -3,7 +3,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-  // supabase-js adds `x-supabase-client-platform` which must be allowed for CORS preflight.
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform",
 };
@@ -50,6 +49,64 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
   }
   
   return connection.access_token;
+}
+
+async function getNextInvoiceNumber(accessToken: string, tenantId: string): Promise<string | null> {
+  try {
+    // Fetch the most recent invoices ordered by invoice number descending
+    const response = await fetch(
+      "https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID,VOIDED&order=InvoiceNumber%20DESC&page=1",
+      {
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Xero-Tenant-Id": tenantId,
+          "Accept": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Failed to fetch invoices for numbering:", await response.text());
+      return null;
+    }
+
+    const data = await response.json();
+    const invoices = data.Invoices || [];
+
+    if (invoices.length === 0) {
+      console.log("No existing invoices found, using default numbering");
+      return null;
+    }
+
+    // Get the highest invoice number
+    const lastInvoice = invoices[0];
+    const lastNumber = lastInvoice.InvoiceNumber;
+    console.log("Last invoice number found:", lastNumber);
+
+    if (!lastNumber) {
+      return null;
+    }
+
+    // Extract numeric portion and increment
+    // Handles formats like: INV-0001, 12345, ABC001, etc.
+    const match = lastNumber.match(/^(.*?)(\d+)$/);
+    if (match) {
+      const prefix = match[1];
+      const numericPart = parseInt(match[2], 10);
+      const numLength = match[2].length;
+      const nextNumber = (numericPart + 1).toString().padStart(numLength, "0");
+      const newInvoiceNumber = `${prefix}${nextNumber}`;
+      console.log("Generated next invoice number:", newInvoiceNumber);
+      return newInvoiceNumber;
+    }
+
+    // If we can't parse, return null and let Xero generate
+    console.log("Could not parse invoice number format, letting Xero generate");
+    return null;
+  } catch (error) {
+    console.error("Error fetching last invoice number:", error);
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -110,8 +167,11 @@ Deno.serve(async (req) => {
 
     const accessToken = await refreshTokenIfNeeded(supabase, connection);
 
+    // Get the next invoice number based on existing invoices
+    const nextInvoiceNumber = await getNextInvoiceNumber(accessToken, connection.tenant_id);
+
     // Create invoice in Xero
-    const invoiceData = {
+    const invoiceData: any = {
       Type: "ACCREC",
       Contact: {
         ContactID: contactId,
@@ -126,6 +186,11 @@ Deno.serve(async (req) => {
       DueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       Status: "DRAFT",
     };
+
+    // Add the invoice number if we determined one
+    if (nextInvoiceNumber) {
+      invoiceData.InvoiceNumber = nextInvoiceNumber;
+    }
 
     console.log("Creating invoice:", JSON.stringify(invoiceData));
 
@@ -153,7 +218,7 @@ Deno.serve(async (req) => {
       throw new Error("No invoice returned from Xero");
     }
 
-    console.log("Invoice created:", createdInvoice.InvoiceID);
+    console.log("Invoice created:", createdInvoice.InvoiceID, "Number:", createdInvoice.InvoiceNumber);
 
     // Calculate total
     const total = lineItems.reduce((sum: number, item: any) => 
