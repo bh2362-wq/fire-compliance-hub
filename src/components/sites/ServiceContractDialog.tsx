@@ -12,6 +12,7 @@ import {
   ServiceContractInsert,
   upsertServiceContract,
   SERVICE_TYPES,
+  SERVICE_FREQUENCIES,
 } from "@/services/serviceContractService";
 
 interface ServiceContractDialogProps {
@@ -40,6 +41,7 @@ export function ServiceContractDialog({
   const [contractEnd, setContractEnd] = useState(contract?.contract_end || "");
   const [notes, setNotes] = useState(contract?.notes || "");
   const [poNumber, setPoNumber] = useState(contract?.po_number || "");
+  const [frequency, setFrequency] = useState(contract?.frequency || "3m");
 
   useEffect(() => {
     if (open) {
@@ -51,6 +53,7 @@ export function ServiceContractDialog({
       setContractEnd(contract?.contract_end || "");
       setNotes(contract?.notes || "");
       setPoNumber(contract?.po_number || "");
+      setFrequency(contract?.frequency || "3m");
     }
   }, [open, contract]);
 
@@ -80,6 +83,7 @@ export function ServiceContractDialog({
         contract_end: contractEnd || null,
         notes: notes || null,
         po_number: poNumber || null,
+        frequency: frequency || "3m",
       };
 
       await upsertServiceContract(data);
@@ -119,6 +123,22 @@ export function ServiceContractDialog({
                 {availableTypes.map((t) => (
                   <SelectItem key={t.value} value={t.value}>
                     {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="frequency">Frequency</Label>
+            <Select value={frequency} onValueChange={setFrequency}>
+              <SelectTrigger id="frequency">
+                <SelectValue placeholder="Select frequency" />
+              </SelectTrigger>
+              <SelectContent>
+                {SERVICE_FREQUENCIES.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>
+                    {f.label}
                   </SelectItem>
                 ))}
               </SelectContent>

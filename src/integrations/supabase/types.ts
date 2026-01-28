@@ -447,6 +447,7 @@ export type Database = {
           contract_start: string | null
           created_at: string
           description: string | null
+          frequency: string | null
           id: string
           included_visits: number | null
           notes: string | null
@@ -461,6 +462,7 @@ export type Database = {
           contract_start?: string | null
           created_at?: string
           description?: string | null
+          frequency?: string | null
           id?: string
           included_visits?: number | null
           notes?: string | null
@@ -475,6 +477,7 @@ export type Database = {
           contract_start?: string | null
           created_at?: string
           description?: string | null
+          frequency?: string | null
           id?: string
           included_visits?: number | null
           notes?: string | null

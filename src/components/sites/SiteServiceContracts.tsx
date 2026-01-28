@@ -12,6 +12,7 @@ import {
   getServiceContracts,
   deleteServiceContract,
   getServiceTypeLabel,
+  getFrequencyLabel,
 } from "@/services/serviceContractService";
 import { ServiceContractDialog } from "./ServiceContractDialog";
 import {
@@ -133,6 +134,7 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Service Type</TableHead>
+                  <TableHead>Frequency</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>PO Number</TableHead>
                   <TableHead className="text-right">Unit Price</TableHead>
@@ -146,6 +148,11 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
                   <TableRow key={contract.id}>
                     <TableCell className="font-medium">
                       {getServiceTypeLabel(contract.service_type)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {getFrequencyLabel(contract.frequency || "3m")}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {contract.description || "—"}
