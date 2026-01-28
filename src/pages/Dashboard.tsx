@@ -3,6 +3,7 @@ import StatsCard from "@/components/dashboard/StatsCard";
 import RecentVisits from "@/components/dashboard/RecentVisits";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
+import { BankReconciliation } from "@/components/xero/BankReconciliation";
 import { Building2, ClipboardCheck, AlertTriangle, Percent } from "lucide-react";
 
 const Dashboard = () => {
@@ -54,8 +55,9 @@ const Dashboard = () => {
             <ComplianceChart />
             <RecentVisits />
           </div>
-          <div>
+          <div className="space-y-6">
             <FinancialSummary />
+            <BankReconciliation />
           </div>
         </div>
       </div>

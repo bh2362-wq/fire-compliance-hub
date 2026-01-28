@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.xero-auth]
 verify_jwt = false
 
+[functions.xero-bank-transactions]
+verify_jwt = false
+
 [functions.xero-callback]
 verify_jwt = false
 
