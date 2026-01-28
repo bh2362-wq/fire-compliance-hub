@@ -61,7 +61,7 @@ export async function deleteServiceContract(id: string): Promise<void> {
 }
 
 export const SERVICE_TYPES = [
-  { value: "fire", label: "Fire" },
+  { value: "fire", label: "Fire Alarm" },
   { value: "aspirator", label: "Aspirator" },
   { value: "gas_suppression", label: "Gas Suppression" },
   { value: "room_integrity", label: "Room Integrity" },
