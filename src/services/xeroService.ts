@@ -132,3 +132,53 @@ export async function getVisitInvoices(visitId: string): Promise<XeroInvoice[]> 
   if (error) throw error;
   return data || [];
 }
+
+export interface XeroOutstandingInvoice {
+  invoiceId: string;
+  invoiceNumber: string;
+  reference: string;
+  contactId: string;
+  contactName: string;
+  date: string;
+  dueDate: string;
+  status: string;
+  total: number;
+  amountDue: number;
+  amountPaid: number;
+  currencyCode: string;
+  isOverdue: boolean;
+}
+
+export interface XeroContactBalance {
+  contactId: string;
+  name: string;
+  email: string;
+  outstanding: number;
+  overdue: number;
+}
+
+export interface XeroInvoiceSummary {
+  totalOutstanding: number;
+  totalOverdue: number;
+  invoiceCount: number;
+  overdueCount: number;
+}
+
+export async function fetchOutstandingInvoices(contactId?: string): Promise<{
+  invoices: XeroOutstandingInvoice[];
+  contactBalances: XeroContactBalance[];
+  summary: XeroInvoiceSummary;
+}> {
+  const { data, error } = await supabase.functions.invoke("xero-invoices", {
+    body: contactId ? { contactId } : {},
+  });
+
+  if (error) throw new Error(error.message);
+  if (data.error) throw new Error(data.error);
+  
+  return {
+    invoices: data.invoices || [],
+    contactBalances: data.contactBalances || [],
+    summary: data.summary || { totalOutstanding: 0, totalOverdue: 0, invoiceCount: 0, overdueCount: 0 },
+  };
+}
