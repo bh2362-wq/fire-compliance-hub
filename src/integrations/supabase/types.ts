@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      customers: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          postcode: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          postcode?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          postcode?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       devices: {
         Row: {
           address: string
@@ -454,6 +499,7 @@ export type Database = {
           contact_name: string | null
           contact_phone: string | null
           created_at: string
+          customer_id: string | null
           id: string
           name: string
           postcode: string | null
@@ -468,6 +514,7 @@ export type Database = {
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          customer_id?: string | null
           id?: string
           name: string
           postcode?: string | null
@@ -482,6 +529,7 @@ export type Database = {
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          customer_id?: string | null
           id?: string
           name?: string
           postcode?: string | null
@@ -489,7 +537,15 @@ export type Database = {
           total_devices?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sites_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
