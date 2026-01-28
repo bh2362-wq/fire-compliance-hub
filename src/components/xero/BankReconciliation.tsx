@@ -11,23 +11,28 @@ import {
   TrendingUp,
   HelpCircle,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import {
   fetchBankTransactions,
+  applyPaymentToInvoice,
   BankTransaction,
   BankReconciliationSummary,
 } from "@/services/bankReconciliationService";
 import { format, parseISO, isValid, subDays } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export function BankReconciliation() {
+  const { toast } = useToast();
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [matched, setMatched] = useState<BankTransaction[]>([]);
   const [unmatched, setUnmatched] = useState<BankTransaction[]>([]);
   const [summary, setSummary] = useState<BankReconciliationSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reconcilingId, setReconcilingId] = useState<string | null>(null);
   const [fromDate, setFromDate] = useState(
     format(subDays(new Date(), 30), "yyyy-MM-dd")
   );
@@ -52,6 +57,45 @@ export function BankReconciliation() {
   useEffect(() => {
     loadTransactions();
   }, []);
+
+  const handleReconcile = async (tx: BankTransaction) => {
+    if (!tx.matchedInvoice) return;
+
+    setReconcilingId(tx.transactionId);
+    try {
+      await applyPaymentToInvoice({
+        invoiceId: tx.matchedInvoice.invoiceId,
+        bankTransactionId: tx.transactionId,
+        amount: tx.amount,
+        date: tx.date ? tx.date.split("T")[0] : undefined,
+      });
+
+      toast({
+        title: "Payment Applied",
+        description: `Invoice ${tx.matchedInvoice.invoiceNumber} marked as paid (£${tx.amount.toFixed(2)})`,
+      });
+
+      // Remove from matched list and refresh
+      setMatched((prev) => prev.filter((t) => t.transactionId !== tx.transactionId));
+      
+      // Update summary
+      if (summary) {
+        setSummary({
+          ...summary,
+          matchedCount: summary.matchedCount - 1,
+          totalMatched: summary.totalMatched - tx.amount,
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to apply payment",
+        variant: "destructive",
+      });
+    } finally {
+      setReconcilingId(null);
+    }
+  };
 
   const formatDate = (dateStr: string | null | undefined): string => {
     if (!dateStr) return "N/A";
@@ -221,7 +265,7 @@ export function BankReconciliation() {
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-green-600 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" />
-                  Auto-Matched ({matched.length})
+                  Ready to Reconcile ({matched.length})
                 </h4>
                 <div className="space-y-2">
                   {matched.slice(0, 5).map((tx) => (
@@ -247,10 +291,22 @@ export function BankReconciliation() {
                           {tx.reference && ` • Ref: ${tx.reference}`}
                         </p>
                       </div>
-                      <div className="text-right">
+                      <div className="flex items-center gap-3">
                         <p className="font-semibold text-green-600">
                           {formatCurrency(tx.amount)}
                         </p>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => handleReconcile(tx)}
+                          disabled={reconcilingId === tx.transactionId}
+                        >
+                          {reconcilingId === tx.transactionId ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            "Mark Paid"
+                          )}
+                        </Button>
                       </div>
                     </div>
                   ))}
