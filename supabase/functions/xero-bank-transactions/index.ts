@@ -115,8 +115,9 @@ Deno.serve(async (req) => {
     const fromDate = body.fromDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     const toDate = body.toDate || new Date().toISOString().split("T")[0];
 
-    // Fetch bank transactions (RECEIVE type = incoming payments)
-    const whereClause = `Type=="RECEIVE"&&Date>=DateTime(${fromDate.replace(/-/g, ",")})&&Date<=DateTime(${toDate.replace(/-/g, ",")})`;
+    // Fetch UNRECONCILED bank transactions only (RECEIVE type = incoming payments)
+    // IsReconciled==false ensures we only get transactions that haven't been matched to invoices yet
+    const whereClause = `Type=="RECEIVE"&&IsReconciled==false&&Date>=DateTime(${fromDate.replace(/-/g, ",")})&&Date<=DateTime(${toDate.replace(/-/g, ",")})`;
     const transactionsUrl = `https://api.xero.com/api.xro/2.0/BankTransactions?where=${encodeURIComponent(whereClause)}&order=Date DESC`;
     
     console.log("Fetching bank transactions from Xero:", transactionsUrl);
