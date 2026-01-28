@@ -201,3 +201,27 @@ export async function fetchOutstandingInvoices(contactId?: string): Promise<{
     summary: data.summary || { totalOutstanding: 0, totalOverdue: 0, invoiceCount: 0, overdueCount: 0 },
   };
 }
+
+export async function getCustomerOutstandingBalance(xeroContactId: string): Promise<{
+  outstanding: number;
+  overdue: number;
+  invoiceCount: number;
+}> {
+  try {
+    const { contactBalances, summary } = await fetchOutstandingInvoices(xeroContactId);
+    const contact = contactBalances.find((c) => c.contactId === xeroContactId);
+    
+    if (contact) {
+      return {
+        outstanding: contact.outstanding,
+        overdue: contact.overdue,
+        invoiceCount: summary.invoiceCount,
+      };
+    }
+    
+    return { outstanding: 0, overdue: 0, invoiceCount: 0 };
+  } catch (error) {
+    console.error("Error fetching customer balance:", error);
+    return { outstanding: 0, overdue: 0, invoiceCount: 0 };
+  }
+}

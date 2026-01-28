@@ -1,0 +1,207 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+async function refreshTokenIfNeeded(supabase: any, connection: any) {
+  const now = new Date();
+  const expiresAt = new Date(connection.expires_at);
+  
+  // Refresh if expires in less than 5 minutes
+  if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
+    console.log("Refreshing Xero token...");
+    
+    const clientId = Deno.env.get("XERO_CLIENT_ID")!;
+    const clientSecret = Deno.env.get("XERO_CLIENT_SECRET")!;
+    
+    const response = await fetch("https://identity.xero.com/connect/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: connection.refresh_token,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to refresh token");
+    }
+
+    const tokens = await response.json();
+    const newExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+    
+    // Update token in database
+    await supabase
+      .from("xero_connections")
+      .update({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: newExpiresAt,
+      })
+      .eq("id", connection.id);
+    
+    return tokens.access_token;
+  }
+  
+  return connection.access_token;
+}
+
+interface CreateContactRequest {
+  name: string;
+  email?: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  addressLine1?: string;
+  city?: string;
+  postalCode?: string;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claims, error: claimsError } = await supabase.auth.getClaims(token);
+    
+    if (claimsError || !claims?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claims.claims.sub;
+
+    // Get user's Xero connection
+    const { data: connection, error: connError } = await supabase
+      .from("xero_connections")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (connError || !connection) {
+      return new Response(
+        JSON.stringify({ error: "No Xero connection found" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Refresh token if needed
+    const accessToken = await refreshTokenIfNeeded(supabase, connection);
+
+    // Parse request body
+    const body: CreateContactRequest = await req.json();
+    
+    if (!body.name) {
+      return new Response(
+        JSON.stringify({ error: "Contact name is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Creating Xero contact:", body.name);
+
+    // Build Xero contact object
+    const xeroContact: any = {
+      Name: body.name,
+    };
+
+    if (body.email) {
+      xeroContact.EmailAddress = body.email;
+    }
+
+    if (body.firstName || body.lastName) {
+      xeroContact.FirstName = body.firstName || "";
+      xeroContact.LastName = body.lastName || "";
+    }
+
+    // Add phone if provided
+    if (body.phone) {
+      xeroContact.Phones = [
+        {
+          PhoneType: "DEFAULT",
+          PhoneNumber: body.phone,
+        },
+      ];
+    }
+
+    // Add address if provided
+    if (body.addressLine1 || body.city || body.postalCode) {
+      xeroContact.Addresses = [
+        {
+          AddressType: "POBOX",
+          AddressLine1: body.addressLine1 || "",
+          City: body.city || "",
+          PostalCode: body.postalCode || "",
+          Country: "United Kingdom",
+        },
+      ];
+    }
+
+    // Create contact in Xero
+    const createResponse = await fetch("https://api.xero.com/api.xro/2.0/Contacts", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Xero-Tenant-Id": connection.tenant_id,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({ Contacts: [xeroContact] }),
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error("Failed to create Xero contact:", errorText);
+      throw new Error("Failed to create contact in Xero");
+    }
+
+    const responseData = await createResponse.json();
+    const createdContact = responseData.Contacts?.[0];
+
+    if (!createdContact?.ContactID) {
+      throw new Error("Xero did not return a contact ID");
+    }
+
+    console.log("Created Xero contact with ID:", createdContact.ContactID);
+
+    return new Response(
+      JSON.stringify({
+        contactId: createdContact.ContactID,
+        name: createdContact.Name,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error: unknown) {
+    console.error("Error creating Xero contact:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

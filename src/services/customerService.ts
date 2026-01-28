@@ -11,6 +11,7 @@ export interface Customer {
   postcode: string | null;
   notes: string | null;
   status: string | null;
+  xero_contact_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,7 +70,20 @@ export async function getCustomer(id: string): Promise<{ customer: Customer | nu
   }
 }
 
-export async function createCustomer(customer: Omit<Customer, "id" | "created_at" | "updated_at">): Promise<{ customer: Customer | null; error: Error | null }> {
+export interface CreateCustomerData {
+  name: string;
+  contact_name?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  notes?: string | null;
+  status?: string;
+  xero_contact_id?: string | null;
+}
+
+export async function createCustomer(customer: CreateCustomerData): Promise<{ customer: Customer | null; error: Error | null }> {
   try {
     const { data, error } = await supabase
       .from("customers")
@@ -120,4 +134,28 @@ export async function getCustomerSites(customerId: string) {
     .order("name");
 
   return { sites: data || [], error };
+}
+
+export async function createXeroContact(contactData: {
+  name: string;
+  email?: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  addressLine1?: string;
+  city?: string;
+  postalCode?: string;
+}): Promise<{ contactId: string; error: Error | null }> {
+  try {
+    const { data, error } = await supabase.functions.invoke("xero-create-contact", {
+      body: contactData,
+    });
+
+    if (error) throw new Error(error.message);
+    if (data.error) throw new Error(data.error);
+
+    return { contactId: data.contactId, error: null };
+  } catch (error) {
+    return { contactId: "", error: error as Error };
+  }
 }
