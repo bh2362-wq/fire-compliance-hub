@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Customer, getCustomer, getCustomerSites } from "@/services/customerService";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
+import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -237,6 +238,12 @@ const CustomerDetail = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Invoices */}
+        <CustomerInvoices 
+          xeroContactId={customer.xero_contact_id} 
+          customerName={customer.name} 
+        />
 
         {/* Notes */}
         {customer.notes && (
