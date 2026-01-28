@@ -32,6 +32,7 @@ const SMOKE_DETECTOR_TYPES = [
 
 // A can of smoke test spray tests approximately 170 smoke detectors
 const DETECTORS_PER_CAN = 170;
+const COST_PER_CAN = 38; // £38 per can
 
 // Service type multipliers (percentage of devices tested)
 const SERVICE_MULTIPLIERS: Record<string, number> = {
@@ -91,6 +92,7 @@ export function SmokeSprayEstimate({ siteId, visitType }: SmokeSprayEstimateProp
 
   const detectorsToTest = Math.ceil(smokeCount * multiplier);
   const cansNeeded = detectorsToTest / DETECTORS_PER_CAN;
+  const estimatedCost = cansNeeded * COST_PER_CAN;
   const cansPercentage = Math.min(cansNeeded * 100, 100); // Cap at 100% for display
 
   // Determine color based on usage
@@ -102,9 +104,9 @@ export function SmokeSprayEstimate({ siteId, visitType }: SmokeSprayEstimateProp
 
   const getLabel = () => {
     if (cansNeeded >= 1) {
-      return `${cansNeeded.toFixed(1)} cans`;
+      return `£${Math.round(estimatedCost)}`;
     }
-    return `${Math.round(cansNeeded * 100)}%`;
+    return `£${estimatedCost.toFixed(0)}`;
   };
 
   return (
@@ -137,6 +139,9 @@ export function SmokeSprayEstimate({ siteId, visitType }: SmokeSprayEstimateProp
             </p>
             <p className="text-muted-foreground">
               ≈ {cansNeeded.toFixed(2)} cans needed (170/can)
+            </p>
+            <p className="font-medium text-foreground">
+              Est. cost: £{estimatedCost.toFixed(2)}
             </p>
           </div>
         </TooltipContent>
