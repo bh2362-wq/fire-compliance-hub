@@ -78,14 +78,18 @@ export function ServiceReportChecklist({
     onChange({
       ...checklist,
       [section]: {
-        ...checklist[section],
+        ...(checklist[section] || {}),
         [item]: value,
       },
     });
   };
 
   const getSectionStats = (section: keyof BS5839Checklist) => {
-    const items = Object.values(checklist[section] as Record<string, CheckValue>);
+    const sectionData = checklist[section];
+    if (!sectionData || typeof sectionData !== 'object') {
+      return { passed: 0, failed: 0, total: 0, pending: 0 };
+    }
+    const items = Object.values(sectionData as Record<string, CheckValue>);
     const passed = items.filter((v) => v === true).length;
     const failed = items.filter((v) => v === false).length;
     const total = items.length;
@@ -96,6 +100,9 @@ export function ServiceReportChecklist({
     <div className="space-y-6">
       {(Object.keys(SECTION_LABELS) as Array<keyof BS5839Checklist>).map((sectionKey) => {
         const sectionLabels = CHECKLIST_LABELS[sectionKey];
+        if (!sectionLabels) return null;
+        
+        const sectionData = checklist[sectionKey] as Record<string, CheckValue> | undefined;
         const stats = getSectionStats(sectionKey);
 
         return (
@@ -115,7 +122,7 @@ export function ServiceReportChecklist({
                 <ChecklistItem
                   key={itemKey}
                   label={label}
-                  value={(checklist[sectionKey] as Record<string, CheckValue>)[itemKey]}
+                  value={sectionData ? sectionData[itemKey] : null}
                   onChange={(value) => updateChecklistItem(sectionKey, itemKey, value)}
                   readonly={readonly}
                 />
