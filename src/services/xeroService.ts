@@ -129,7 +129,8 @@ export async function createXeroInvoice(
   contactName: string,
   lineItems: InvoiceLineItem[],
   reference?: string,
-  dueDate?: string
+  dueDate?: string,
+  invoiceNumber?: string
 ): Promise<{ id: string; number: string; status: string; total: number }> {
   const { data, error } = await supabase.functions.invoke("xero-create-invoice", {
     body: {
@@ -139,6 +140,7 @@ export async function createXeroInvoice(
       lineItems,
       reference,
       dueDate,
+      invoiceNumber,
     },
   });
 
