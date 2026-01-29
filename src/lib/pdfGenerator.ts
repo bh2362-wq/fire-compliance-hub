@@ -353,10 +353,11 @@ export function generateServiceReportPDF(
       let naVal = "";
       
       if (typeof item.value === "boolean") {
-        if (item.value === true) yesVal = "✓";
-        else if (item.value === false) noVal = "✓";
+        // Use markers so we can draw solid boxes (like the legend) in didDrawCell
+        if (item.value === true) yesVal = "__PASS__";
+        else if (item.value === false) noVal = "__FAIL__";
       } else if (item.value === null) {
-        naVal = "✓";
+        naVal = "__NA__";
       } else if (typeof item.value === "string" || typeof item.value === "number") {
         // For text/number fields like chargeVoltage, detectorCount
         yesVal = String(item.value);
@@ -391,24 +392,39 @@ export function generateServiceReportPDF(
       fillColor: COLORS.lightGrey,
     },
     columnStyles: {
-      0: { cellWidth: contentWidth - 36 },
-      1: { cellWidth: 12, halign: "center", fontStyle: "bold" },
-      2: { cellWidth: 12, halign: "center", fontStyle: "bold" },
-      3: { cellWidth: 12, halign: "center", fontStyle: "bold" },
+      0: { cellWidth: contentWidth - 42 },
+      1: { cellWidth: 14, halign: "center", fontStyle: "bold" },
+      2: { cellWidth: 14, halign: "center", fontStyle: "bold" },
+      3: { cellWidth: 14, halign: "center", fontStyle: "bold" },
     },
     margin: { left: margin, right: margin },
     didParseCell: (data) => {
       if (data.section === "body") {
-        // Color the check marks
-        const text = data.cell.text[0];
-        if (data.column.index === 1 && text === "✓") {
-          data.cell.styles.textColor = COLORS.pass;
-        } else if (data.column.index === 2 && text === "✓") {
-          data.cell.styles.textColor = COLORS.fail;
-        } else if (data.column.index === 3 && text === "✓") {
-          data.cell.styles.textColor = COLORS.na;
+        const raw = data.cell.raw;
+        // Remove marker text so we can render solid status boxes (more visible than ✓)
+        if (raw === "__PASS__" || raw === "__FAIL__" || raw === "__NA__") {
+          data.cell.text = [""];
         }
       }
+    },
+    didDrawCell: (data) => {
+      if (data.section !== "body") return;
+
+      const raw = data.cell.raw;
+      if (raw !== "__PASS__" && raw !== "__FAIL__" && raw !== "__NA__") return;
+
+      const size = 5; // match legend visibility
+      const x = data.cell.x + data.cell.width / 2 - size / 2;
+      const y = data.cell.y + data.cell.height / 2 - size / 2;
+
+      const fill = raw === "__PASS__" ? COLORS.pass : raw === "__FAIL__" ? COLORS.fail : COLORS.na;
+      doc.setFillColor(...fill);
+      doc.rect(x, y, size, size, "F");
+
+      // Subtle border so the box remains visible on light rows
+      doc.setDrawColor(...COLORS.borderGrey);
+      doc.setLineWidth(0.2);
+      doc.rect(x, y, size, size);
     },
   });
 
