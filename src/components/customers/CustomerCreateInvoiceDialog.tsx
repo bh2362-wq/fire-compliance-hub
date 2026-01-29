@@ -323,6 +323,12 @@ export function CustomerCreateInvoiceDialog({
             </div>
 
             <div className="space-y-3">
+              <div className="flex gap-2 items-center text-sm text-muted-foreground font-medium">
+                <div className="flex-1">Description</div>
+                <div className="w-24 text-center">Unit Price (£)</div>
+                <div className="w-20 text-center">Qty</div>
+                <div className="w-9"></div>
+              </div>
               {lineItems.map((item, index) => (
                 <div key={index} className="flex gap-2 items-start">
                   <div className="flex-1">
@@ -333,23 +339,23 @@ export function CustomerCreateInvoiceDialog({
                       className="min-h-[60px]"
                     />
                   </div>
-                  <div className="w-20">
+                  <div className="w-24">
                     <Input
                       type="number"
-                      placeholder="Qty"
-                      min={1}
-                      value={item.quantity}
-                      onChange={(e) => updateLineItem(index, "quantity", parseInt(e.target.value) || 1)}
-                    />
-                  </div>
-                  <div className="w-28">
-                    <Input
-                      type="number"
-                      placeholder="Amount"
+                      placeholder="£0.00"
                       min={0}
                       step={0.01}
                       value={item.unitAmount || ""}
                       onChange={(e) => updateLineItem(index, "unitAmount", parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="w-20">
+                    <Input
+                      type="number"
+                      placeholder="1"
+                      min={1}
+                      value={item.quantity}
+                      onChange={(e) => updateLineItem(index, "quantity", parseInt(e.target.value) || 1)}
                     />
                   </div>
                   <Button
