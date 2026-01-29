@@ -1,22 +1,37 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Clock, FileText, PoundSterling } from "lucide-react";
-import { fetchOutstandingInvoices, XeroOutstandingInvoice } from "@/services/xeroService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { AlertCircle, Clock, FileText, Loader2, PoundSterling, Trash2 } from "lucide-react";
+import { fetchOutstandingInvoices, deleteXeroInvoice, XeroOutstandingInvoice } from "@/services/xeroService";
 import { format, parseISO, isValid, differenceInDays } from "date-fns";
+import { toast } from "sonner";
 
 interface CustomerInvoicesProps {
   xeroContactId: string | null;
   customerName: string;
   refreshKey?: number;
+  onInvoiceDeleted?: () => void;
 }
 
-export function CustomerInvoices({ xeroContactId, customerName, refreshKey = 0 }: CustomerInvoicesProps) {
+export function CustomerInvoices({ xeroContactId, customerName, refreshKey = 0, onInvoiceDeleted }: CustomerInvoicesProps) {
   const [invoices, setInvoices] = useState<XeroOutstandingInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totals, setTotals] = useState({ outstanding: 0, overdue: 0 });
+  const [deleteInvoice, setDeleteInvoice] = useState<XeroOutstandingInvoice | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!xeroContactId) {
@@ -71,6 +86,34 @@ export function CustomerInvoices({ xeroContactId, customerName, refreshKey = 0 }
     if (days > 30) return "destructive";
     if (days > 14) return "secondary";
     return "outline";
+  };
+
+  const handleDeleteInvoice = async () => {
+    if (!deleteInvoice) return;
+    
+    setDeleting(true);
+    try {
+      const result = await deleteXeroInvoice(deleteInvoice.invoiceId);
+      toast.success(`Invoice ${deleteInvoice.invoiceNumber} ${result.method === 'voided' ? 'voided' : 'deleted'} successfully`);
+      
+      // Remove from local state
+      setInvoices((prev) => prev.filter((inv) => inv.invoiceId !== deleteInvoice.invoiceId));
+      
+      // Recalculate totals
+      const remaining = invoices.filter((inv) => inv.invoiceId !== deleteInvoice.invoiceId);
+      const outstanding = remaining.reduce((sum, inv) => sum + inv.amountDue, 0);
+      const overdue = remaining
+        .filter((inv) => inv.isOverdue)
+        .reduce((sum, inv) => sum + inv.amountDue, 0);
+      setTotals({ outstanding, overdue });
+      
+      onInvoiceDeleted?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete invoice");
+    } finally {
+      setDeleting(false);
+      setDeleteInvoice(null);
+    }
   };
 
   if (!xeroContactId) {
@@ -197,10 +240,18 @@ export function CustomerInvoices({ xeroContactId, customerName, refreshKey = 0 }
                             {invoice.reference && ` • Ref: ${invoice.reference}`}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="flex items-center gap-3">
                           <p className="font-semibold text-destructive">
                             £{invoice.amountDue.toLocaleString("en-GB", { minimumFractionDigits: 2 })}
                           </p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => setDeleteInvoice(invoice)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     );
@@ -214,7 +265,7 @@ export function CustomerInvoices({ xeroContactId, customerName, refreshKey = 0 }
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                   <Clock className="w-4 h-4" />
-                  Due ({dueInvoices.length})
+                  Outstanding ({dueInvoices.length})
                 </h4>
                 <div className="space-y-2">
                   {dueInvoices.map((invoice) => (
@@ -233,10 +284,18 @@ export function CustomerInvoices({ xeroContactId, customerName, refreshKey = 0 }
                           {invoice.reference && ` • Ref: ${invoice.reference}`}
                         </p>
                       </div>
-                      <div className="text-right">
+                      <div className="flex items-center gap-3">
                         <p className="font-semibold">
                           £{invoice.amountDue.toLocaleString("en-GB", { minimumFractionDigits: 2 })}
                         </p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => setDeleteInvoice(invoice)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -246,6 +305,37 @@ export function CustomerInvoices({ xeroContactId, customerName, refreshKey = 0 }
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={!!deleteInvoice} onOpenChange={(open) => !open && setDeleteInvoice(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete invoice <strong>{deleteInvoice?.invoiceNumber}</strong>?
+              {deleteInvoice?.status === "AUTHORISED" ? (
+                <span className="block mt-2 text-amber-600">
+                  This invoice has been authorised and will be voided in Xero.
+                </span>
+              ) : (
+                <span className="block mt-2">
+                  This will permanently delete the draft invoice from Xero.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteInvoice}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleteInvoice?.status === "AUTHORISED" ? "Void Invoice" : "Delete Invoice"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
