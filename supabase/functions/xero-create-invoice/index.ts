@@ -223,6 +223,35 @@ Deno.serve(async (req) => {
 
     console.log("Invoice created:", createdInvoice.InvoiceID, "Number:", createdInvoice.InvoiceNumber);
 
+    // Auto-send the invoice via email to the customer in Xero
+    let emailSent = false;
+    try {
+      const emailResponse = await fetch(
+        `https://api.xero.com/api.xro/2.0/Invoices/${createdInvoice.InvoiceID}/Email`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Xero-Tenant-Id": connection.tenant_id,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+        }
+      );
+
+      if (emailResponse.ok) {
+        console.log("Invoice emailed successfully to customer");
+        emailSent = true;
+      } else {
+        const emailError = await emailResponse.text();
+        console.error("Failed to email invoice:", emailError);
+        // Don't throw - invoice was still created successfully
+      }
+    } catch (emailError) {
+      console.error("Error sending invoice email:", emailError);
+      // Don't throw - invoice was still created successfully
+    }
+
     // Calculate total
     const total = lineItems.reduce((sum: number, item: any) => 
       sum + (item.unitAmount * (item.quantity || 1)), 0
@@ -254,7 +283,8 @@ Deno.serve(async (req) => {
           number: createdInvoice.InvoiceNumber,
           status: createdInvoice.Status,
           total: createdInvoice.Total,
-        }
+        },
+        emailSent,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

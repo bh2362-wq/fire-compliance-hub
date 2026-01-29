@@ -218,7 +218,11 @@ export function CustomerCreateInvoiceDialog({
         invoiceNumber || undefined // pass invoice number if specified
       );
 
-      toast.success(`Invoice ${result.number} created successfully`);
+      if (result.emailSent) {
+        toast.success(`Invoice ${result.number} created and emailed to customer`);
+      } else {
+        toast.success(`Invoice ${result.number} created (email not sent - check customer has email in Xero)`);
+      }
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
