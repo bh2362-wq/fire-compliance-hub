@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, AlertTriangle, CheckCircle2, Eye, ClipboardList } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle2, Eye, Download } from "lucide-react";
 import { format } from "date-fns";
 import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportService";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
-import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
+import { generateServiceReportPDF, generateWorkReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface SiteServiceReportsProps {
   siteId: string;
@@ -18,6 +19,16 @@ interface SiteServiceReportsProps {
 interface VisitInfo {
   visit_type: string;
   visit_date: string;
+}
+
+interface SiteInfo {
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -49,19 +60,40 @@ const conditionConfig: Record<string, { label: string; icon: typeof CheckCircle2
   },
 };
 
+// Helper to detect if a report is a Work Report (has JSON in notes with work report fields)
+function isWorkReport(report: ServiceReport): boolean {
+  if (!report.notes) return false;
+  try {
+    const parsed = JSON.parse(report.notes);
+    // Work reports have these specific fields
+    return typeof parsed.jobNumber !== "undefined" || typeof parsed.jobType !== "undefined";
+  } catch {
+    return false;
+  }
+}
+
 export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps) {
   const [reports, setReports] = useState<ServiceReport[]>([]);
   const [visitMap, setVisitMap] = useState<Record<string, VisitInfo>>({});
+  const [siteInfo, setSiteInfo] = useState<SiteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ServiceReport | null>(null);
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
-  const [reportType, setReportType] = useState<"bs5839" | "work" | null>(null);
+  const [dialogType, setDialogType] = useState<"work" | "bs5839" | null>(null);
 
   const fetchReports = async () => {
     setLoading(true);
     try {
       const data = await getSiteServiceReports(siteId);
       setReports(data);
+
+      // Fetch site info for PDF generation
+      const { data: site } = await supabase
+        .from("sites")
+        .select("name, address, city, postcode, contact_name, contact_phone, contact_email")
+        .eq("id", siteId)
+        .maybeSingle();
+      
+      if (site) setSiteInfo(site);
 
       // Fetch visit info for each report
       if (data.length > 0) {
@@ -89,6 +121,62 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
   useEffect(() => {
     fetchReports();
   }, [siteId]);
+
+  const handleViewReport = (report: ServiceReport) => {
+    setSelectedReport(report);
+    // Auto-detect report type from data
+    setDialogType(isWorkReport(report) ? "work" : "bs5839");
+  };
+
+  const handleDownloadPDF = async (report: ServiceReport) => {
+    const visit = visitMap[report.visit_id];
+    if (!siteInfo || !visit) {
+      toast.error("Missing site or visit information");
+      return;
+    }
+
+    try {
+      if (isWorkReport(report)) {
+        // Parse work report data from notes
+        const parsed = JSON.parse(report.notes || "{}");
+        generateWorkReportPDF(
+          {
+            certificateNo: report.report_number || "",
+            jobNumber: parsed.jobNumber || "",
+            jobType: parsed.jobType || "",
+            attendanceDay: parsed.attendanceDay || "",
+            systemStatusArrival: parsed.systemStatusArrival || "",
+            systemStatusDeparture: parsed.systemStatusDeparture || "",
+            workCompleted: parsed.workCompleted || false,
+            returnRequired: parsed.returnRequired || false,
+            surveyRequired: parsed.surveyRequired || false,
+            quotationRequired: parsed.quotationRequired || false,
+            ramsCompleted: parsed.ramsCompleted || false,
+            logBookEntry: parsed.logBookEntry || false,
+            worksReport: report.work_carried_out || "",
+            furtherAction: report.recommendations || "",
+            numEngineers: parsed.numEngineers || 1,
+            startTime: parsed.startTime || "",
+            finishTime: parsed.finishTime || "",
+            travelTime: parsed.travelTime || "",
+            duration: parsed.duration || "",
+            materials: parsed.materials || [],
+            engineerName: report.engineer_name || "",
+            customerName: report.client_name || "",
+          },
+          siteInfo,
+          visit.visit_date
+        );
+      } else {
+        // BS5839 report
+        generateServiceReportPDF(report, siteInfo, visit);
+      }
+      toast.success("PDF downloaded");
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      toast.error("Failed to generate PDF");
+    }
+  };
 
   if (loading) {
     return (
@@ -133,6 +221,7 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
               : null;
             const ConditionIcon = condition?.icon;
             const visit = visitMap[report.visit_id];
+            const isWork = isWorkReport(report);
 
             return (
               <div
@@ -147,6 +236,9 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
                       </span>
                       <Badge variant="outline" className={status.className}>
                         {status.label}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {isWork ? "Work Report" : "BS5839"}
                       </Badge>
                       {visit && (
                         <span className="text-xs text-muted-foreground capitalize">
@@ -173,16 +265,24 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
                       </p>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedReport(report);
-                      setShowTypeSelector(true);
-                    }}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewReport(report)}
+                      title="View / Edit"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDownloadPDF(report)}
+                      title="Download PDF"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
@@ -190,21 +290,14 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
         </div>
       )}
 
-      {/* Report Type Selector */}
-      <ReportTypeSelector
-        open={showTypeSelector}
-        onOpenChange={setShowTypeSelector}
-        onSelect={(type) => setReportType(type)}
-      />
-
       {/* Work Report Dialog */}
-      {selectedReport && reportType === "work" && (
+      {selectedReport && dialogType === "work" && (
         <WorkReportDialog
-          open={!!selectedReport && reportType === "work"}
+          open={!!selectedReport && dialogType === "work"}
           onOpenChange={(open) => {
             if (!open) {
               setSelectedReport(null);
-              setReportType(null);
+              setDialogType(null);
             }
           }}
           visit={{
@@ -219,13 +312,13 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
       )}
 
       {/* BS5839 Report Dialog */}
-      {selectedReport && reportType === "bs5839" && (
+      {selectedReport && dialogType === "bs5839" && (
         <ServiceReportDialog
-          open={!!selectedReport && reportType === "bs5839"}
+          open={!!selectedReport && dialogType === "bs5839"}
           onOpenChange={(open) => {
             if (!open) {
               setSelectedReport(null);
-              setReportType(null);
+              setDialogType(null);
             }
           }}
           visit={{
