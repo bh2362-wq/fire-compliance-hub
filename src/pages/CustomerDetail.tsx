@@ -15,12 +15,14 @@ import {
   Plus,
   Loader2,
   FileText,
+  ClipboardList,
 } from "lucide-react";
 import { Customer, getCustomer, getCustomerSites } from "@/services/customerService";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
+import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface Site {
@@ -127,6 +129,18 @@ const CustomerDetail = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {sites.length > 0 && (
+              <VisitFormDialog
+                sites={sites}
+                onVisitCreated={() => loadData()}
+                trigger={
+                  <Button variant="outline">
+                    <ClipboardList className="w-4 h-4 mr-2" />
+                    New Visit
+                  </Button>
+                }
+              />
+            )}
             <Button variant="outline" onClick={() => setShowInvoiceDialog(true)}>
               <FileText className="w-4 h-4 mr-2" />
               Add Invoice
