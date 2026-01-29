@@ -310,17 +310,20 @@ export function CustomerInvoices({ xeroContactId, customerName, refreshKey = 0, 
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete invoice <strong>{deleteInvoice?.invoiceNumber}</strong>?
-              {deleteInvoice?.status === "AUTHORISED" ? (
-                <span className="block mt-2 text-amber-600">
-                  This invoice has been authorised and will be voided in Xero.
-                </span>
-              ) : (
-                <span className="block mt-2">
-                  This will permanently delete the draft invoice from Xero.
-                </span>
-              )}
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Are you sure you want to delete invoice <strong>{deleteInvoice?.invoiceNumber}</strong>?</p>
+                <p className="font-medium text-destructive">This action cannot be undone.</p>
+                {deleteInvoice?.status === "AUTHORISED" ? (
+                  <p className="text-amber-600">
+                    This invoice has been authorised and will be voided in Xero.
+                  </p>
+                ) : (
+                  <p>
+                    This will permanently delete the draft invoice from Xero.
+                  </p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
