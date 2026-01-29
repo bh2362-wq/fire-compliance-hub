@@ -30,6 +30,7 @@ import {
   createServiceReport,
   updateServiceReport,
 } from "@/services/serviceReportService";
+import { generateWorkReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 
 interface VisitForReport {
@@ -246,6 +247,46 @@ export function WorkReportDialog({
     const updated = [...materials];
     updated[index][field] = value;
     setMaterials(updated);
+  };
+
+  const handleDownloadPDF = () => {
+    if (!siteInfo) return;
+
+    try {
+      generateWorkReportPDF(
+        {
+          certificateNo,
+          jobNumber,
+          jobType,
+          attendanceDay,
+          systemStatusArrival,
+          systemStatusDeparture,
+          workCompleted,
+          returnRequired,
+          surveyRequired,
+          quotationRequired,
+          ramsCompleted,
+          logBookEntry,
+          worksReport,
+          furtherAction,
+          numEngineers,
+          startTime,
+          finishTime,
+          travelTime,
+          duration,
+          materials,
+          engineerName,
+          customerName,
+        },
+        siteInfo,
+        visit.visit_date
+      );
+
+      toast.success("PDF downloaded successfully");
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      toast.error("Failed to generate PDF");
+    }
   };
 
   if (loading) {
@@ -635,6 +676,10 @@ export function WorkReportDialog({
         </Tabs>
 
         <DialogFooter className="border-t pt-4 flex-wrap gap-2">
+          <Button variant="outline" onClick={handleDownloadPDF} className="mr-auto">
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
+          </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
