@@ -131,7 +131,7 @@ export async function createXeroInvoice(
   reference?: string,
   dueDate?: string,
   invoiceNumber?: string
-): Promise<{ id: string; number: string; status: string; total: number }> {
+): Promise<{ id: string; number: string; status: string; total: number; emailSent: boolean }> {
   const { data, error } = await supabase.functions.invoke("xero-create-invoice", {
     body: {
       visitId,
@@ -147,7 +147,10 @@ export async function createXeroInvoice(
   if (error) throw new Error(error.message);
   if (data.error) throw new Error(data.error);
   
-  return data.invoice;
+  return {
+    ...data.invoice,
+    emailSent: data.emailSent ?? false,
+  };
 }
 
 export async function getVisitInvoices(visitId: string): Promise<XeroInvoice[]> {
