@@ -107,8 +107,9 @@ Deno.serve(async (req) => {
     let fallbackLastNumber: string | null = null;
 
     for (let page = 1; page <= MAX_PAGES_TO_SCAN; page++) {
+      // Exclude VOIDED invoices - they shouldn't count toward the next number
       const response = await fetch(
-        `https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID,VOIDED&order=Date%20DESC&page=${page}`,
+        `https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID&order=Date%20DESC&page=${page}`,
         {
           headers: {
             "Authorization": `Bearer ${accessToken}`,
