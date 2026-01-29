@@ -2,13 +2,26 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { SmokeSprayEstimate } from "./SmokeSprayEstimate";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
 interface VisitsTableProps {
   visits: Visit[];
   loading: boolean;
@@ -32,8 +45,42 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
   const [reportVisit, setReportVisit] = useState<Visit | null>(null);
+  const [deleteVisit, setDeleteVisit] = useState<Visit | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteVisit = async () => {
+    if (!deleteVisit) return;
+    
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("visits")
+        .delete()
+        .eq("id", deleteVisit.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Visit deleted",
+        description: "The visit has been successfully deleted.",
+      });
+      
+      setDeleteVisit(null);
+      onRefresh?.();
+    } catch (error) {
+      console.error("Error deleting visit:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete visit. It may have linked records.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -188,6 +235,14 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
                   <FileText className="w-4 h-4 mr-1" />
                   Invoice
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setDeleteVisit(visit)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           );
@@ -211,6 +266,43 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
           onSuccess={onRefresh}
         />
       )}
+
+      <AlertDialog open={!!deleteVisit} onOpenChange={(open) => !open && setDeleteVisit(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Visit</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this visit for{" "}
+              <span className="font-medium">{deleteVisit?.site?.name}</span> on{" "}
+              <span className="font-medium">
+                {deleteVisit?.visit_date && format(new Date(deleteVisit.visit_date), "MMM d, yyyy")}
+              </span>
+              ?
+              <br />
+              <span className="text-destructive font-medium mt-2 block">
+                This action cannot be undone.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteVisit}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Visit"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
