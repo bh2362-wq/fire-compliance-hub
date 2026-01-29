@@ -49,37 +49,51 @@ interface VisitInfo {
   visit_date: string;
 }
 
-// Helper to draw filled checkbox
+// Helper to draw filled checkbox with proper styling
 function drawCheckbox(
   doc: jsPDF,
   x: number,
   y: number,
   checked: boolean | null,
-  size: number = 4
+  size: number = 5
 ) {
   const checkSize = size;
+  const borderRadius = 1;
   
   if (checked === true) {
-    // Filled green checkbox for Pass
+    // Filled green rounded square for Pass with white checkmark
     doc.setFillColor(...COLORS.success);
-    doc.rect(x, y, checkSize, checkSize, "F");
-    doc.setTextColor(...COLORS.white);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.text("✓", x + 0.8, y + 3.2);
+    doc.roundedRect(x, y, checkSize, checkSize, borderRadius, borderRadius, "F");
+    // Draw checkmark using lines instead of unicode
+    doc.setDrawColor(...COLORS.white);
+    doc.setLineWidth(0.8);
+    const startX = x + 1;
+    const midX = x + 2;
+    const endX = x + checkSize - 1;
+    const startY = y + checkSize / 2;
+    const midY = y + checkSize - 1.5;
+    const endY = y + 1.5;
+    doc.line(startX, startY, midX, midY);
+    doc.line(midX, midY, endX, endY);
   } else if (checked === false) {
-    // Filled red checkbox for Fail
+    // Filled red rounded square for Fail with white X
     doc.setFillColor(...COLORS.danger);
-    doc.rect(x, y, checkSize, checkSize, "F");
-    doc.setTextColor(...COLORS.white);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.text("✗", x + 0.6, y + 3.2);
+    doc.roundedRect(x, y, checkSize, checkSize, borderRadius, borderRadius, "F");
+    // Draw X using lines
+    doc.setDrawColor(...COLORS.white);
+    doc.setLineWidth(0.8);
+    doc.line(x + 1.2, y + 1.2, x + checkSize - 1.2, y + checkSize - 1.2);
+    doc.line(x + checkSize - 1.2, y + 1.2, x + 1.2, y + checkSize - 1.2);
   } else {
-    // Empty circle for N/A
+    // Empty rounded square with gray border for N/A
     doc.setDrawColor(...COLORS.medium);
-    doc.setLineWidth(0.3);
-    doc.circle(x + checkSize / 2, y + checkSize / 2, checkSize / 2 - 0.5);
+    doc.setLineWidth(0.5);
+    doc.setFillColor(...COLORS.white);
+    doc.roundedRect(x, y, checkSize, checkSize, borderRadius, borderRadius, "FD");
+    // Draw dash in middle
+    doc.setDrawColor(...COLORS.medium);
+    doc.setLineWidth(0.6);
+    doc.line(x + 1.5, y + checkSize / 2, x + checkSize - 1.5, y + checkSize / 2);
   }
 }
 
@@ -397,17 +411,17 @@ export function generateServiceReportPDF(
   doc.setTextColor(...COLORS.dark);
   doc.setFont("helvetica", "normal");
   
-  // Legend boxes
-  drawCheckbox(doc, margin, yPos, true, 4);
-  doc.text("= Pass", margin + 6, yPos + 3);
+  // Legend boxes with proper spacing
+  drawCheckbox(doc, margin, yPos, true, 5);
+  doc.text("Pass", margin + 8, yPos + 4);
   
-  drawCheckbox(doc, margin + 25, yPos, false, 4);
-  doc.text("= Fail", margin + 31, yPos + 3);
+  drawCheckbox(doc, margin + 30, yPos, false, 5);
+  doc.text("Fail", margin + 38, yPos + 4);
   
-  drawCheckbox(doc, margin + 50, yPos, null, 4);
-  doc.text("= N/A", margin + 56, yPos + 3);
+  drawCheckbox(doc, margin + 60, yPos, null, 5);
+  doc.text("N/A", margin + 68, yPos + 4);
   
-  yPos += 10;
+  yPos += 12;
   
   // Generate checklist tables with proper checkboxes
   const checklist = report.checklist;
@@ -422,13 +436,13 @@ export function generateServiceReportPDF(
       let statusColor = COLORS.medium;
       
       if (value === true) {
-        statusText = "■ PASS";
+        statusText = "PASS";
         statusColor = COLORS.success;
       } else if (value === false) {
-        statusText = "■ FAIL";
+        statusText = "FAIL";
         statusColor = COLORS.danger;
       } else {
-        statusText = "○ N/A";
+        statusText = "N/A";
         statusColor = COLORS.medium;
       }
       
@@ -471,12 +485,15 @@ export function generateServiceReportPDF(
       didParseCell: (data) => {
         if (data.section === "body" && data.column.index === 1) {
           const text = data.cell.text[0];
-          if (text.includes("PASS")) {
+          if (text === "PASS") {
             data.cell.styles.textColor = COLORS.success;
-          } else if (text.includes("FAIL")) {
+            data.cell.styles.fontStyle = "bold";
+          } else if (text === "FAIL") {
             data.cell.styles.textColor = COLORS.danger;
+            data.cell.styles.fontStyle = "bold";
           } else {
             data.cell.styles.textColor = COLORS.medium;
+            data.cell.styles.fontStyle = "italic";
           }
         }
       },
