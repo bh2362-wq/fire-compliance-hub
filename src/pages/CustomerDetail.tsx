@@ -14,10 +14,12 @@ import {
   Pencil,
   Plus,
   Loader2,
+  FileText,
 } from "lucide-react";
 import { Customer, getCustomer, getCustomerSites } from "@/services/customerService";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
+import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,6 +43,7 @@ const CustomerDetail = () => {
   const [loading, setLoading] = useState(true);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showSiteDialog, setShowSiteDialog] = useState(false);
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
 
   const loadData = async () => {
     if (!id) return;
@@ -122,10 +125,16 @@ const CustomerDetail = () => {
               </div>
             </div>
           </div>
-          <Button variant="outline" onClick={() => setShowEditDialog(true)}>
-            <Pencil className="w-4 h-4 mr-2" />
-            Edit Customer
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setShowInvoiceDialog(true)}>
+              <FileText className="w-4 h-4 mr-2" />
+              Add Invoice
+            </Button>
+            <Button variant="outline" onClick={() => setShowEditDialog(true)}>
+              <Pencil className="w-4 h-4 mr-2" />
+              Edit Customer
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
@@ -272,6 +281,16 @@ const CustomerDetail = () => {
         onOpenChange={setShowSiteDialog}
         onSiteCreated={loadData}
         defaultCustomerId={customer.id}
+      />
+
+      <CustomerCreateInvoiceDialog
+        open={showInvoiceDialog}
+        onOpenChange={setShowInvoiceDialog}
+        customerId={customer.id}
+        customerName={customer.name}
+        xeroContactId={customer.xero_contact_id}
+        sites={sites}
+        onSuccess={loadData}
       />
     </DashboardLayout>
   );
