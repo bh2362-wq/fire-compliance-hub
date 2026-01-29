@@ -51,6 +51,7 @@ const SERVICE_TYPES = [
   { value: "annual_inspection", label: "Annual Inspection" },
   { value: "emergency", label: "Emergency Callout" },
   { value: "remedial", label: "Remedial Works" },
+  { value: "supply_only", label: "Supply Only" },
 ];
 
 const SERVICE_TYPE_LINE_ITEMS: Record<string, InvoiceLineItem[]> = {
@@ -75,6 +76,9 @@ const SERVICE_TYPE_LINE_ITEMS: Record<string, InvoiceLineItem[]> = {
     { description: "Remedial Works - Fault repair and system restoration", quantity: 1, unitAmount: 0 },
     { description: "Engineer labour (hourly rate)", quantity: 1, unitAmount: 65 },
     { description: "Parts and materials", quantity: 1, unitAmount: 0 },
+  ],
+  supply_only: [
+    { description: "Parts/Equipment Supply", quantity: 1, unitAmount: 0 },
   ],
 };
 
