@@ -22,16 +22,17 @@ const COMPANY = {
 
 // Clean Charcoal + Red Color Palette (matches BHO Fire logo)
 const COLORS = {
-  charcoal: [45, 45, 48] as [number, number, number],        // Primary text
-  red: [200, 30, 30] as [number, number, number],            // BHO Red accent
-  darkGrey: [80, 80, 85] as [number, number, number],        // Secondary text
-  mediumGrey: [140, 140, 145] as [number, number, number],   // Muted text
-  lightGrey: [245, 245, 247] as [number, number, number],    // Subtle backgrounds
-  borderGrey: [220, 220, 225] as [number, number, number],   // Borders
+  charcoal: [45, 45, 48] as [number, number, number],
+  red: [200, 30, 30] as [number, number, number],
+  darkGrey: [80, 80, 85] as [number, number, number],
+  mediumGrey: [140, 140, 145] as [number, number, number],
+  lightGrey: [245, 245, 247] as [number, number, number],
+  borderGrey: [220, 220, 225] as [number, number, number],
   white: [255, 255, 255] as [number, number, number],
-  pass: [34, 139, 34] as [number, number, number],           // Forest green
-  fail: [200, 30, 30] as [number, number, number],           // Red (matches accent)
-  na: [140, 140, 145] as [number, number, number],           // Grey
+  black: [0, 0, 0] as [number, number, number],
+  pass: [34, 139, 34] as [number, number, number],
+  fail: [200, 30, 30] as [number, number, number],
+  na: [140, 140, 145] as [number, number, number],
 };
 
 interface SiteInfo {
@@ -72,11 +73,9 @@ function drawStatusBox(
     label = "N/A";
   }
 
-  // Draw filled box
   doc.setFillColor(...color);
   doc.rect(x, y, boxSize, boxSize, "F");
 
-  // Draw label next to box
   if (showLabel) {
     doc.setTextColor(...color);
     doc.setFontSize(7);
@@ -87,13 +86,11 @@ function drawStatusBox(
   return x + boxSize + (showLabel ? 18 : 6);
 }
 
-// Compact branded header
+// Compact branded header for Service Reports
 function addCompactHeader(doc: jsPDF, pageWidth: number, margin: number, logoImg: HTMLImageElement | null) {
-  // Thin red accent line at very top
   doc.setFillColor(...COLORS.red);
   doc.rect(0, 0, pageWidth, 2, "F");
 
-  // Logo on left
   if (logoImg) {
     try {
       doc.addImage(logoImg, "PNG", margin, 4, 18, 16);
@@ -105,7 +102,6 @@ function addCompactHeader(doc: jsPDF, pageWidth: number, margin: number, logoImg
     }
   }
 
-  // Company details on right (compact)
   doc.setTextColor(...COLORS.darkGrey);
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
@@ -114,12 +110,11 @@ function addCompactHeader(doc: jsPDF, pageWidth: number, margin: number, logoImg
   doc.text(COMPANY.address, rightX, 12, { align: "right" });
   doc.text(`${COMPANY.website}`, rightX, 16, { align: "right" });
 
-  // Thin border line
   doc.setDrawColor(...COLORS.borderGrey);
   doc.setLineWidth(0.3);
   doc.line(margin, 22, pageWidth - margin, 22);
 
-  return 26; // Return Y position after header
+  return 26;
 }
 
 // Compact footer
@@ -130,7 +125,6 @@ function addCompactFooter(doc: jsPDF, pageWidth: number, margin: number) {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
 
-    // Thin line
     doc.setDrawColor(...COLORS.borderGrey);
     doc.setLineWidth(0.2);
     doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
@@ -170,7 +164,6 @@ export function generateServiceReportPDF(
   doc.setFontSize(8);
   doc.text("BS 5839-1:2025", margin, yPos + 9);
 
-  // Report details on right
   doc.setTextColor(...COLORS.darkGrey);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
@@ -406,7 +399,7 @@ export function generateServiceReportPDF(
 
   if (notes.length > 0) {
     notes.forEach((note) => {
-      if (yPos > pageHeight - 30) return; // Stop if no space
+      if (yPos > pageHeight - 30) return;
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...COLORS.red);
@@ -414,7 +407,7 @@ export function generateServiceReportPDF(
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...COLORS.charcoal);
       const lines = doc.splitTextToSize(note.text!, contentWidth - 2);
-      doc.text(lines.slice(0, 2), margin, yPos + 4); // Max 2 lines
+      doc.text(lines.slice(0, 2), margin, yPos + 4);
       yPos += Math.min(lines.length, 2) * 3.5 + 6;
     });
   }
@@ -427,27 +420,24 @@ export function generateServiceReportPDF(
 
   const sigWidth = (contentWidth - 10) / 2;
 
-  // Engineer
   doc.setFontSize(6);
   doc.setTextColor(...COLORS.mediumGrey);
   doc.text("Engineer: " + (report.engineer_name || ""), margin, yPos + 4);
   doc.line(margin, yPos + 10, margin + sigWidth, yPos + 10);
   doc.text("Signature", margin, yPos + 14);
 
-  // Client
   doc.text("Client: " + (report.client_name || ""), margin + sigWidth + 10, yPos + 4);
   doc.line(margin + sigWidth + 10, yPos + 10, pageWidth - margin, yPos + 10);
   doc.text("Signature", margin + sigWidth + 10, yPos + 14);
 
-  // Footer
   addCompactFooter(doc, pageWidth, margin);
 
-  // Save
   const fileName = `BHO_Service_Report_${site.name.replace(/\s+/g, "_")}_${format(new Date(report.report_date), "yyyy-MM-dd")}.pdf`;
   doc.save(fileName);
 }
 
-// ===================== WORK REPORT PDF (Single Page) =====================
+// ===================== WORK REPORT / JOB SHEET PDF =====================
+// Exact replica of the BHO Fire Job Sheet template
 export interface WorkReportData {
   certificateNo: string;
   jobNumber: string;
@@ -471,6 +461,13 @@ export interface WorkReportData {
   materials: { name: string; qty: string; cost: string }[];
   engineerName: string;
   customerName: string;
+  customerPosition?: string;
+  // New fields matching the job sheet template
+  scopeOfWorks?: string;
+  commissioningTesting?: string;
+  finalRemarks?: string;
+  arrivalDateTime?: string;
+  departureDateTime?: string;
 }
 
 interface WorkReportSiteInfo {
@@ -481,262 +478,253 @@ interface WorkReportSiteInfo {
   contact_name?: string | null;
 }
 
+interface CustomerInfo {
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+}
+
 export function generateWorkReportPDF(
   data: WorkReportData,
   site: WorkReportSiteInfo,
-  visitDate: string
+  visitDate: string,
+  customer?: CustomerInfo
 ): void {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 12;
+  const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
 
+  // Load logo
   const logoImg = new Image();
   logoImg.src = "/bho-fire-logo.png";
 
-  let yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+  // === OUTER BORDER ===
+  doc.setDrawColor(...COLORS.black);
+  doc.setLineWidth(0.5);
+  doc.rect(margin - 3, margin - 3, contentWidth + 6, pageHeight - 2 * margin + 6);
 
-  // === Title Row ===
-  doc.setTextColor(...COLORS.charcoal);
-  doc.setFontSize(14);
+  let yPos = margin;
+
+  // === HEADER: Job Sheet title + Job Number + Logo ===
+  doc.setDrawColor(...COLORS.black);
+  doc.setLineWidth(0.3);
+  doc.rect(margin, yPos, contentWidth, 18);
+
+  // "Job Sheet" title centered
+  doc.setTextColor(...COLORS.black);
+  doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Work Report", margin, yPos + 4);
+  doc.text("Job Sheet", pageWidth / 2, yPos + 7, { align: "center" });
 
-  doc.setTextColor(...COLORS.darkGrey);
-  doc.setFontSize(8);
+  // Job Number row
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("Job Number", pageWidth / 2 - 20, yPos + 14, { align: "right" });
   doc.setFont("helvetica", "normal");
-  if (data.certificateNo) {
-    doc.text(`Cert: ${data.certificateNo}`, pageWidth - margin, yPos + 3, { align: "right" });
-  }
-  doc.text(format(new Date(visitDate), "dd MMM yyyy"), pageWidth - margin, yPos + 8, { align: "right" });
+  doc.text(data.jobNumber || "-", pageWidth / 2 - 5, yPos + 14);
 
-  yPos += 12;
-
-  // === Site & Job Details ===
-  const colWidth = (contentWidth - 6) / 2;
-  const boxHeight = 26;
-
-  // Left: Site
-  doc.setDrawColor(...COLORS.borderGrey);
-  doc.rect(margin, yPos, colWidth, boxHeight);
-  doc.setFillColor(...COLORS.charcoal);
-  doc.rect(margin, yPos, colWidth, 6, "F");
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.text("SITE", margin + 2, yPos + 4.2);
-
-  const fullAddr = [site.address, site.city, site.postcode].filter(Boolean).join(", ");
-  doc.setFontSize(6.5);
-  let rowY = yPos + 10;
-  [["Site:", site.name], ["Address:", fullAddr || "-"], ["Contact:", site.contact_name || "-"]].forEach(([l, v]) => {
-    doc.setTextColor(...COLORS.mediumGrey);
-    doc.setFont("helvetica", "bold");
-    doc.text(l, margin + 2, rowY);
-    doc.setTextColor(...COLORS.charcoal);
-    doc.setFont("helvetica", "normal");
-    doc.text(doc.splitTextToSize(v, colWidth - 20)[0] || "-", margin + 18, rowY);
-    rowY += 5;
-  });
-
-  // Right: Job
-  const rightX = margin + colWidth + 6;
-  doc.rect(rightX, yPos, colWidth, boxHeight);
-  doc.setFillColor(...COLORS.charcoal);
-  doc.rect(rightX, yPos, colWidth, 6, "F");
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.text("JOB DETAILS", rightX + 2, yPos + 4.2);
-
-  const jobType = data.jobType ? data.jobType.charAt(0).toUpperCase() + data.jobType.slice(1) : "-";
-  rowY = yPos + 10;
-  [["Job No:", data.jobNumber || "-"], ["Type:", jobType], ["Day:", data.attendanceDay || "-"]].forEach(([l, v]) => {
-    doc.setTextColor(...COLORS.mediumGrey);
-    doc.setFont("helvetica", "bold");
-    doc.text(l, rightX + 2, rowY);
-    doc.setTextColor(...COLORS.charcoal);
-    doc.setFont("helvetica", "normal");
-    doc.text(v, rightX + 20, rowY);
-    rowY += 5;
-  });
-
-  yPos += boxHeight + 4;
-
-  // === Status & Time Row ===
-  doc.rect(margin, yPos, contentWidth, 14);
-  doc.setFillColor(...COLORS.lightGrey);
-  doc.rect(margin, yPos, contentWidth, 14, "F");
-
-  const statusLabels: Record<string, string> = {
-    operational: "Operational",
-    fault: "Fault",
-    disabled: "Disabled",
-    silenced: "Silenced",
-    partial: "Partial",
-  };
-
-  doc.setFontSize(6.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COLORS.mediumGrey);
-  doc.text("Arrival:", margin + 2, yPos + 5);
-  doc.text("Departure:", margin + 2, yPos + 11);
-  doc.setTextColor(...COLORS.charcoal);
-  doc.text(statusLabels[data.systemStatusArrival] || "-", margin + 20, yPos + 5);
-  doc.text(statusLabels[data.systemStatusDeparture] || "-", margin + 20, yPos + 11);
-
-  doc.setTextColor(...COLORS.mediumGrey);
-  doc.text("Start:", margin + 55, yPos + 5);
-  doc.text("Finish:", margin + 55, yPos + 11);
-  doc.setTextColor(...COLORS.charcoal);
-  doc.text(data.startTime || "-", margin + 70, yPos + 5);
-  doc.text(data.finishTime || "-", margin + 70, yPos + 11);
-
-  doc.setTextColor(...COLORS.mediumGrey);
-  doc.text("Travel:", margin + 100, yPos + 5);
-  doc.text("Duration:", margin + 100, yPos + 11);
-  doc.setTextColor(...COLORS.charcoal);
-  doc.text(data.travelTime ? `${data.travelTime}h` : "-", margin + 118, yPos + 5);
-  doc.text(data.duration ? `${data.duration}h` : "-", margin + 118, yPos + 11);
-
-  doc.setTextColor(...COLORS.mediumGrey);
-  doc.text("Engineers:", margin + 145, yPos + 5);
-  doc.setTextColor(...COLORS.charcoal);
-  doc.text(data.numEngineers?.toString() || "1", margin + 168, yPos + 5);
-
-  yPos += 18;
-
-  // === Checkboxes Row (Box + Label Style) ===
-  doc.setFillColor(...COLORS.lightGrey);
-  doc.rect(margin, yPos, contentWidth, 16, "F");
-
-  const checkboxes = [
-    { label: "Work Completed", checked: data.workCompleted },
-    { label: "Return Required", checked: data.returnRequired },
-    { label: "Survey Required", checked: data.surveyRequired },
-    { label: "Quotation Required", checked: data.quotationRequired },
-    { label: "RAMS Completed", checked: data.ramsCompleted },
-    { label: "Log Book Entry", checked: data.logBookEntry },
-  ];
-
-  const cbWidth = contentWidth / 3;
-  checkboxes.forEach((cb, i) => {
-    const col = i % 3;
-    const row = Math.floor(i / 3);
-    const cbX = margin + 4 + col * cbWidth;
-    const cbY = yPos + 3 + row * 8;
-
-    // Draw box
-    const boxSize = 4;
-    if (cb.checked) {
-      doc.setFillColor(...COLORS.pass);
-    } else {
-      doc.setFillColor(...COLORS.borderGrey);
+  // Logo on right
+  if (logoImg) {
+    try {
+      doc.addImage(logoImg, "PNG", pageWidth - margin - 25, yPos + 2, 22, 14);
+    } catch {
+      doc.setTextColor(...COLORS.red);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("BHO", pageWidth - margin - 22, yPos + 8);
+      doc.text("FIRE", pageWidth - margin - 22, yPos + 14);
     }
-    doc.rect(cbX, cbY, boxSize, boxSize, "F");
-
-    // Label
-    doc.setTextColor(...COLORS.charcoal);
-    doc.setFontSize(6.5);
-    doc.setFont("helvetica", "normal");
-    doc.text(cb.label, cbX + 6, cbY + 3.2);
-  });
+  }
 
   yPos += 20;
 
-  // === Works Report ===
-  doc.setTextColor(...COLORS.red);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  doc.text("Works Report", margin, yPos);
-  yPos += 4;
+  // === CUSTOMER & SITE DETAILS TABLE ===
+  const labelWidth = 22;
+  const valueWidth = contentWidth - labelWidth;
+  const rowHeight = 7;
 
-  doc.setTextColor(...COLORS.charcoal);
+  // Helper to draw a label-value row
+  const drawRow = (y: number, label: string, value: string, isBold: boolean = false) => {
+    doc.setDrawColor(...COLORS.black);
+    doc.setLineWidth(0.2);
+    doc.rect(margin, y, labelWidth, rowHeight);
+    doc.rect(margin + labelWidth, y, valueWidth, rowHeight);
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COLORS.black);
+    doc.text(label, margin + 2, y + 5);
+
+    doc.setFont("helvetica", isBold ? "bold" : "normal");
+    doc.text(value || "-", margin + labelWidth + 2, y + 5);
+  };
+
+  // Customer section
+  const customerName = customer?.name || site.contact_name || "-";
+  const customerAddr = customer ? [customer.address, customer.city].filter(Boolean).join(", ") : "-";
+  const customerPostcode = customer?.postcode || "-";
+
+  drawRow(yPos, "Customer", customerName);
+  yPos += rowHeight;
+  drawRow(yPos, "Address", customerAddr);
+  yPos += rowHeight;
+  drawRow(yPos, "Postcode", customerPostcode);
+  yPos += rowHeight;
+
+  // Site section
+  drawRow(yPos, "Site", site.name);
+  yPos += rowHeight;
+  const siteAddr = [site.address, site.city].filter(Boolean).join(", ");
+  drawRow(yPos, "Address", siteAddr);
+  yPos += rowHeight;
+  drawRow(yPos, "Postcode", site.postcode || "-");
+  yPos += rowHeight + 2;
+
+  // === SCOPE OF WORKS ===
+  const textBoxHeight = 38;
+
+  doc.setDrawColor(...COLORS.black);
+  doc.setLineWidth(0.3);
+  doc.rect(margin, yPos, contentWidth, textBoxHeight);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COLORS.black);
+  doc.text("Scope of Works", margin + 2, yPos + 6);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  const scopeText = data.scopeOfWorks || data.worksReport || "-";
+  const scopeLines = doc.splitTextToSize(scopeText, contentWidth - 6);
+  doc.text(scopeLines.slice(0, 4), margin + 2, yPos + 12);
+
+  yPos += textBoxHeight + 2;
+
+  // === COMMISSIONING & TESTING ===
+  const testBoxHeight = 26;
+  doc.rect(margin, yPos, contentWidth, testBoxHeight);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("Commissioning & Testing", margin + 2, yPos + 6);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  const testText = data.commissioningTesting || data.furtherAction || "-";
+  const testLines = doc.splitTextToSize(testText, contentWidth - 6);
+  doc.text(testLines.slice(0, 3), margin + 2, yPos + 12);
+
+  yPos += testBoxHeight + 2;
+
+  // === FINAL REMARKS ===
+  const remarksBoxHeight = 24;
+  doc.rect(margin, yPos, contentWidth, remarksBoxHeight);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("Final Remarks", margin + 2, yPos + 6);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  const remarksText = data.finalRemarks || "Works completed satisfactorily.";
+  const remarksLines = doc.splitTextToSize(remarksText, contentWidth - 6);
+  doc.text(remarksLines.slice(0, 2), margin + 2, yPos + 12);
+
+  yPos += remarksBoxHeight + 2;
+
+  // === ARRIVAL / DEPARTURE TIME ===
+  const timeRowHeight = 16;
+  const halfWidth = contentWidth / 2;
+
+  doc.setDrawColor(...COLORS.black);
+  doc.setFillColor(...COLORS.lightGrey);
+  doc.rect(margin, yPos, halfWidth, timeRowHeight / 2, "FD");
+  doc.rect(margin + halfWidth, yPos, halfWidth, timeRowHeight / 2, "FD");
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COLORS.black);
+  doc.text("Arrival Time / Date", margin + halfWidth / 2, yPos + 5, { align: "center" });
+  doc.text("Departure Time /Date", margin + halfWidth + halfWidth / 2, yPos + 5, { align: "center" });
+
+  // Time values
+  doc.rect(margin, yPos + timeRowHeight / 2, halfWidth, timeRowHeight / 2);
+  doc.rect(margin + halfWidth, yPos + timeRowHeight / 2, halfWidth, timeRowHeight / 2);
+
+  doc.setFont("helvetica", "normal");
+  const arrivalDT = data.arrivalDateTime || (data.startTime ? `${format(new Date(visitDate), "dd/MM/yyyy")} ${data.startTime}` : "-");
+  const departureDT = data.departureDateTime || (data.finishTime ? `${format(new Date(visitDate), "dd/MM/yyyy")} ${data.finishTime}` : "-");
+  doc.text(arrivalDT, margin + halfWidth / 2, yPos + 12, { align: "center" });
+  doc.text(departureDT, margin + halfWidth + halfWidth / 2, yPos + 12, { align: "center" });
+
+  yPos += timeRowHeight + 2;
+
+  // === ENGINEER & SIGNATURE SECTION ===
+  const signatureBoxHeight = 48;
+  doc.rect(margin, yPos, contentWidth, signatureBoxHeight);
+
+  // Engineer row (right side header)
+  doc.setFillColor(...COLORS.lightGrey);
+  doc.rect(margin + halfWidth, yPos, halfWidth, 8, "FD");
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Engineer", margin + halfWidth + 4, yPos + 5.5);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.engineerName || "-", margin + halfWidth + 35, yPos + 5.5);
+
+  // BS5839 Certification statement (left side)
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  if (data.worksReport && data.worksReport.trim()) {
-    const lines = doc.splitTextToSize(data.worksReport, contentWidth);
-    doc.text(lines.slice(0, 6), margin, yPos + 3); // Max 6 lines
-    yPos += Math.min(lines.length, 6) * 3.5 + 4;
-  } else {
-    doc.text("No work description provided.", margin, yPos + 3);
-    yPos += 8;
-  }
+  doc.setTextColor(...COLORS.black);
+  const certText1 = "I/we being the competent person(s) responsible for the servicing of the fire detection and fire alarm system, particulars of which are set out above, CERTIFY that the said work for which I/we have been responsible complies to the best of my/our knowledge and belief with the recommendations of Clause 45 of BS5839-1:2017";
+  const cert1Lines = doc.splitTextToSize(certText1, halfWidth - 6);
+  doc.text(cert1Lines, margin + 2, yPos + 12);
 
-  // === Further Action ===
-  if (data.furtherAction && data.furtherAction.trim()) {
-    doc.setTextColor(...COLORS.red);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("Further Action", margin, yPos);
-    yPos += 4;
-
-    doc.setTextColor(...COLORS.charcoal);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    const lines = doc.splitTextToSize(data.furtherAction, contentWidth);
-    doc.text(lines.slice(0, 4), margin, yPos + 3);
-    yPos += Math.min(lines.length, 4) * 3.5 + 4;
-  }
-
-  // === Materials (if any) ===
-  const materialsWithData = data.materials.filter((m) => m.name.trim());
-  if (materialsWithData.length > 0 && yPos < pageHeight - 50) {
-    doc.setTextColor(...COLORS.red);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("Materials", margin, yPos);
-    yPos += 4;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Material", "Qty", "Cost"]],
-      body: materialsWithData.map((m) => [m.name, m.qty || "-", m.cost ? `£${m.cost}` : "-"]),
-      theme: "plain",
-      styles: { fontSize: 6.5, cellPadding: 1.5 },
-      headStyles: {
-        fillColor: COLORS.charcoal,
-        textColor: COLORS.white,
-        fontStyle: "bold",
-      },
-      bodyStyles: {
-        textColor: COLORS.charcoal,
-        lineColor: COLORS.borderGrey,
-        lineWidth: 0.1,
-      },
-      columnStyles: {
-        0: { cellWidth: contentWidth - 40 },
-        1: { cellWidth: 20, halign: "center" },
-        2: { cellWidth: 20, halign: "right" },
-      },
-      margin: { left: margin, right: margin },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 4;
-  }
-
-  // === Signature Row ===
-  yPos = Math.max(yPos, pageHeight - 28);
+  // Engineer signature area (right side)
   doc.setDrawColor(...COLORS.borderGrey);
-  doc.line(margin, yPos, pageWidth - margin, yPos);
-  yPos += 3;
+  doc.line(margin + halfWidth + 10, yPos + 28, margin + contentWidth - 10, yPos + 28);
 
-  const sigWidth = (contentWidth - 10) / 2;
+  // Customer acceptance statement (left side, lower)
+  const certText2 = "Accepted, for and behalf of the user, by the Responsible Person (RP). I understand that the system is operating as designed. I understand that if any items were shown to be defective, the fire alarm system may not comply with BS 5839 part 1";
+  const cert2Lines = doc.splitTextToSize(certText2, halfWidth - 6);
+  doc.text(cert2Lines, margin + 2, yPos + 30);
 
-  doc.setFontSize(6);
-  doc.setTextColor(...COLORS.mediumGrey);
-  doc.text("Engineer: " + (data.engineerName || ""), margin, yPos + 4);
-  doc.line(margin, yPos + 10, margin + sigWidth, yPos + 10);
-  doc.text("Signature", margin, yPos + 14);
+  // Customer name row
+  doc.setFillColor(...COLORS.lightGrey);
+  doc.rect(margin + halfWidth, yPos + 32, halfWidth, 8, "FD");
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Customer", margin + halfWidth + 4, yPos + 37.5);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.customerName || "-", margin + halfWidth + 35, yPos + 37.5);
 
-  doc.text("Customer: " + (data.customerName || ""), margin + sigWidth + 10, yPos + 4);
-  doc.line(margin + sigWidth + 10, yPos + 10, pageWidth - margin, yPos + 10);
-  doc.text("Signature", margin + sigWidth + 10, yPos + 14);
+  // Position row
+  doc.rect(margin + halfWidth, yPos + 40, halfWidth, 8, "D");
+  doc.setFont("helvetica", "bold");
+  doc.text("Position", margin + halfWidth + 4, yPos + 45.5);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.customerPosition || "-", margin + halfWidth + 35, yPos + 45.5);
 
-  // Footer
-  addCompactFooter(doc, pageWidth, margin);
+  yPos += signatureBoxHeight + 4;
+
+  // === FOOTER ===
+  const footerY = pageHeight - margin - 12;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COLORS.black);
+  doc.text(COMPANY.name, pageWidth / 2, footerY, { align: "center" });
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(COMPANY.address, pageWidth / 2, footerY + 4, { align: "center" });
+  doc.text(`T: ${COMPANY.phone}   |   E: ${COMPANY.email}   |   W: ${COMPANY.website}`, pageWidth / 2, footerY + 8, { align: "center" });
+  doc.text(`${COMPANY.country}   |   ${COMPANY.registration}`, pageWidth / 2, footerY + 12, { align: "center" });
 
   // Save
-  const fileName = `BHO_Work_Report_${site.name.replace(/\s+/g, "_")}_${format(new Date(visitDate), "yyyy-MM-dd")}.pdf`;
+  const fileName = `BHO_Job_Sheet_${data.jobNumber || site.name.replace(/\s+/g, "_")}_${format(new Date(visitDate), "yyyy-MM-dd")}.pdf`;
   doc.save(fileName);
 }
