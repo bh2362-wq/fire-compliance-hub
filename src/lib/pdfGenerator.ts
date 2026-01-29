@@ -531,7 +531,9 @@ export interface WorkReportData {
   duration: string;
   materials: { name: string; qty: string; cost: string }[];
   engineerName: string;
+  engineerSignature?: string;
   customerName: string;
+  customerSignature?: string;
   customerPosition?: string;
   // System info
   systemType?: string;
@@ -728,22 +730,46 @@ export function generateWorkReportPDF(
   yPos += recsBoxHeight + 4;
 
   // === Signature Row ===
-  yPos = Math.max(yPos, pageHeight - 28);
+  yPos = Math.max(yPos, pageHeight - 36);
   doc.setDrawColor(...COLORS.borderGrey);
   doc.line(margin, yPos, pageWidth - margin, yPos);
   yPos += 3;
 
   const sigWidth = (contentWidth - 10) / 2;
+  const sigBoxHeight = 20;
 
+  // Engineer signature
   doc.setFontSize(6);
   doc.setTextColor(...COLORS.mediumGrey);
   doc.text("Engineer: " + (data.engineerName || ""), margin, yPos + 4);
-  doc.line(margin, yPos + 10, margin + sigWidth, yPos + 10);
-  doc.text("Signature", margin, yPos + 14);
+  
+  // Engineer signature box
+  doc.setDrawColor(...COLORS.borderGrey);
+  doc.rect(margin, yPos + 6, sigWidth, sigBoxHeight);
+  
+  if (data.engineerSignature) {
+    try {
+      doc.addImage(data.engineerSignature, "PNG", margin + 2, yPos + 7, sigWidth - 4, sigBoxHeight - 2);
+    } catch {
+      // Signature image failed to load
+    }
+  }
+  doc.text("Signature", margin, yPos + 6 + sigBoxHeight + 4);
 
+  // Customer signature
   doc.text("Client: " + (data.customerName || ""), margin + sigWidth + 10, yPos + 4);
-  doc.line(margin + sigWidth + 10, yPos + 10, pageWidth - margin, yPos + 10);
-  doc.text("Signature", margin + sigWidth + 10, yPos + 14);
+  
+  // Customer signature box
+  doc.rect(margin + sigWidth + 10, yPos + 6, sigWidth, sigBoxHeight);
+  
+  if (data.customerSignature) {
+    try {
+      doc.addImage(data.customerSignature, "PNG", margin + sigWidth + 12, yPos + 7, sigWidth - 4, sigBoxHeight - 2);
+    } catch {
+      // Signature image failed to load
+    }
+  }
+  doc.text("Signature", margin + sigWidth + 10, yPos + 6 + sigBoxHeight + 4);
 
   addCompactFooter(doc, pageWidth, margin);
 
