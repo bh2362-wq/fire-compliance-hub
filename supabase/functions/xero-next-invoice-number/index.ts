@@ -139,7 +139,8 @@ Deno.serve(async (req) => {
       for (const invoice of invoices) {
         const num = invoice?.InvoiceNumber;
         if (!num) continue;
-        if (/^\d+$/.test(num)) {
+        // Only consider purely numeric invoices with 5 or fewer digits (your main series)
+        if (/^\d{1,5}$/.test(num)) {
           const val = parseInt(num, 10);
           if (val > highestNumeric) highestNumeric = val;
         }
