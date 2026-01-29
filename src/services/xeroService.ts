@@ -245,3 +245,14 @@ export async function deleteXeroInvoice(invoiceId: string): Promise<{ success: b
   
   return data;
 }
+
+export async function getNextInvoiceNumber(): Promise<string | null> {
+  const { data, error } = await supabase.functions.invoke("xero-next-invoice-number");
+
+  if (error) {
+    console.error("Error fetching next invoice number:", error);
+    return null;
+  }
+  
+  return data?.nextNumber || null;
+}
