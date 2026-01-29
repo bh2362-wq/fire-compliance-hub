@@ -51,7 +51,6 @@ const SERVICE_TYPES = [
   { value: "annual_inspection", label: "Annual Inspection" },
   { value: "emergency", label: "Emergency Callout" },
   { value: "remedial", label: "Remedial Works" },
-  { value: "other", label: "Other" },
 ];
 
 const SERVICE_TYPE_LINE_ITEMS: Record<string, InvoiceLineItem[]> = {
@@ -76,9 +75,6 @@ const SERVICE_TYPE_LINE_ITEMS: Record<string, InvoiceLineItem[]> = {
     { description: "Remedial Works - Fault repair and system restoration", quantity: 1, unitAmount: 0 },
     { description: "Engineer labour (hourly rate)", quantity: 1, unitAmount: 65 },
     { description: "Parts and materials", quantity: 1, unitAmount: 0 },
-  ],
-  other: [
-    { description: "", quantity: 1, unitAmount: 0 },
   ],
 };
 
@@ -114,7 +110,7 @@ export function CustomerCreateInvoiceDialog({
 
   useEffect(() => {
     // Update line items when service type changes
-    setLineItems(SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.other);
+    setLineItems(SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.remedial);
     
     // Update reference when site or service type changes
     if (selectedSite) {
