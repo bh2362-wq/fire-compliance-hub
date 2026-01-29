@@ -99,9 +99,9 @@ Deno.serve(async (req) => {
 
     const accessToken = await refreshTokenIfNeeded(supabase, connection);
 
-    // Fetch the most recent invoices ordered by invoice number descending
+    // Fetch the most recent invoices ordered by DATE descending to get the latest created
     const response = await fetch(
-      "https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID,VOIDED&order=InvoiceNumber%20DESC&page=1",
+      "https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID&order=Date%20DESC&page=1",
       {
         headers: {
           "Authorization": `Bearer ${accessToken}`,
@@ -122,40 +122,37 @@ Deno.serve(async (req) => {
     const data = await response.json();
     const invoices = data.Invoices || [];
 
-    // Find the highest purely numeric invoice number
-    let highestNumeric = 0;
-    let numericPrefix = "";
-    
-    for (const invoice of invoices) {
-      const num = invoice.InvoiceNumber;
-      if (!num) continue;
-      
-      // Check if it's a purely numeric invoice number
-      if (/^\d+$/.test(num)) {
-        const val = parseInt(num, 10);
-        if (val > highestNumeric) {
-          highestNumeric = val;
-        }
-      }
+    if (invoices.length === 0) {
+      console.log("No invoices found");
+      return new Response(
+        JSON.stringify({ nextNumber: null }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    // Get the most recent invoice (first in the date-ordered list)
+    const lastInvoice = invoices[0];
+    const lastNumber = lastInvoice.InvoiceNumber;
+    
+    console.log(`Most recent invoice: ${lastNumber} (Date: ${lastInvoice.Date})`);
 
     let nextNumber: string | null = null;
     
-    if (highestNumeric > 0) {
-      // Found numeric invoices, increment the highest
-      nextNumber = String(highestNumeric + 1);
-      console.log(`Found highest numeric invoice: ${highestNumeric}, suggesting: ${nextNumber}`);
-    } else if (invoices.length > 0) {
-      // No purely numeric invoices, try to parse the first one's format
-      const lastNumber = invoices[0].InvoiceNumber;
-      if (lastNumber) {
+    if (lastNumber) {
+      // Check if it's a purely numeric invoice number
+      if (/^\d+$/.test(lastNumber)) {
+        const val = parseInt(lastNumber, 10);
+        nextNumber = String(val + 1);
+        console.log(`Numeric format detected, suggesting: ${nextNumber}`);
+      } else {
+        // Try to parse alphanumeric format (e.g., INV-001, WCCRINW-2023-05-27-00651)
         const match = lastNumber.match(/^(.*?)(\d+)$/);
         if (match) {
           const prefix = match[1];
           const numericPart = parseInt(match[2], 10);
           const numLength = match[2].length;
           nextNumber = `${prefix}${(numericPart + 1).toString().padStart(numLength, "0")}`;
-          console.log(`Using format from last invoice: ${lastNumber}, suggesting: ${nextNumber}`);
+          console.log(`Alphanumeric format detected, suggesting: ${nextNumber}`);
         }
       }
     }
