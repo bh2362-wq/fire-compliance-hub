@@ -99,17 +99,16 @@ Deno.serve(async (req) => {
 
     const accessToken = await refreshTokenIfNeeded(supabase, connection);
 
-    // We want the *next free slot*, not just "the last created".
-    // So we scan recent invoices (by Date DESC, multiple pages) and pick the highest
-    // purely numeric invoice number, then +1.
+    // We need to find the highest numeric invoice INCLUDING voided ones,
+    // because Xero won't let us reuse voided invoice numbers.
     const MAX_PAGES_TO_SCAN = 5;
     let highestNumeric = 0;
     let fallbackLastNumber: string | null = null;
 
     for (let page = 1; page <= MAX_PAGES_TO_SCAN; page++) {
-      // Exclude VOIDED invoices - they shouldn't count toward the next number
+      // Include ALL statuses including VOIDED - we can't reuse voided invoice numbers
       const response = await fetch(
-        `https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID&order=Date%20DESC&page=${page}`,
+        `https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID,VOIDED&order=Date%20DESC&page=${page}`,
         {
           headers: {
             "Authorization": `Bearer ${accessToken}`,
@@ -133,8 +132,9 @@ Deno.serve(async (req) => {
       if (invoices.length === 0) break;
 
       if (!fallbackLastNumber) {
-        // keep a format fallback from the newest invoice if we can't find numeric-only
-        fallbackLastNumber = invoices[0]?.InvoiceNumber ?? null;
+        // keep a format fallback from the newest non-voided invoice
+        const nonVoided = invoices.find((inv: any) => inv.Status !== "VOIDED");
+        fallbackLastNumber = nonVoided?.InvoiceNumber ?? invoices[0]?.InvoiceNumber ?? null;
       }
 
       for (const invoice of invoices) {
@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
     let nextNumber: string | null = null;
     if (highestNumeric > 0) {
       nextNumber = String(highestNumeric + 1);
-      console.log(`Highest numeric invoice found: ${highestNumeric}, suggesting: ${nextNumber}`);
+      console.log(`Highest numeric invoice (including voided): ${highestNumeric}, suggesting: ${nextNumber}`);
     } else if (fallbackLastNumber) {
       const match = fallbackLastNumber.match(/^(.*?)(\d+)$/);
       if (match) {
