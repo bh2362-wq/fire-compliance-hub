@@ -463,9 +463,10 @@ export function generateServiceReportPDF(
         fillColor: COLORS.light,
       },
       columnStyles: {
-        0: { cellWidth: 135 },
-        1: { cellWidth: 30, halign: "center", fontStyle: "bold" },
+        0: { cellWidth: "auto" },
+        1: { cellWidth: 35, halign: "center", fontStyle: "bold" },
       },
+      tableWidth: "auto",
       margin: { left: margin, right: margin },
       didParseCell: (data) => {
         if (data.section === "body" && data.column.index === 1) {
