@@ -18,6 +18,8 @@ import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
+import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
+import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
 import { SmokeSprayEstimate } from "./SmokeSprayEstimate";
 import VisitEditDialog from "./VisitEditDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +51,8 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
   const { toast } = useToast();
   const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
   const [reportVisit, setReportVisit] = useState<Visit | null>(null);
+  const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
+  const [reportType, setReportType] = useState<"bs5839" | "work" | null>(null);
   const [editVisit, setEditVisit] = useState<Visit | null>(null);
   const [deleteVisit, setDeleteVisit] = useState<Visit | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -224,7 +228,10 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setReportVisit(visit)}
+                  onClick={() => {
+                    setReportVisit(visit);
+                    setShowReportTypeSelector(true);
+                  }}
                 >
                   <ClipboardCheck className="w-4 h-4 mr-1" />
                   Report
@@ -267,10 +274,35 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
         />
       )}
 
-      {reportVisit && (
+      <ReportTypeSelector
+        open={showReportTypeSelector}
+        onOpenChange={setShowReportTypeSelector}
+        onSelect={(type) => setReportType(type)}
+      />
+
+      {reportVisit && reportType === "work" && (
+        <WorkReportDialog
+          open={!!reportVisit && reportType === "work"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setReportVisit(null);
+              setReportType(null);
+            }
+          }}
+          visit={{ ...reportVisit, sites: reportVisit.site }}
+          onSuccess={onRefresh}
+        />
+      )}
+
+      {reportVisit && reportType === "bs5839" && (
         <ServiceReportDialog
-          open={!!reportVisit}
-          onOpenChange={(open) => !open && setReportVisit(null)}
+          open={!!reportVisit && reportType === "bs5839"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setReportVisit(null);
+              setReportType(null);
+            }
+          }}
           visit={{ ...reportVisit, sites: reportVisit.site }}
           onSuccess={onRefresh}
         />
