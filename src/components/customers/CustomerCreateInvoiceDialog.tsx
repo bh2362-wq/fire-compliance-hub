@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   createXeroInvoice,
   getXeroConnection,
+  getNextInvoiceNumber,
   InvoiceLineItem,
 } from "@/services/xeroService";
 import { supabase } from "@/integrations/supabase/client";
@@ -98,6 +99,7 @@ export function CustomerCreateInvoiceDialog({
   const [serviceType, setServiceType] = useState<string>("quarterly_service");
   const [reference, setReference] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [loadingInvoiceNumber, setLoadingInvoiceNumber] = useState(false);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
     SERVICE_TYPE_LINE_ITEMS.quarterly_service
   );
@@ -105,14 +107,27 @@ export function CustomerCreateInvoiceDialog({
   useEffect(() => {
     if (open && user) {
       checkConnection();
+      fetchNextInvoiceNumber();
       // Reset form
       setSelectedSite("");
       setServiceType("quarterly_service");
       setReference("");
-      setInvoiceNumber("");
       setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
     }
   }, [open, user]);
+
+  const fetchNextInvoiceNumber = async () => {
+    setLoadingInvoiceNumber(true);
+    try {
+      const nextNumber = await getNextInvoiceNumber();
+      setInvoiceNumber(nextNumber || "");
+    } catch (error) {
+      console.error("Failed to fetch next invoice number:", error);
+      setInvoiceNumber("");
+    } finally {
+      setLoadingInvoiceNumber(false);
+    }
+  };
 
   useEffect(() => {
     // Update line items when service type changes
@@ -310,14 +325,15 @@ export function CustomerCreateInvoiceDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Invoice Number (optional)</Label>
+              <Label>Invoice Number</Label>
               <Input
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
-                placeholder="e.g. 23315"
+                placeholder={loadingInvoiceNumber ? "Loading..." : "e.g. 23315"}
+                disabled={loadingInvoiceNumber}
               />
               <p className="text-xs text-muted-foreground">
-                Leave blank to auto-generate
+                Auto-filled from last invoice
               </p>
             </div>
             <div className="space-y-2">
