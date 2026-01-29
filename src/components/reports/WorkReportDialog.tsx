@@ -20,8 +20,9 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SignaturePad } from "@/components/ui/signature-pad";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, Users, Download } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   ServiceReport,
@@ -117,7 +118,9 @@ export function WorkReportDialog({
 
   // Signatures
   const [engineerName, setEngineerName] = useState("");
+  const [engineerSignature, setEngineerSignature] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [customerSignature, setCustomerSignature] = useState("");
 
   useEffect(() => {
     if (open && user) {
@@ -185,6 +188,8 @@ export function WorkReportDialog({
         setTravelTime(parsedNotes.travelTime || "");
         setDuration(parsedNotes.duration || "");
         setMaterials(parsedNotes.materials || [{ name: "", qty: "", cost: "" }]);
+        setEngineerSignature(parsedNotes.engineerSignature || "");
+        setCustomerSignature(parsedNotes.customerSignature || "");
       }
     } catch {
       // Notes not JSON, use as-is
@@ -214,6 +219,8 @@ export function WorkReportDialog({
         travelTime,
         duration,
         materials: materials.filter((m) => m.name.trim()),
+        engineerSignature,
+        customerSignature,
       });
 
       await updateServiceReport(report.id, {
@@ -276,7 +283,9 @@ export function WorkReportDialog({
           duration,
           materials,
           engineerName,
+          engineerSignature,
           customerName,
+          customerSignature,
         },
         siteInfo,
         visit.visit_date
@@ -333,7 +342,7 @@ export function WorkReportDialog({
               <span className="hidden sm:inline">Materials</span>
             </TabsTrigger>
             <TabsTrigger value="sign" className="flex items-center gap-1">
-              <Users className="w-4 h-4" />
+              <PenTool className="w-4 h-4" />
               <span className="hidden sm:inline">Sign Off</span>
             </TabsTrigger>
           </TabsList>
@@ -638,7 +647,7 @@ export function WorkReportDialog({
                 I confirm that all works have been carried out to a satisfactory standard.
               </p>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4 p-4 border rounded-lg">
                   <h4 className="font-medium">Engineer</h4>
                   <div className="space-y-2">
@@ -647,6 +656,15 @@ export function WorkReportDialog({
                       value={engineerName}
                       onChange={(e) => setEngineerName(e.target.value)}
                       placeholder="Engineer name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Signature</Label>
+                    <SignaturePad
+                      value={engineerSignature}
+                      onChange={setEngineerSignature}
+                      width={260}
+                      height={120}
                     />
                   </div>
                   <div className="space-y-2">
@@ -663,6 +681,15 @@ export function WorkReportDialog({
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder="Customer name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Signature</Label>
+                    <SignaturePad
+                      value={customerSignature}
+                      onChange={setCustomerSignature}
+                      width={260}
+                      height={120}
                     />
                   </div>
                   <div className="space-y-2">
