@@ -97,6 +97,7 @@ export function CustomerCreateInvoiceDialog({
   const [selectedSite, setSelectedSite] = useState<string>("");
   const [serviceType, setServiceType] = useState<string>("quarterly_service");
   const [reference, setReference] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
     SERVICE_TYPE_LINE_ITEMS.quarterly_service
   );
@@ -108,6 +109,7 @@ export function CustomerCreateInvoiceDialog({
       setSelectedSite("");
       setServiceType("quarterly_service");
       setReference("");
+      setInvoiceNumber("");
       setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
     }
   }, [open, user]);
@@ -196,7 +198,9 @@ export function CustomerCreateInvoiceDialog({
         xeroContactId,
         customerName,
         validItems,
-        reference
+        reference,
+        undefined, // dueDate
+        invoiceNumber || undefined // pass invoice number if specified
       );
 
       toast.success(`Invoice ${result.number} created successfully`);
@@ -304,13 +308,26 @@ export function CustomerCreateInvoiceDialog({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Reference</Label>
-            <Input
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="Invoice reference"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Invoice Number (optional)</Label>
+              <Input
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                placeholder="e.g. 23315"
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave blank to auto-generate
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Reference</Label>
+              <Input
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+                placeholder="Invoice reference"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">

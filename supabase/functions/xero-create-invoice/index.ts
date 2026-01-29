@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
     const userId = claims.claims.sub;
     const body = await req.json();
     
-    const { visitId, contactId, contactName, lineItems, reference, dueDate } = body;
+    const { visitId, contactId, contactName, lineItems, reference, dueDate, invoiceNumber } = body;
 
     if (!visitId || !contactId || !lineItems?.length) {
       return new Response(
@@ -167,8 +167,11 @@ Deno.serve(async (req) => {
 
     const accessToken = await refreshTokenIfNeeded(supabase, connection);
 
-    // Get the next invoice number based on existing invoices
-    const nextInvoiceNumber = await getNextInvoiceNumber(accessToken, connection.tenant_id);
+    // Use provided invoice number, or auto-generate, or let Xero handle it
+    let finalInvoiceNumber = invoiceNumber;
+    if (!finalInvoiceNumber) {
+      finalInvoiceNumber = await getNextInvoiceNumber(accessToken, connection.tenant_id);
+    }
 
     // Create invoice in Xero
     const invoiceData: any = {
@@ -187,9 +190,9 @@ Deno.serve(async (req) => {
       Status: "AUTHORISED",
     };
 
-    // Add the invoice number if we determined one
-    if (nextInvoiceNumber) {
-      invoiceData.InvoiceNumber = nextInvoiceNumber;
+    // Add the invoice number if we have one (user-provided or auto-generated)
+    if (finalInvoiceNumber) {
+      invoiceData.InvoiceNumber = finalInvoiceNumber;
     }
 
     console.log("Creating invoice:", JSON.stringify(invoiceData));
