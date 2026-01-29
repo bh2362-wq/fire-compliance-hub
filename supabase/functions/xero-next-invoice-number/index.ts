@@ -99,61 +99,65 @@ Deno.serve(async (req) => {
 
     const accessToken = await refreshTokenIfNeeded(supabase, connection);
 
-    // Fetch the most recent invoices ordered by DATE descending to get the latest created
-    const response = await fetch(
-      "https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID&order=Date%20DESC&page=1",
-      {
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Xero-Tenant-Id": connection.tenant_id,
-          "Accept": "application/json",
-        },
+    // We want the *next free slot*, not just "the last created".
+    // So we scan recent invoices (by Date DESC, multiple pages) and pick the highest
+    // purely numeric invoice number, then +1.
+    const MAX_PAGES_TO_SCAN = 5;
+    let highestNumeric = 0;
+    let fallbackLastNumber: string | null = null;
+
+    for (let page = 1; page <= MAX_PAGES_TO_SCAN; page++) {
+      const response = await fetch(
+        `https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID,VOIDED&order=Date%20DESC&page=${page}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Xero-Tenant-Id": connection.tenant_id,
+            "Accept": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.error("Failed to fetch invoices:", await response.text());
+        return new Response(
+          JSON.stringify({ nextNumber: null }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-    );
 
-    if (!response.ok) {
-      console.error("Failed to fetch invoices:", await response.text());
-      return new Response(
-        JSON.stringify({ nextNumber: null }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const data = await response.json();
+      const invoices = data.Invoices || [];
+
+      if (invoices.length === 0) break;
+
+      if (!fallbackLastNumber) {
+        // keep a format fallback from the newest invoice if we can't find numeric-only
+        fallbackLastNumber = invoices[0]?.InvoiceNumber ?? null;
+      }
+
+      for (const invoice of invoices) {
+        const num = invoice?.InvoiceNumber;
+        if (!num) continue;
+        if (/^\d+$/.test(num)) {
+          const val = parseInt(num, 10);
+          if (val > highestNumeric) highestNumeric = val;
+        }
+      }
     }
-
-    const data = await response.json();
-    const invoices = data.Invoices || [];
-
-    if (invoices.length === 0) {
-      console.log("No invoices found");
-      return new Response(
-        JSON.stringify({ nextNumber: null }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Get the most recent invoice (first in the date-ordered list)
-    const lastInvoice = invoices[0];
-    const lastNumber = lastInvoice.InvoiceNumber;
-    
-    console.log(`Most recent invoice: ${lastNumber} (Date: ${lastInvoice.Date})`);
 
     let nextNumber: string | null = null;
-    
-    if (lastNumber) {
-      // Check if it's a purely numeric invoice number
-      if (/^\d+$/.test(lastNumber)) {
-        const val = parseInt(lastNumber, 10);
-        nextNumber = String(val + 1);
-        console.log(`Numeric format detected, suggesting: ${nextNumber}`);
-      } else {
-        // Try to parse alphanumeric format (e.g., INV-001, WCCRINW-2023-05-27-00651)
-        const match = lastNumber.match(/^(.*?)(\d+)$/);
-        if (match) {
-          const prefix = match[1];
-          const numericPart = parseInt(match[2], 10);
-          const numLength = match[2].length;
-          nextNumber = `${prefix}${(numericPart + 1).toString().padStart(numLength, "0")}`;
-          console.log(`Alphanumeric format detected, suggesting: ${nextNumber}`);
-        }
+    if (highestNumeric > 0) {
+      nextNumber = String(highestNumeric + 1);
+      console.log(`Highest numeric invoice found: ${highestNumeric}, suggesting: ${nextNumber}`);
+    } else if (fallbackLastNumber) {
+      const match = fallbackLastNumber.match(/^(.*?)(\d+)$/);
+      if (match) {
+        const prefix = match[1];
+        const numericPart = parseInt(match[2], 10);
+        const numLength = match[2].length;
+        nextNumber = `${prefix}${(numericPart + 1).toString().padStart(numLength, "0")}`;
+        console.log(`No numeric invoices found; using format from ${fallbackLastNumber}, suggesting: ${nextNumber}`);
       }
     }
 

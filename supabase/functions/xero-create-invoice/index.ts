@@ -53,55 +53,64 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
 
 async function getNextInvoiceNumber(accessToken: string, tenantId: string): Promise<string | null> {
   try {
-    // Fetch the most recent invoices ordered by invoice number descending
-    const response = await fetch(
-      "https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID,VOIDED&order=InvoiceNumber%20DESC&page=1",
-      {
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Xero-Tenant-Id": tenantId,
-          "Accept": "application/json",
-        },
+    const MAX_PAGES_TO_SCAN = 5;
+    let highestNumeric = 0;
+    let fallbackLastNumber: string | null = null;
+
+    for (let page = 1; page <= MAX_PAGES_TO_SCAN; page++) {
+      const response = await fetch(
+        `https://api.xero.com/api.xro/2.0/Invoices?Statuses=DRAFT,SUBMITTED,AUTHORISED,PAID,VOIDED&order=Date%20DESC&page=${page}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Xero-Tenant-Id": tenantId,
+            "Accept": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.error("Failed to fetch invoices for numbering:", await response.text());
+        return null;
       }
-    );
 
-    if (!response.ok) {
-      console.error("Failed to fetch invoices for numbering:", await response.text());
-      return null;
+      const data = await response.json();
+      const invoices = data.Invoices || [];
+      if (invoices.length === 0) break;
+
+      if (!fallbackLastNumber) {
+        fallbackLastNumber = invoices[0]?.InvoiceNumber ?? null;
+      }
+
+      for (const invoice of invoices) {
+        const num = invoice?.InvoiceNumber;
+        if (!num) continue;
+        if (/^\d+$/.test(num)) {
+          const val = parseInt(num, 10);
+          if (val > highestNumeric) highestNumeric = val;
+        }
+      }
     }
 
-    const data = await response.json();
-    const invoices = data.Invoices || [];
-
-    if (invoices.length === 0) {
-      console.log("No existing invoices found, using default numbering");
-      return null;
+    if (highestNumeric > 0) {
+      const suggested = String(highestNumeric + 1);
+      console.log(`Highest numeric invoice found: ${highestNumeric}, suggesting: ${suggested}`);
+      return suggested;
     }
 
-    // Get the highest invoice number
-    const lastInvoice = invoices[0];
-    const lastNumber = lastInvoice.InvoiceNumber;
-    console.log("Last invoice number found:", lastNumber);
-
-    if (!lastNumber) {
-      return null;
+    if (fallbackLastNumber) {
+      const match = fallbackLastNumber.match(/^(.*?)(\d+)$/);
+      if (match) {
+        const prefix = match[1];
+        const numericPart = parseInt(match[2], 10);
+        const numLength = match[2].length;
+        const suggested = `${prefix}${(numericPart + 1).toString().padStart(numLength, "0")}`;
+        console.log(`No numeric invoices found; using format from ${fallbackLastNumber}, suggesting: ${suggested}`);
+        return suggested;
+      }
     }
 
-    // Extract numeric portion and increment
-    // Handles formats like: INV-0001, 12345, ABC001, etc.
-    const match = lastNumber.match(/^(.*?)(\d+)$/);
-    if (match) {
-      const prefix = match[1];
-      const numericPart = parseInt(match[2], 10);
-      const numLength = match[2].length;
-      const nextNumber = (numericPart + 1).toString().padStart(numLength, "0");
-      const newInvoiceNumber = `${prefix}${nextNumber}`;
-      console.log("Generated next invoice number:", newInvoiceNumber);
-      return newInvoiceNumber;
-    }
-
-    // If we can't parse, return null and let Xero generate
-    console.log("Could not parse invoice number format, letting Xero generate");
+    console.log("Could not determine next invoice number, letting Xero generate");
     return null;
   } catch (error) {
     console.error("Error fetching last invoice number:", error);
