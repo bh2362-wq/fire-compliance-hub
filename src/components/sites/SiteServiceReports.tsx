@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, Calendar, AlertTriangle, CheckCircle2, Eye } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle2, Eye, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportService";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
+import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
+import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
 import { supabase } from "@/integrations/supabase/client";
 
 interface SiteServiceReportsProps {
@@ -52,6 +54,8 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
   const [visitMap, setVisitMap] = useState<Record<string, VisitInfo>>({});
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ServiceReport | null>(null);
+  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [reportType, setReportType] = useState<"bs5839" | "work" | null>(null);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -172,7 +176,10 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setSelectedReport(report)}
+                    onClick={() => {
+                      setSelectedReport(report);
+                      setShowTypeSelector(true);
+                    }}
                   >
                     <Eye className="w-4 h-4" />
                   </Button>
@@ -183,11 +190,44 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
         </div>
       )}
 
-      {/* Report Dialog */}
-      {selectedReport && (
+      {/* Report Type Selector */}
+      <ReportTypeSelector
+        open={showTypeSelector}
+        onOpenChange={setShowTypeSelector}
+        onSelect={(type) => setReportType(type)}
+      />
+
+      {/* Work Report Dialog */}
+      {selectedReport && reportType === "work" && (
+        <WorkReportDialog
+          open={!!selectedReport && reportType === "work"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedReport(null);
+              setReportType(null);
+            }
+          }}
+          visit={{
+            id: selectedReport.visit_id,
+            visit_type: visitMap[selectedReport.visit_id]?.visit_type || "",
+            visit_date: visitMap[selectedReport.visit_id]?.visit_date || selectedReport.report_date,
+            site_id: siteId,
+            sites: siteName ? { name: siteName } : null,
+          }}
+          onSuccess={fetchReports}
+        />
+      )}
+
+      {/* BS5839 Report Dialog */}
+      {selectedReport && reportType === "bs5839" && (
         <ServiceReportDialog
-          open={!!selectedReport}
-          onOpenChange={(open) => !open && setSelectedReport(null)}
+          open={!!selectedReport && reportType === "bs5839"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedReport(null);
+              setReportType(null);
+            }
+          }}
           visit={{
             id: selectedReport.visit_id,
             visit_type: visitMap[selectedReport.visit_id]?.visit_type || "",
