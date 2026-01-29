@@ -305,12 +305,14 @@ export function generateServiceReportPDF(
   const sectionData: { section: string; items: { label: string; value: boolean | null | string | number }[] }[] = [];
   
   sections.forEach((section) => {
-    const data = checklist[section] as Record<string, boolean | null | string | number>;
+    const data = checklist[section] as Record<string, boolean | null | string | number> | undefined;
     const labels = CHECKLIST_LABELS[section];
+    if (!data || !labels) return;
+    
     const items: { label: string; value: boolean | null | string | number }[] = [];
     
     Object.entries(data).forEach(([key, value]) => {
-      if (labels && labels[key]) {
+      if (labels[key]) {
         items.push({
           label: labels[key],
           value,
