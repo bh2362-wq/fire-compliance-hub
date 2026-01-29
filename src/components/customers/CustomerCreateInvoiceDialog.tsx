@@ -192,24 +192,53 @@ export function CustomerCreateInvoiceDialog({
 
     setLoading(true);
     try {
-      // First create a visit record for this invoice
-      const { data: visit, error: visitError } = await supabase
-        .from("visits")
-        .insert({
-          site_id: selectedSite,
-          visit_type: serviceType,
-          visit_date: new Date().toISOString().split("T")[0],
-          status: "completed",
-          notes: `Invoice created from customer page: ${reference}`,
-        })
-        .select()
-        .single();
+      let visitId: string | null = null;
 
-      if (visitError) throw visitError;
+      // Only create a visit for service types that require one (not supply_only)
+      if (serviceType !== "supply_only") {
+        const { data: visit, error: visitError } = await supabase
+          .from("visits")
+          .insert({
+            site_id: selectedSite,
+            visit_type: serviceType,
+            visit_date: new Date().toISOString().split("T")[0],
+            status: "completed",
+            notes: `Invoice created from customer page: ${reference}`,
+          })
+          .select()
+          .single();
+
+        if (visitError) throw visitError;
+        visitId = visit.id;
+      }
+
+      // For supply_only, we need to create a minimal visit record just for Xero tracking
+      // OR we can skip the visit entirely and just create the invoice
+      // Let's create a supply-only visit just for tracking purposes but mark it differently
+      if (!visitId) {
+        // Create a supply-only pseudo-visit for invoice tracking
+        const { data: supplyVisit, error: supplyError } = await supabase
+          .from("visits")
+          .insert({
+            site_id: selectedSite,
+            visit_type: "supply_only",
+            visit_date: new Date().toISOString().split("T")[0],
+            status: "completed",
+            notes: `Supply Only - ${reference}`,
+            devices_tested: 0,
+            total_devices: 0,
+            coverage_percentage: 0,
+          })
+          .select()
+          .single();
+
+        if (supplyError) throw supplyError;
+        visitId = supplyVisit.id;
+      }
 
       // Create the invoice in Xero
       const result = await createXeroInvoice(
-        visit.id,
+        visitId,
         xeroContactId,
         customerName,
         validItems,

@@ -12,13 +12,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2 } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { SmokeSprayEstimate } from "./SmokeSprayEstimate";
+import VisitEditDialog from "./VisitEditDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -48,6 +49,7 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
   const { toast } = useToast();
   const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
   const [reportVisit, setReportVisit] = useState<Visit | null>(null);
+  const [editVisit, setEditVisit] = useState<Visit | null>(null);
   const [deleteVisit, setDeleteVisit] = useState<Visit | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -238,6 +240,13 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={() => setEditVisit(visit)}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={() => setDeleteVisit(visit)}
                 >
@@ -263,6 +272,15 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
           open={!!reportVisit}
           onOpenChange={(open) => !open && setReportVisit(null)}
           visit={{ ...reportVisit, sites: reportVisit.site }}
+          onSuccess={onRefresh}
+        />
+      )}
+
+      {editVisit && (
+        <VisitEditDialog
+          visit={editVisit}
+          open={!!editVisit}
+          onOpenChange={(open) => !open && setEditVisit(null)}
           onSuccess={onRefresh}
         />
       )}
