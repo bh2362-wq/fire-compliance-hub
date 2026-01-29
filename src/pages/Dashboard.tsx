@@ -24,6 +24,7 @@ const Dashboard = () => {
             change="+2 this month"
             changeType="positive"
             icon={Building2}
+            href="/sites"
           />
           <StatsCard
             title="Visits This Month"
@@ -31,6 +32,7 @@ const Dashboard = () => {
             change="7 pending"
             changeType="neutral"
             icon={ClipboardCheck}
+            href="/dashboard/visits"
           />
           <StatsCard
             title="Avg. Coverage"
@@ -38,6 +40,7 @@ const Dashboard = () => {
             change="+1.4% from last month"
             changeType="positive"
             icon={Percent}
+            href="/dashboard/reports"
           />
           <StatsCard
             title="Open Issues"
@@ -46,6 +49,7 @@ const Dashboard = () => {
             changeType="negative"
             icon={AlertTriangle}
             iconColor="bg-destructive"
+            href="/sites"
           />
         </div>
 
