@@ -9,9 +9,10 @@ import { format, parseISO, isValid, differenceInDays } from "date-fns";
 interface CustomerInvoicesProps {
   xeroContactId: string | null;
   customerName: string;
+  refreshKey?: number;
 }
 
-export function CustomerInvoices({ xeroContactId, customerName }: CustomerInvoicesProps) {
+export function CustomerInvoices({ xeroContactId, customerName, refreshKey = 0 }: CustomerInvoicesProps) {
   const [invoices, setInvoices] = useState<XeroOutstandingInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export function CustomerInvoices({ xeroContactId, customerName }: CustomerInvoic
     };
 
     loadInvoices();
-  }, [xeroContactId]);
+  }, [xeroContactId, refreshKey]);
 
   const formatDate = (dateStr: string | null | undefined): string => {
     if (!dateStr) return "N/A";

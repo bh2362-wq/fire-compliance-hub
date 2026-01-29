@@ -44,6 +44,7 @@ const CustomerDetail = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showSiteDialog, setShowSiteDialog] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
 
   const loadData = async () => {
     if (!id) return;
@@ -251,7 +252,8 @@ const CustomerDetail = () => {
         {/* Invoices */}
         <CustomerInvoices 
           xeroContactId={customer.xero_contact_id} 
-          customerName={customer.name} 
+          customerName={customer.name}
+          refreshKey={invoiceRefreshKey}
         />
 
         {/* Notes */}
@@ -290,7 +292,10 @@ const CustomerDetail = () => {
         customerName={customer.name}
         xeroContactId={customer.xero_contact_id}
         sites={sites}
-        onSuccess={loadData}
+        onSuccess={() => {
+          loadData();
+          setInvoiceRefreshKey((prev) => prev + 1);
+        }}
       />
     </DashboardLayout>
   );
