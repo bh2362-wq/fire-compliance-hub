@@ -276,81 +276,134 @@ export function generateServiceReportPDF(
 
   yPos += 22;
 
-  // === Checklist Table (Compact) ===
+  // === INSPECTION & SERVICING CHECKLIST (Multi-page, grouped by section) ===
   doc.setTextColor(...COLORS.charcoal);
-  doc.setFontSize(9);
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("Service Checklist", margin, yPos + 3);
+  doc.text("Fire Detection & Fire Alarm Inspection & Servicing Checklist", margin, yPos + 3);
+  
+  doc.setFontSize(7);
+  doc.setTextColor(...COLORS.red);
+  doc.text("As recommended in BAFE SP203-1 Clause 9.8 & BS5839-1:2025 Clause 45", margin, yPos + 8);
 
   // Legend
   doc.setFontSize(6);
   doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COLORS.charcoal);
   let legendX = pageWidth - margin - 60;
-  legendX = drawStatusBox(doc, legendX, yPos, true);
-  legendX = drawStatusBox(doc, legendX, yPos, false);
-  drawStatusBox(doc, legendX, yPos, null);
+  legendX = drawStatusBox(doc, legendX, yPos + 2, true);
+  legendX = drawStatusBox(doc, legendX, yPos + 2, false);
+  drawStatusBox(doc, legendX, yPos + 2, null);
 
-  yPos += 6;
+  yPos += 12;
 
-  // Collect all checklist items into flat array
+  // Collect all checklist items grouped by section
   const checklist = report.checklist;
   const sections = Object.keys(SECTION_LABELS) as Array<keyof BS5839Checklist>;
-  const allItems: { section: string; item: string; value: boolean | null }[] = [];
-
+  
+  // Build data for each section
+  const sectionData: { section: string; items: { label: string; value: boolean | null | string | number }[] }[] = [];
+  
   sections.forEach((section) => {
-    const sectionData = checklist[section] as Record<string, boolean | null>;
+    const data = checklist[section] as Record<string, boolean | null | string | number>;
     const labels = CHECKLIST_LABELS[section];
-    Object.entries(sectionData).forEach(([key, value]) => {
-      allItems.push({
+    const items: { label: string; value: boolean | null | string | number }[] = [];
+    
+    Object.entries(data).forEach(([key, value]) => {
+      if (labels && labels[key]) {
+        items.push({
+          label: labels[key],
+          value,
+        });
+      }
+    });
+    
+    if (items.length > 0) {
+      sectionData.push({
         section: SECTION_LABELS[section],
-        item: labels[key] || key,
-        value,
+        items,
       });
+    }
+  });
+
+  // Create table with section grouping
+  const tableBody: (string | { content: string; colSpan?: number; styles?: Record<string, unknown> })[][] = [];
+  
+  sectionData.forEach((section) => {
+    // Section header row
+    tableBody.push([
+      { 
+        content: section.section, 
+        colSpan: 4,
+        styles: { 
+          fillColor: COLORS.charcoal, 
+          textColor: COLORS.white, 
+          fontStyle: "bold",
+          fontSize: 7,
+        } 
+      },
+    ]);
+    
+    // Items in this section
+    section.items.forEach((item) => {
+      let yesVal = "";
+      let noVal = "";
+      let naVal = "";
+      
+      if (typeof item.value === "boolean") {
+        if (item.value === true) yesVal = "✓";
+        else if (item.value === false) noVal = "✓";
+      } else if (item.value === null) {
+        naVal = "✓";
+      } else if (typeof item.value === "string" || typeof item.value === "number") {
+        // For text/number fields like chargeVoltage, detectorCount
+        yesVal = String(item.value);
+      }
+      
+      tableBody.push([item.label, yesVal, noVal, naVal]);
     });
   });
 
-  // Create compact table with box+label status
   autoTable(doc, {
     startY: yPos,
-    head: [["Check Item", "Result"]],
-    body: allItems.map((row) => {
-      let statusText = "N/A";
-      if (row.value === true) statusText = "PASS";
-      else if (row.value === false) statusText = "FAIL";
-      return [row.item, statusText];
-    }),
-    theme: "plain",
+    head: [["Requirement", "YES", "NO", "N/A"]],
+    body: tableBody,
+    theme: "grid",
     styles: {
-      fontSize: 6.5,
-      cellPadding: 1.5,
+      fontSize: 6,
+      cellPadding: 1.2,
+      lineColor: COLORS.borderGrey,
+      lineWidth: 0.1,
     },
     headStyles: {
       fillColor: COLORS.charcoal,
       textColor: COLORS.white,
       fontStyle: "bold",
       fontSize: 7,
+      halign: "center",
     },
     bodyStyles: {
       textColor: COLORS.charcoal,
-      lineColor: COLORS.borderGrey,
-      lineWidth: 0.1,
     },
     alternateRowStyles: {
       fillColor: COLORS.lightGrey,
     },
     columnStyles: {
-      0: { cellWidth: contentWidth - 22 },
-      1: { cellWidth: 20, halign: "center", fontStyle: "bold" },
+      0: { cellWidth: contentWidth - 36 },
+      1: { cellWidth: 12, halign: "center", fontStyle: "bold" },
+      2: { cellWidth: 12, halign: "center", fontStyle: "bold" },
+      3: { cellWidth: 12, halign: "center", fontStyle: "bold" },
     },
     margin: { left: margin, right: margin },
     didParseCell: (data) => {
-      if (data.section === "body" && data.column.index === 1) {
+      if (data.section === "body") {
+        // Color the check marks
         const text = data.cell.text[0];
-        if (text === "PASS") {
+        if (data.column.index === 1 && text === "✓") {
           data.cell.styles.textColor = COLORS.pass;
-        } else if (text === "FAIL") {
+        } else if (data.column.index === 2 && text === "✓") {
           data.cell.styles.textColor = COLORS.fail;
-        } else {
+        } else if (data.column.index === 3 && text === "✓") {
           data.cell.styles.textColor = COLORS.na;
         }
       }
