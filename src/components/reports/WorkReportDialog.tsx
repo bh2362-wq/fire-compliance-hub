@@ -739,224 +739,242 @@ export function WorkReportDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="sign" className="mt-0 space-y-6">
-              {/* Completion Summary */}
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-4 h-4 rounded-full ${workCompleted ? 'bg-green-500' : 'bg-amber-500'}`} />
-                  <h3 className="font-semibold text-lg">
-                    {workCompleted ? 'Works Completed' : 'Works In Progress'}
-                  </h3>
+            <TabsContent value="sign" className="mt-0 space-y-5">
+              {/* Completion Status Banner */}
+              <div className={cn(
+                "rounded-lg p-4 border-l-4",
+                workCompleted 
+                  ? "bg-green-50 border-l-green-500" 
+                  : "bg-amber-50 border-l-amber-500"
+              )}>
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-3 h-3 rounded-full",
+                    workCompleted ? "bg-green-500" : "bg-amber-500"
+                  )} />
+                  <span className={cn(
+                    "font-semibold text-sm",
+                    workCompleted ? "text-green-800" : "text-amber-800"
+                  )}>
+                    {workCompleted ? "Works Completed" : "Works In Progress"}
+                  </span>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  I confirm that all works have been carried out to a satisfactory standard and the system has been left in a safe, operational condition.
-                </p>
               </div>
 
-              {/* Date & Time Inputs */}
-              <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="font-medium mb-3 text-sm uppercase tracking-wide text-muted-foreground">Service Date & Time</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs flex items-center gap-1">
-                      <CalendarIcon className="h-3 w-3" /> Date
-                    </Label>
-                    <div className="bg-background rounded-lg border p-2 text-center">
-                      <p className="font-semibold text-sm">{visit.visit_date}</p>
+              {/* Service Summary Row */}
+              <div className="grid grid-cols-4 gap-3 bg-muted/30 rounded-lg p-3">
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Date</p>
+                  <p className="font-semibold text-sm">{visit.visit_date}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Arrival</p>
+                  <Input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="text-sm h-8 text-center border-0 bg-background"
+                  />
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Departure</p>
+                  <Input
+                    type="time"
+                    value={finishTime}
+                    onChange={(e) => setFinishTime(e.target.value)}
+                    className="text-sm h-8 text-center border-0 bg-background"
+                  />
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Duration</p>
+                  <Input
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                    placeholder="hrs"
+                    className="text-sm h-8 text-center border-0 bg-background"
+                  />
+                </div>
+              </div>
+
+              {/* Signature Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Engineer Signature Card */}
+                <div className="rounded-lg border bg-card overflow-hidden">
+                  <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-b">
+                    <h4 className="font-semibold text-sm uppercase tracking-wide text-foreground">
+                      Engineer
+                    </h4>
+                    {engineerSignature && (
+                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                        Signed
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Print Name</Label>
+                      <Input
+                        value={engineerName}
+                        onChange={(e) => setEngineerName(e.target.value)}
+                        placeholder="Engineer name"
+                        className="h-9"
+                      />
                     </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> Arrival
-                    </Label>
-                    <Input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      className="text-sm h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> Departure
-                    </Label>
-                    <Input
-                      type="time"
-                      value={finishTime}
-                      onChange={(e) => setFinishTime(e.target.value)}
-                      className="text-sm h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Duration (hrs)</Label>
-                    <Input
-                      value={duration}
-                      onChange={(e) => setDuration(e.target.value)}
-                      placeholder="e.g. 2.5"
-                      className="text-sm h-9"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Signatures */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4 p-4 border-2 rounded-lg bg-background">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-base">Engineer Sign-Off</h4>
-                    {engineerSignature && <span className="text-xs text-green-600 font-medium">✓ Signed</span>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Print Name</Label>
-                    <Input
-                      value={engineerName}
-                      onChange={(e) => setEngineerName(e.target.value)}
-                      placeholder="Engineer name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Signature</Label>
+                    
                     <SignaturePad
                       value={engineerSignature}
                       onChange={setEngineerSignature}
-                      width={280}
-                      height={140}
+                      width={300}
+                      height={100}
+                      label="Signature"
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs flex items-center gap-1">
-                        <CalendarIcon className="h-3 w-3" /> Date
-                      </Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal text-sm h-9",
-                              !engineerSignDate && "text-muted-foreground"
-                            )}
-                          >
-                            {engineerSignDate ? format(engineerSignDate, "dd/MM/yyyy") : "Select date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 z-50" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={engineerSignDate}
-                            onSelect={setEngineerSignDate}
-                            initialFocus
-                            className="p-3 pointer-events-auto"
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> Time
-                      </Label>
-                      <Input
-                        type="time"
-                        value={engineerSignTime}
-                        onChange={(e) => setEngineerSignTime(e.target.value)}
-                        className="text-sm h-9"
-                      />
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Date Signed</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={cn(
+                                "w-full justify-start text-left font-normal h-8 text-xs",
+                                !engineerSignDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-1.5 h-3 w-3" />
+                              {engineerSignDate ? format(engineerSignDate, "dd/MM/yyyy") : "Select"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 z-50" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={engineerSignDate}
+                              onSelect={setEngineerSignDate}
+                              initialFocus
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Time Signed</Label>
+                        <Input
+                          type="time"
+                          value={engineerSignTime}
+                          onChange={(e) => setEngineerSignTime(e.target.value)}
+                          className="text-xs h-8"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-4 p-4 border-2 rounded-lg bg-background">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-base">Customer Sign-Off</h4>
+                {/* Customer Signature Card */}
+                <div className="rounded-lg border bg-card overflow-hidden">
+                  <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-b">
+                    <h4 className="font-semibold text-sm uppercase tracking-wide text-foreground">
+                      Customer
+                    </h4>
                     {customerNotPresent ? (
-                      <span className="text-xs text-amber-600 font-medium">Not Present</span>
+                      <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        Not Present
+                      </span>
                     ) : customerSignature ? (
-                      <span className="text-xs text-green-600 font-medium">✓ Signed</span>
+                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                        Signed
+                      </span>
                     ) : null}
                   </div>
-                  
-                  {/* Customer Not Present Checkbox */}
-                  <div className="flex items-center space-x-2 p-2 bg-muted/50 rounded-lg">
-                    <Checkbox
-                      id="customerNotPresent"
-                      checked={customerNotPresent}
-                      onCheckedChange={(checked) => setCustomerNotPresent(!!checked)}
-                    />
-                    <Label htmlFor="customerNotPresent" className="text-sm cursor-pointer">
-                      Customer not present
-                    </Label>
-                  </div>
-
-                  {customerNotPresent ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
-                      <p className="text-sm text-amber-800">
-                        Customer was not available to sign off on this work.
-                      </p>
-                      <p className="text-xs text-amber-600 mt-1">
-                        Report signed by engineer only.
-                      </p>
+                  <div className="p-4 space-y-3">
+                    {/* Customer Not Present Toggle */}
+                    <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-md">
+                      <Checkbox
+                        id="customerNotPresent"
+                        checked={customerNotPresent}
+                        onCheckedChange={(checked) => setCustomerNotPresent(!!checked)}
+                      />
+                      <Label htmlFor="customerNotPresent" className="text-sm cursor-pointer">
+                        Customer not present
+                      </Label>
                     </div>
-                  ) : (
-                    <>
-                      <div className="space-y-2">
-                        <Label>Print Name</Label>
-                        <Input
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          placeholder="Customer name"
-                        />
+
+                    {customerNotPresent ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center min-h-[160px] flex flex-col items-center justify-center">
+                        <p className="text-sm text-amber-800 font-medium">
+                          Customer was not available
+                        </p>
+                        <p className="text-xs text-amber-600 mt-1">
+                          to sign off on this work
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-3">
+                          Report signed by engineer only
+                        </p>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Signature</Label>
+                    ) : (
+                      <>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Print Name</Label>
+                          <Input
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            placeholder="Customer name"
+                            className="h-9"
+                          />
+                        </div>
+                        
                         <SignaturePad
                           value={customerSignature}
                           onChange={setCustomerSignature}
-                          width={280}
-                          height={140}
+                          width={300}
+                          height={100}
+                          label="Signature"
                         />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs flex items-center gap-1">
-                            <CalendarIcon className="h-3 w-3" /> Date
-                          </Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  "w-full justify-start text-left font-normal text-sm h-9",
-                                  !customerSignDate && "text-muted-foreground"
-                                )}
-                              >
-                                {customerSignDate ? format(customerSignDate, "dd/MM/yyyy") : "Select date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 z-50" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={customerSignDate}
-                                onSelect={setCustomerSignDate}
-                                initialFocus
-                                className="p-3 pointer-events-auto"
-                              />
-                            </PopoverContent>
-                          </Popover>
+
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Date Signed</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal h-8 text-xs",
+                                    !customerSignDate && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-1.5 h-3 w-3" />
+                                  {customerSignDate ? format(customerSignDate, "dd/MM/yyyy") : "Select"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0 z-50" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={customerSignDate}
+                                  onSelect={setCustomerSignDate}
+                                  initialFocus
+                                  className="p-3 pointer-events-auto"
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Time Signed</Label>
+                            <Input
+                              type="time"
+                              value={customerSignTime}
+                              onChange={(e) => setCustomerSignTime(e.target.value)}
+                              className="text-xs h-8"
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> Time
-                          </Label>
-                          <Input
-                            type="time"
-                            value={customerSignTime}
-                            onChange={(e) => setCustomerSignTime(e.target.value)}
-                            className="text-sm h-9"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </TabsContent>
