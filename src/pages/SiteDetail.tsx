@@ -7,6 +7,7 @@ import SiteReconciliationHistory from "@/components/sites/SiteReconciliationHist
 import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
 import { SiteServiceReports } from "@/components/sites/SiteServiceReports";
 import { SiteAssets } from "@/components/sites/SiteAssets";
+import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { Button } from "@/components/ui/button";
@@ -206,6 +207,9 @@ const SiteDetail = () => {
             </p>
           </div>
         </div>
+
+        {/* Open Visits */}
+        <OpenVisitsCard siteId={site.id} />
 
         {/* Site Assets */}
         <SiteAssets siteId={site.id} />
