@@ -643,13 +643,49 @@ export function WorkReportDialog({
             </TabsContent>
 
             <TabsContent value="sign" className="mt-0 space-y-6">
-              <p className="text-sm text-muted-foreground">
-                I confirm that all works have been carried out to a satisfactory standard.
-              </p>
+              {/* Completion Summary */}
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-4 h-4 rounded-full ${workCompleted ? 'bg-green-500' : 'bg-amber-500'}`} />
+                  <h3 className="font-semibold text-lg">
+                    {workCompleted ? 'Works Completed' : 'Works In Progress'}
+                  </h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  I confirm that all works have been carried out to a satisfactory standard and the system has been left in a safe, operational condition.
+                </p>
+              </div>
 
+              {/* Date & Time Summary */}
+              <div className="bg-muted/50 rounded-lg p-4">
+                <h4 className="font-medium mb-3 text-sm uppercase tracking-wide text-muted-foreground">Service Date & Time</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="text-center p-3 bg-background rounded-lg border">
+                    <p className="text-xs text-muted-foreground mb-1">Date</p>
+                    <p className="font-semibold">{visit.visit_date}</p>
+                  </div>
+                  <div className="text-center p-3 bg-background rounded-lg border">
+                    <p className="text-xs text-muted-foreground mb-1">Arrival</p>
+                    <p className="font-semibold">{startTime || '—'}</p>
+                  </div>
+                  <div className="text-center p-3 bg-background rounded-lg border">
+                    <p className="text-xs text-muted-foreground mb-1">Departure</p>
+                    <p className="font-semibold">{finishTime || '—'}</p>
+                  </div>
+                  <div className="text-center p-3 bg-background rounded-lg border">
+                    <p className="text-xs text-muted-foreground mb-1">Duration</p>
+                    <p className="font-semibold">{duration ? `${duration} hrs` : '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Signatures */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4 p-4 border rounded-lg">
-                  <h4 className="font-medium">Engineer</h4>
+                <div className="space-y-4 p-4 border-2 rounded-lg bg-background">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-base">Engineer Sign-Off</h4>
+                    {engineerSignature && <span className="text-xs text-green-600 font-medium">✓ Signed</span>}
+                  </div>
                   <div className="space-y-2">
                     <Label>Print Name</Label>
                     <Input
@@ -663,18 +699,27 @@ export function WorkReportDialog({
                     <SignaturePad
                       value={engineerSignature}
                       onChange={setEngineerSignature}
-                      width={260}
-                      height={120}
+                      width={280}
+                      height={140}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Date</Label>
-                    <Input value={visit.visit_date} disabled className="bg-muted" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Date</Label>
+                      <Input value={visit.visit_date} disabled className="bg-muted text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Time</Label>
+                      <Input value={finishTime || '—'} disabled className="bg-muted text-sm" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-4 p-4 border rounded-lg">
-                  <h4 className="font-medium">Customer</h4>
+                <div className="space-y-4 p-4 border-2 rounded-lg bg-background">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-base">Customer Sign-Off</h4>
+                    {customerSignature && <span className="text-xs text-green-600 font-medium">✓ Signed</span>}
+                  </div>
                   <div className="space-y-2">
                     <Label>Print Name</Label>
                     <Input
@@ -688,13 +733,19 @@ export function WorkReportDialog({
                     <SignaturePad
                       value={customerSignature}
                       onChange={setCustomerSignature}
-                      width={260}
-                      height={120}
+                      width={280}
+                      height={140}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Date</Label>
-                    <Input value={visit.visit_date} disabled className="bg-muted" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Date</Label>
+                      <Input value={visit.visit_date} disabled className="bg-muted text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Time</Label>
+                      <Input value={finishTime || '—'} disabled className="bg-muted text-sm" />
+                    </div>
                   </div>
                 </div>
               </div>
