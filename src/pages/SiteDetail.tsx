@@ -6,6 +6,7 @@ import SiteUploadHistory from "@/components/sites/SiteUploadHistory";
 import SiteReconciliationHistory from "@/components/sites/SiteReconciliationHistory";
 import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
 import { SiteServiceReports } from "@/components/sites/SiteServiceReports";
+import { SiteAssets } from "@/components/sites/SiteAssets";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { Button } from "@/components/ui/button";
@@ -205,6 +206,9 @@ const SiteDetail = () => {
             </p>
           </div>
         </div>
+
+        {/* Site Assets */}
+        <SiteAssets siteId={site.id} />
 
         {/* Service Contracts */}
         <SiteServiceContracts siteId={site.id} />

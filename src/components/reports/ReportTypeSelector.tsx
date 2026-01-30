@@ -46,24 +46,14 @@ export function ReportTypeSelector({
     setLoading(true);
 
     try {
-      // Get Aspirator contracts for this site
-      const { data: contracts } = await supabase
-        .from("site_service_contracts")
-        .select("id")
+      // Get ASD assets directly from site_assets table
+      const { data: assets } = await supabase
+        .from("site_assets")
+        .select("id, item_name, manufacturer, model, location")
         .eq("site_id", siteId)
-        .eq("service_type", "Aspirator");
+        .eq("asset_type", "asd");
 
-      if (contracts && contracts.length > 0) {
-        const contractIds = contracts.map((c) => c.id);
-        const { data: assets } = await supabase
-          .from("contract_assets")
-          .select("id, item_name, manufacturer, model, location")
-          .in("contract_id", contractIds);
-
-        setAsdAssets(assets || []);
-      } else {
-        setAsdAssets([]);
-      }
+      setAsdAssets(assets || []);
     } catch (error) {
       console.error("Failed to load ASD assets:", error);
     } finally {
