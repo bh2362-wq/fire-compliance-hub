@@ -113,9 +113,15 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
     if (onVisitClick) {
       onVisitClick(visit.id);
     } else {
-      // Open report type selector directly
       setSelectedVisit(visit);
-      setShowReportTypeSelector(true);
+      
+      // For remedial and emergency visits, go directly to Work Report (job sheet only)
+      if (visit.visit_type === "remedial" || visit.visit_type === "emergency") {
+        setReportType("work");
+      } else {
+        // For scheduled service visits, show the report type selector
+        setShowReportTypeSelector(true);
+      }
     }
   };
 
