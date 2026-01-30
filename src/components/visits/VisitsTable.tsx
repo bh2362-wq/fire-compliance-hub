@@ -19,11 +19,20 @@ import { Visit } from "@/hooks/useVisits";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
+import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
 import { SmokeSprayEstimate } from "./SmokeSprayEstimate";
 import VisitEditDialog from "./VisitEditDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
+interface ASDAsset {
+  id: string;
+  item_name: string;
+  manufacturer?: string | null;
+  model?: string | null;
+  location?: string | null;
+}
 
 interface VisitsTableProps {
   visits: Visit[];
@@ -52,7 +61,8 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
   const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
   const [reportVisit, setReportVisit] = useState<Visit | null>(null);
   const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
-  const [reportType, setReportType] = useState<"bs5839" | "work" | null>(null);
+  const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | null>(null);
+  const [selectedAsdAsset, setSelectedAsdAsset] = useState<ASDAsset | null>(null);
   const [editVisit, setEditVisit] = useState<Visit | null>(null);
   const [deleteVisit, setDeleteVisit] = useState<Visit | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -277,7 +287,13 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
       <ReportTypeSelector
         open={showReportTypeSelector}
         onOpenChange={setShowReportTypeSelector}
-        onSelect={(type) => setReportType(type)}
+        onSelect={(type, asdAsset) => {
+          setReportType(type);
+          if (asdAsset) {
+            setSelectedAsdAsset(asdAsset);
+          }
+        }}
+        siteId={reportVisit?.site_id}
       />
 
       {reportVisit && reportType === "work" && (
@@ -304,6 +320,22 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
             }
           }}
           visit={{ ...reportVisit, sites: reportVisit.site }}
+          onSuccess={onRefresh}
+        />
+      )}
+
+      {reportVisit && reportType === "asd" && selectedAsdAsset && (
+        <ASDReportDialog
+          open={!!reportVisit && reportType === "asd"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setReportVisit(null);
+              setReportType(null);
+              setSelectedAsdAsset(null);
+            }
+          }}
+          visit={{ ...reportVisit, sites: reportVisit.site }}
+          asset={selectedAsdAsset}
           onSuccess={onRefresh}
         />
       )}

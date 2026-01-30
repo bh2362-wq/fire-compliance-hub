@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download } from "lucide-react";
+import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   ServiceReport,
@@ -32,8 +32,10 @@ import {
   SYSTEM_TYPES,
 } from "@/services/serviceReportService";
 import { ServiceReportChecklist } from "./ServiceReportChecklist";
+import { MultiPanelChecklist, PanelChecklistData, initializePanelChecklists } from "./MultiPanelChecklist";
 import { generateServiceReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface VisitForReport {
   id: string;
@@ -61,6 +63,10 @@ export function ServiceReportDialog({
   const [saving, setSaving] = useState(false);
   const [report, setReport] = useState<ServiceReport | null>(null);
   const [activeTab, setActiveTab] = useState("details");
+
+  // Multi-panel state
+  const [panels, setPanels] = useState<PanelChecklistData[]>([]);
+  const [hasMultiplePanels, setHasMultiplePanels] = useState(false);
 
   // Form state
   const [engineerName, setEngineerName] = useState("");
@@ -90,6 +96,32 @@ export function ServiceReportDialog({
     setLoading(true);
 
     try {
+      // Load fire panels from contract assets
+      const { data: contracts } = await supabase
+        .from("site_service_contracts")
+        .select("id")
+        .eq("site_id", visit.site_id)
+        .eq("service_type", "Fire");
+
+      if (contracts && contracts.length > 0) {
+        const contractIds = contracts.map((c) => c.id);
+        const { data: assets } = await supabase
+          .from("contract_assets")
+          .select("id, item_name, manufacturer, model, location, item_type")
+          .in("contract_id", contractIds)
+          .or("item_type.ilike.%panel%,item_type.ilike.%control%");
+
+        if (assets && assets.length > 1) {
+          setHasMultiplePanels(true);
+          setPanels(initializePanelChecklists(assets));
+        } else if (assets && assets.length === 1) {
+          // Single panel - pre-fill details
+          setPanelManufacturer(assets[0].manufacturer || "");
+          setPanelModel(assets[0].model || "");
+          setPanelLocation(assets[0].location || "");
+        }
+      }
+
       let existingReport = await getServiceReport(visit.id);
 
       if (!existingReport) {
@@ -100,6 +132,23 @@ export function ServiceReportDialog({
 
       setReport(existingReport);
       populateForm(existingReport);
+
+      // If multi-panel and report has stored panel data, load it
+      if (existingReport.notes) {
+        try {
+          const notesData = JSON.parse(existingReport.notes);
+          if (notesData.panel_checklists && Array.isArray(notesData.panel_checklists)) {
+            setPanels((prev) => 
+              prev.map((p) => {
+                const stored = notesData.panel_checklists.find((s: PanelChecklistData) => s.assetId === p.assetId);
+                return stored ? { ...p, checklist: stored.checklist } : p;
+              })
+            );
+          }
+        } catch {
+          // Not JSON, leave notes as-is
+        }
+      }
     } catch (error) {
       console.error("Failed to load report:", error);
       toast.error("Failed to load service report");
@@ -123,7 +172,14 @@ export function ServiceReportDialog({
     setRecommendations(r.recommendations || "");
     setWorkCarriedOut(r.work_carried_out || "");
     setPartsUsed(r.parts_used || "");
-    setNotes(r.notes || "");
+    
+    // Try parsing notes for additional data
+    try {
+      const notesData = JSON.parse(r.notes || "{}");
+      setNotes(notesData.additional_notes || "");
+    } catch {
+      setNotes(r.notes || "");
+    }
   };
 
   const handleSave = async (complete = false) => {
@@ -131,6 +187,17 @@ export function ServiceReportDialog({
 
     setSaving(true);
     try {
+      // If multi-panel, store panel checklists in notes JSON
+      let notesValue = notes;
+      if (hasMultiplePanels) {
+        notesValue = JSON.stringify({
+          report_type: "fire_alarm",
+          multi_panel: true,
+          panel_checklists: panels,
+          additional_notes: notes,
+        });
+      }
+
       await updateServiceReport(report.id, {
         engineer_name: engineerName,
         client_name: clientName,
@@ -140,13 +207,13 @@ export function ServiceReportDialog({
         system_type: systemType,
         zones_count: zonesCount === "" ? null : zonesCount,
         devices_count: devicesCount === "" ? null : devicesCount,
-        checklist,
+        checklist: hasMultiplePanels ? getDefaultChecklist() : checklist, // Single panel uses main checklist
         system_condition: systemCondition,
         defects_found: defectsFound,
         recommendations,
         work_carried_out: workCarriedOut,
         parts_used: partsUsed,
-        notes,
+        notes: notesValue,
         status: complete ? "completed" : "draft",
       });
 
@@ -187,7 +254,7 @@ export function ServiceReportDialog({
           system_type: systemType,
           zones_count: zonesCount === "" ? null : zonesCount,
           devices_count: devicesCount === "" ? null : devicesCount,
-          checklist,
+          checklist: hasMultiplePanels ? panels[0]?.checklist || getDefaultChecklist() : checklist,
           system_condition: systemCondition,
           defects_found: defectsFound,
           recommendations,
@@ -231,6 +298,15 @@ export function ServiceReportDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {hasMultiplePanels && (
+          <Alert className="bg-primary/5 border-primary/20">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              This site has {panels.length} fire panels. Each panel has its own checklist tab.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="details" className="flex items-center gap-1">
@@ -272,75 +348,129 @@ export function ServiceReportDialog({
                 </div>
               </div>
 
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-3">System Information</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Panel Manufacturer</Label>
-                    <Input
-                      value={panelManufacturer}
-                      onChange={(e) => setPanelManufacturer(e.target.value)}
-                      placeholder="e.g., Kentec, Advanced, Morley"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Panel Model</Label>
-                    <Input
-                      value={panelModel}
-                      onChange={(e) => setPanelModel(e.target.value)}
-                      placeholder="Panel model/type"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Panel Location</Label>
-                    <Input
-                      value={panelLocation}
-                      onChange={(e) => setPanelLocation(e.target.value)}
-                      placeholder="e.g., Main Reception"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>System Category</Label>
-                    <Select value={systemType} onValueChange={setSystemType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select system type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SYSTEM_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Number of Zones</Label>
-                    <Input
-                      type="number"
-                      value={zonesCount}
-                      onChange={(e) => setZonesCount(e.target.value ? parseInt(e.target.value) : "")}
-                      placeholder="Zones"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Number of Devices</Label>
-                    <Input
-                      type="number"
-                      value={devicesCount}
-                      onChange={(e) => setDevicesCount(e.target.value ? parseInt(e.target.value) : "")}
-                      placeholder="Total devices"
-                    />
+              {!hasMultiplePanels && (
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-3">System Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Panel Manufacturer</Label>
+                      <Input
+                        value={panelManufacturer}
+                        onChange={(e) => setPanelManufacturer(e.target.value)}
+                        placeholder="e.g., Kentec, Advanced, Morley"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Panel Model</Label>
+                      <Input
+                        value={panelModel}
+                        onChange={(e) => setPanelModel(e.target.value)}
+                        placeholder="Panel model/type"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Panel Location</Label>
+                      <Input
+                        value={panelLocation}
+                        onChange={(e) => setPanelLocation(e.target.value)}
+                        placeholder="e.g., Main Reception"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>System Category</Label>
+                      <Select value={systemType} onValueChange={setSystemType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select system type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SYSTEM_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Number of Zones</Label>
+                      <Input
+                        type="number"
+                        value={zonesCount}
+                        onChange={(e) => setZonesCount(e.target.value ? parseInt(e.target.value) : "")}
+                        placeholder="Zones"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Number of Devices</Label>
+                      <Input
+                        type="number"
+                        value={devicesCount}
+                        onChange={(e) => setDevicesCount(e.target.value ? parseInt(e.target.value) : "")}
+                        placeholder="Total devices"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {hasMultiplePanels && (
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-3">System Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>System Category</Label>
+                      <Select value={systemType} onValueChange={setSystemType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select system type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SYSTEM_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Total Panels</Label>
+                      <Input value={panels.length} disabled className="bg-muted" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Number of Zones</Label>
+                      <Input
+                        type="number"
+                        value={zonesCount}
+                        onChange={(e) => setZonesCount(e.target.value ? parseInt(e.target.value) : "")}
+                        placeholder="Total zones"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Number of Devices</Label>
+                      <Input
+                        type="number"
+                        value={devicesCount}
+                        onChange={(e) => setDevicesCount(e.target.value ? parseInt(e.target.value) : "")}
+                        placeholder="Total devices"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="checklist" className="mt-0">
-              <ServiceReportChecklist
-                checklist={checklist}
-                onChange={setChecklist}
-              />
+              {hasMultiplePanels ? (
+                <MultiPanelChecklist
+                  panels={panels}
+                  onChange={setPanels}
+                />
+              ) : (
+                <ServiceReportChecklist
+                  checklist={checklist}
+                  onChange={setChecklist}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="summary" className="mt-0 space-y-4">
