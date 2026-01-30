@@ -21,6 +21,7 @@ import { Customer, getCustomer, getCustomerSites } from "@/services/customerServ
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
+import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -263,8 +264,11 @@ const CustomerDetail = () => {
           </Card>
         </div>
 
+        {/* Open Visits */}
+        <OpenVisitsCard customerId={customer.id} />
+
         {/* Invoices */}
-        <CustomerInvoices 
+        <CustomerInvoices
           xeroContactId={customer.xero_contact_id} 
           customerName={customer.name}
           refreshKey={invoiceRefreshKey}
