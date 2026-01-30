@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,9 +22,16 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignaturePad } from "@/components/ui/signature-pad";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, PenTool, Download } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 import {
   ServiceReport,
   getDefaultChecklist,
@@ -119,8 +127,12 @@ export function WorkReportDialog({
   // Signatures
   const [engineerName, setEngineerName] = useState("");
   const [engineerSignature, setEngineerSignature] = useState("");
+  const [engineerSignDate, setEngineerSignDate] = useState<Date | undefined>(undefined);
+  const [engineerSignTime, setEngineerSignTime] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerSignature, setCustomerSignature] = useState("");
+  const [customerSignDate, setCustomerSignDate] = useState<Date | undefined>(undefined);
+  const [customerSignTime, setCustomerSignTime] = useState("");
 
   useEffect(() => {
     if (open && user) {
@@ -190,6 +202,15 @@ export function WorkReportDialog({
         setMaterials(parsedNotes.materials || [{ name: "", qty: "", cost: "" }]);
         setEngineerSignature(parsedNotes.engineerSignature || "");
         setCustomerSignature(parsedNotes.customerSignature || "");
+        // Sign-off dates and times
+        if (parsedNotes.engineerSignDate) {
+          setEngineerSignDate(new Date(parsedNotes.engineerSignDate));
+        }
+        setEngineerSignTime(parsedNotes.engineerSignTime || "");
+        if (parsedNotes.customerSignDate) {
+          setCustomerSignDate(new Date(parsedNotes.customerSignDate));
+        }
+        setCustomerSignTime(parsedNotes.customerSignTime || "");
       }
     } catch {
       // Notes not JSON, use as-is
@@ -221,6 +242,10 @@ export function WorkReportDialog({
         materials: materials.filter((m) => m.name.trim()),
         engineerSignature,
         customerSignature,
+        engineerSignDate: engineerSignDate?.toISOString(),
+        engineerSignTime,
+        customerSignDate: customerSignDate?.toISOString(),
+        customerSignTime,
       });
 
       await updateServiceReport(report.id, {
@@ -284,8 +309,12 @@ export function WorkReportDialog({
           materials,
           engineerName,
           engineerSignature,
+          engineerSignDate: engineerSignDate?.toISOString(),
+          engineerSignTime,
           customerName,
           customerSignature,
+          customerSignDate: customerSignDate?.toISOString(),
+          customerSignTime,
         },
         siteInfo,
         visit.visit_date
@@ -705,12 +734,42 @@ export function WorkReportDialog({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs">Date</Label>
-                      <Input value={visit.visit_date} disabled className="bg-muted text-sm" />
+                      <Label className="text-xs flex items-center gap-1">
+                        <CalendarIcon className="h-3 w-3" /> Date
+                      </Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal text-sm h-9",
+                              !engineerSignDate && "text-muted-foreground"
+                            )}
+                          >
+                            {engineerSignDate ? format(engineerSignDate, "dd/MM/yyyy") : "Select date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 z-50" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={engineerSignDate}
+                            onSelect={setEngineerSignDate}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Time</Label>
-                      <Input value={finishTime || '—'} disabled className="bg-muted text-sm" />
+                      <Label className="text-xs flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Time
+                      </Label>
+                      <Input
+                        type="time"
+                        value={engineerSignTime}
+                        onChange={(e) => setEngineerSignTime(e.target.value)}
+                        className="text-sm h-9"
+                      />
                     </div>
                   </div>
                 </div>
@@ -739,12 +798,42 @@ export function WorkReportDialog({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs">Date</Label>
-                      <Input value={visit.visit_date} disabled className="bg-muted text-sm" />
+                      <Label className="text-xs flex items-center gap-1">
+                        <CalendarIcon className="h-3 w-3" /> Date
+                      </Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal text-sm h-9",
+                              !customerSignDate && "text-muted-foreground"
+                            )}
+                          >
+                            {customerSignDate ? format(customerSignDate, "dd/MM/yyyy") : "Select date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 z-50" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customerSignDate}
+                            onSelect={setCustomerSignDate}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Time</Label>
-                      <Input value={finishTime || '—'} disabled className="bg-muted text-sm" />
+                      <Label className="text-xs flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Time
+                      </Label>
+                      <Input
+                        type="time"
+                        value={customerSignTime}
+                        onChange={(e) => setCustomerSignTime(e.target.value)}
+                        className="text-sm h-9"
+                      />
                     </div>
                   </div>
                 </div>
