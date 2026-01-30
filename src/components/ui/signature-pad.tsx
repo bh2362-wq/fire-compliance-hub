@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import SignaturePadLib from "signature_pad";
 import { Button } from "@/components/ui/button";
-import { Eraser } from "lucide-react";
+import { Eraser, PenLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SignaturePadProps {
@@ -11,15 +11,17 @@ interface SignaturePadProps {
   height?: number;
   className?: string;
   disabled?: boolean;
+  label?: string;
 }
 
 export function SignaturePad({
   value,
   onChange,
-  width = 300,
-  height = 150,
+  width = 320,
+  height = 120,
   className,
   disabled = false,
+  label,
 }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signaturePadRef = useRef<SignaturePadLib | null>(null);
@@ -36,7 +38,9 @@ export function SignaturePad({
 
     signaturePadRef.current = new SignaturePadLib(canvas, {
       backgroundColor: "rgb(255, 255, 255)",
-      penColor: "rgb(0, 0, 0)",
+      penColor: "rgb(30, 41, 59)",
+      minWidth: 0.5,
+      maxWidth: 2,
     });
 
     if (disabled) {
@@ -81,36 +85,57 @@ export function SignaturePad({
   };
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <div className="relative border rounded-lg overflow-hidden bg-white">
-        <canvas
-          ref={canvasRef}
-          style={{ width, height }}
+    <div className={cn("space-y-1.5", className)}>
+      {label && (
+        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <PenLine className="w-3 h-3" />
+          {label}
+        </div>
+      )}
+      <div className="relative">
+        <div 
           className={cn(
-            "touch-none",
-            disabled && "opacity-50 cursor-not-allowed"
+            "relative rounded-md overflow-hidden bg-white",
+            "border-2 border-dashed border-muted-foreground/20",
+            "transition-colors duration-200",
+            !disabled && "hover:border-muted-foreground/40 focus-within:border-primary/50",
+            disabled && "opacity-60"
           )}
-        />
-        {isEmpty && !disabled && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-sm text-muted-foreground/50">
-              Sign here
-            </span>
-          </div>
+        >
+          <canvas
+            ref={canvasRef}
+            style={{ width, height }}
+            className={cn(
+              "touch-none block",
+              disabled && "cursor-not-allowed"
+            )}
+          />
+          {isEmpty && !disabled && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-1">
+              <PenLine className="w-5 h-5 text-muted-foreground/30" />
+              <span className="text-xs text-muted-foreground/40 font-medium">
+                Sign above
+              </span>
+            </div>
+          )}
+        </div>
+        
+        {/* Signature line indicator */}
+        <div className="absolute bottom-3 left-4 right-4 border-b border-muted-foreground/20" />
+        
+        {!disabled && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleClear}
+            className="absolute top-1 right-1 h-7 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          >
+            <Eraser className="w-3.5 h-3.5 mr-1" />
+            Clear
+          </Button>
         )}
       </div>
-      {!disabled && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleClear}
-          className="text-muted-foreground"
-        >
-          <Eraser className="w-4 h-4 mr-1" />
-          Clear
-        </Button>
-      )}
     </div>
   );
 }
