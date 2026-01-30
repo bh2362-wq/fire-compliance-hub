@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Receipt } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
@@ -34,6 +34,11 @@ interface ASDAsset {
   location?: string | null;
 }
 
+interface InvoiceInfo {
+  xero_invoice_number: string | null;
+  status: string | null;
+}
+
 interface VisitsTableProps {
   visits: Visit[];
   loading: boolean;
@@ -43,6 +48,14 @@ interface VisitsTableProps {
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
+  invoiced: {
+    label: "Invoiced",
+    className: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+  paid: {
+    label: "Paid",
+    className: "bg-success/10 text-success border-success/20",
+  },
   completed: {
     label: "Completed",
     className: "bg-success/10 text-success border-success/20",
@@ -69,6 +82,33 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [deleteVisit, setDeleteVisit] = useState<Visit | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [initialVisitHandled, setInitialVisitHandled] = useState(false);
+  const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
+
+  // Fetch invoice status for all visits
+  useEffect(() => {
+    const fetchInvoiceStatus = async () => {
+      if (visits.length === 0) return;
+      
+      const visitIds = visits.map(v => v.id);
+      const { data: invoices } = await supabase
+        .from("xero_invoices")
+        .select("visit_id, xero_invoice_number, status")
+        .in("visit_id", visitIds);
+
+      if (invoices) {
+        const map: Record<string, InvoiceInfo> = {};
+        invoices.forEach((inv) => {
+          map[inv.visit_id] = {
+            xero_invoice_number: inv.xero_invoice_number,
+            status: inv.status,
+          };
+        });
+        setInvoiceMap(map);
+      }
+    };
+
+    fetchInvoiceStatus();
+  }, [visits]);
 
   // Auto-open edit dialog for initial visit ID from URL
   useEffect(() => {
@@ -165,7 +205,18 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       {/* Table body */}
       <div className="divide-y divide-border">
         {visits.map((visit) => {
-          const status = statusConfig[visit.status || "in_progress"] || statusConfig.in_progress;
+          // Determine status based on invoice status first
+          const invoice = invoiceMap[visit.id];
+          let displayStatus: { label: string; className: string };
+          
+          if (invoice?.status === "PAID") {
+            displayStatus = statusConfig.paid;
+          } else if (invoice?.status === "AUTHORISED" || invoice?.status === "SUBMITTED") {
+            displayStatus = statusConfig.invoiced;
+          } else {
+            displayStatus = statusConfig[visit.status || "in_progress"] || statusConfig.in_progress;
+          }
+          
           const coverage = Number(visit.coverage_percentage) || 0;
 
           return (
@@ -192,8 +243,11 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                     <Calendar className="w-4 h-4 text-muted-foreground" />
                     {format(new Date(visit.visit_date), "MMM d, yyyy")}
                   </div>
-                  <Badge variant="outline" className={status.className}>
-                    {status.label}
+                  <Badge variant="outline" className={displayStatus.className}>
+                    {invoice && (displayStatus.label === "Invoiced" || displayStatus.label === "Paid") && (
+                      <Receipt className="w-3 h-3 mr-1" />
+                    )}
+                    {displayStatus.label}
                   </Badge>
                 </div>
               </div>
