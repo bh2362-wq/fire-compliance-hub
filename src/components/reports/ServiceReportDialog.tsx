@@ -96,30 +96,21 @@ export function ServiceReportDialog({
     setLoading(true);
 
     try {
-      // Load fire panels from contract assets
-      const { data: contracts } = await supabase
-        .from("site_service_contracts")
-        .select("id")
+      // Load fire panels from site_assets table
+      const { data: assets } = await supabase
+        .from("site_assets")
+        .select("id, item_name, manufacturer, model, location")
         .eq("site_id", visit.site_id)
-        .eq("service_type", "Fire");
+        .eq("asset_type", "fire_panel");
 
-      if (contracts && contracts.length > 0) {
-        const contractIds = contracts.map((c) => c.id);
-        const { data: assets } = await supabase
-          .from("contract_assets")
-          .select("id, item_name, manufacturer, model, location, item_type")
-          .in("contract_id", contractIds)
-          .or("item_type.ilike.%panel%,item_type.ilike.%control%");
-
-        if (assets && assets.length > 1) {
-          setHasMultiplePanels(true);
-          setPanels(initializePanelChecklists(assets));
-        } else if (assets && assets.length === 1) {
-          // Single panel - pre-fill details
-          setPanelManufacturer(assets[0].manufacturer || "");
-          setPanelModel(assets[0].model || "");
-          setPanelLocation(assets[0].location || "");
-        }
+      if (assets && assets.length > 1) {
+        setHasMultiplePanels(true);
+        setPanels(initializePanelChecklists(assets));
+      } else if (assets && assets.length === 1) {
+        // Single panel - pre-fill details
+        setPanelManufacturer(assets[0].manufacturer || "");
+        setPanelModel(assets[0].model || "");
+        setPanelLocation(assets[0].location || "");
       }
 
       let existingReport = await getServiceReport(visit.id);

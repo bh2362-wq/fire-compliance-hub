@@ -500,6 +500,62 @@ export type Database = {
           },
         ]
       }
+      site_assets: {
+        Row: {
+          asset_type: string
+          created_at: string
+          id: string
+          item_name: string
+          location: string | null
+          loops_count: number | null
+          manufacturer: string | null
+          model: string | null
+          notes: string | null
+          serial_number: string | null
+          site_id: string
+          updated_at: string
+          zones_count: number | null
+        }
+        Insert: {
+          asset_type: string
+          created_at?: string
+          id?: string
+          item_name: string
+          location?: string | null
+          loops_count?: number | null
+          manufacturer?: string | null
+          model?: string | null
+          notes?: string | null
+          serial_number?: string | null
+          site_id: string
+          updated_at?: string
+          zones_count?: number | null
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          id?: string
+          item_name?: string
+          location?: string | null
+          loops_count?: number | null
+          manufacturer?: string | null
+          model?: string | null
+          notes?: string | null
+          serial_number?: string | null
+          site_id?: string
+          updated_at?: string
+          zones_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_assets_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_service_contracts: {
         Row: {
           contract_end: string | null
