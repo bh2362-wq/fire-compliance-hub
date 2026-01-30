@@ -685,25 +685,48 @@ export function WorkReportDialog({
                 </p>
               </div>
 
-              {/* Date & Time Summary */}
+              {/* Date & Time Inputs */}
               <div className="bg-muted/50 rounded-lg p-4">
                 <h4 className="font-medium mb-3 text-sm uppercase tracking-wide text-muted-foreground">Service Date & Time</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-background rounded-lg border">
-                    <p className="text-xs text-muted-foreground mb-1">Date</p>
-                    <p className="font-semibold">{visit.visit_date}</p>
+                  <div className="space-y-1">
+                    <Label className="text-xs flex items-center gap-1">
+                      <CalendarIcon className="h-3 w-3" /> Date
+                    </Label>
+                    <div className="bg-background rounded-lg border p-2 text-center">
+                      <p className="font-semibold text-sm">{visit.visit_date}</p>
+                    </div>
                   </div>
-                  <div className="text-center p-3 bg-background rounded-lg border">
-                    <p className="text-xs text-muted-foreground mb-1">Arrival</p>
-                    <p className="font-semibold">{startTime || '—'}</p>
+                  <div className="space-y-1">
+                    <Label className="text-xs flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> Arrival
+                    </Label>
+                    <Input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="text-sm h-9"
+                    />
                   </div>
-                  <div className="text-center p-3 bg-background rounded-lg border">
-                    <p className="text-xs text-muted-foreground mb-1">Departure</p>
-                    <p className="font-semibold">{finishTime || '—'}</p>
+                  <div className="space-y-1">
+                    <Label className="text-xs flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> Departure
+                    </Label>
+                    <Input
+                      type="time"
+                      value={finishTime}
+                      onChange={(e) => setFinishTime(e.target.value)}
+                      className="text-sm h-9"
+                    />
                   </div>
-                  <div className="text-center p-3 bg-background rounded-lg border">
-                    <p className="text-xs text-muted-foreground mb-1">Duration</p>
-                    <p className="font-semibold">{duration ? `${duration} hrs` : '—'}</p>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Duration (hrs)</Label>
+                    <Input
+                      value={duration}
+                      onChange={(e) => setDuration(e.target.value)}
+                      placeholder="e.g. 2.5"
+                      className="text-sm h-9"
+                    />
                   </div>
                 </div>
               </div>
