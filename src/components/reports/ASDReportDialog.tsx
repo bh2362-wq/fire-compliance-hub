@@ -48,6 +48,7 @@ interface ASDReportDialogProps {
   visit: VisitForReport;
   asset: ASDAsset;
   onSuccess?: () => void;
+  showCompleteVisit?: boolean;
 }
 
 export function ASDReportDialog({
@@ -56,6 +57,7 @@ export function ASDReportDialog({
   visit,
   asset,
   onSuccess,
+  showCompleteVisit = false,
 }: ASDReportDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -185,6 +187,53 @@ export function ASDReportDialog({
     } catch (error) {
       console.error("Failed to save ASD report:", error);
       toast.error("Failed to save ASD service report");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCompleteVisit = async () => {
+    if (!reportId) return;
+
+    setSaving(true);
+    try {
+      const notesJson = JSON.stringify({
+        report_type: "asd",
+        asset_id: asset.id,
+        asset_name: asset.item_name,
+        additional_notes: notes,
+      });
+
+      await supabase
+        .from("service_reports")
+        .update({
+          engineer_name: engineerName,
+          client_name: clientName,
+          checklist: JSON.parse(JSON.stringify(checklist)),
+          system_condition: systemCondition,
+          defects_found: defectsFound,
+          recommendations,
+          work_carried_out: workCarriedOut,
+          parts_used: partsUsed,
+          notes: notesJson,
+          status: "completed",
+        })
+        .eq("id", reportId);
+
+      // Mark the visit as completed
+      const { error: visitError } = await supabase
+        .from("visits")
+        .update({ status: "completed" })
+        .eq("id", visit.id);
+
+      if (visitError) throw visitError;
+
+      toast.success("Visit completed successfully");
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (error) {
+      console.error("Failed to complete visit:", error);
+      toast.error("Failed to complete visit");
     } finally {
       setSaving(false);
     }
@@ -364,10 +413,17 @@ export function ASDReportDialog({
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Draft
           </Button>
-          <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Complete Report
-          </Button>
+          {showCompleteVisit ? (
+            <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Complete Visit
+            </Button>
+          ) : (
+            <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Complete Report
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

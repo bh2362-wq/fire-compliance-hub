@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, AlertTriangle, CheckCircle2, Eye, Download } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle2, Eye, Download, Receipt } from "lucide-react";
 import { format } from "date-fns";
 import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportService";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
@@ -19,6 +19,11 @@ interface SiteServiceReportsProps {
 interface VisitInfo {
   visit_type: string;
   visit_date: string;
+}
+
+interface InvoiceInfo {
+  xero_invoice_number: string | null;
+  status: string | null;
 }
 
 interface SiteInfo {
@@ -75,6 +80,7 @@ function isWorkReport(report: ServiceReport): boolean {
 export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps) {
   const [reports, setReports] = useState<ServiceReport[]>([]);
   const [visitMap, setVisitMap] = useState<Record<string, VisitInfo>>({});
+  const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
   const [siteInfo, setSiteInfo] = useState<SiteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ServiceReport | null>(null);
@@ -109,6 +115,23 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
             map[v.id] = { visit_type: v.visit_type, visit_date: v.visit_date };
           });
           setVisitMap(map);
+        }
+
+        // Fetch invoice info for visits
+        const { data: invoices } = await supabase
+          .from("xero_invoices")
+          .select("visit_id, xero_invoice_number, status")
+          .in("visit_id", visitIds);
+
+        if (invoices) {
+          const invMap: Record<string, InvoiceInfo> = {};
+          invoices.forEach((inv) => {
+            invMap[inv.visit_id] = { 
+              xero_invoice_number: inv.xero_invoice_number, 
+              status: inv.status 
+            };
+          });
+          setInvoiceMap(invMap);
         }
       }
     } catch (error) {
@@ -221,6 +244,7 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
               : null;
             const ConditionIcon = condition?.icon;
             const visit = visitMap[report.visit_id];
+            const invoice = invoiceMap[report.visit_id];
             const isWork = isWorkReport(report);
 
             return (
@@ -255,6 +279,25 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
                           <ConditionIcon className="w-3.5 h-3.5" />
                           {condition.label}
                         </span>
+                      )}
+                      {invoice ? (
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            invoice.status === "PAID" 
+                              ? "bg-success/10 text-success border-success/20" 
+                              : invoice.status === "AUTHORISED"
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
+                          }
+                        >
+                          <Receipt className="w-3 h-3 mr-1" />
+                          {invoice.status === "PAID" ? "Paid" : invoice.status === "AUTHORISED" ? "Invoiced" : "Draft"}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
+                          Not Invoiced
+                        </Badge>
                       )}
                     </div>
                     {report.defects_found && (

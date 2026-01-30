@@ -50,6 +50,7 @@ interface ServiceReportDialogProps {
   onOpenChange: (open: boolean) => void;
   visit: VisitForReport;
   onSuccess?: () => void;
+  showCompleteVisit?: boolean;
 }
 
 export function ServiceReportDialog({
@@ -57,6 +58,7 @@ export function ServiceReportDialog({
   onOpenChange,
   visit,
   onSuccess,
+  showCompleteVisit = false,
 }: ServiceReportDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -216,6 +218,60 @@ export function ServiceReportDialog({
     } catch (error) {
       console.error("Failed to save report:", error);
       toast.error("Failed to save service report");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCompleteVisit = async () => {
+    if (!report) return;
+
+    setSaving(true);
+    try {
+      // If multi-panel, store panel checklists in notes JSON
+      let notesValue = notes;
+      if (hasMultiplePanels) {
+        notesValue = JSON.stringify({
+          report_type: "fire_alarm",
+          multi_panel: true,
+          panel_checklists: panels,
+          additional_notes: notes,
+        });
+      }
+
+      await updateServiceReport(report.id, {
+        engineer_name: engineerName,
+        client_name: clientName,
+        panel_manufacturer: panelManufacturer,
+        panel_model: panelModel,
+        panel_location: panelLocation,
+        system_type: systemType,
+        zones_count: zonesCount === "" ? null : zonesCount,
+        devices_count: devicesCount === "" ? null : devicesCount,
+        checklist: hasMultiplePanels ? getDefaultChecklist() : checklist,
+        system_condition: systemCondition,
+        defects_found: defectsFound,
+        recommendations,
+        work_carried_out: workCarriedOut,
+        parts_used: partsUsed,
+        notes: notesValue,
+        status: "completed",
+      });
+
+      // Mark the visit as completed
+      const { error: visitError } = await supabase
+        .from("visits")
+        .update({ status: "completed" })
+        .eq("id", visit.id);
+
+      if (visitError) throw visitError;
+
+      toast.success("Visit completed successfully");
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (error) {
+      console.error("Failed to complete visit:", error);
+      toast.error("Failed to complete visit");
     } finally {
       setSaving(false);
     }
@@ -546,10 +602,17 @@ export function ServiceReportDialog({
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Draft
           </Button>
-          <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Complete Report
-          </Button>
+          {showCompleteVisit ? (
+            <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Complete Visit
+            </Button>
+          ) : (
+            <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Complete Report
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

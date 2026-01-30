@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, Calendar, MapPin, ArrowRight, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
+import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
+import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
+import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 
 interface OpenVisit {
   id: string;
@@ -16,7 +20,21 @@ interface OpenVisit {
   site_id: string;
   sites?: {
     name: string;
+    address?: string | null;
+    city?: string | null;
+    postcode?: string | null;
+    contact_name?: string | null;
+    contact_phone?: string | null;
+    contact_email?: string | null;
   } | null;
+}
+
+interface ASDAsset {
+  id: string;
+  item_name: string;
+  manufacturer?: string | null;
+  model?: string | null;
+  location?: string | null;
 }
 
 interface OpenVisitsCardProps {
@@ -40,6 +58,12 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
   const navigate = useNavigate();
   const [visits, setVisits] = useState<OpenVisit[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Report dialog state
+  const [selectedVisit, setSelectedVisit] = useState<OpenVisit | null>(null);
+  const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
+  const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | null>(null);
+  const [selectedAsdAsset, setSelectedAsdAsset] = useState<ASDAsset | null>(null);
 
   useEffect(() => {
     loadOpenVisits();
@@ -50,7 +74,7 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
     try {
       let query = supabase
         .from("visits")
-        .select("id, visit_date, visit_type, status, site_id, sites(name)")
+        .select("id, visit_date, visit_type, status, site_id, sites(name, address, city, postcode, contact_name, contact_phone, contact_email)")
         .in("status", ["in_progress", "scheduled", "pending"])
         .order("visit_date", { ascending: true });
 
@@ -89,8 +113,21 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
     if (onVisitClick) {
       onVisitClick(visit.id);
     } else {
-      navigate(`/dashboard/visits?visitId=${visit.id}`);
+      // Open report type selector directly
+      setSelectedVisit(visit);
+      setShowReportTypeSelector(true);
     }
+  };
+
+  const handleReportTypeSelect = (type: "bs5839" | "work" | "asd", asdAsset?: ASDAsset) => {
+    setReportType(type);
+    if (asdAsset) {
+      setSelectedAsdAsset(asdAsset);
+    }
+  };
+
+  const handleReportSuccess = () => {
+    loadOpenVisits(); // Refresh the list
   };
 
   if (loading) {
@@ -185,6 +222,82 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
           <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </CardContent>
+
+      {/* Report Type Selector */}
+      <ReportTypeSelector
+        open={showReportTypeSelector}
+        onOpenChange={setShowReportTypeSelector}
+        onSelect={handleReportTypeSelect}
+        siteId={selectedVisit?.site_id}
+      />
+
+      {/* Work Report Dialog */}
+      {selectedVisit && reportType === "work" && (
+        <WorkReportDialog
+          open={!!selectedVisit && reportType === "work"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedVisit(null);
+              setReportType(null);
+            }
+          }}
+          visit={{
+            id: selectedVisit.id,
+            visit_type: selectedVisit.visit_type,
+            visit_date: selectedVisit.visit_date,
+            site_id: selectedVisit.site_id,
+            sites: selectedVisit.sites,
+          }}
+          onSuccess={handleReportSuccess}
+          showCompleteVisit
+        />
+      )}
+
+      {/* BS5839 Report Dialog */}
+      {selectedVisit && reportType === "bs5839" && (
+        <ServiceReportDialog
+          open={!!selectedVisit && reportType === "bs5839"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedVisit(null);
+              setReportType(null);
+            }
+          }}
+          visit={{
+            id: selectedVisit.id,
+            visit_type: selectedVisit.visit_type,
+            visit_date: selectedVisit.visit_date,
+            site_id: selectedVisit.site_id,
+            sites: selectedVisit.sites,
+          }}
+          onSuccess={handleReportSuccess}
+          showCompleteVisit
+        />
+      )}
+
+      {/* ASD Report Dialog */}
+      {selectedVisit && reportType === "asd" && selectedAsdAsset && (
+        <ASDReportDialog
+          open={!!selectedVisit && reportType === "asd"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedVisit(null);
+              setReportType(null);
+              setSelectedAsdAsset(null);
+            }
+          }}
+          visit={{
+            id: selectedVisit.id,
+            visit_type: selectedVisit.visit_type,
+            visit_date: selectedVisit.visit_date,
+            site_id: selectedVisit.site_id,
+            sites: selectedVisit.sites,
+          }}
+          asset={selectedAsdAsset}
+          onSuccess={handleReportSuccess}
+          showCompleteVisit
+        />
+      )}
     </Card>
   );
 }

@@ -55,6 +55,7 @@ interface WorkReportDialogProps {
   onOpenChange: (open: boolean) => void;
   visit: VisitForReport;
   onSuccess?: () => void;
+  showCompleteVisit?: boolean;
 }
 
 const JOB_TYPES = [
@@ -82,6 +83,7 @@ export function WorkReportDialog({
   onOpenChange,
   visit,
   onSuccess,
+  showCompleteVisit = false,
 }: WorkReportDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -269,6 +271,68 @@ export function WorkReportDialog({
     } catch (error) {
       console.error("Failed to save report:", error);
       toast.error("Failed to save work report");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCompleteVisit = async () => {
+    // First save the report as complete
+    if (!report) return;
+
+    setSaving(true);
+    try {
+      const notesData = JSON.stringify({
+        jobNumber,
+        jobType,
+        workCompleted,
+        returnRequired,
+        surveyRequired,
+        quotationRequired,
+        ramsCompleted,
+        logBookEntry,
+        systemStatusArrival,
+        systemStatusDeparture,
+        attendanceDay,
+        numEngineers,
+        startTime,
+        finishTime,
+        travelTime,
+        duration,
+        materials: materials.filter((m) => m.name.trim()),
+        engineerSignature,
+        customerSignature,
+        customerNotPresent,
+        engineerSignDate: engineerSignDate?.toISOString(),
+        engineerSignTime,
+        customerSignDate: customerSignDate?.toISOString(),
+        customerSignTime,
+      });
+
+      await updateServiceReport(report.id, {
+        engineer_name: engineerName,
+        client_name: customerName,
+        report_number: certificateNo,
+        work_carried_out: worksReport,
+        recommendations: furtherAction,
+        notes: notesData,
+        status: "completed",
+      });
+
+      // Mark the visit as completed
+      const { error: visitError } = await supabase
+        .from("visits")
+        .update({ status: "completed" })
+        .eq("id", visit.id);
+
+      if (visitError) throw visitError;
+
+      toast.success("Visit completed successfully");
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (error) {
+      console.error("Failed to complete visit:", error);
+      toast.error("Failed to complete visit");
     } finally {
       setSaving(false);
     }
@@ -911,10 +975,17 @@ export function WorkReportDialog({
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Draft
           </Button>
-          <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Complete Report
-          </Button>
+          {showCompleteVisit ? (
+            <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Complete Visit
+            </Button>
+          ) : (
+            <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Complete Report
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
