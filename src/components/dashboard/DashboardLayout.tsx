@@ -11,7 +11,8 @@ import {
   LogOut,
   ChevronLeft,
   Bell,
-  GitCompare
+  GitCompare,
+  Receipt
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -27,6 +28,7 @@ const navigation = [
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Sites", href: "/sites", icon: Building2 },
   { name: "Visits", href: "/dashboard/visits", icon: ClipboardList },
+  { name: "Invoices", href: "/dashboard/invoices", icon: Receipt },
   { name: "Uploads", href: "/dashboard/upload", icon: Upload },
   { name: "Reconciliation", href: "/dashboard/reconciliation", icon: GitCompare },
   { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },

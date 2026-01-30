@@ -14,6 +14,7 @@ import SiteDetail from "./pages/SiteDetail";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
 import Visits from "./pages/Visits";
+import Invoices from "./pages/Invoices";
 import Reports from "./pages/Reports";
 import UploadDemo from "./pages/UploadDemo";
 import Reconciliation from "./pages/Reconciliation";
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/dashboard/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
             <Route path="/dashboard/sites/:siteId" element={<ProtectedRoute><SiteDetail /></ProtectedRoute>} />
             <Route path="/dashboard/visits" element={<ProtectedRoute><Visits /></ProtectedRoute>} />
+            <Route path="/dashboard/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
             <Route path="/dashboard/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/dashboard/upload" element={<ProtectedRoute><UploadDemo /></ProtectedRoute>} />
             <Route path="/dashboard/reconciliation" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
