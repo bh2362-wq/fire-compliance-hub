@@ -534,6 +534,7 @@ export interface WorkReportData {
   engineerSignature?: string;
   engineerSignDate?: string;
   engineerSignTime?: string;
+  customerNotPresent?: boolean;
   customerName: string;
   customerSignature?: string;
   customerSignDate?: string;
@@ -836,30 +837,50 @@ export function generateWorkReportPDF(
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COLORS.charcoal);
   doc.text("CUSTOMER", custX + 2, yPos + 4);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COLORS.mediumGrey);
-  doc.text(data.customerName || "—", custX + 24, yPos + 4);
   
-  // Signature area
-  doc.setFillColor(...COLORS.white);
-  doc.rect(custX + 2, yPos + 6, sigWidth - 4, sigBoxHeight - 2, "FD");
-  
-  if (data.customerSignature) {
-    try {
-      doc.addImage(data.customerSignature, "PNG", custX + 3, yPos + 7, sigWidth - 6, sigBoxHeight - 4);
-    } catch {
-      // Signature image failed
+  if (data.customerNotPresent) {
+    // Customer not present - show message instead of signature
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.text("Not Present", custX + 24, yPos + 4);
+    
+    // Signature area with message
+    doc.setFillColor(...COLORS.lightGrey);
+    doc.rect(custX + 2, yPos + 6, sigWidth - 4, sigBoxHeight - 2, "FD");
+    
+    doc.setFontSize(7);
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.text("Customer was not available", custX + sigWidth / 2, yPos + 14, { align: "center" });
+    doc.text("to sign off on this work.", custX + sigWidth / 2, yPos + 19, { align: "center" });
+    
+    doc.setFontSize(5.5);
+    doc.text("Signed by engineer only", custX + 2, yPos + sigBoxHeight + 6);
+  } else {
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.text(data.customerName || "—", custX + 24, yPos + 4);
+    
+    // Signature area
+    doc.setFillColor(...COLORS.white);
+    doc.rect(custX + 2, yPos + 6, sigWidth - 4, sigBoxHeight - 2, "FD");
+    
+    if (data.customerSignature) {
+      try {
+        doc.addImage(data.customerSignature, "PNG", custX + 3, yPos + 7, sigWidth - 6, sigBoxHeight - 4);
+      } catch {
+        // Signature image failed
+      }
     }
+    
+    // Date/time under signature
+    doc.setFontSize(5.5);
+    doc.setTextColor(...COLORS.mediumGrey);
+    const custSignDateStr = data.customerSignDate 
+      ? format(new Date(data.customerSignDate), "dd/MM/yyyy")
+      : format(new Date(visitDate), "dd/MM/yyyy");
+    const custSignTimeStr = data.customerSignTime || data.finishTime || "";
+    doc.text(`Signed: ${custSignDateStr} ${custSignTimeStr}`, custX + 2, yPos + sigBoxHeight + 6);
   }
-  
-  // Date/time under signature
-  doc.setFontSize(5.5);
-  doc.setTextColor(...COLORS.mediumGrey);
-  const custSignDateStr = data.customerSignDate 
-    ? format(new Date(data.customerSignDate), "dd/MM/yyyy")
-    : format(new Date(visitDate), "dd/MM/yyyy");
-  const custSignTimeStr = data.customerSignTime || data.finishTime || "";
-  doc.text(`Signed: ${custSignDateStr} ${custSignTimeStr}`, custX + 2, yPos + sigBoxHeight + 6);
 
   addCompactFooter(doc, pageWidth, margin);
 
