@@ -735,7 +735,8 @@ export function generateWorkReportPDF(
   yPos += recsBoxHeight + 4;
 
   // === SIGN-OFF SECTION ===
-  yPos = Math.max(yPos, pageHeight - 52);
+  // Ensure we have enough room - signature section needs ~58mm total
+  yPos = Math.max(yPos, pageHeight - 58);
   
   // Sign-off header bar
   doc.setFillColor(...COLORS.charcoal);
@@ -758,128 +759,148 @@ export function generateWorkReportPDF(
   
   // Time summary row
   doc.setFillColor(...COLORS.lightGrey);
-  doc.rect(margin, yPos, contentWidth, 10, "F");
+  doc.rect(margin, yPos, contentWidth, 8, "F");
   doc.setDrawColor(...COLORS.borderGrey);
-  doc.rect(margin, yPos, contentWidth, 10);
+  doc.rect(margin, yPos, contentWidth, 8);
   
-  doc.setFontSize(6.5);
+  doc.setFontSize(6);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COLORS.charcoal);
   
-  const timeY = yPos + 6.5;
+  const timeY = yPos + 5.5;
   const colW = contentWidth / 4;
   
   doc.text("Date:", margin + 2, timeY);
   doc.setFont("helvetica", "normal");
-  doc.text(format(new Date(visitDate), "dd/MM/yyyy"), margin + 14, timeY);
+  doc.text(format(new Date(visitDate), "dd/MM/yyyy"), margin + 12, timeY);
   
   doc.setFont("helvetica", "bold");
   doc.text("Arrival:", margin + colW + 2, timeY);
   doc.setFont("helvetica", "normal");
-  doc.text(data.startTime || "—", margin + colW + 16, timeY);
+  doc.text(data.startTime || "—", margin + colW + 14, timeY);
   
   doc.setFont("helvetica", "bold");
   doc.text("Departure:", margin + colW * 2 + 2, timeY);
   doc.setFont("helvetica", "normal");
-  doc.text(data.finishTime || "—", margin + colW * 2 + 22, timeY);
+  doc.text(data.finishTime || "—", margin + colW * 2 + 20, timeY);
   
   doc.setFont("helvetica", "bold");
   doc.text("Duration:", margin + colW * 3 + 2, timeY);
   doc.setFont("helvetica", "normal");
-  doc.text(data.duration ? `${data.duration} hrs` : "—", margin + colW * 3 + 18, timeY);
+  doc.text(data.duration ? `${data.duration} hrs` : "—", margin + colW * 3 + 16, timeY);
   
-  yPos += 12;
+  yPos += 10;
   
-  const sigWidth = (contentWidth - 6) / 2;
-  const sigBoxHeight = 22;
+  const sigWidth = (contentWidth - 8) / 2;
+  const sigBoxHeight = 26;
 
   // Engineer signature box
   doc.setDrawColor(...COLORS.borderGrey);
   doc.setLineWidth(0.3);
-  doc.rect(margin, yPos, sigWidth, sigBoxHeight + 8);
+  doc.rect(margin, yPos, sigWidth, sigBoxHeight);
   
-  doc.setFontSize(6.5);
+  // Engineer header bar inside box
+  doc.setFillColor(...COLORS.lightGrey);
+  doc.rect(margin, yPos, sigWidth, 5, "F");
+  doc.setFontSize(6);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COLORS.charcoal);
-  doc.text("ENGINEER", margin + 2, yPos + 4);
+  doc.text("ENGINEER", margin + 2, yPos + 3.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...COLORS.mediumGrey);
-  doc.text(data.engineerName || "—", margin + 22, yPos + 4);
+  doc.text(data.engineerName || "—", margin + 22, yPos + 3.5);
   
-  // Signature area
-  doc.setDrawColor(...COLORS.borderGrey);
+  // Signature canvas area
+  const engSigY = yPos + 6;
+  const sigAreaHeight = sigBoxHeight - 7;
   doc.setFillColor(...COLORS.white);
-  doc.rect(margin + 2, yPos + 6, sigWidth - 4, sigBoxHeight - 2, "FD");
+  doc.rect(margin + 2, engSigY, sigWidth - 4, sigAreaHeight, "F");
+  
+  // Draw signature line
+  doc.setDrawColor(...COLORS.borderGrey);
+  doc.setLineWidth(0.2);
+  doc.line(margin + 4, engSigY + sigAreaHeight - 3, margin + sigWidth - 4, engSigY + sigAreaHeight - 3);
   
   if (data.engineerSignature) {
     try {
-      doc.addImage(data.engineerSignature, "PNG", margin + 3, yPos + 7, sigWidth - 6, sigBoxHeight - 4);
+      // Position signature above the line
+      doc.addImage(data.engineerSignature, "PNG", margin + 4, engSigY + 1, sigWidth - 8, sigAreaHeight - 5);
     } catch {
       // Signature image failed
     }
   }
   
-  // Date/time under signature
-  doc.setFontSize(5.5);
+  // Signed date/time - positioned clearly below signature box
+  doc.setFontSize(5);
   doc.setTextColor(...COLORS.mediumGrey);
   const engSignDateStr = data.engineerSignDate 
     ? format(new Date(data.engineerSignDate), "dd/MM/yyyy")
     : format(new Date(visitDate), "dd/MM/yyyy");
   const engSignTimeStr = data.engineerSignTime || data.finishTime || "";
-  doc.text(`Signed: ${engSignDateStr} ${engSignTimeStr}`, margin + 2, yPos + sigBoxHeight + 6);
+  doc.text(`Signed: ${engSignDateStr}${engSignTimeStr ? ` ${engSignTimeStr}` : ""}`, margin + 2, yPos + sigBoxHeight + 3);
 
   // Customer signature box
-  const custX = margin + sigWidth + 6;
+  const custX = margin + sigWidth + 8;
   doc.setDrawColor(...COLORS.borderGrey);
-  doc.rect(custX, yPos, sigWidth, sigBoxHeight + 8);
+  doc.rect(custX, yPos, sigWidth, sigBoxHeight);
   
-  doc.setFontSize(6.5);
+  // Customer header bar inside box
+  doc.setFillColor(...COLORS.lightGrey);
+  doc.rect(custX, yPos, sigWidth, 5, "F");
+  doc.setFontSize(6);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COLORS.charcoal);
-  doc.text("CUSTOMER", custX + 2, yPos + 4);
+  doc.text("CUSTOMER", custX + 2, yPos + 3.5);
   
   if (data.customerNotPresent) {
-    // Customer not present - show message instead of signature
+    // Customer not present indicator
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...COLORS.mediumGrey);
-    doc.text("Not Present", custX + 24, yPos + 4);
+    doc.text("Not Present", custX + 24, yPos + 3.5);
     
-    // Signature area with message
-    doc.setFillColor(...COLORS.lightGrey);
-    doc.rect(custX + 2, yPos + 6, sigWidth - 4, sigBoxHeight - 2, "FD");
+    // Message area with amber/grey background
+    const custSigY = yPos + 6;
+    doc.setFillColor(250, 245, 235);
+    doc.rect(custX + 2, custSigY, sigWidth - 4, sigAreaHeight, "F");
     
     doc.setFontSize(7);
     doc.setTextColor(...COLORS.mediumGrey);
-    doc.text("Customer was not available", custX + sigWidth / 2, yPos + 14, { align: "center" });
-    doc.text("to sign off on this work.", custX + sigWidth / 2, yPos + 19, { align: "center" });
+    doc.text("Customer was not available", custX + sigWidth / 2, custSigY + sigAreaHeight / 2 - 2, { align: "center" });
+    doc.text("to sign off on this work.", custX + sigWidth / 2, custSigY + sigAreaHeight / 2 + 3, { align: "center" });
     
-    doc.setFontSize(5.5);
-    doc.text("Signed by engineer only", custX + 2, yPos + sigBoxHeight + 6);
+    doc.setFontSize(5);
+    doc.text("Signed by engineer only", custX + 2, yPos + sigBoxHeight + 3);
   } else {
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...COLORS.mediumGrey);
-    doc.text(data.customerName || "—", custX + 24, yPos + 4);
+    doc.text(data.customerName || "—", custX + 24, yPos + 3.5);
     
-    // Signature area
+    // Signature canvas area
+    const custSigY = yPos + 6;
     doc.setFillColor(...COLORS.white);
-    doc.rect(custX + 2, yPos + 6, sigWidth - 4, sigBoxHeight - 2, "FD");
+    doc.rect(custX + 2, custSigY, sigWidth - 4, sigAreaHeight, "F");
+    
+    // Draw signature line
+    doc.setDrawColor(...COLORS.borderGrey);
+    doc.setLineWidth(0.2);
+    doc.line(custX + 4, custSigY + sigAreaHeight - 3, custX + sigWidth - 4, custSigY + sigAreaHeight - 3);
     
     if (data.customerSignature) {
       try {
-        doc.addImage(data.customerSignature, "PNG", custX + 3, yPos + 7, sigWidth - 6, sigBoxHeight - 4);
+        doc.addImage(data.customerSignature, "PNG", custX + 4, custSigY + 1, sigWidth - 8, sigAreaHeight - 5);
       } catch {
         // Signature image failed
       }
     }
     
-    // Date/time under signature
-    doc.setFontSize(5.5);
+    // Signed date/time
+    doc.setFontSize(5);
     doc.setTextColor(...COLORS.mediumGrey);
     const custSignDateStr = data.customerSignDate 
       ? format(new Date(data.customerSignDate), "dd/MM/yyyy")
       : format(new Date(visitDate), "dd/MM/yyyy");
     const custSignTimeStr = data.customerSignTime || data.finishTime || "";
-    doc.text(`Signed: ${custSignDateStr} ${custSignTimeStr}`, custX + 2, yPos + sigBoxHeight + 6);
+    doc.text(`Signed: ${custSignDateStr}${custSignTimeStr ? ` ${custSignTimeStr}` : ""}`, custX + 2, yPos + sigBoxHeight + 3);
   }
 
   addCompactFooter(doc, pageWidth, margin);
