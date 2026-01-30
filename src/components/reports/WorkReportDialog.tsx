@@ -28,8 +28,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -41,6 +42,8 @@ import {
 } from "@/services/serviceReportService";
 import { generateWorkReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
+import { InvoicePromptDialog } from "./InvoicePromptDialog";
+import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 
 interface VisitForReport {
   id: string;
@@ -90,7 +93,16 @@ export function WorkReportDialog({
   const [saving, setSaving] = useState(false);
   const [report, setReport] = useState<ServiceReport | null>(null);
   const [activeTab, setActiveTab] = useState("job");
+  const [isLocked, setIsLocked] = useState(false);
+  const [showInvoicePrompt, setShowInvoicePrompt] = useState(false);
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [customerInfo, setCustomerInfo] = useState<{
+    id: string;
+    name: string;
+    xero_contact_id: string | null;
+  } | null>(null);
   const [siteInfo, setSiteInfo] = useState<{
+    id: string;
     name: string;
     address?: string | null;
     city?: string | null;
@@ -148,14 +160,33 @@ export function WorkReportDialog({
     setLoading(true);
 
     try {
-      // Fetch site info
+      // Fetch site info with customer details
       const { data: site } = await supabase
         .from("sites")
-        .select("name, address, city, postcode, contact_name")
+        .select("id, name, address, city, postcode, contact_name, customer_id, customers(id, name, xero_contact_id)")
         .eq("id", visit.site_id)
         .maybeSingle();
 
-      setSiteInfo(site);
+      if (site) {
+        setSiteInfo({
+          id: site.id,
+          name: site.name,
+          address: site.address,
+          city: site.city,
+          postcode: site.postcode,
+          contact_name: site.contact_name,
+        });
+        
+        // Set customer info for invoice creation
+        if (site.customers) {
+          const customer = site.customers as { id: string; name: string; xero_contact_id: string | null };
+          setCustomerInfo({
+            id: customer.id,
+            name: customer.name,
+            xero_contact_id: customer.xero_contact_id,
+          });
+        }
+      }
 
       let existingReport = await getServiceReport(visit.id);
 
@@ -167,6 +198,11 @@ export function WorkReportDialog({
 
       setReport(existingReport);
       populateForm(existingReport);
+      
+      // Check if report is already completed - lock it
+      if (existingReport.status === "completed") {
+        setIsLocked(true);
+      }
     } catch (error) {
       console.error("Failed to load report:", error);
       toast.error("Failed to load work report");
@@ -222,7 +258,7 @@ export function WorkReportDialog({
   };
 
   const handleSave = async (complete = false) => {
-    if (!report) return;
+    if (!report || isLocked) return;
 
     setSaving(true);
     try {
@@ -263,10 +299,25 @@ export function WorkReportDialog({
         status: complete ? "completed" : "draft",
       });
 
-      toast.success(complete ? "Work report completed" : "Work report saved");
       if (complete) {
-        onOpenChange(false);
-        onSuccess?.();
+        // Mark the visit as completed
+        await supabase
+          .from("visits")
+          .update({ status: "completed" })
+          .eq("id", visit.id);
+          
+        setIsLocked(true);
+        toast.success("Work report completed and locked");
+        
+        // Show invoice prompt if customer has Xero connection
+        if (customerInfo?.xero_contact_id) {
+          setShowInvoicePrompt(true);
+        } else {
+          onOpenChange(false);
+          onSuccess?.();
+        }
+      } else {
+        toast.success("Work report saved");
       }
     } catch (error) {
       console.error("Failed to save report:", error);
@@ -278,7 +329,7 @@ export function WorkReportDialog({
 
   const handleCompleteVisit = async () => {
     // First save the report as complete
-    if (!report) return;
+    if (!report || isLocked) return;
 
     setSaving(true);
     try {
@@ -327,15 +378,39 @@ export function WorkReportDialog({
 
       if (visitError) throw visitError;
 
-      toast.success("Visit completed successfully");
-      onOpenChange(false);
-      onSuccess?.();
+      setIsLocked(true);
+      toast.success("Visit completed and locked");
+      
+      // Show invoice prompt if customer has Xero connection
+      if (customerInfo?.xero_contact_id) {
+        setShowInvoicePrompt(true);
+      } else {
+        onOpenChange(false);
+        onSuccess?.();
+      }
     } catch (error) {
       console.error("Failed to complete visit:", error);
       toast.error("Failed to complete visit");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleInvoicePromptConfirm = () => {
+    setShowInvoicePrompt(false);
+    setShowInvoiceDialog(true);
+  };
+
+  const handleInvoicePromptDecline = () => {
+    setShowInvoicePrompt(false);
+    onOpenChange(false);
+    onSuccess?.();
+  };
+
+  const handleInvoiceDialogClose = () => {
+    setShowInvoiceDialog(false);
+    onOpenChange(false);
+    onSuccess?.();
   };
 
   const addMaterialRow = () => {
@@ -418,11 +493,24 @@ export function WorkReportDialog({
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
             Work Report
+            {isLocked && (
+              <Badge variant="secondary" className="ml-2 bg-muted text-muted-foreground">
+                <Lock className="w-3 h-3 mr-1" />
+                Locked
+              </Badge>
+            )}
           </DialogTitle>
           <DialogDescription>
             {siteInfo?.name || visit.sites?.name} - {visit.visit_date}
           </DialogDescription>
         </DialogHeader>
+
+        {isLocked && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm text-amber-800">
+            <Lock className="w-4 h-4 flex-shrink-0" />
+            <span>This report has been completed and is now read-only. You can still download the PDF.</span>
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-4">
@@ -444,7 +532,7 @@ export function WorkReportDialog({
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-y-auto py-4">
+          <fieldset disabled={isLocked} className="flex-1 overflow-y-auto py-4">
             <TabsContent value="job" className="mt-0 space-y-4">
               {/* Site Info Header */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
@@ -978,7 +1066,7 @@ export function WorkReportDialog({
                 </div>
               </div>
             </TabsContent>
-          </div>
+          </fieldset>
         </Tabs>
 
         <DialogFooter className="border-t pt-4 flex-wrap gap-2">
@@ -986,26 +1074,65 @@ export function WorkReportDialog({
             <Download className="mr-2 h-4 w-4" />
             Download PDF
           </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Draft
-          </Button>
-          {showCompleteVisit ? (
-            <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Complete Visit
-            </Button>
+          
+          {isLocked ? (
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
+              <Lock className="h-4 w-4" />
+              Report Locked
+            </div>
           ) : (
-            <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Complete Report
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Draft
+              </Button>
+              {showCompleteVisit ? (
+                <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Complete Visit
+                </Button>
+              ) : (
+                <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Complete Report
+                </Button>
+              )}
+            </>
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Invoice Prompt Dialog */}
+      <InvoicePromptDialog
+        open={showInvoicePrompt}
+        onOpenChange={setShowInvoicePrompt}
+        onConfirm={handleInvoicePromptConfirm}
+        onDecline={handleInvoicePromptDecline}
+        siteName={siteInfo?.name || ""}
+      />
+
+      {/* Invoice Creation Dialog */}
+      {customerInfo && siteInfo && (
+        <CustomerCreateInvoiceDialog
+          open={showInvoiceDialog}
+          onOpenChange={(open) => {
+            if (!open) handleInvoiceDialogClose();
+          }}
+          customerId={customerInfo.id}
+          customerName={customerInfo.name}
+          xeroContactId={customerInfo.xero_contact_id}
+          sites={[{
+            id: siteInfo.id,
+            name: siteInfo.name,
+            address: siteInfo.address || null,
+            city: siteInfo.city || null,
+          }]}
+          onSuccess={handleInvoiceDialogClose}
+        />
+      )}
     </Dialog>
   );
 }
