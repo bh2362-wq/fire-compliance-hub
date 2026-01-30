@@ -129,6 +129,7 @@ export function WorkReportDialog({
   const [engineerSignature, setEngineerSignature] = useState("");
   const [engineerSignDate, setEngineerSignDate] = useState<Date | undefined>(undefined);
   const [engineerSignTime, setEngineerSignTime] = useState("");
+  const [customerNotPresent, setCustomerNotPresent] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerSignature, setCustomerSignature] = useState("");
   const [customerSignDate, setCustomerSignDate] = useState<Date | undefined>(undefined);
@@ -202,6 +203,7 @@ export function WorkReportDialog({
         setMaterials(parsedNotes.materials || [{ name: "", qty: "", cost: "" }]);
         setEngineerSignature(parsedNotes.engineerSignature || "");
         setCustomerSignature(parsedNotes.customerSignature || "");
+        setCustomerNotPresent(parsedNotes.customerNotPresent || false);
         // Sign-off dates and times
         if (parsedNotes.engineerSignDate) {
           setEngineerSignDate(new Date(parsedNotes.engineerSignDate));
@@ -242,6 +244,7 @@ export function WorkReportDialog({
         materials: materials.filter((m) => m.name.trim()),
         engineerSignature,
         customerSignature,
+        customerNotPresent,
         engineerSignDate: engineerSignDate?.toISOString(),
         engineerSignTime,
         customerSignDate: customerSignDate?.toISOString(),
@@ -311,6 +314,7 @@ export function WorkReportDialog({
           engineerSignature,
           engineerSignDate: engineerSignDate?.toISOString(),
           engineerSignTime,
+          customerNotPresent,
           customerName,
           customerSignature,
           customerSignDate: customerSignDate?.toISOString(),
@@ -800,65 +804,95 @@ export function WorkReportDialog({
                 <div className="space-y-4 p-4 border-2 rounded-lg bg-background">
                   <div className="flex items-center justify-between">
                     <h4 className="font-semibold text-base">Customer Sign-Off</h4>
-                    {customerSignature && <span className="text-xs text-green-600 font-medium">✓ Signed</span>}
+                    {customerNotPresent ? (
+                      <span className="text-xs text-amber-600 font-medium">Not Present</span>
+                    ) : customerSignature ? (
+                      <span className="text-xs text-green-600 font-medium">✓ Signed</span>
+                    ) : null}
                   </div>
-                  <div className="space-y-2">
-                    <Label>Print Name</Label>
-                    <Input
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Customer name"
+                  
+                  {/* Customer Not Present Checkbox */}
+                  <div className="flex items-center space-x-2 p-2 bg-muted/50 rounded-lg">
+                    <Checkbox
+                      id="customerNotPresent"
+                      checked={customerNotPresent}
+                      onCheckedChange={(checked) => setCustomerNotPresent(!!checked)}
                     />
+                    <Label htmlFor="customerNotPresent" className="text-sm cursor-pointer">
+                      Customer not present
+                    </Label>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Signature</Label>
-                    <SignaturePad
-                      value={customerSignature}
-                      onChange={setCustomerSignature}
-                      width={280}
-                      height={140}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs flex items-center gap-1">
-                        <CalendarIcon className="h-3 w-3" /> Date
-                      </Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal text-sm h-9",
-                              !customerSignDate && "text-muted-foreground"
-                            )}
-                          >
-                            {customerSignDate ? format(customerSignDate, "dd/MM/yyyy") : "Select date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 z-50" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={customerSignDate}
-                            onSelect={setCustomerSignDate}
-                            initialFocus
-                            className="p-3 pointer-events-auto"
+
+                  {customerNotPresent ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                      <p className="text-sm text-amber-800">
+                        Customer was not available to sign off on this work.
+                      </p>
+                      <p className="text-xs text-amber-600 mt-1">
+                        Report signed by engineer only.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Print Name</Label>
+                        <Input
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="Customer name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Signature</Label>
+                        <SignaturePad
+                          value={customerSignature}
+                          onChange={setCustomerSignature}
+                          width={280}
+                          height={140}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs flex items-center gap-1">
+                            <CalendarIcon className="h-3 w-3" /> Date
+                          </Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal text-sm h-9",
+                                  !customerSignDate && "text-muted-foreground"
+                                )}
+                              >
+                                {customerSignDate ? format(customerSignDate, "dd/MM/yyyy") : "Select date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 z-50" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={customerSignDate}
+                                onSelect={setCustomerSignDate}
+                                initialFocus
+                                className="p-3 pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> Time
+                          </Label>
+                          <Input
+                            type="time"
+                            value={customerSignTime}
+                            onChange={(e) => setCustomerSignTime(e.target.value)}
+                            className="text-sm h-9"
                           />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> Time
-                      </Label>
-                      <Input
-                        type="time"
-                        value={customerSignTime}
-                        onChange={(e) => setCustomerSignTime(e.target.value)}
-                        className="text-sm h-9"
-                      />
-                    </div>
-                  </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </TabsContent>
