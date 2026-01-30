@@ -532,8 +532,12 @@ export interface WorkReportData {
   materials: { name: string; qty: string; cost: string }[];
   engineerName: string;
   engineerSignature?: string;
+  engineerSignDate?: string;
+  engineerSignTime?: string;
   customerName: string;
   customerSignature?: string;
+  customerSignDate?: string;
+  customerSignTime?: string;
   customerPosition?: string;
   // System info
   systemType?: string;
@@ -817,7 +821,11 @@ export function generateWorkReportPDF(
   // Date/time under signature
   doc.setFontSize(5.5);
   doc.setTextColor(...COLORS.mediumGrey);
-  doc.text(`Signed: ${format(new Date(visitDate), "dd/MM/yyyy")} ${data.finishTime || ""}`, margin + 2, yPos + sigBoxHeight + 6);
+  const engSignDateStr = data.engineerSignDate 
+    ? format(new Date(data.engineerSignDate), "dd/MM/yyyy")
+    : format(new Date(visitDate), "dd/MM/yyyy");
+  const engSignTimeStr = data.engineerSignTime || data.finishTime || "";
+  doc.text(`Signed: ${engSignDateStr} ${engSignTimeStr}`, margin + 2, yPos + sigBoxHeight + 6);
 
   // Customer signature box
   const custX = margin + sigWidth + 6;
@@ -847,7 +855,11 @@ export function generateWorkReportPDF(
   // Date/time under signature
   doc.setFontSize(5.5);
   doc.setTextColor(...COLORS.mediumGrey);
-  doc.text(`Signed: ${format(new Date(visitDate), "dd/MM/yyyy")} ${data.finishTime || ""}`, custX + 2, yPos + sigBoxHeight + 6);
+  const custSignDateStr = data.customerSignDate 
+    ? format(new Date(data.customerSignDate), "dd/MM/yyyy")
+    : format(new Date(visitDate), "dd/MM/yyyy");
+  const custSignTimeStr = data.customerSignTime || data.finishTime || "";
+  doc.text(`Signed: ${custSignDateStr} ${custSignTimeStr}`, custX + 2, yPos + sigBoxHeight + 6);
 
   addCompactFooter(doc, pageWidth, margin);
 
