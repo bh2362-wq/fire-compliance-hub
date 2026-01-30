@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Filter, Plus } from "lucide-react";
 import { useVisits } from "@/hooks/useVisits";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
@@ -20,11 +21,21 @@ interface Site {
 }
 
 const Visits = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
   const [sites, setSites] = useState<Site[]>([]);
+  const initialVisitId = searchParams.get("visitId");
   const { visits, loading, refetch } = useVisits({
     siteId: selectedSiteId && selectedSiteId !== "all" ? selectedSiteId : undefined,
   });
+
+  // Clear the visitId from URL after it's been used
+  const handleVisitOpened = () => {
+    if (initialVisitId) {
+      searchParams.delete("visitId");
+      setSearchParams(searchParams, { replace: true });
+    }
+  };
 
   useEffect(() => {
     const fetchSites = async () => {
@@ -78,7 +89,13 @@ const Visits = () => {
         </div>
 
         {/* Visits table */}
-        <VisitsTable visits={visits} loading={loading} onRefresh={refetch} />
+        <VisitsTable 
+          visits={visits} 
+          loading={loading} 
+          onRefresh={refetch} 
+          initialEditVisitId={initialVisitId || undefined}
+          onInitialVisitOpened={handleVisitOpened}
+        />
       </div>
     </DashboardLayout>
   );
