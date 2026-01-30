@@ -21,6 +21,7 @@ import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
+import { ReportPreviewDialog } from "@/components/reports/ReportPreviewDialog";
 import { SmokeSprayEstimate } from "./SmokeSprayEstimate";
 import VisitEditDialog from "./VisitEditDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -75,6 +76,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const { toast } = useToast();
   const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
   const [reportVisit, setReportVisit] = useState<Visit | null>(null);
+  const [previewVisit, setPreviewVisit] = useState<Visit | null>(null);
   const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
   const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | null>(null);
   const [selectedAsdAsset, setSelectedAsdAsset] = useState<ASDAsset | null>(null);
@@ -307,10 +309,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setReportVisit(visit);
-                    setShowReportTypeSelector(true);
-                  }}
+                  onClick={() => setPreviewVisit(visit)}
                 >
                   <ClipboardCheck className="w-4 h-4 mr-1" />
                   Report
@@ -350,6 +349,24 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           onOpenChange={(open) => !open && setInvoiceVisit(null)}
           visit={{ ...invoiceVisit, sites: invoiceVisit.site }}
           onSuccess={onRefresh}
+        />
+      )}
+
+      {previewVisit && (
+        <ReportPreviewDialog
+          open={!!previewVisit}
+          onOpenChange={(open) => !open && setPreviewVisit(null)}
+          visit={previewVisit}
+          onEdit={() => {
+            setReportVisit(previewVisit);
+            setPreviewVisit(null);
+            // For remedial and emergency, go straight to work report
+            if (previewVisit.visit_type === "remedial" || previewVisit.visit_type === "emergency") {
+              setReportType("work");
+            } else {
+              setShowReportTypeSelector(true);
+            }
+          }}
         />
       )}
 
