@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,6 +38,8 @@ interface VisitsTableProps {
   visits: Visit[];
   loading: boolean;
   onRefresh?: () => void;
+  initialEditVisitId?: string;
+  onInitialVisitOpened?: () => void;
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -55,7 +57,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   },
 };
 
-const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
+const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitialVisitOpened }: VisitsTableProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
@@ -66,6 +68,19 @@ const VisitsTable = ({ visits, loading, onRefresh }: VisitsTableProps) => {
   const [editVisit, setEditVisit] = useState<Visit | null>(null);
   const [deleteVisit, setDeleteVisit] = useState<Visit | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [initialVisitHandled, setInitialVisitHandled] = useState(false);
+
+  // Auto-open edit dialog for initial visit ID from URL
+  useEffect(() => {
+    if (initialEditVisitId && !initialVisitHandled && visits.length > 0) {
+      const visitToEdit = visits.find(v => v.id === initialEditVisitId);
+      if (visitToEdit) {
+        setEditVisit(visitToEdit);
+        setInitialVisitHandled(true);
+        onInitialVisitOpened?.();
+      }
+    }
+  }, [initialEditVisitId, visits, initialVisitHandled, onInitialVisitOpened]);
 
   const handleDeleteVisit = async () => {
     if (!deleteVisit) return;

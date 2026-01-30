@@ -89,7 +89,7 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
     if (onVisitClick) {
       onVisitClick(visit.id);
     } else {
-      navigate("/dashboard/visits");
+      navigate(`/dashboard/visits?visitId=${visit.id}`);
     }
   };
 
