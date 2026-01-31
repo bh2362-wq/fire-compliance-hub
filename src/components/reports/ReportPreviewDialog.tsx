@@ -90,11 +90,23 @@ interface ReportData {
 
 // Parse notes JSON which contains work report data from WorkReportDialog
 interface ParsedNotes {
+  jobNumber?: string;
   workCompleted?: boolean;
+  returnRequired?: boolean;
+  surveyRequired?: boolean;
+  quotationRequired?: boolean;
+  ramsCompleted?: boolean;
+  logBookEntry?: boolean;
+  systemStatusArrival?: string;
+  systemStatusDeparture?: string;
+  attendanceDay?: string;
+  numEngineers?: number;
   startTime?: string;
   finishTime?: string;
+  travelTime?: string;
   duration?: string;
   jobType?: string;
+  materials?: { name: string; qty: string; cost: string }[];
   engineerSignature?: string;
   customerSignature?: string;
   customerNotPresent?: boolean;
@@ -188,45 +200,57 @@ export function ReportPreviewDialog({
     if (!report || !siteDetails) return;
     setDownloading(true);
     try {
-      const checklist = (report.checklist || {}) as Record<string, unknown>;
-      
+      // Always fetch latest report from backend before generating PDF
+      const { data: latestReport, error } = await supabase
+        .from("service_reports")
+        .select("*")
+        .eq("visit_id", visit.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      const src = (latestReport || report) as ReportData;
+      const parsedNotes = parseReportNotes(src.notes);
+      const checklist = (src.checklist || {}) as Record<string, unknown>;
+
+      // WorkReportDialog stores its fields in notes JSON; prefer those.
       const workReportData: WorkReportData = {
-        certificateNo: report.report_number || "",
-        jobNumber: "",
-        jobType: (checklist.jobType as string) || "service",
-        attendanceDay: (checklist.daysOnSite as string[])?.join(", ") || "",
-        systemStatusArrival: (checklist.systemStatusOnArrival as string) || "",
-        systemStatusDeparture: (checklist.systemStatusOnDeparture as string) || "",
-        workCompleted: (checklist.workCompleted as boolean) || false,
-        returnRequired: (checklist.furtherWorkRequired as boolean) || false,
-        surveyRequired: false,
-        quotationRequired: (checklist.quoteRequired as boolean) || false,
-        ramsCompleted: true,
-        logBookEntry: true,
-        worksReport: report.work_carried_out || "",
-        furtherAction: (checklist.furtherWorkDetails as string) || "",
-        numEngineers: 1,
-        startTime: (checklist.arrivalTime as string) || "",
-        finishTime: (checklist.departureTime as string) || "",
-        travelTime: "",
-        duration: "",
-        materials: [],
-        engineerName: report.engineer_name || "",
-        engineerSignature: report.engineer_signature || undefined,
-        engineerSignDate: checklist.engineerSignDate ? format(new Date(checklist.engineerSignDate as string), "dd/MM/yyyy") : undefined,
-        engineerSignTime: (checklist.engineerSignTime as string) || undefined,
-        customerNotPresent: (checklist.customerNotPresent as boolean) || false,
-        customerName: report.client_name || "",
-        customerSignature: report.client_signature || undefined,
-        customerSignDate: checklist.customerSignDate ? format(new Date(checklist.customerSignDate as string), "dd/MM/yyyy") : undefined,
-        customerSignTime: (checklist.customerSignTime as string) || undefined,
+        certificateNo: src.report_number || "",
+        jobNumber: parsedNotes.jobNumber || "",
+        jobType: (parsedNotes.jobType as string) || (checklist.jobType as string) || "service",
+        attendanceDay: parsedNotes.attendanceDay || "",
+        systemStatusArrival: parsedNotes.systemStatusArrival || "",
+        systemStatusDeparture: parsedNotes.systemStatusDeparture || "",
+        workCompleted: !!parsedNotes.workCompleted,
+        returnRequired: !!parsedNotes.returnRequired,
+        surveyRequired: !!parsedNotes.surveyRequired,
+        quotationRequired: !!parsedNotes.quotationRequired,
+        ramsCompleted: !!parsedNotes.ramsCompleted,
+        logBookEntry: !!parsedNotes.logBookEntry,
+        worksReport: src.work_carried_out || "",
+        furtherAction: src.recommendations || "",
+        numEngineers: parsedNotes.numEngineers ?? 1,
+        startTime: parsedNotes.startTime || "",
+        finishTime: parsedNotes.finishTime || "",
+        travelTime: parsedNotes.travelTime || "",
+        duration: parsedNotes.duration || "",
+        materials: parsedNotes.materials || [],
+        engineerName: src.engineer_name || "",
+        engineerSignature: parsedNotes.engineerSignature || undefined,
+        engineerSignDate: parsedNotes.engineerSignDate || undefined,
+        engineerSignTime: parsedNotes.engineerSignTime || undefined,
+        customerNotPresent: parsedNotes.customerNotPresent || false,
+        customerName: src.client_name || "",
+        customerSignature: parsedNotes.customerSignature || undefined,
+        customerSignDate: parsedNotes.customerSignDate || undefined,
+        customerSignTime: parsedNotes.customerSignTime || undefined,
         customerPosition: "",
-        systemType: report.system_type || undefined,
-        panelManufacturer: report.panel_manufacturer || undefined,
-        panelModel: report.panel_model || undefined,
-        panelLocation: report.panel_location || undefined,
-        zonesCount: report.zones_count || undefined,
-        devicesCount: report.devices_count || undefined,
+        systemType: src.system_type || undefined,
+        panelManufacturer: src.panel_manufacturer || undefined,
+        panelModel: src.panel_model || undefined,
+        panelLocation: src.panel_location || undefined,
+        zonesCount: src.zones_count || undefined,
+        devicesCount: src.devices_count || undefined,
       };
 
       generateWorkReportPDF(
@@ -239,7 +263,7 @@ export function ReportPreviewDialog({
           contact_name: siteDetails.contact_name,
           contact_phone: siteDetails.contact_phone,
         },
-        report.report_date,
+        visit.visit_date,
         visit.visit_type
       );
     } catch (error) {
