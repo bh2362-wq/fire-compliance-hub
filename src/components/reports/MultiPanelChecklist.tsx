@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Server } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Server, Copy } from "lucide-react";
 import { ServiceReportChecklist } from "./ServiceReportChecklist";
 import { BS5839Checklist, getDefaultChecklist } from "@/services/serviceReportService";
+import { useToast } from "@/hooks/use-toast";
 
 export interface PanelChecklistData {
   assetId: string;
@@ -26,12 +28,33 @@ export function MultiPanelChecklist({
   readonly = false,
 }: MultiPanelChecklistProps) {
   const [activePanel, setActivePanel] = useState(panels[0]?.assetId || "");
+  const { toast } = useToast();
 
   const updatePanelChecklist = (assetId: string, checklist: BS5839Checklist) => {
     const updatedPanels = panels.map((p) =>
       p.assetId === assetId ? { ...p, checklist } : p
     );
     onChange(updatedPanels);
+  };
+
+  const copyToAllPanels = (sourceAssetId: string) => {
+    const sourcePanel = panels.find((p) => p.assetId === sourceAssetId);
+    if (!sourcePanel) return;
+
+    // Deep clone the source checklist to all other panels
+    const updatedPanels = panels.map((p) => {
+      if (p.assetId === sourceAssetId) return p;
+      return {
+        ...p,
+        checklist: JSON.parse(JSON.stringify(sourcePanel.checklist)) as BS5839Checklist,
+      };
+    });
+
+    onChange(updatedPanels);
+    toast({
+      title: "Checklist copied",
+      description: `Copied ${sourcePanel.assetName} checklist to ${panels.length - 1} other panel${panels.length > 2 ? "s" : ""}. You can now edit each panel individually.`,
+    });
   };
 
   const getPanelStats = (panel: PanelChecklistData) => {
@@ -128,9 +151,22 @@ export function MultiPanelChecklist({
                 </Badge>
               )}
               {panel.location && (
-                <span className="text-sm text-muted-foreground ml-auto">
+                <span className="text-sm text-muted-foreground">
                   📍 {panel.location}
                 </span>
+              )}
+              {/* Copy to All button - only show for multi-panel and not readonly */}
+              {panels.length > 1 && !readonly && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => copyToAllPanels(panel.assetId)}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy to All Panels
+                </Button>
               )}
             </div>
             <ServiceReportChecklist
