@@ -72,6 +72,7 @@ const VisitFormDialog = ({
 }: VisitFormDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [internalSites, setInternalSites] = useState<Site[]>([]);
   const { toast } = useToast();
 
   const form = useForm<VisitFormData>({
@@ -84,6 +85,21 @@ const VisitFormDialog = ({
     },
   });
 
+  // Load sites if none provided
+  useEffect(() => {
+    if (open && sites.length === 0 && !siteId) {
+      const fetchSites = async () => {
+        const { data } = await supabase
+          .from("sites")
+          .select("id, name")
+          .eq("status", "active")
+          .order("name");
+        if (data) setInternalSites(data);
+      };
+      fetchSites();
+    }
+  }, [open, sites.length, siteId]);
+
   // Update site_id when siteId prop changes
   useEffect(() => {
     if (siteId) {
@@ -91,9 +107,10 @@ const VisitFormDialog = ({
     }
   }, [siteId, form]);
 
-  const showSiteSelector = !siteId && sites.length > 0;
+  const availableSites = sites.length > 0 ? sites : internalSites;
+  const showSiteSelector = !siteId && availableSites.length > 0;
   const selectedSiteId = form.watch("site_id");
-  const selectedSiteName = sites.find(s => s.id === selectedSiteId)?.name || siteName;
+  const selectedSiteName = availableSites.find(s => s.id === selectedSiteId)?.name || siteName;
 
   const onSubmit = async (data: VisitFormData) => {
     setLoading(true);
@@ -180,7 +197,7 @@ const VisitFormDialog = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {sites.map((site) => (
+                        {availableSites.map((site) => (
                           <SelectItem key={site.id} value={site.id}>
                             {site.name}
                           </SelectItem>
