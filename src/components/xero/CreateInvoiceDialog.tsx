@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { format, addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,8 +19,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, FileText } from "lucide-react";
+import { Loader2, Plus, Trash2, FileText, CalendarIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   fetchXeroContacts,
@@ -28,6 +35,7 @@ import {
   XeroContact,
   InvoiceLineItem,
 } from "@/services/xeroService";
+import { cn } from "@/lib/utils";
 
 interface VisitForInvoice {
   id: string;
@@ -95,6 +103,7 @@ export function CreateInvoiceDialog({
   const [contacts, setContacts] = useState<XeroContact[]>([]);
   const [selectedContact, setSelectedContact] = useState<string>("");
   const [reference, setReference] = useState("");
+  const [dueDate, setDueDate] = useState<Date | undefined>(addDays(new Date(), 30));
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([
     { description: "", quantity: 1, unitAmount: 0 },
   ]);
@@ -107,6 +116,8 @@ export function CreateInvoiceDialog({
       setReference(`${visit.visit_type} - ${visit.sites?.name || "Site"} - ${visit.visit_date}`);
       // Auto-fill line items based on visit type
       setLineItems(getDefaultLineItems(visit.visit_type));
+      // Reset due date to 30 days from now
+      setDueDate(addDays(new Date(), 30));
     }
   }, [open, user, visit]);
 
@@ -172,7 +183,8 @@ export function CreateInvoiceDialog({
         selectedContact,
         contact?.Name || "",
         validItems,
-        reference
+        reference,
+        dueDate ? format(dueDate, "yyyy-MM-dd") : undefined
       );
 
       toast.success(`Invoice ${result.number} created successfully`);
@@ -240,13 +252,41 @@ export function CreateInvoiceDialog({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Reference</Label>
-            <Input
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="Invoice reference"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Reference</Label>
+              <Input
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+                placeholder="Invoice reference"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dueDate ? format(dueDate, "dd/MM/yyyy") : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    onSelect={setDueDate}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           <div className="space-y-2">
