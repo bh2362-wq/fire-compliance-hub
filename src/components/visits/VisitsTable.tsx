@@ -40,6 +40,10 @@ interface InvoiceInfo {
   status: string | null;
 }
 
+interface ReportInfo {
+  report_number: string | null;
+}
+
 interface VisitsTableProps {
   visits: Visit[];
   loading: boolean;
@@ -81,21 +85,30 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [deleting, setDeleting] = useState(false);
   const [initialVisitHandled, setInitialVisitHandled] = useState(false);
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
+  const [reportMap, setReportMap] = useState<Record<string, ReportInfo>>({});
 
-  // Fetch invoice status for all visits
+  // Fetch invoice status and report numbers for all visits
   useEffect(() => {
-    const fetchInvoiceStatus = async () => {
+    const fetchVisitInfo = async () => {
       if (visits.length === 0) return;
       
       const visitIds = visits.map(v => v.id);
-      const { data: invoices } = await supabase
-        .from("xero_invoices")
-        .select("visit_id, xero_invoice_number, status")
-        .in("visit_id", visitIds);
+      
+      // Fetch invoices and reports in parallel
+      const [invoicesResult, reportsResult] = await Promise.all([
+        supabase
+          .from("xero_invoices")
+          .select("visit_id, xero_invoice_number, status")
+          .in("visit_id", visitIds),
+        supabase
+          .from("service_reports")
+          .select("visit_id, report_number")
+          .in("visit_id", visitIds)
+      ]);
 
-      if (invoices) {
+      if (invoicesResult.data) {
         const map: Record<string, InvoiceInfo> = {};
-        invoices.forEach((inv) => {
+        invoicesResult.data.forEach((inv) => {
           map[inv.visit_id] = {
             xero_invoice_number: inv.xero_invoice_number,
             status: inv.status,
@@ -103,9 +116,22 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         });
         setInvoiceMap(map);
       }
+
+      if (reportsResult.data) {
+        const map: Record<string, ReportInfo> = {};
+        reportsResult.data.forEach((rep) => {
+          // Only set if report_number exists (avoid overwriting with null)
+          if (rep.report_number) {
+            map[rep.visit_id] = {
+              report_number: rep.report_number,
+            };
+          }
+        });
+        setReportMap(map);
+      }
     };
 
-    fetchInvoiceStatus();
+    fetchVisitInfo();
   }, [visits]);
 
   // Auto-open edit dialog for initial visit ID from URL
@@ -219,6 +245,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   // Helper to render a visit row
   const renderVisitRow = (visit: Visit, isInvoiced: boolean = false) => {
     const invoiceInfo = invoiceMap[visit.id];
+    const reportInfo = reportMap[visit.id];
     const displayStatus = isInvoiced 
       ? statusConfig.invoiced 
       : statusConfig[visit.status || "in_progress"] || statusConfig.in_progress;
@@ -239,7 +266,14 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
               <p className="font-medium text-foreground">
                 {visit.site?.name || "Unknown Site"}
               </p>
-              <p className="text-xs text-muted-foreground">{visit.visit_type}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{visit.visit_type}</span>
+                {reportInfo?.report_number && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-muted/50">
+                    {reportInfo.report_number}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </div>
