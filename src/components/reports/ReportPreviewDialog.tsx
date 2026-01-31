@@ -453,10 +453,10 @@ export function ReportPreviewDialog({
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               Close
             </Button>
-            {!isLocked && report && onEdit && (
-              <Button onClick={onEdit}>
+            {report && onEdit && (
+              <Button onClick={onEdit} disabled={isLocked}>
                 <Pencil className="w-4 h-4 mr-2" />
-                Edit Report
+                {isLocked ? "View Only" : "Edit Report"}
               </Button>
             )}
             {!report && onEdit && (
