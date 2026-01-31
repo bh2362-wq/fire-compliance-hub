@@ -541,9 +541,8 @@ export function generateServiceReportPDF(
   else if (report.system_condition === "requires_attention") conditionColor = [200, 150, 0] as [number, number, number];
   else if (report.system_condition === "unsatisfactory") conditionColor = COLORS.no;
 
-  const nextService = report.next_service_due
-    ? new Date(report.next_service_due)
-    : addMonths(new Date(visit.visit_date), 6);
+  // Next service is always 3 months from the report date
+  const nextService = addMonths(new Date(report.report_date), 3);
 
   doc.setFillColor(...COLORS.lightGrey);
   doc.rect(margin, yPos, contentWidth, 14, "F");
