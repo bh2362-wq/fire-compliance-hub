@@ -37,6 +37,7 @@ import { format } from "date-fns";
 const visitFormSchema = z.object({
   site_id: z.string().min(1, "Site is required"),
   visit_date: z.string().min(1, "Visit date is required"),
+  asset_type: z.string().min(1, "Asset type is required"),
   visit_type: z.string().min(1, "Visit type is required"),
   asset_id: z.string().optional(),
   notes: z.string().max(1000).optional(),
@@ -66,22 +67,18 @@ interface VisitFormDialogProps {
   trigger?: React.ReactNode;
 }
 
-// Visit types grouped by asset type
-const FIRE_SERVICE_TYPES = [
-  { value: "fire_quarterly", label: "Fire Alarm - Quarterly Service" },
-  { value: "fire_biannual", label: "Fire Alarm - 6-Monthly Service" },
-  { value: "fire_annual", label: "Fire Alarm - Annual Inspection" },
-];
-
-const ASD_SERVICE_TYPES = [
-  { value: "asd_quarterly", label: "ASD - Quarterly Service" },
-  { value: "asd_biannual", label: "ASD - 6-Monthly Service" },
-  { value: "asd_annual", label: "ASD - Annual Inspection" },
+// Visit types - must match database check constraint
+// Valid values: quarterly_service, biannual_service, annual_inspection, emergency, remedial, supply_only
+const SERVICE_FREQUENCY_TYPES = [
+  { value: "quarterly_service", label: "Quarterly Service" },
+  { value: "biannual_service", label: "6-Monthly Service" },
+  { value: "annual_inspection", label: "Annual Inspection" },
 ];
 
 const GENERAL_TYPES = [
   { value: "emergency", label: "Emergency Callout" },
   { value: "remedial", label: "Remedial Works" },
+  { value: "supply_only", label: "Supply Only" },
 ];
 
 const VisitFormDialog = ({
@@ -103,6 +100,7 @@ const VisitFormDialog = ({
     defaultValues: {
       site_id: siteId || "",
       visit_date: format(new Date(), "yyyy-MM-dd"),
+      asset_type: "",
       visit_type: "",
       asset_id: "",
       notes: "",
@@ -110,6 +108,7 @@ const VisitFormDialog = ({
   });
 
   const selectedSiteId = form.watch("site_id");
+  const selectedAssetType = form.watch("asset_type");
   const selectedVisitType = form.watch("visit_type");
 
   // Load sites if none provided
@@ -169,52 +168,29 @@ const VisitFormDialog = ({
   const fireAssets = siteAssets.filter(a => a.asset_type === "fire_panel");
   const asdAssets = siteAssets.filter(a => a.asset_type === "asd");
 
-  // Determine if we need to show asset selector based on visit type
-  const isAsdVisit = selectedVisitType?.startsWith("asd_");
-  const showAssetSelector = isAsdVisit && asdAssets.length > 1;
+  // Determine if we need to show asset selector based on asset type
+  const isAsdVisit = selectedAssetType === "asd";
+  const relevantAssets = isAsdVisit ? asdAssets : fireAssets;
+  const showAssetSelector = relevantAssets.length > 1;
 
-  // Build available visit types based on assets
-  const getAvailableVisitTypes = () => {
-    const types: { value: string; label: string; icon: typeof Flame; assetInfo?: string }[] = [];
-    
-    // Add fire alarm options if site has fire panels
-    if (fireAssets.length > 0) {
-      FIRE_SERVICE_TYPES.forEach(t => {
-        types.push({
-          ...t,
-          icon: Flame,
-          assetInfo: fireAssets.length === 1 
-            ? fireAssets[0].item_name 
-            : `${fireAssets.length} panels`,
-        });
-      });
-    }
-    
-    // Add ASD options if site has ASD units
-    if (asdAssets.length > 0) {
-      ASD_SERVICE_TYPES.forEach(t => {
-        types.push({
-          ...t,
-          icon: Wind,
-          assetInfo: asdAssets.length === 1 
-            ? asdAssets[0].item_name 
-            : `${asdAssets.length} units`,
-        });
-      });
-    }
-    
-    // Always add general types
-    GENERAL_TYPES.forEach(t => {
-      types.push({
-        ...t,
-        icon: t.value === "emergency" ? AlertTriangle : Wrench,
-      });
-    });
-    
-    return types;
+  // Clear asset_id when asset_type changes
+  useEffect(() => {
+    form.setValue("asset_id", "");
+    form.setValue("visit_type", "");
+  }, [selectedAssetType, form]);
+
+  // Get available asset types based on site assets
+  const availableAssetTypes = [
+    ...(fireAssets.length > 0 ? [{ value: "fire_panel", label: "Fire Alarm", icon: Flame, count: fireAssets.length }] : []),
+    ...(asdAssets.length > 0 ? [{ value: "asd", label: "ASD (Aspirating Smoke Detection)", icon: Wind, count: asdAssets.length }] : []),
+    { value: "general", label: "General / Other", icon: Wrench, count: 0 },
+  ];
+
+  // Get visit type label for display
+  const getVisitTypeLabel = () => {
+    const allTypes = [...SERVICE_FREQUENCY_TYPES, ...GENERAL_TYPES];
+    return allTypes.find(t => t.value === selectedVisitType)?.label || selectedVisitType;
   };
-
-  const visitTypes = getAvailableVisitTypes();
 
   const onSubmit = async (data: VisitFormData) => {
     setLoading(true);
@@ -223,7 +199,9 @@ const VisitFormDialog = ({
       const { data: { user } } = await supabase.auth.getUser();
 
       // Build notes JSON with asset info
-      const notesData: Record<string, unknown> = {};
+      const notesData: Record<string, unknown> = {
+        asset_type: data.asset_type, // Store whether this is fire_panel, asd, or general
+      };
       
       if (data.asset_id) {
         const selectedAsset = siteAssets.find(a => a.id === data.asset_id);
@@ -233,6 +211,10 @@ const VisitFormDialog = ({
         // Auto-select single ASD
         notesData.asset_id = asdAssets[0].id;
         notesData.asset_name = asdAssets[0].item_name;
+      } else if (selectedAssetType === "fire_panel" && fireAssets.length === 1) {
+        // Auto-select single fire panel
+        notesData.asset_id = fireAssets[0].id;
+        notesData.asset_name = fireAssets[0].item_name;
       }
 
       if (data.notes) {
@@ -254,7 +236,7 @@ const VisitFormDialog = ({
 
       if (error) throw error;
 
-      const typeLabel = visitTypes.find(t => t.value === data.visit_type)?.label || data.visit_type;
+      const typeLabel = getVisitTypeLabel();
       
       toast({
         title: "Visit created",
@@ -264,6 +246,7 @@ const VisitFormDialog = ({
       form.reset({
         site_id: siteId || "",
         visit_date: format(new Date(), "yyyy-MM-dd"),
+        asset_type: "",
         visit_type: "",
         asset_id: "",
         notes: "",
@@ -348,12 +331,13 @@ const VisitFormDialog = ({
               )}
             />
 
+            {/* Asset Type Selector */}
             <FormField
               control={form.control}
-              name="visit_type"
+              name="asset_type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Service Type</FormLabel>
+                  <FormLabel>Asset Type</FormLabel>
                   {loadingAssets ? (
                     <div className="flex items-center gap-2 py-2 text-muted-foreground">
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -363,54 +347,28 @@ const VisitFormDialog = ({
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select service type" />
+                          <SelectValue placeholder="Select asset type" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {/* Fire Alarm Services */}
-                        {fireAssets.length > 0 && (
-                          <>
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                              <Flame className="w-3 h-3" />
-                              Fire Alarm Services ({fireAssets.length} panel{fireAssets.length > 1 ? "s" : ""})
-                            </div>
-                            {FIRE_SERVICE_TYPES.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                {type.label.replace("Fire Alarm - ", "")}
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                        
-                        {/* ASD Services */}
-                        {asdAssets.length > 0 && (
-                          <>
-                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-1 border-t mt-1 pt-2">
-                              <Wind className="w-3 h-3" />
-                              ASD Services ({asdAssets.length} unit{asdAssets.length > 1 ? "s" : ""})
-                            </div>
-                            {ASD_SERVICE_TYPES.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                {type.label.replace("ASD - ", "")}
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-
-                        {/* General Services */}
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">
-                          Other Services
-                        </div>
-                        {GENERAL_TYPES.map((type) => (
+                        {availableAssetTypes.map((type) => (
                           <SelectItem key={type.value} value={type.value}>
-                            {type.label}
+                            <div className="flex items-center gap-2">
+                              <type.icon className="w-4 h-4" />
+                              <span>{type.label}</span>
+                              {type.count > 0 && (
+                                <span className="text-muted-foreground text-xs">
+                                  ({type.count})
+                                </span>
+                              )}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   ) : (
                     <div className="text-sm text-muted-foreground py-2">
-                      Select a site first to see available service types
+                      Select a site first
                     </div>
                   )}
                   <FormMessage />
@@ -418,25 +376,74 @@ const VisitFormDialog = ({
               )}
             />
 
-            {/* ASD Asset Selector - only show if multiple ASD units */}
-            {showAssetSelector && (
+            {/* Service Type Selector - only show after asset type selected */}
+            {selectedAssetType && (
+              <FormField
+                control={form.control}
+                name="visit_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select service type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {selectedAssetType !== "general" ? (
+                          <>
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                              Service Frequencies
+                            </div>
+                            {SERVICE_FREQUENCY_TYPES.map((type) => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                            <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">
+                              Other
+                            </div>
+                          </>
+                        ) : null}
+                        {GENERAL_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {/* Asset Selector - show if multiple assets of selected type */}
+            {showAssetSelector && selectedAssetType !== "general" && (
               <FormField
                 control={form.control}
                 name="asset_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Select ASD Unit</FormLabel>
+                    <FormLabel>
+                      Select {isAsdVisit ? "ASD Unit" : "Fire Panel"}
+                    </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select ASD unit" />
+                          <SelectValue placeholder={`Select ${isAsdVisit ? "ASD unit" : "fire panel"}`} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {asdAssets.map((asset) => (
+                        {relevantAssets.map((asset) => (
                           <SelectItem key={asset.id} value={asset.id}>
                             <div className="flex items-center gap-2">
-                              <Wind className="w-4 h-4 text-primary" />
+                              {isAsdVisit ? (
+                                <Wind className="w-4 h-4 text-primary" />
+                              ) : (
+                                <Flame className="w-4 h-4 text-primary" />
+                              )}
                               <span>{asset.item_name}</span>
                               {asset.location && (
                                 <Badge variant="outline" className="text-xs">
