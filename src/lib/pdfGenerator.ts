@@ -858,8 +858,12 @@ export function generateWorkReportPDF(
   yPos = (doc as any).lastAutoTable.finalY + 5;
 
   // === SIGN-OFF SECTION ===
-  // Ensure we have enough room - signature section needs ~55mm total
-  yPos = Math.max(yPos, pageHeight - 55);
+  // Check if we need a new page for signatures (need ~50mm)
+  const signOffHeight = 50;
+  if (yPos + signOffHeight > pageHeight - 15) {
+    doc.addPage();
+    yPos = 20;
+  }
   
   // Sign-off header bar
   doc.setFillColor(...COLORS.charcoal);
