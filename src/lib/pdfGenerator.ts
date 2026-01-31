@@ -299,11 +299,11 @@ export function generateServiceReportPDF(
     let panelY = yPos + 10;
     panels.forEach((panel, idx) => {
       const isMaster = idx === 0;
-      const panelLabel = isMaster ? "★ Master: " : `Panel ${idx + 1}: `;
+      const panelLabel = isMaster ? "[MASTER] " : `Panel ${idx + 1}: `;
       const panelInfo = [
         panelLabel + panel.assetName,
         panel.manufacturer ? `(${panel.manufacturer}${panel.model ? ` ${panel.model}` : ""})` : "",
-        panel.location ? `📍 ${panel.location}` : "",
+        panel.location ? `@ ${panel.location}` : "",
       ].filter(Boolean).join("  ");
       
       if (isMaster) {
@@ -477,7 +477,7 @@ export function generateServiceReportPDF(
       doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
       const panelTitle = isMaster 
-        ? `★ MASTER PANEL: ${panel.assetName}` 
+        ? `MASTER PANEL: ${panel.assetName}` 
         : `PANEL ${idx + 1}: ${panel.assetName}`;
       doc.text(panelTitle, margin + 2, yPos + 5);
       
@@ -485,7 +485,7 @@ export function generateServiceReportPDF(
       const panelDetails = [
         panel.manufacturer,
         panel.model,
-        panel.location ? `📍 ${panel.location}` : null,
+        panel.location || null,
       ].filter(Boolean).join(" | ");
       if (panelDetails) {
         doc.setFontSize(6);
