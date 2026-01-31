@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 interface AIRewriteButtonProps {
   text: string;
-  type: "defects" | "recommendations";
+  type: "defects" | "recommendations" | "works" | "comments";
   onRewrite: (newText: string) => void;
   disabled?: boolean;
 }

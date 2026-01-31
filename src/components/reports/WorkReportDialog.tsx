@@ -43,6 +43,7 @@ import {
 import { generateWorkReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { InvoicePromptDialog } from "./InvoicePromptDialog";
+import { AIRewriteButton } from "./AIRewriteButton";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 
 interface VisitForReport {
@@ -748,7 +749,15 @@ export function WorkReportDialog({
 
             <TabsContent value="works" className="mt-0 space-y-4">
               <div className="space-y-2">
-                <Label>Works Report</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Works Report</Label>
+                  <AIRewriteButton
+                    text={worksReport}
+                    type="works"
+                    onRewrite={setWorksReport}
+                    disabled={isLocked}
+                  />
+                </div>
                 <Textarea
                   value={worksReport}
                   onChange={(e) => setWorksReport(e.target.value)}
@@ -758,7 +767,15 @@ export function WorkReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Further Action / Comments</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Further Action / Comments</Label>
+                  <AIRewriteButton
+                    text={furtherAction}
+                    type="comments"
+                    onRewrite={setFurtherAction}
+                    disabled={isLocked}
+                  />
+                </div>
                 <Textarea
                   value={furtherAction}
                   onChange={(e) => setFurtherAction(e.target.value)}
