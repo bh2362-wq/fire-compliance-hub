@@ -72,6 +72,7 @@ export function ServiceReportDialog({
   const [hasMultiplePanels, setHasMultiplePanels] = useState(false);
 
   // Form state
+  const [reportNumber, setReportNumber] = useState("");
   const [engineerName, setEngineerName] = useState("");
   const [clientName, setClientName] = useState("");
   const [panelManufacturer, setPanelManufacturer] = useState("");
@@ -170,6 +171,7 @@ export function ServiceReportDialog({
   };
 
   const populateForm = (r: ServiceReport) => {
+    setReportNumber(r.report_number || "");
     setEngineerName(r.engineer_name || "");
     setClientName(r.client_name || "");
     setPanelManufacturer(r.panel_manufacturer || "");
@@ -396,7 +398,16 @@ export function ServiceReportDialog({
 
           <div className="flex-1 overflow-y-auto py-4">
             <TabsContent value="details" className="mt-0 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Certificate Number</Label>
+                  <Input
+                    value={reportNumber}
+                    readOnly
+                    className="bg-muted/50 font-mono"
+                    placeholder="Auto-generated"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>Engineer Name</Label>
                   <Input
