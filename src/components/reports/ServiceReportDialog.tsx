@@ -36,6 +36,7 @@ import { MultiPanelChecklist, PanelChecklistData, initializePanelChecklists } fr
 import { generateServiceReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AIRewriteButton } from "./AIRewriteButton";
 
 interface VisitForReport {
   id: string;
@@ -554,7 +555,14 @@ export function ServiceReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Defects Found</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Defects Found</Label>
+                  <AIRewriteButton
+                    text={defectsFound}
+                    type="defects"
+                    onRewrite={setDefectsFound}
+                  />
+                </div>
                 <Textarea
                   value={defectsFound}
                   onChange={(e) => setDefectsFound(e.target.value)}
@@ -564,7 +572,14 @@ export function ServiceReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Recommendations</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Recommendations</Label>
+                  <AIRewriteButton
+                    text={recommendations}
+                    type="recommendations"
+                    onRewrite={setRecommendations}
+                  />
+                </div>
                 <Textarea
                   value={recommendations}
                   onChange={(e) => setRecommendations(e.target.value)}

@@ -2,6 +2,7 @@ import { Check, X, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { AIRewriteButton } from "./AIRewriteButton";
 import {
   BS5839Checklist,
   CHECKLIST_LABELS,
@@ -159,7 +160,16 @@ export function SecondaryPanelChecklist({
         <h4 className="font-medium text-foreground">Defects & Recommendations</h4>
         
         <div className="space-y-2">
-          <Label htmlFor="panel-defects">Defects Found</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="panel-defects">Defects Found</Label>
+            {!readonly && (
+              <AIRewriteButton
+                text={defects}
+                type="defects"
+                onRewrite={onDefectsChange}
+              />
+            )}
+          </div>
           <Textarea
             id="panel-defects"
             placeholder="Enter any defects found for this panel..."
@@ -172,7 +182,16 @@ export function SecondaryPanelChecklist({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="panel-recommendations">Recommendations</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="panel-recommendations">Recommendations</Label>
+            {!readonly && (
+              <AIRewriteButton
+                text={recommendations}
+                type="recommendations"
+                onRewrite={onRecommendationsChange}
+              />
+            )}
+          </div>
           <Textarea
             id="panel-recommendations"
             placeholder="Enter any recommendations for this panel..."
