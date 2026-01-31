@@ -8,6 +8,7 @@ import {
   SECTION_LABELS,
   SYSTEM_TYPES,
 } from "@/services/serviceReportService";
+import type { PanelChecklistData } from "@/components/reports/MultiPanelChecklist";
 
 // Company Branding Constants
 const COMPANY = {
@@ -137,11 +138,12 @@ function addCompactFooter(doc: jsPDF, pageWidth: number, margin: number) {
   }
 }
 
-// ===================== SERVICE REPORT PDF (Single Page) =====================
+// ===================== SERVICE REPORT PDF (Multi-Panel Support) =====================
 export function generateServiceReportPDF(
   report: ServiceReport,
   site: SiteInfo,
-  visit: VisitInfo
+  visit: VisitInfo,
+  panels?: PanelChecklistData[]
 ): void {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -244,39 +246,81 @@ export function generateServiceReportPDF(
 
   yPos += boxHeight + 4;
 
-  // === System Info Row ===
-  doc.rect(margin, yPos, contentWidth, 18);
-  doc.setFillColor(...COLORS.charcoal);
-  doc.rect(margin, yPos, contentWidth, 6, "F");
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.text("SYSTEM", margin + 2, yPos + 4.2);
+  // === System Info Row (for single panel or system-level info) ===
+  if (!panels || panels.length <= 1) {
+    doc.rect(margin, yPos, contentWidth, 18);
+    doc.setFillColor(...COLORS.charcoal);
+    doc.rect(margin, yPos, contentWidth, 6, "F");
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.text("SYSTEM", margin + 2, yPos + 4.2);
 
-  const sysTypeLabel = SYSTEM_TYPES.find((t) => t.value === report.system_type)?.label || report.system_type || "-";
-  const sysInfo = [
-    [`Panel: ${report.panel_manufacturer || "-"} ${report.panel_model || ""}`.trim()],
-    [`Location: ${report.panel_location || "-"}`],
-    [`Category: ${sysTypeLabel}`],
-    [`Zones: ${report.zones_count || "-"}`],
-    [`Devices: ${report.devices_count || "-"}`],
-  ];
+    const sysTypeLabel = SYSTEM_TYPES.find((t) => t.value === report.system_type)?.label || report.system_type || "-";
+    const sysInfo = [
+      [`Panel: ${report.panel_manufacturer || "-"} ${report.panel_model || ""}`.trim()],
+      [`Location: ${report.panel_location || "-"}`],
+      [`Category: ${sysTypeLabel}`],
+      [`Zones: ${report.zones_count || "-"}`],
+      [`Devices: ${report.devices_count || "-"}`],
+    ];
 
-  doc.setFontSize(6.5);
-  doc.setTextColor(...COLORS.charcoal);
-  doc.setFont("helvetica", "normal");
-  const sysY = yPos + 11;
-  const sysColW = contentWidth / 3;
-  sysInfo.slice(0, 3).forEach((txt, i) => {
-    doc.text(txt[0], margin + 2 + i * sysColW, sysY);
-  });
-  sysInfo.slice(3).forEach((txt, i) => {
-    doc.text(txt[0], margin + 2 + i * sysColW, sysY + 5);
-  });
+    doc.setFontSize(6.5);
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFont("helvetica", "normal");
+    const sysY = yPos + 11;
+    const sysColW = contentWidth / 3;
+    sysInfo.slice(0, 3).forEach((txt, i) => {
+      doc.text(txt[0], margin + 2 + i * sysColW, sysY);
+    });
+    sysInfo.slice(3).forEach((txt, i) => {
+      doc.text(txt[0], margin + 2 + i * sysColW, sysY + 5);
+    });
 
-  yPos += 22;
+    yPos += 22;
+  } else {
+    // Multi-panel: Show panel summary
+    const panelBoxHeight = 6 + panels.length * 5 + 2;
+    doc.rect(margin, yPos, contentWidth, panelBoxHeight);
+    doc.setFillColor(...COLORS.charcoal);
+    doc.rect(margin, yPos, contentWidth, 6, "F");
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.text(`FIRE PANELS (${panels.length})`, margin + 2, yPos + 4.2);
 
-  // === INSPECTION & SERVICING CHECKLIST (Multi-page, grouped by section) ===
+    const sysTypeLabel = SYSTEM_TYPES.find((t) => t.value === report.system_type)?.label || report.system_type || "-";
+    doc.text(`System Category: ${sysTypeLabel}`, pageWidth - margin - 2, yPos + 4.2, { align: "right" });
+
+    doc.setFontSize(6.5);
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFont("helvetica", "normal");
+    
+    let panelY = yPos + 10;
+    panels.forEach((panel, idx) => {
+      const isMaster = idx === 0;
+      const panelLabel = isMaster ? "★ Master: " : `Panel ${idx + 1}: `;
+      const panelInfo = [
+        panelLabel + panel.assetName,
+        panel.manufacturer ? `(${panel.manufacturer}${panel.model ? ` ${panel.model}` : ""})` : "",
+        panel.location ? `📍 ${panel.location}` : "",
+      ].filter(Boolean).join("  ");
+      
+      if (isMaster) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...COLORS.red);
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...COLORS.charcoal);
+      }
+      doc.text(panelInfo, margin + 2, panelY);
+      panelY += 5;
+    });
+
+    yPos += panelBoxHeight + 4;
+  }
+
+  // === INSPECTION & SERVICING CHECKLIST ===
   doc.setTextColor(...COLORS.charcoal);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
@@ -297,138 +341,192 @@ export function generateServiceReportPDF(
 
   yPos += 12;
 
-  // Collect all checklist items grouped by section
-  const checklist = report.checklist;
-  const sections = Object.keys(SECTION_LABELS) as Array<keyof BS5839Checklist>;
-  
-  // Build data for each section
-  const sectionData: { section: string; items: { label: string; value: boolean | null | string | number }[] }[] = [];
-  
-  sections.forEach((section) => {
-    const data = checklist[section] as Record<string, boolean | null | string | number> | undefined;
-    const labels = CHECKLIST_LABELS[section];
-    if (!data || !labels) return;
+  // Helper to build checklist table body
+  const buildChecklistTableBody = (
+    checklist: BS5839Checklist,
+    sectionsToInclude?: string[]
+  ): (string | { content: string; colSpan?: number; styles?: Record<string, unknown> })[][] => {
+    const sections = Object.keys(SECTION_LABELS) as Array<keyof BS5839Checklist>;
+    const tableBody: (string | { content: string; colSpan?: number; styles?: Record<string, unknown> })[][] = [];
     
-    const items: { label: string; value: boolean | null | string | number }[] = [];
-    
-    Object.entries(data).forEach(([key, value]) => {
-      if (labels[key]) {
-        items.push({
-          label: labels[key],
-          value,
-        });
-      }
-    });
-    
-    if (items.length > 0) {
-      sectionData.push({
-        section: SECTION_LABELS[section],
-        items,
+    sections.forEach((section) => {
+      if (sectionsToInclude && !sectionsToInclude.includes(section)) return;
+      
+      const data = checklist[section] as Record<string, boolean | null | string | number> | undefined;
+      const labels = CHECKLIST_LABELS[section];
+      if (!data || !labels) return;
+      
+      // Section header row
+      tableBody.push([
+        { 
+          content: SECTION_LABELS[section], 
+          colSpan: 4,
+          styles: { 
+            fillColor: COLORS.charcoal, 
+            textColor: COLORS.white, 
+            fontStyle: "bold",
+            fontSize: 7,
+          } 
+        },
+      ]);
+      
+      // Items in this section
+      Object.entries(data).forEach(([key, value]) => {
+        if (!labels[key]) return;
+        
+        let yesVal = "";
+        let noVal = "";
+        let naVal = "";
+        
+        if (typeof value === "boolean") {
+          if (value === true) yesVal = "__PASS__";
+          else if (value === false) noVal = "__FAIL__";
+        } else if (value === null) {
+          naVal = "__NA__";
+        } else if (typeof value === "string" || typeof value === "number") {
+          yesVal = String(value);
+        }
+        
+        tableBody.push([labels[key], yesVal, noVal, naVal]);
       });
-    }
-  });
-
-  // Create table with section grouping
-  const tableBody: (string | { content: string; colSpan?: number; styles?: Record<string, unknown> })[][] = [];
-  
-  sectionData.forEach((section) => {
-    // Section header row
-    tableBody.push([
-      { 
-        content: section.section, 
-        colSpan: 4,
-        styles: { 
-          fillColor: COLORS.charcoal, 
-          textColor: COLORS.white, 
-          fontStyle: "bold",
-          fontSize: 7,
-        } 
-      },
-    ]);
+    });
     
-    // Items in this section
-    section.items.forEach((item) => {
-      let yesVal = "";
-      let noVal = "";
-      let naVal = "";
+    return tableBody;
+  };
+
+  // Draw checklist table
+  const drawChecklistTable = (tableBody: (string | { content: string; colSpan?: number; styles?: Record<string, unknown> })[][], startY: number): number => {
+    autoTable(doc, {
+      startY,
+      head: [["Requirement", "YES", "NO", "N/A"]],
+      body: tableBody,
+      theme: "grid",
+      styles: {
+        fontSize: 6,
+        cellPadding: 1.2,
+        lineColor: COLORS.borderGrey,
+        lineWidth: 0.1,
+      },
+      headStyles: {
+        fillColor: COLORS.charcoal,
+        textColor: COLORS.white,
+        fontStyle: "bold",
+        fontSize: 7,
+        halign: "center",
+      },
+      bodyStyles: {
+        textColor: COLORS.charcoal,
+      },
+      alternateRowStyles: {
+        fillColor: COLORS.lightGrey,
+      },
+      columnStyles: {
+        0: { cellWidth: contentWidth - 42 },
+        1: { cellWidth: 14, halign: "center", fontStyle: "bold" },
+        2: { cellWidth: 14, halign: "center", fontStyle: "bold" },
+        3: { cellWidth: 14, halign: "center", fontStyle: "bold" },
+      },
+      margin: { left: margin, right: margin },
+      didParseCell: (data) => {
+        if (data.section === "body") {
+          const raw = data.cell.raw;
+          if (raw === "__PASS__" || raw === "__FAIL__" || raw === "__NA__") {
+            data.cell.text = [""];
+          }
+        }
+      },
+      didDrawCell: (data) => {
+        if (data.section !== "body") return;
+
+        const raw = data.cell.raw;
+        if (raw !== "__PASS__" && raw !== "__FAIL__" && raw !== "__NA__") return;
+
+        const size = 5;
+        const x = data.cell.x + data.cell.width / 2 - size / 2;
+        const y = data.cell.y + data.cell.height / 2 - size / 2;
+
+        const fill: [number, number, number] = raw === "__PASS__" ? COLORS.yes : raw === "__FAIL__" ? COLORS.no : COLORS.na;
+        doc.setFillColor(...fill);
+        doc.rect(x, y, size, size, "F");
+
+        doc.setDrawColor(...COLORS.borderGrey);
+        doc.setLineWidth(0.2);
+        doc.rect(x, y, size, size);
+      },
+    });
+
+    return (doc as any).lastAutoTable.finalY;
+  };
+
+  // Render checklists based on single vs multi-panel
+  if (!panels || panels.length <= 1) {
+    // Single panel: full checklist
+    const tableBody = buildChecklistTableBody(report.checklist);
+    yPos = drawChecklistTable(tableBody, yPos) + 4;
+  } else {
+    // Multi-panel: Master panel gets full checklist, others get sections 8, 9, 10
+    const secondarySections = ["faultMonitoring", "standbyPowerSupplies", "controlEquipment"];
+    
+    panels.forEach((panel, idx) => {
+      const isMaster = idx === 0;
       
-      if (typeof item.value === "boolean") {
-        // Use markers so we can draw solid boxes (like the legend) in didDrawCell
-        if (item.value === true) yesVal = "__PASS__";
-        else if (item.value === false) noVal = "__FAIL__";
-      } else if (item.value === null) {
-        naVal = "__NA__";
-      } else if (typeof item.value === "string" || typeof item.value === "number") {
-        // For text/number fields like chargeVoltage, detectorCount
-        yesVal = String(item.value);
+      // Panel header
+      doc.setFillColor(...(isMaster ? COLORS.red : COLORS.charcoal));
+      doc.rect(margin, yPos, contentWidth, 7, "F");
+      doc.setTextColor(...COLORS.white);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      const panelTitle = isMaster 
+        ? `★ MASTER PANEL: ${panel.assetName}` 
+        : `PANEL ${idx + 1}: ${panel.assetName}`;
+      doc.text(panelTitle, margin + 2, yPos + 5);
+      
+      // Panel details on right
+      const panelDetails = [
+        panel.manufacturer,
+        panel.model,
+        panel.location ? `📍 ${panel.location}` : null,
+      ].filter(Boolean).join(" | ");
+      if (panelDetails) {
+        doc.setFontSize(6);
+        doc.text(panelDetails, pageWidth - margin - 2, yPos + 5, { align: "right" });
       }
       
-      tableBody.push([item.label, yesVal, noVal, naVal]);
-    });
-  });
-
-  autoTable(doc, {
-    startY: yPos,
-    head: [["Requirement", "YES", "NO", "N/A"]],
-    body: tableBody,
-    theme: "grid",
-    styles: {
-      fontSize: 6,
-      cellPadding: 1.2,
-      lineColor: COLORS.borderGrey,
-      lineWidth: 0.1,
-    },
-    headStyles: {
-      fillColor: COLORS.charcoal,
-      textColor: COLORS.white,
-      fontStyle: "bold",
-      fontSize: 7,
-      halign: "center",
-    },
-    bodyStyles: {
-      textColor: COLORS.charcoal,
-    },
-    alternateRowStyles: {
-      fillColor: COLORS.lightGrey,
-    },
-    columnStyles: {
-      0: { cellWidth: contentWidth - 42 },
-      1: { cellWidth: 14, halign: "center", fontStyle: "bold" },
-      2: { cellWidth: 14, halign: "center", fontStyle: "bold" },
-      3: { cellWidth: 14, halign: "center", fontStyle: "bold" },
-    },
-    margin: { left: margin, right: margin },
-    didParseCell: (data) => {
-      if (data.section === "body") {
-        const raw = data.cell.raw;
-        // Remove marker text so we can render solid status boxes (more visible than ✓)
-        if (raw === "__PASS__" || raw === "__FAIL__" || raw === "__NA__") {
-          data.cell.text = [""];
+      yPos += 9;
+      
+      // Checklist for this panel
+      const sectionsToInclude = isMaster ? undefined : secondarySections;
+      const tableBody = buildChecklistTableBody(panel.checklist, sectionsToInclude);
+      yPos = drawChecklistTable(tableBody, yPos) + 2;
+      
+      // Secondary panel defects/recommendations
+      if (!isMaster && (panel.defects || panel.recommendations)) {
+        doc.setFontSize(6.5);
+        if (panel.defects) {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...COLORS.red);
+          doc.text("Defects: ", margin, yPos + 4);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...COLORS.charcoal);
+          const defectLines = doc.splitTextToSize(panel.defects, contentWidth - 20);
+          doc.text(defectLines.slice(0, 2), margin + 16, yPos + 4);
+          yPos += Math.min(defectLines.length, 2) * 3.5 + 2;
+        }
+        if (panel.recommendations) {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...COLORS.red);
+          doc.text("Recommendations: ", margin, yPos + 4);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...COLORS.charcoal);
+          const recLines = doc.splitTextToSize(panel.recommendations, contentWidth - 30);
+          doc.text(recLines.slice(0, 2), margin + 28, yPos + 4);
+          yPos += Math.min(recLines.length, 2) * 3.5 + 2;
         }
       }
-    },
-    didDrawCell: (data) => {
-      if (data.section !== "body") return;
-
-      const raw = data.cell.raw;
-      if (raw !== "__PASS__" && raw !== "__FAIL__" && raw !== "__NA__") return;
-
-      const size = 5; // match legend visibility
-      const x = data.cell.x + data.cell.width / 2 - size / 2;
-      const y = data.cell.y + data.cell.height / 2 - size / 2;
-
-      const fill: [number, number, number] = raw === "__PASS__" ? COLORS.yes : raw === "__FAIL__" ? COLORS.no : COLORS.na;
-      doc.setFillColor(...fill);
-      doc.rect(x, y, size, size, "F");
-
-      // Subtle border so the box remains visible on light rows
-      doc.setDrawColor(...COLORS.borderGrey);
-      doc.setLineWidth(0.2);
-      doc.rect(x, y, size, size);
-    },
-  });
-
-  yPos = (doc as any).lastAutoTable.finalY + 4;
+      
+      yPos += 4;
+    });
+  }
 
   // === Condition & Next Service Row ===
   const conditionText = report.system_condition
@@ -462,14 +560,14 @@ export function generateServiceReportPDF(
   yPos += 16;
 
   // === Notes/Defects (if any, compact) ===
-  const notes = [
+  const notesItems = [
     { label: "Defects", text: report.defects_found },
     { label: "Recommendations", text: report.recommendations },
     { label: "Work Done", text: report.work_carried_out },
   ].filter((n) => n.text && n.text.trim());
 
-  if (notes.length > 0) {
-    notes.forEach((note) => {
+  if (notesItems.length > 0) {
+    notesItems.forEach((note) => {
       if (yPos > pageHeight - 30) return;
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
