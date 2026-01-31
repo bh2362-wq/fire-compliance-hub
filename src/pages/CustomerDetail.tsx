@@ -20,6 +20,7 @@ import {
 import { Customer, getCustomer, getCustomerSites } from "@/services/customerService";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
+import { CustomerReports } from "@/components/customers/CustomerReports";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
@@ -266,6 +267,12 @@ const CustomerDetail = () => {
 
         {/* Open Visits */}
         <OpenVisitsCard customerId={customer.id} />
+
+        {/* Completed Reports */}
+        <CustomerReports 
+          customerId={customer.id} 
+          siteIds={sites.map(s => s.id)} 
+        />
 
         {/* Invoices */}
         <CustomerInvoices

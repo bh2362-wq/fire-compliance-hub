@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Receipt } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
@@ -49,14 +49,6 @@ interface VisitsTableProps {
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
-  invoiced: {
-    label: "Invoiced",
-    className: "bg-blue-100 text-blue-700 border-blue-200",
-  },
-  paid: {
-    label: "Paid",
-    className: "bg-success/10 text-success border-success/20",
-  },
   completed: {
     label: "Completed",
     className: "bg-success/10 text-success border-success/20",
@@ -241,17 +233,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       {/* Table body */}
       <div className="divide-y divide-border">
         {visits.map((visit) => {
-          // Determine status based on invoice status first
-          const invoice = invoiceMap[visit.id];
-          let displayStatus: { label: string; className: string };
-          
-          if (invoice?.status === "PAID") {
-            displayStatus = statusConfig.paid;
-          } else if (invoice?.status === "AUTHORISED" || invoice?.status === "SUBMITTED") {
-            displayStatus = statusConfig.invoiced;
-          } else {
-            displayStatus = statusConfig[visit.status || "in_progress"] || statusConfig.in_progress;
-          }
+          // Only show in_progress or completed status
+          const displayStatus = statusConfig[visit.status || "in_progress"] || statusConfig.in_progress;
           
           const coverage = Number(visit.coverage_percentage) || 0;
 
@@ -280,9 +263,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                     {format(new Date(visit.visit_date), "MMM d, yyyy")}
                   </div>
                   <Badge variant="outline" className={displayStatus.className}>
-                    {invoice && (displayStatus.label === "Invoiced" || displayStatus.label === "Paid") && (
-                      <Receipt className="w-3 h-3 mr-1" />
-                    )}
                     {displayStatus.label}
                   </Badge>
                 </div>
