@@ -7,6 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,6 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   Lock,
+  Unlock,
   Pencil,
   Download,
   FileText,
@@ -25,11 +36,13 @@ import {
   Clock,
   AlertCircle,
   Receipt,
+  Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateWorkReportPDF, WorkReportData } from "@/lib/pdfGenerator";
 import { Visit } from "@/hooks/useVisits";
 import { Json } from "@/integrations/supabase/types";
+import { useToast } from "@/hooks/use-toast";
 
 interface ReportPreviewDialogProps {
   open: boolean;
@@ -85,11 +98,14 @@ export function ReportPreviewDialog({
   visit,
   onEdit,
 }: ReportPreviewDialogProps) {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<ReportData | null>(null);
   const [siteDetails, setSiteDetails] = useState<SiteDetails | null>(null);
   const [invoice, setInvoice] = useState<InvoiceData | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [showUnlockConfirm, setShowUnlockConfirm] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
 
   const isLocked = report?.status === "completed";
 
@@ -196,6 +212,37 @@ export function ReportPreviewDialog({
       console.error("Failed to generate PDF:", error);
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleUnlockReport = async () => {
+    if (!report) return;
+    setUnlocking(true);
+    try {
+      const { error } = await supabase
+        .from("service_reports")
+        .update({ status: "draft" })
+        .eq("id", report.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Report unlocked",
+        description: "The report is now available for editing.",
+      });
+
+      // Reload report to get updated status
+      await loadReport();
+      setShowUnlockConfirm(false);
+    } catch (error) {
+      console.error("Failed to unlock report:", error);
+      toast({
+        title: "Error",
+        description: "Failed to unlock report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUnlocking(false);
     }
   };
 
@@ -448,6 +495,16 @@ export function ReportPreviewDialog({
                 {downloading ? "Generating..." : "Download PDF"}
               </Button>
             )}
+            {isLocked && report && (
+              <Button
+                variant="outline"
+                onClick={() => setShowUnlockConfirm(true)}
+                className="text-amber-600 hover:text-amber-700 border-amber-300 hover:border-amber-400 hover:bg-amber-50"
+              >
+                <Unlock className="w-4 h-4 mr-2" />
+                Unlock
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -468,6 +525,46 @@ export function ReportPreviewDialog({
           </div>
         </div>
       </DialogContent>
+
+      {/* Unlock Confirmation Dialog */}
+      <AlertDialog open={showUnlockConfirm} onOpenChange={setShowUnlockConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Unlock className="w-5 h-5 text-amber-600" />
+              Unlock Report for Editing
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to unlock this completed report? This will allow modifications to be made.
+              </p>
+              <p className="text-amber-600 font-medium">
+                Note: You will need to complete the report again after making changes.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={unlocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleUnlockReport}
+              disabled={unlocking}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {unlocking ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Unlocking...
+                </>
+              ) : (
+                <>
+                  <Unlock className="w-4 h-4 mr-2" />
+                  Unlock Report
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
