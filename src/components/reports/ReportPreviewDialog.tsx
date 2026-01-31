@@ -138,8 +138,13 @@ export function ReportPreviewDialog({
   const isLocked = report?.status === "completed";
   const canUnlock = unlockReason.trim().length >= 10;
 
+  // Reset and reload data when dialog opens
   useEffect(() => {
     if (open && visit?.id) {
+      // Force fresh data load on every open
+      setReport(null);
+      setSiteDetails(null);
+      setInvoice(null);
       loadReport();
     }
   }, [open, visit?.id]);
@@ -582,6 +587,18 @@ export function ReportPreviewDialog({
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={loadReport}
+              disabled={loading}
+              title="Refresh report data"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Refresh"
+              )}
+            </Button>
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               Close
             </Button>

@@ -348,6 +348,8 @@ export function WorkReportDialog({
         }
       } else {
         toast.success("Work report saved");
+        // Also trigger refresh for draft saves so preview gets updated
+        onSuccess?.();
       }
     } catch (error) {
       console.error("Failed to save report:", error);
@@ -1127,9 +1129,16 @@ export function WorkReportDialog({
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+              <Button 
+                variant="secondary" 
+                onClick={async () => {
+                  await handleSave(false);
+                  onOpenChange(false);
+                }} 
+                disabled={saving}
+              >
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Draft
+                Update Report
               </Button>
               {showCompleteVisit ? (
                 <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
