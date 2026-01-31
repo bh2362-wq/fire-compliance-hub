@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,10 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { SignaturePad } from "@/components/ui/signature-pad";
 import { toast } from "sonner";
-import { Loader2, Wind, ClipboardCheck, Settings, FileCheck, FileText, Download } from "lucide-react";
+import { Loader2, Wind, ClipboardCheck, Settings, FileCheck, FileText, Download, PenTool, CalendarIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ASDChecklist, getDefaultASDChecklist } from "@/services/asdChecklistService";
 import { ASDReportChecklist } from "./ASDReportChecklist";
@@ -76,6 +86,15 @@ export function ASDReportDialog({
   const [workCarriedOut, setWorkCarriedOut] = useState("");
   const [partsUsed, setPartsUsed] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Signature state
+  const [engineerSignature, setEngineerSignature] = useState("");
+  const [engineerSignDate, setEngineerSignDate] = useState<Date | undefined>(undefined);
+  const [engineerSignTime, setEngineerSignTime] = useState("");
+  const [customerNotPresent, setCustomerNotPresent] = useState(false);
+  const [customerSignature, setCustomerSignature] = useState("");
+  const [customerSignDate, setCustomerSignDate] = useState<Date | undefined>(undefined);
+  const [customerSignTime, setCustomerSignTime] = useState("");
 
   useEffect(() => {
     if (open && user) {
@@ -154,10 +173,22 @@ export function ASDReportDialog({
     setWorkCarriedOut((r.work_carried_out as string) || "");
     setPartsUsed((r.parts_used as string) || "");
 
-    // Parse notes to get any additional data
+    // Parse notes to get any additional data including signatures
     try {
       const notesData = JSON.parse((r.notes as string) || "{}");
-      // Keep structured data, don't overwrite
+      setNotes(notesData.additional_notes || "");
+      // Signature data
+      setEngineerSignature(notesData.engineerSignature || "");
+      if (notesData.engineerSignDate) {
+        setEngineerSignDate(new Date(notesData.engineerSignDate));
+      }
+      setEngineerSignTime(notesData.engineerSignTime || "");
+      setCustomerNotPresent(notesData.customerNotPresent || false);
+      setCustomerSignature(notesData.customerSignature || "");
+      if (notesData.customerSignDate) {
+        setCustomerSignDate(new Date(notesData.customerSignDate));
+      }
+      setCustomerSignTime(notesData.customerSignTime || "");
     } catch {
       setNotes((r.notes as string) || "");
     }
@@ -173,6 +204,13 @@ export function ASDReportDialog({
         asset_id: asset.id,
         asset_name: asset.item_name,
         additional_notes: notes,
+        engineerSignature,
+        engineerSignDate: engineerSignDate?.toISOString(),
+        engineerSignTime,
+        customerNotPresent,
+        customerSignature,
+        customerSignDate: customerSignDate?.toISOString(),
+        customerSignTime,
       });
 
       await supabase
@@ -214,6 +252,13 @@ export function ASDReportDialog({
         asset_id: asset.id,
         asset_name: asset.item_name,
         additional_notes: notes,
+        engineerSignature,
+        engineerSignDate: engineerSignDate?.toISOString(),
+        engineerSignTime,
+        customerNotPresent,
+        customerSignature,
+        customerSignDate: customerSignDate?.toISOString(),
+        customerSignTime,
       });
 
       await supabase
@@ -277,10 +322,10 @@ export function ASDReportDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="details" className="flex items-center gap-1">
               <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">ASD Details</span>
+              <span className="hidden sm:inline">Details</span>
             </TabsTrigger>
             <TabsTrigger value="checklist" className="flex items-center gap-1">
               <ClipboardCheck className="w-4 h-4" />
@@ -293,6 +338,10 @@ export function ASDReportDialog({
             <TabsTrigger value="notes" className="flex items-center gap-1">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Notes</span>
+            </TabsTrigger>
+            <TabsTrigger value="signoff" className="flex items-center gap-1">
+              <PenTool className="w-4 h-4" />
+              <span className="hidden sm:inline">Sign-off</span>
             </TabsTrigger>
           </TabsList>
 
@@ -421,6 +470,190 @@ export function ASDReportDialog({
                   placeholder="Any other observations or comments..."
                   className="min-h-[100px]"
                 />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="signoff" className="mt-0 space-y-4">
+              {/* Signature Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Engineer Signature Card */}
+                <div className="rounded-lg border bg-card overflow-hidden">
+                  <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-b">
+                    <h4 className="font-semibold text-sm uppercase tracking-wide text-foreground">
+                      Engineer
+                    </h4>
+                    {engineerSignature && (
+                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                        Signed
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Print Name</Label>
+                      <Input
+                        value={engineerName}
+                        onChange={(e) => setEngineerName(e.target.value)}
+                        placeholder="Engineer name"
+                        className="h-9"
+                      />
+                    </div>
+                    
+                    <SignaturePad
+                      value={engineerSignature}
+                      onChange={setEngineerSignature}
+                      width={300}
+                      height={100}
+                      label="Signature"
+                    />
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Date Signed</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={cn(
+                                "w-full justify-start text-left font-normal h-8 text-xs",
+                                !engineerSignDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-1.5 h-3 w-3" />
+                              {engineerSignDate ? format(engineerSignDate, "dd/MM/yyyy") : "Select"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 z-50" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={engineerSignDate}
+                              onSelect={setEngineerSignDate}
+                              initialFocus
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Time Signed</Label>
+                        <Input
+                          type="time"
+                          value={engineerSignTime}
+                          onChange={(e) => setEngineerSignTime(e.target.value)}
+                          className="text-xs h-8"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Customer Signature Card */}
+                <div className="rounded-lg border bg-card overflow-hidden">
+                  <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-b">
+                    <h4 className="font-semibold text-sm uppercase tracking-wide text-foreground">
+                      Customer
+                    </h4>
+                    {customerNotPresent ? (
+                      <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        Not Present
+                      </span>
+                    ) : customerSignature ? (
+                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                        Signed
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {/* Customer Not Present Toggle */}
+                    <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-md">
+                      <Checkbox
+                        id="asdCustomerNotPresent"
+                        checked={customerNotPresent}
+                        onCheckedChange={(checked) => setCustomerNotPresent(!!checked)}
+                      />
+                      <Label htmlFor="asdCustomerNotPresent" className="text-sm cursor-pointer">
+                        Customer not present
+                      </Label>
+                    </div>
+
+                    {customerNotPresent ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center min-h-[160px] flex flex-col items-center justify-center">
+                        <p className="text-sm text-amber-800 font-medium">
+                          Customer was not available
+                        </p>
+                        <p className="text-xs text-amber-600 mt-1">
+                          to sign off on this work
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-3">
+                          Report signed by engineer only
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Print Name</Label>
+                          <Input
+                            value={clientName}
+                            onChange={(e) => setClientName(e.target.value)}
+                            placeholder="Customer name"
+                            className="h-9"
+                          />
+                        </div>
+                        
+                        <SignaturePad
+                          value={customerSignature}
+                          onChange={setCustomerSignature}
+                          width={300}
+                          height={100}
+                          label="Signature"
+                        />
+
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Date Signed</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal h-8 text-xs",
+                                    !customerSignDate && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-1.5 h-3 w-3" />
+                                  {customerSignDate ? format(customerSignDate, "dd/MM/yyyy") : "Select"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0 z-50" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={customerSignDate}
+                                  onSelect={setCustomerSignDate}
+                                  initialFocus
+                                  className="p-3 pointer-events-auto"
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Time Signed</Label>
+                            <Input
+                              type="time"
+                              value={customerSignTime}
+                              onChange={(e) => setCustomerSignTime(e.target.value)}
+                              className="text-xs h-8"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </TabsContent>
           </div>
