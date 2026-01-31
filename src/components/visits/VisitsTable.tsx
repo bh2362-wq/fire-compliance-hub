@@ -129,25 +129,59 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     
     setDeleting(true);
     try {
+      // Check if visit has linked invoice
+      const hasInvoice = !!invoiceMap[deleteVisit.id];
+      if (hasInvoice) {
+        toast({
+          title: "Cannot delete visit",
+          description: "This visit has a linked invoice. Delete or void the invoice in Xero first.",
+          variant: "destructive",
+        });
+        setDeleteVisit(null);
+        setDeleting(false);
+        return;
+      }
+
+      // Check for linked service reports and delete them first
+      const { error: reportError } = await supabase
+        .from("service_reports")
+        .delete()
+        .eq("visit_id", deleteVisit.id);
+
+      if (reportError) {
+        console.error("Error deleting linked reports:", reportError);
+      }
+
       const { error } = await supabase
         .from("visits")
         .delete()
         .eq("id", deleteVisit.id);
 
-      if (error) throw error;
-
-      toast({
-        title: "Visit deleted",
-        description: "The visit has been successfully deleted.",
-      });
+      if (error) {
+        // Check for foreign key constraint error
+        if (error.code === "23503") {
+          toast({
+            title: "Cannot delete visit",
+            description: "This visit has linked records (invoice or reports). Remove them first.",
+            variant: "destructive",
+          });
+        } else {
+          throw error;
+        }
+      } else {
+        toast({
+          title: "Visit deleted",
+          description: "The visit has been successfully deleted.",
+        });
+        onRefresh?.();
+      }
       
       setDeleteVisit(null);
-      onRefresh?.();
     } catch (error) {
       console.error("Error deleting visit:", error);
       toast({
         title: "Error",
-        description: "Failed to delete visit. It may have linked records.",
+        description: "Failed to delete visit. Please try again.",
         variant: "destructive",
       });
     } finally {
