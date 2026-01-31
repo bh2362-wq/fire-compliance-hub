@@ -1,219 +1,158 @@
 // ASD (Aspirating Smoke Detection) Service Checklist
-// Based on BS 5839-1:2025 requirements for aspirating systems
+// Based on user's job sheet format
+
+export interface AirflowReading {
+  before: string;
+  after: string;
+}
 
 export interface ASDChecklist {
-  // Section 1: Documentation & Preliminary
-  documentation: {
-    zonesCovered: boolean | null;
-    previousRecordsReviewed: boolean | null;
-    outstandingFaultsReviewed: boolean | null;
-    drawingsMatchInstallation: boolean | null;
-    causeEffectConfirmed: boolean | null;
-    logbookChecked: boolean | null;
+  // Section 1: Pre-Service Actions
+  pre_service_actions: {
+    airflow_recorded: boolean | null;
+    event_log_downloaded: boolean | null;
+    configuration_file_downloaded: boolean | null;
+    event_log_given_to_site_manager: boolean | null;
+    configuration_file_given_to_site_manager: boolean | null;
   };
-  // Section 2: Power Supply & Batteries
-  powerSupply: {
-    mainsSupplyPresent: boolean | null;
-    powerIndicatorsNormal: boolean | null;
-    batteriesFittedSecure: boolean | null;
-    batteryCapacityCorrect: boolean | null;
-    batteryAgeChecked: boolean | null;
-    batteryLoadTestCompleted: boolean | null;
-    chargerFunctioning: boolean | null;
+  
+  // Section 2: Airflow Readings (before and after service)
+  airflow_readings: {
+    pipe_1: AirflowReading;
+    pipe_2: AirflowReading;
+    pipe_3: AirflowReading;
+    pipe_4: AirflowReading;
   };
-  // Section 3: ASD Control Unit
-  controlUnit: {
-    noFaultsDisplayed: boolean | null;
-    displayIndicatorsOperational: boolean | null;
-    eventLogReviewed: boolean | null;
-    configurationVerified: boolean | null;
-    alarmThresholdsAppropriate: boolean | null;
+  
+  // Section 3: Faults and Repairs
+  faults_and_repairs: {
+    detector_faults_present: boolean | null;
+    actions_taken: string;
+    parts_replaced: string;
   };
-  // Section 4: Airflow & Pipe Network
-  airflowNetwork: {
-    airflowReadingsNormal: boolean | null;
-    noAirflowFaults: boolean | null;
-    samplingPipesSecure: boolean | null;
-    pipeworkFreeFromDamage: boolean | null;
-    endCapsFitted: boolean | null;
-    samplingHolesClear: boolean | null;
-    pipeworkLabelled: boolean | null;
+  
+  // Section 4: Cleaning Activities
+  cleaning_activities: {
+    filter_cleaned_or_replaced: boolean | null;
+    pipe_flush_completed: boolean | null;
+    sampling_holes_cleaned: boolean | null;
+    capillaries_cleaned: boolean | null;
   };
-  // Section 5: Filters & Cleanliness
-  filtersCleanliness: {
-    filterInspected: boolean | null;
-    filterCleanedReplaced: boolean | null;
-    detectorChamberClean: boolean | null;
-    noExcessiveDust: boolean | null;
+  
+  // Section 5: System Checks
+  system_checks: {
+    service_history_reviewed: boolean | null;
+    power_supply_ups_checked: boolean | null;
+    battery_backup_checked: boolean | null;
+    battery_charging_checked: boolean | null;
+    fire_alarm_tested_at_detector: boolean | null;
+    fault_notification_tested_at_detector: boolean | null;
+    fire_alarm_tested_at_monitoring_system: boolean | null;
+    fault_notification_tested_at_monitoring_system: boolean | null;
+    compared_to_commissioning_data: boolean | null;
+    system_returned_to_normal_mode: boolean | null;
   };
-  // Section 6: Functional Smoke Testing
-  functionalTesting: {
-    smokeIntroducedAtSamplingPoint: boolean | null;
-    smokeIntroducedAtFurthestPoint: boolean | null;
-    transportTimeRecorded: boolean | null;
-    transportTime: string | null; // Store actual time value
-    asdAlarmActivated: boolean | null;
-    alarmReceivedAtPanel: boolean | null;
-    correctZoneDisplayed: boolean | null;
-    soundersOperated: boolean | null;
-    systemResetCorrectly: boolean | null;
-  };
-  // Section 7: Interfaces & Signals
-  interfacesSignals: {
-    alarmSignalTransmitted: boolean | null;
-    faultSignalTransmitted: boolean | null;
-    interfacesOperated: boolean | null;
-    remoteMonitoringConfirmed: boolean | null;
-  };
-  // Section 8: Faults & Remedials
-  faultsRemedials: {
-    faultsIdentified: boolean | null;
-    faultsRecordedInLogbook: boolean | null;
-    immediateRepairsCompleted: boolean | null;
-    outstandingIssuesListed: boolean | null;
-    clientInformed: boolean | null;
+  
+  // Section 6: Additional Activities
+  additional_activities: string;
+  
+  // Section 7: Environment & Filter Info
+  environment_and_filter_info: {
+    environment_class: string;
+    filter_replacement_frequency_months: string;
   };
 }
 
 export const getDefaultASDChecklist = (): ASDChecklist => ({
-  documentation: {
-    zonesCovered: null,
-    previousRecordsReviewed: null,
-    outstandingFaultsReviewed: null,
-    drawingsMatchInstallation: null,
-    causeEffectConfirmed: null,
-    logbookChecked: null,
+  pre_service_actions: {
+    airflow_recorded: null,
+    event_log_downloaded: null,
+    configuration_file_downloaded: null,
+    event_log_given_to_site_manager: null,
+    configuration_file_given_to_site_manager: null,
   },
-  powerSupply: {
-    mainsSupplyPresent: null,
-    powerIndicatorsNormal: null,
-    batteriesFittedSecure: null,
-    batteryCapacityCorrect: null,
-    batteryAgeChecked: null,
-    batteryLoadTestCompleted: null,
-    chargerFunctioning: null,
+  airflow_readings: {
+    pipe_1: { before: "", after: "" },
+    pipe_2: { before: "", after: "" },
+    pipe_3: { before: "", after: "" },
+    pipe_4: { before: "", after: "" },
   },
-  controlUnit: {
-    noFaultsDisplayed: null,
-    displayIndicatorsOperational: null,
-    eventLogReviewed: null,
-    configurationVerified: null,
-    alarmThresholdsAppropriate: null,
+  faults_and_repairs: {
+    detector_faults_present: null,
+    actions_taken: "",
+    parts_replaced: "",
   },
-  airflowNetwork: {
-    airflowReadingsNormal: null,
-    noAirflowFaults: null,
-    samplingPipesSecure: null,
-    pipeworkFreeFromDamage: null,
-    endCapsFitted: null,
-    samplingHolesClear: null,
-    pipeworkLabelled: null,
+  cleaning_activities: {
+    filter_cleaned_or_replaced: null,
+    pipe_flush_completed: null,
+    sampling_holes_cleaned: null,
+    capillaries_cleaned: null,
   },
-  filtersCleanliness: {
-    filterInspected: null,
-    filterCleanedReplaced: null,
-    detectorChamberClean: null,
-    noExcessiveDust: null,
+  system_checks: {
+    service_history_reviewed: null,
+    power_supply_ups_checked: null,
+    battery_backup_checked: null,
+    battery_charging_checked: null,
+    fire_alarm_tested_at_detector: null,
+    fault_notification_tested_at_detector: null,
+    fire_alarm_tested_at_monitoring_system: null,
+    fault_notification_tested_at_monitoring_system: null,
+    compared_to_commissioning_data: null,
+    system_returned_to_normal_mode: null,
   },
-  functionalTesting: {
-    smokeIntroducedAtSamplingPoint: null,
-    smokeIntroducedAtFurthestPoint: null,
-    transportTimeRecorded: null,
-    transportTime: null,
-    asdAlarmActivated: null,
-    alarmReceivedAtPanel: null,
-    correctZoneDisplayed: null,
-    soundersOperated: null,
-    systemResetCorrectly: null,
-  },
-  interfacesSignals: {
-    alarmSignalTransmitted: null,
-    faultSignalTransmitted: null,
-    interfacesOperated: null,
-    remoteMonitoringConfirmed: null,
-  },
-  faultsRemedials: {
-    faultsIdentified: null,
-    faultsRecordedInLogbook: null,
-    immediateRepairsCompleted: null,
-    outstandingIssuesListed: null,
-    clientInformed: null,
+  additional_activities: "",
+  environment_and_filter_info: {
+    environment_class: "",
+    filter_replacement_frequency_months: "",
   },
 });
 
-export const ASD_CHECKLIST_LABELS: Record<string, Record<string, string>> = {
-  documentation: {
-    zonesCovered: "1.1 Confirm ASD zones/areas covered",
-    previousRecordsReviewed: "1.2 Review previous service records",
-    outstandingFaultsReviewed: "1.3 Review outstanding faults/advisories",
-    drawingsMatchInstallation: "1.4 Confirm drawings match installation",
-    causeEffectConfirmed: "1.5 Confirm cause and effect for ASD alarms",
-    logbookChecked: "1.6 Check fire logbook entries",
+export const ASD_CHECKLIST_LABELS = {
+  pre_service_actions: {
+    airflow_recorded: "Airflow recorded before service",
+    event_log_downloaded: "Event log downloaded",
+    configuration_file_downloaded: "Configuration file downloaded",
+    event_log_given_to_site_manager: "Event log given to site manager",
+    configuration_file_given_to_site_manager: "Configuration file given to site manager",
   },
-  powerSupply: {
-    mainsSupplyPresent: "2.1 Mains supply present",
-    powerIndicatorsNormal: "2.2 Power supply indicators normal",
-    batteriesFittedSecure: "2.3 Batteries fitted and secure",
-    batteryCapacityCorrect: "2.4 Battery capacity correct",
-    batteryAgeChecked: "2.5 Battery age/date checked",
-    batteryLoadTestCompleted: "2.6 Battery load test completed (if applicable)",
-    chargerFunctioning: "2.7 Charger functioning correctly",
+  faults_and_repairs: {
+    detector_faults_present: "Detector faults present",
   },
-  controlUnit: {
-    noFaultsDisplayed: "3.1 No faults displayed",
-    displayIndicatorsOperational: "3.2 Display and indicators operational",
-    eventLogReviewed: "3.3 Event log reviewed",
-    configurationVerified: "3.4 Configuration/sensitivity verified (if accessible)",
-    alarmThresholdsAppropriate: "3.5 Alarm thresholds appropriate",
+  cleaning_activities: {
+    filter_cleaned_or_replaced: "Filter cleaned or replaced",
+    pipe_flush_completed: "Pipe flush completed",
+    sampling_holes_cleaned: "Sampling holes cleaned",
+    capillaries_cleaned: "Capillaries cleaned",
   },
-  airflowNetwork: {
-    airflowReadingsNormal: "4.1 Airflow readings within normal range",
-    noAirflowFaults: "4.2 No airflow faults present",
-    samplingPipesSecure: "4.3 Sampling pipes secure",
-    pipeworkFreeFromDamage: "4.4 Pipework free from damage",
-    endCapsFitted: "4.5 End caps fitted",
-    samplingHolesClear: "4.6 Sampling holes clear",
-    pipeworkLabelled: "4.7 Pipework labelled",
-  },
-  filtersCleanliness: {
-    filterInspected: "5.1 Filter inspected",
-    filterCleanedReplaced: "5.2 Filter cleaned or replaced as required",
-    detectorChamberClean: "5.3 Detector chamber clean (where permitted)",
-    noExcessiveDust: "5.4 No excessive dust contamination",
-  },
-  functionalTesting: {
-    smokeIntroducedAtSamplingPoint: "6.1 Smoke introduced at sampling point",
-    smokeIntroducedAtFurthestPoint: "6.2 Smoke introduced at furthest sampling point (where practical)",
-    transportTimeRecorded: "6.3 Transport time recorded",
-    transportTime: "6.4 Transport time (seconds):",
-    asdAlarmActivated: "6.5 ASD alarm activated correctly",
-    alarmReceivedAtPanel: "6.6 Alarm received at fire alarm control panel",
-    correctZoneDisplayed: "6.7 Correct zone/device displayed",
-    soundersOperated: "6.8 Sounders/outputs operated",
-    systemResetCorrectly: "6.9 System reset correctly",
-  },
-  interfacesSignals: {
-    alarmSignalTransmitted: "7.1 Alarm signal transmitted to fire panel",
-    faultSignalTransmitted: "7.2 Fault signal transmitted correctly",
-    interfacesOperated: "7.3 Interfaces operated",
-    remoteMonitoringConfirmed: "7.4 Remote monitoring confirmed (if applicable)",
-  },
-  faultsRemedials: {
-    faultsIdentified: "8.1 Faults identified during service",
-    faultsRecordedInLogbook: "8.2 Faults recorded in logbook",
-    immediateRepairsCompleted: "8.3 Immediate repairs completed (if possible)",
-    outstandingIssuesListed: "8.4 Outstanding issues listed as advisories",
-    clientInformed: "8.5 Client informed",
+  system_checks: {
+    service_history_reviewed: "Service history reviewed",
+    power_supply_ups_checked: "Power supply / UPS checked",
+    battery_backup_checked: "Battery backup checked",
+    battery_charging_checked: "Battery charging checked",
+    fire_alarm_tested_at_detector: "Fire alarm tested at detector",
+    fault_notification_tested_at_detector: "Fault notification tested at detector",
+    fire_alarm_tested_at_monitoring_system: "Fire alarm tested at monitoring system",
+    fault_notification_tested_at_monitoring_system: "Fault notification tested at monitoring system",
+    compared_to_commissioning_data: "Compared to commissioning data",
+    system_returned_to_normal_mode: "System returned to normal mode",
   },
 };
 
 export const ASD_SECTION_LABELS: Record<string, string> = {
-  documentation: "Section 1: Documentation & Preliminary",
-  powerSupply: "Section 2: Power Supply & Batteries",
-  controlUnit: "Section 3: ASD Control Unit",
-  airflowNetwork: "Section 4: Airflow & Pipe Network",
-  filtersCleanliness: "Section 5: Filters & Cleanliness",
-  functionalTesting: "Section 6: Functional Smoke Testing",
-  interfacesSignals: "Section 7: Interfaces & Signals",
-  faultsRemedials: "Section 8: Faults & Remedials",
+  pre_service_actions: "Pre-Service Actions",
+  airflow_readings: "Airflow Readings",
+  faults_and_repairs: "Faults & Repairs",
+  cleaning_activities: "Cleaning Activities",
+  system_checks: "System Checks",
+  additional_activities: "Additional Activities",
+  environment_and_filter_info: "Environment & Filter Information",
 };
+
+export const ENVIRONMENT_CLASSES = [
+  { value: "1", label: "Class 1 - Clean office environment" },
+  { value: "2", label: "Class 2 - Standard office/retail" },
+  { value: "3", label: "Class 3 - Light industrial" },
+  { value: "4", label: "Class 4 - Industrial" },
+  { value: "5", label: "Class 5 - Heavy industrial" },
+  { value: "6", label: "Class 6 - Extreme conditions" },
+];
