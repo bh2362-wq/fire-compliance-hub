@@ -183,7 +183,7 @@ export function ReportTypeSelectorDialog({
           </div>
         ) : (
           <div className="space-y-3 pt-2">
-            {/* Work Report Option */}
+            {/* Job Sheet Option */}
             <button
               type="button"
               className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
@@ -193,15 +193,17 @@ export function ReportTypeSelectorDialog({
                 <FileText className="w-6 h-6 text-orange-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-foreground">Work Report</div>
-                <div className="text-sm text-muted-foreground mt-0.5">
-                  General job sheet for all service types
+                <div className="font-semibold text-foreground">Job Sheet</div>
+                <div className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                  General job sheet for all service types.
+                  <br />
+                  Includes works carried out and sign-off.
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
             </button>
 
-            {/* Fire Alarm Report Option */}
+            {/* Inspection Service Sheet Option */}
             <button
               type="button"
               className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
@@ -211,19 +213,21 @@ export function ReportTypeSelectorDialog({
                 <Flame className="w-6 h-6 text-destructive" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-foreground flex items-center gap-2">
-                  BS5839 Fire Alarm Report
+                <div className="font-semibold text-foreground flex items-center gap-2 flex-wrap">
+                  Inspection Service Sheet
                   {fireAssets.length > 1 && (
                     <Badge variant="secondary" className="text-xs">
                       {fireAssets.length} panels
                     </Badge>
                   )}
                 </div>
-                <div className="text-sm text-muted-foreground mt-0.5">
-                  BS5839:2025 compliance checklist & condition assessment
+                <div className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                  BS5839:2025 compliance checklist.
+                  <br />
+                  System details and condition assessment.
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
             </button>
 
             {/* ASD Reports */}
