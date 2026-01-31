@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface RewriteRequest {
   text: string;
-  type: "defects" | "recommendations";
+  type: "defects" | "recommendations" | "works" | "comments";
 }
 
 serve(async (req) => {
@@ -31,27 +31,33 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = type === "defects"
-      ? `You are a professional fire safety engineer. Rewrite the defect description to be clear, concise, and professional using proper fire safety terminology for a BS5839 compliance report.
-
+    const formatRules = `
 STRICT FORMATTING RULES - You MUST follow these exactly:
 1. NO markdown (no **, no ##, no ###, no headers)
 2. NO bullet points or dashes at the start of lines
 3. NO numbered lists
 4. NO special characters or symbols
 5. Write as plain flowing sentences only
-6. Separate multiple defects with a blank line between paragraphs
-7. Return ONLY the rewritten plain text`
-      : `You are a professional fire safety engineer. Rewrite the recommendations to be clear, actionable, and professional using proper fire safety terminology for a BS5839 compliance report.
-
-STRICT FORMATTING RULES - You MUST follow these exactly:
-1. NO markdown (no **, no ##, no ###, no headers)
-2. NO bullet points or dashes at the start of lines
-3. NO numbered lists  
-4. NO special characters or symbols
-5. Write as plain flowing sentences only
-6. Separate multiple recommendations with a blank line between paragraphs
+6. Separate multiple items with a blank line between paragraphs
 7. Return ONLY the rewritten plain text`;
+
+    let systemPrompt = "";
+    switch (type) {
+      case "defects":
+        systemPrompt = `You are a professional fire safety engineer. Rewrite the defect description to be clear, concise, and professional using proper fire safety terminology for a BS5839 compliance report.${formatRules}`;
+        break;
+      case "recommendations":
+        systemPrompt = `You are a professional fire safety engineer. Rewrite the recommendations to be clear, actionable, and professional using proper fire safety terminology for a BS5839 compliance report.${formatRules}`;
+        break;
+      case "works":
+        systemPrompt = `You are a professional fire safety engineer. Rewrite this works report description to be clear, comprehensive, and professional. Use proper fire safety and engineering terminology suitable for a service report or job sheet. Include specific technical details where relevant.${formatRules}`;
+        break;
+      case "comments":
+        systemPrompt = `You are a professional fire safety engineer. Rewrite these comments or follow-up actions to be clear, actionable, and professional. Use proper fire safety terminology and ensure any required actions are clearly stated.${formatRules}`;
+        break;
+      default:
+        systemPrompt = `You are a professional technical writer. Rewrite this text to be clear, concise, and professional.${formatRules}`;
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
