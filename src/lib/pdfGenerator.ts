@@ -805,43 +805,57 @@ export function generateWorkReportPDF(
 
   yPos += 26;
 
-  // === WORKS CARRIED OUT ===
-  const worksBoxHeight = 85;
-  doc.rect(margin, yPos, contentWidth, worksBoxHeight);
+  // === WORKS CARRIED OUT (Dynamic height using autoTable) ===
+  autoTable(doc, {
+    startY: yPos,
+    head: [["WORKS CARRIED OUT"]],
+    body: [[data.worksReport || "-"]],
+    margin: { left: margin, right: margin },
+    theme: "plain",
+    styles: {
+      fontSize: 9,
+      cellPadding: 3,
+      lineColor: COLORS.borderGrey,
+      lineWidth: 0.3,
+      textColor: COLORS.charcoal,
+    },
+    headStyles: {
+      fillColor: COLORS.charcoal,
+      textColor: COLORS.white,
+      fontStyle: "bold",
+      fontSize: 10,
+    },
+    columnStyles: {
+      0: { cellWidth: contentWidth },
+    },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 4;
 
-  doc.setFillColor(...COLORS.charcoal);
-  doc.rect(margin, yPos, contentWidth, 8, "F");
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text("WORKS CARRIED OUT", margin + 3, yPos + 5.5);
-
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COLORS.charcoal);
-  doc.setFontSize(10);
-  const worksLines = doc.splitTextToSize(data.worksReport || "", contentWidth - 8);
-  doc.text(worksLines.slice(0, 14), margin + 3, yPos + 16);
-
-  yPos += worksBoxHeight + 4;
-
-  // === RECOMMENDATIONS ===
-  const recsBoxHeight = 35;
-  doc.rect(margin, yPos, contentWidth, recsBoxHeight);
-
-  doc.setFillColor(...COLORS.charcoal);
-  doc.rect(margin, yPos, contentWidth, 8, "F");
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text("RECOMMENDATIONS / FURTHER WORK", margin + 3, yPos + 5.5);
-
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COLORS.charcoal);
-  doc.setFontSize(10);
-  const recsLines = doc.splitTextToSize(data.furtherAction || "", contentWidth - 8);
-  doc.text(recsLines.slice(0, 4), margin + 3, yPos + 16);
-
-  yPos += recsBoxHeight + 5;
+  // === RECOMMENDATIONS (Dynamic height using autoTable) ===
+  autoTable(doc, {
+    startY: yPos,
+    head: [["RECOMMENDATIONS / FURTHER WORK"]],
+    body: [[data.furtherAction || "-"]],
+    margin: { left: margin, right: margin },
+    theme: "plain",
+    styles: {
+      fontSize: 9,
+      cellPadding: 3,
+      lineColor: COLORS.borderGrey,
+      lineWidth: 0.3,
+      textColor: COLORS.charcoal,
+    },
+    headStyles: {
+      fillColor: COLORS.charcoal,
+      textColor: COLORS.white,
+      fontStyle: "bold",
+      fontSize: 10,
+    },
+    columnStyles: {
+      0: { cellWidth: contentWidth },
+    },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 5;
 
   // === SIGN-OFF SECTION ===
   // Ensure we have enough room - signature section needs ~55mm total
