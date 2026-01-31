@@ -587,19 +587,20 @@ export function WorkReportDialog({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Certificate No</Label>
+                  <Label>Job Number</Label>
                   <Input
                     value={certificateNo}
-                    onChange={(e) => setCertificateNo(e.target.value)}
-                    placeholder="CR BHO..."
+                    readOnly
+                    className="bg-muted/50 font-mono"
+                    placeholder="Auto-generated"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Job Number</Label>
+                  <Label>PO / Reference</Label>
                   <Input
                     value={jobNumber}
                     onChange={(e) => setJobNumber(e.target.value)}
-                    placeholder="Fire Services job no"
+                    placeholder="Optional reference"
                   />
                 </div>
               </div>

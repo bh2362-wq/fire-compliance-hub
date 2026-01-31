@@ -66,6 +66,7 @@ export function ASDReportDialog({
   const [activeTab, setActiveTab] = useState("details");
 
   // Form state
+  const [reportNumber, setReportNumber] = useState("");
   const [engineerName, setEngineerName] = useState("");
   const [clientName, setClientName] = useState("");
   const [checklist, setChecklist] = useState<ASDChecklist>(getDefaultASDChecklist());
@@ -127,6 +128,7 @@ export function ASDReportDialog({
 
         if (error) throw error;
         setReportId(newReport.id);
+        setReportNumber(numberData || "");
         setEngineerName(user.user_metadata?.full_name || "");
       }
     } catch (error) {
@@ -138,6 +140,7 @@ export function ASDReportDialog({
   };
 
   const populateForm = (r: Record<string, unknown>) => {
+    setReportNumber((r.report_number as string) || "");
     setEngineerName((r.engineer_name as string) || "");
     setClientName((r.client_name as string) || "");
     
@@ -295,7 +298,16 @@ export function ASDReportDialog({
 
           <div className="flex-1 overflow-y-auto py-4">
             <TabsContent value="details" className="mt-0 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Certificate Number</Label>
+                  <Input
+                    value={reportNumber}
+                    readOnly
+                    className="bg-muted/50 font-mono"
+                    placeholder="Auto-generated"
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>Engineer Name</Label>
                   <Input
