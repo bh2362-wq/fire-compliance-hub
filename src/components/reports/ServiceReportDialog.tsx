@@ -98,22 +98,13 @@ export function ServiceReportDialog({
     setLoading(true);
 
     try {
-      // Load fire panels from site_assets table
+      // Load fire panels from site_assets table (always get latest from DB)
       const { data: assets } = await supabase
         .from("site_assets")
         .select("id, item_name, manufacturer, model, location")
         .eq("site_id", visit.site_id)
-        .eq("asset_type", "fire_panel");
-
-      if (assets && assets.length > 1) {
-        setHasMultiplePanels(true);
-        setPanels(initializePanelChecklists(assets));
-      } else if (assets && assets.length === 1) {
-        // Single panel - pre-fill details
-        setPanelManufacturer(assets[0].manufacturer || "");
-        setPanelModel(assets[0].model || "");
-        setPanelLocation(assets[0].location || "");
-      }
+        .eq("asset_type", "fire_panel")
+        .order("created_at", { ascending: true }); // Ensure consistent ordering
 
       let existingReport = await getServiceReport(visit.id);
 
@@ -126,21 +117,47 @@ export function ServiceReportDialog({
       setReport(existingReport);
       populateForm(existingReport);
 
-      // If multi-panel and report has stored panel data, load it
-      if (existingReport.notes) {
-        try {
-          const notesData = JSON.parse(existingReport.notes);
-          if (notesData.panel_checklists && Array.isArray(notesData.panel_checklists)) {
-            setPanels((prev) => 
-              prev.map((p) => {
-                const stored = notesData.panel_checklists.find((s: PanelChecklistData) => s.assetId === p.assetId);
-                return stored ? { ...p, checklist: stored.checklist } : p;
-              })
-            );
+      // Handle multi-panel setup - merge stored data with current assets
+      if (assets && assets.length > 1) {
+        setHasMultiplePanels(true);
+        
+        // Initialize all current panels from assets
+        let mergedPanels = initializePanelChecklists(assets);
+        
+        // If report has stored panel data, merge it with current assets
+        if (existingReport.notes) {
+          try {
+            const notesData = JSON.parse(existingReport.notes);
+            if (notesData.panel_checklists && Array.isArray(notesData.panel_checklists)) {
+              mergedPanels = mergedPanels.map((panel) => {
+                const stored = notesData.panel_checklists.find(
+                  (s: PanelChecklistData) => s.assetId === panel.assetId
+                );
+                if (stored) {
+                  return {
+                    ...panel,
+                    checklist: stored.checklist,
+                    defects: stored.defects || "",
+                    recommendations: stored.recommendations || "",
+                  };
+                }
+                return panel;
+              });
+            }
+          } catch {
+            // Not JSON, continue with fresh panels
           }
-        } catch {
-          // Not JSON, leave notes as-is
         }
+        
+        setPanels(mergedPanels);
+      } else if (assets && assets.length === 1) {
+        // Single panel - pre-fill details
+        setHasMultiplePanels(false);
+        setPanelManufacturer(assets[0].manufacturer || "");
+        setPanelModel(assets[0].model || "");
+        setPanelLocation(assets[0].location || "");
+      } else {
+        setHasMultiplePanels(false);
       }
     } catch (error) {
       console.error("Failed to load report:", error);
@@ -310,7 +327,8 @@ export function ServiceReportDialog({
           notes,
         },
         siteInfo,
-        { visit_type: visit.visit_type, visit_date: visit.visit_date }
+        { visit_type: visit.visit_type, visit_date: visit.visit_date },
+        hasMultiplePanels ? panels : undefined // Pass all panels for multi-panel reports
       );
 
       toast.success("PDF downloaded successfully");
