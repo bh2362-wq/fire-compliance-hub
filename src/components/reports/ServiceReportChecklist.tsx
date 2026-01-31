@@ -1,5 +1,6 @@
 import { Check, X, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import {
   BS5839Checklist,
   CHECKLIST_LABELS,
@@ -13,6 +14,9 @@ interface ServiceReportChecklistProps {
 }
 
 type CheckValue = boolean | null;
+
+// Fields that should be rendered as number inputs instead of yes/no/na
+const NUMBER_INPUT_FIELDS = ["detectorCount", "falseAlarmCount"];
 
 const ChecklistItem = ({
   label,
@@ -65,6 +69,36 @@ const ChecklistItem = ({
   );
 };
 
+const NumberInputItem = ({
+  label,
+  value,
+  onChange,
+  readonly,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (value: number | null) => void;
+  readonly?: boolean;
+}) => {
+  return (
+    <div className="flex items-center justify-between py-2 px-3 rounded-lg border bg-muted/50 border-border">
+      <span className="text-sm text-foreground flex-1 mr-3">{label}</span>
+      <Input
+        type="number"
+        min={0}
+        value={value ?? ""}
+        onChange={(e) => {
+          const val = e.target.value;
+          onChange(val === "" ? null : parseInt(val, 10));
+        }}
+        disabled={readonly}
+        className="w-24 h-8 text-right"
+        placeholder="0"
+      />
+    </div>
+  );
+};
+
 export function ServiceReportChecklist({
   checklist,
   onChange,
@@ -73,7 +107,7 @@ export function ServiceReportChecklist({
   const updateChecklistItem = (
     section: keyof BS5839Checklist,
     item: string,
-    value: CheckValue
+    value: CheckValue | number | null
   ) => {
     onChange({
       ...checklist,
@@ -118,15 +152,31 @@ export function ServiceReportChecklist({
               </div>
             </div>
             <div className="space-y-2">
-              {Object.entries(sectionLabels).map(([itemKey, label]) => (
-                <ChecklistItem
-                  key={itemKey}
-                  label={label}
-                  value={sectionData ? sectionData[itemKey] : null}
-                  onChange={(value) => updateChecklistItem(sectionKey, itemKey, value)}
-                  readonly={readonly}
-                />
-              ))}
+              {Object.entries(sectionLabels).map(([itemKey, label]) => {
+                // Render number input for specific fields
+                if (NUMBER_INPUT_FIELDS.includes(itemKey)) {
+                  const numValue = sectionData ? sectionData[itemKey] : null;
+                  return (
+                    <NumberInputItem
+                      key={itemKey}
+                      label={label}
+                      value={typeof numValue === 'number' ? numValue : null}
+                      onChange={(value) => updateChecklistItem(sectionKey, itemKey, value)}
+                      readonly={readonly}
+                    />
+                  );
+                }
+                
+                return (
+                  <ChecklistItem
+                    key={itemKey}
+                    label={label}
+                    value={sectionData ? sectionData[itemKey] : null}
+                    onChange={(value) => updateChecklistItem(sectionKey, itemKey, value)}
+                    readonly={readonly}
+                  />
+                );
+              })}
             </div>
           </div>
         );
