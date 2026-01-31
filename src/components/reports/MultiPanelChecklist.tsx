@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Server, Copy } from "lucide-react";
+import { Server, Copy, MapPin, Star } from "lucide-react";
 import { ServiceReportChecklist } from "./ServiceReportChecklist";
+import { SecondaryPanelChecklist } from "./SecondaryPanelChecklist";
 import { BS5839Checklist, getDefaultChecklist } from "@/services/serviceReportService";
 import { useToast } from "@/hooks/use-toast";
 
@@ -14,6 +15,8 @@ export interface PanelChecklistData {
   model?: string;
   location?: string;
   checklist: BS5839Checklist;
+  defects?: string;
+  recommendations?: string;
 }
 
 interface MultiPanelChecklistProps {
@@ -37,6 +40,20 @@ export function MultiPanelChecklist({
     onChange(updatedPanels);
   };
 
+  const updatePanelDefects = (assetId: string, defects: string) => {
+    const updatedPanels = panels.map((p) =>
+      p.assetId === assetId ? { ...p, defects } : p
+    );
+    onChange(updatedPanels);
+  };
+
+  const updatePanelRecommendations = (assetId: string, recommendations: string) => {
+    const updatedPanels = panels.map((p) =>
+      p.assetId === assetId ? { ...p, recommendations } : p
+    );
+    onChange(updatedPanels);
+  };
+
   const copyToAllPanels = (sourceAssetId: string) => {
     const sourcePanel = panels.find((p) => p.assetId === sourceAssetId);
     if (!sourcePanel) return;
@@ -47,6 +64,8 @@ export function MultiPanelChecklist({
       return {
         ...p,
         checklist: JSON.parse(JSON.stringify(sourcePanel.checklist)) as BS5839Checklist,
+        defects: sourcePanel.defects || "",
+        recommendations: sourcePanel.recommendations || "",
       };
     });
 
@@ -57,13 +76,19 @@ export function MultiPanelChecklist({
     });
   };
 
-  const getPanelStats = (panel: PanelChecklistData) => {
+  const getPanelStats = (panel: PanelChecklistData, isMaster: boolean) => {
     const checklist = panel.checklist;
     let yes = 0;
     let no = 0;
     let total = 0;
 
-    Object.values(checklist).forEach((section) => {
+    // For secondary panels, only count sections 8, 9, 10
+    const sectionsToCount = isMaster
+      ? Object.keys(checklist)
+      : ["faultMonitoring", "standbyPowerSupplies", "controlEquipment"];
+
+    sectionsToCount.forEach((sectionKey) => {
+      const section = checklist[sectionKey as keyof BS5839Checklist];
       if (section && typeof section === "object") {
         Object.values(section).forEach((value) => {
           if (typeof value === "boolean" || value === null) {
@@ -77,6 +102,36 @@ export function MultiPanelChecklist({
 
     return { yes, no, na: total - yes - no };
   };
+
+  const renderPanelDetails = (panel: PanelChecklistData, isMaster: boolean) => (
+    <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-border mb-4">
+      <div className="flex items-center gap-2">
+        <Server className="w-5 h-5 text-primary" />
+        <span className="font-semibold text-foreground">{panel.assetName}</span>
+        {isMaster && (
+          <Badge variant="default" className="text-xs bg-primary">
+            <Star className="w-3 h-3 mr-1" />
+            Master Panel
+          </Badge>
+        )}
+      </div>
+      
+      {(panel.manufacturer || panel.model) && (
+        <Badge variant="outline" className="text-xs">
+          {panel.manufacturer}
+          {panel.manufacturer && panel.model && " - "}
+          {panel.model}
+        </Badge>
+      )}
+      
+      {panel.location && (
+        <Badge variant="secondary" className="text-xs">
+          <MapPin className="w-3 h-3 mr-1" />
+          {panel.location}
+        </Badge>
+      )}
+    </div>
+  );
 
   if (panels.length === 0) {
     return (
@@ -92,15 +147,7 @@ export function MultiPanelChecklist({
     const panel = panels[0];
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2 pb-2 border-b">
-          <Server className="w-5 h-5 text-primary" />
-          <span className="font-medium">{panel.assetName}</span>
-          {panel.manufacturer && (
-            <Badge variant="outline" className="text-xs">
-              {panel.manufacturer} {panel.model && `- ${panel.model}`}
-            </Badge>
-          )}
-        </div>
+        {renderPanelDetails(panel, true)}
         <ServiceReportChecklist
           checklist={panel.checklist}
           onChange={(c) => updatePanelChecklist(panel.assetId, c)}
@@ -113,8 +160,9 @@ export function MultiPanelChecklist({
   return (
     <Tabs value={activePanel} onValueChange={setActivePanel} className="w-full">
       <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
-        {panels.map((panel) => {
-          const stats = getPanelStats(panel);
+        {panels.map((panel, index) => {
+          const isMaster = index === 0;
+          const stats = getPanelStats(panel, isMaster);
           return (
             <TabsTrigger
               key={panel.assetId}
@@ -126,6 +174,7 @@ export function MultiPanelChecklist({
                 <span className="text-xs font-medium truncate max-w-[100px]">
                   {panel.assetName}
                 </span>
+                {isMaster && <Star className="w-3 h-3 text-primary" />}
               </div>
               <div className="flex items-center gap-1 text-[10px]">
                 <span className="text-success">{stats.yes}</span>
@@ -139,44 +188,52 @@ export function MultiPanelChecklist({
         })}
       </TabsList>
 
-      {panels.map((panel) => (
-        <TabsContent key={panel.assetId} value={panel.assetId} className="mt-4">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b">
-              <Server className="w-5 h-5 text-primary" />
-              <span className="font-medium">{panel.assetName}</span>
-              {panel.manufacturer && (
-                <Badge variant="outline" className="text-xs">
-                  {panel.manufacturer} {panel.model && `- ${panel.model}`}
-                </Badge>
-              )}
-              {panel.location && (
-                <span className="text-sm text-muted-foreground">
-                  📍 {panel.location}
-                </span>
-              )}
-              {/* Copy to All button - only show for multi-panel and not readonly */}
-              {panels.length > 1 && !readonly && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => copyToAllPanels(panel.assetId)}
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy to All Panels
-                </Button>
+      {panels.map((panel, index) => {
+        const isMaster = index === 0;
+        
+        return (
+          <TabsContent key={panel.assetId} value={panel.assetId} className="mt-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                {renderPanelDetails(panel, isMaster)}
+                
+                {/* Copy to All button - only show for multi-panel and not readonly */}
+                {panels.length > 1 && !readonly && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToAllPanels(panel.assetId)}
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy to All Panels
+                  </Button>
+                )}
+              </div>
+
+              {isMaster ? (
+                // Master panel gets full checklist
+                <ServiceReportChecklist
+                  checklist={panel.checklist}
+                  onChange={(c) => updatePanelChecklist(panel.assetId, c)}
+                  readonly={readonly}
+                />
+              ) : (
+                // Secondary panels get sections 8, 9, 10 + defects/recommendations
+                <SecondaryPanelChecklist
+                  checklist={panel.checklist}
+                  onChange={(c) => updatePanelChecklist(panel.assetId, c)}
+                  defects={panel.defects || ""}
+                  onDefectsChange={(d) => updatePanelDefects(panel.assetId, d)}
+                  recommendations={panel.recommendations || ""}
+                  onRecommendationsChange={(r) => updatePanelRecommendations(panel.assetId, r)}
+                  readonly={readonly}
+                />
               )}
             </div>
-            <ServiceReportChecklist
-              checklist={panel.checklist}
-              onChange={(c) => updatePanelChecklist(panel.assetId, c)}
-              readonly={readonly}
-            />
-          </div>
-        </TabsContent>
-      ))}
+          </TabsContent>
+        );
+      })}
     </Tabs>
   );
 }
@@ -197,5 +254,7 @@ export function initializePanelChecklists(
     model: asset.model || undefined,
     location: asset.location || undefined,
     checklist: getDefaultChecklist(),
+    defects: "",
+    recommendations: "",
   }));
 }
