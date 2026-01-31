@@ -863,6 +863,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_next_report_number: {
+        Args: { report_type?: string }
+        Returns: string
+      }
       has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
