@@ -35,15 +35,16 @@ serve(async (req) => {
       ? `You are a professional fire safety engineer writing defect reports. Rewrite the following defect description to be:
 - Clear, concise, and professional
 - Technically accurate using proper fire safety terminology
-- Structured with bullet points if multiple defects
 - Suitable for a BS5839 compliance report
-Keep the same meaning but improve clarity and professionalism. Return ONLY the rewritten text, no explanations.`
+
+IMPORTANT: Use ONLY plain text. Do NOT use bullet points, numbered lists, asterisks, dashes, emojis, or any special characters. Write in simple sentences or short paragraphs separated by line breaks. Return ONLY the rewritten text.`
       : `You are a professional fire safety engineer writing recommendations. Rewrite the following recommendations to be:
 - Clear, actionable, and professional
 - Prioritized by urgency if multiple items
 - Using proper fire safety terminology
 - Suitable for a BS5839 compliance report
-Keep the same meaning but improve clarity and professionalism. Return ONLY the rewritten text, no explanations.`;
+
+IMPORTANT: Use ONLY plain text. Do NOT use bullet points, numbered lists, asterisks, dashes, emojis, or any special characters. Write in simple sentences or short paragraphs separated by line breaks. Return ONLY the rewritten text.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
