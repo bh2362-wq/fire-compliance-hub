@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { format, addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,8 +19,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, FileText, MapPin } from "lucide-react";
+import { Loader2, Plus, Trash2, FileText, MapPin, CalendarIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   createXeroInvoice,
@@ -28,6 +35,7 @@ import {
   InvoiceLineItem,
 } from "@/services/xeroService";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface Site {
   id: string;
@@ -99,6 +107,7 @@ export function CustomerCreateInvoiceDialog({
   const [serviceType, setServiceType] = useState<string>("quarterly_service");
   const [reference, setReference] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [dueDate, setDueDate] = useState<Date | undefined>(addDays(new Date(), 30));
   const [loadingInvoiceNumber, setLoadingInvoiceNumber] = useState(false);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
     SERVICE_TYPE_LINE_ITEMS.quarterly_service
@@ -112,6 +121,7 @@ export function CustomerCreateInvoiceDialog({
       setSelectedSite("");
       setServiceType("quarterly_service");
       setReference("");
+      setDueDate(addDays(new Date(), 30));
       setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
     }
   }, [open, user]);
@@ -243,7 +253,7 @@ export function CustomerCreateInvoiceDialog({
         customerName,
         validItems,
         reference,
-        undefined, // dueDate
+        dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
         invoiceNumber || undefined // pass invoice number if specified
       );
 
@@ -356,7 +366,7 @@ export function CustomerCreateInvoiceDialog({
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Invoice Number</Label>
               <Input
@@ -367,6 +377,35 @@ export function CustomerCreateInvoiceDialog({
               />
               <p className="text-xs text-muted-foreground">
                 Auto-filled from last invoice
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dueDate ? format(dueDate, "dd/MM/yyyy") : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    onSelect={setDueDate}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Default: 30 days
               </p>
             </div>
             <div className="space-y-2">
