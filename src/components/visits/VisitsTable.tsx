@@ -61,6 +61,10 @@ const statusConfig: Record<string, { label: string; className: string }> = {
     label: "Pending Review",
     className: "bg-accent/10 text-accent border-accent/20",
   },
+  invoiced: {
+    label: "Invoiced",
+    className: "bg-primary/10 text-primary border-primary/20",
+  },
 };
 
 const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitialVisitOpened }: VisitsTableProps) => {
@@ -206,7 +210,146 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     );
   }
 
-  if (visits.length === 0) {
+  // Empty state is handled after invoice filtering below
+
+  // Separate invoiced and non-invoiced visits
+  const invoicedVisits = visits.filter(v => !!invoiceMap[v.id]);
+  const activeVisits = visits.filter(v => !invoiceMap[v.id]);
+
+  // Helper to render a visit row
+  const renderVisitRow = (visit: Visit, isInvoiced: boolean = false) => {
+    const invoiceInfo = invoiceMap[visit.id];
+    const displayStatus = isInvoiced 
+      ? statusConfig.invoiced 
+      : statusConfig[visit.status || "in_progress"] || statusConfig.in_progress;
+    
+    const coverage = Number(visit.coverage_percentage) || 0;
+
+    return (
+      <div
+        key={visit.id}
+        className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/30 transition-colors items-center"
+      >
+        <div className="col-span-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground">
+                {visit.site?.name || "Unknown Site"}
+              </p>
+              <p className="text-xs text-muted-foreground">{visit.visit_type}</p>
+            </div>
+          </div>
+        </div>
+        <div className="col-span-2">
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-sm text-foreground">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              {format(new Date(visit.visit_date), "MMM d, yyyy")}
+            </div>
+            <Badge variant="outline" className={displayStatus.className}>
+              {isInvoiced && invoiceInfo?.xero_invoice_number 
+                ? `#${invoiceInfo.xero_invoice_number}` 
+                : displayStatus.label}
+            </Badge>
+          </div>
+        </div>
+        <div className="col-span-2">
+          <div className="space-y-1">
+            <p className="text-sm text-foreground">
+              {visit.devices_tested || 0} / {visit.total_devices || 0} tested
+            </p>
+            {(visit.issues_count || 0) > 0 && (
+              <p className="text-xs text-destructive">{visit.issues_count} issues</p>
+            )}
+          </div>
+        </div>
+        <div className="col-span-1">
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${
+                    coverage >= 95
+                      ? "bg-success"
+                      : coverage >= 80
+                      ? "bg-warning"
+                      : "bg-destructive"
+                  }`}
+                  style={{ width: `${coverage}%` }}
+                />
+              </div>
+              <span className="text-xs font-medium text-foreground w-8">
+                {coverage}%
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="col-span-2">
+          <SmokeSprayEstimate siteId={visit.site_id} visitType={visit.visit_type} />
+        </div>
+        <div className="col-span-2 flex items-center gap-2 flex-wrap">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(`/dashboard/sites/${visit.site_id}`)}
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            Site
+          </Button>
+          {!isInvoiced && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  navigate(`/dashboard/reconciliation?siteId=${visit.site_id}&visitId=${visit.id}`)
+                }
+              >
+                <GitCompare className="w-4 h-4 mr-1" />
+                Reconcile
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreviewVisit(visit)}
+              >
+                <ClipboardCheck className="w-4 h-4 mr-1" />
+                Report
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setInvoiceVisit(visit)}
+              >
+                <FileText className="w-4 h-4 mr-1" />
+                Invoice
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditVisit(visit)}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setDeleteVisit(visit)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  if (activeVisits.length === 0 && invoicedVisits.length === 0) {
     return (
       <div className="bg-card rounded-xl border border-border p-12 text-center">
         <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
@@ -219,143 +362,68 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border">
-      {/* Table header */}
-      <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 text-sm font-medium text-muted-foreground border-b border-border">
-        <div className="col-span-3">Site</div>
-        <div className="col-span-2">Date / Type</div>
-        <div className="col-span-2">Devices</div>
-        <div className="col-span-1">Coverage</div>
-        <div className="col-span-2">Smoke Spray</div>
-        <div className="col-span-2">Actions</div>
-      </div>
+    <div className="space-y-6">
+      {/* Active Visits */}
+      {activeVisits.length > 0 && (
+        <div className="bg-card rounded-xl border border-border">
+          <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 text-sm font-medium text-muted-foreground border-b border-border">
+            <div className="col-span-3">Site</div>
+            <div className="col-span-2">Date / Type</div>
+            <div className="col-span-2">Devices</div>
+            <div className="col-span-1">Coverage</div>
+            <div className="col-span-2">Smoke Spray</div>
+            <div className="col-span-2">Actions</div>
+          </div>
+          <div className="divide-y divide-border">
+            {activeVisits.map((visit) => renderVisitRow(visit, false))}
+          </div>
+        </div>
+      )}
 
-      {/* Table body */}
-      <div className="divide-y divide-border">
-        {visits.map((visit) => {
-          // Only show in_progress or completed status
-          const displayStatus = statusConfig[visit.status || "in_progress"] || statusConfig.in_progress;
-          
-          const coverage = Number(visit.coverage_percentage) || 0;
+      {activeVisits.length === 0 && invoicedVisits.length > 0 && (
+        <div className="bg-card rounded-xl border border-border p-12 text-center">
+          <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">No active visits</h3>
+          <p className="text-muted-foreground">
+            All visits have been invoiced. Create a new visit to get started.
+          </p>
+        </div>
+      )}
 
-          return (
-            <div
-              key={visit.id}
-              className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/30 transition-colors items-center"
-            >
-              <div className="col-span-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {visit.site?.name || "Unknown Site"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{visit.visit_type}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-span-2">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-sm text-foreground">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    {format(new Date(visit.visit_date), "MMM d, yyyy")}
-                  </div>
-                  <Badge variant="outline" className={displayStatus.className}>
-                    {displayStatus.label}
-                  </Badge>
-                </div>
-              </div>
-              <div className="col-span-2">
-                <div className="space-y-1">
-                  <p className="text-sm text-foreground">
-                    {visit.devices_tested || 0} / {visit.total_devices || 0} tested
-                  </p>
-                  {(visit.issues_count || 0) > 0 && (
-                    <p className="text-xs text-destructive">{visit.issues_count} issues</p>
-                  )}
-                </div>
-              </div>
-              <div className="col-span-1">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          coverage >= 95
-                            ? "bg-success"
-                            : coverage >= 80
-                            ? "bg-warning"
-                            : "bg-destructive"
-                        }`}
-                        style={{ width: `${coverage}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-medium text-foreground w-8">
-                      {coverage}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="col-span-2">
-                <SmokeSprayEstimate siteId={visit.site_id} visitType={visit.visit_type} />
-              </div>
-              <div className="col-span-2 flex items-center gap-2 flex-wrap">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate(`/dashboard/sites/${visit.site_id}`)}
-                >
-                  <Eye className="w-4 h-4 mr-1" />
-                  Site
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    navigate(`/dashboard/reconciliation?siteId=${visit.site_id}&visitId=${visit.id}`)
-                  }
-                >
-                  <GitCompare className="w-4 h-4 mr-1" />
-                  Reconcile
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPreviewVisit(visit)}
-                >
-                  <ClipboardCheck className="w-4 h-4 mr-1" />
-                  Report
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setInvoiceVisit(visit)}
-                >
-                  <FileText className="w-4 h-4 mr-1" />
-                  Invoice
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditVisit(visit)}
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => setDeleteVisit(visit)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
+      {/* Recently Invoiced Section */}
+      {invoicedVisits.length > 0 && (
+        <div className="bg-card rounded-xl border border-border">
+          <div className="px-6 py-4 border-b border-border">
+            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />
+              Recently Invoiced
+            </h3>
+            <p className="text-sm text-muted-foreground">Visits that have been invoiced</p>
+          </div>
+          <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 text-sm font-medium text-muted-foreground border-b border-border">
+            <div className="col-span-3">Site</div>
+            <div className="col-span-2">Date / Invoice</div>
+            <div className="col-span-2">Devices</div>
+            <div className="col-span-1">Coverage</div>
+            <div className="col-span-2">Smoke Spray</div>
+            <div className="col-span-2">Actions</div>
+          </div>
+          <div className="divide-y divide-border">
+            {invoicedVisits.slice(0, 5).map((visit) => renderVisitRow(visit, true))}
+          </div>
+          {invoicedVisits.length > 5 && (
+            <div className="px-6 py-3 text-center border-t border-border">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => navigate("/dashboard/invoices")}
+              >
+                View all {invoicedVisits.length} invoiced visits
+              </Button>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
+      )}
 
       {invoiceVisit && (
         <CreateInvoiceDialog
@@ -374,7 +442,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           onEdit={() => {
             setReportVisit(previewVisit);
             setPreviewVisit(null);
-            // For remedial and emergency, go straight to work report
             if (previewVisit.visit_type === "remedial" || previewVisit.visit_type === "emergency") {
               setReportType("work");
             } else {
