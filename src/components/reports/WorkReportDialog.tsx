@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -129,9 +129,22 @@ export function WorkReportDialog({
   const [worksReport, setWorksReport] = useState("");
   const [furtherAction, setFurtherAction] = useState("");
   const [numEngineers, setNumEngineers] = useState<number | "">(1);
+  const [travelTime, setTravelTime] = useState("");
+  
+  // Multi-day work log
+  interface WorkDayEntry {
+    date: string;
+    startTime: string;
+    finishTime: string;
+    duration: string;
+  }
+  const [workDays, setWorkDays] = useState<WorkDayEntry[]>([
+    { date: format(new Date(visit.visit_date), "yyyy-MM-dd"), startTime: "", finishTime: "", duration: "" }
+  ]);
+  
+  // Legacy single-day fields for backwards compatibility
   const [startTime, setStartTime] = useState("");
   const [finishTime, setFinishTime] = useState("");
-  const [travelTime, setTravelTime] = useState("");
   const [duration, setDuration] = useState("");
 
   // Materials
@@ -156,31 +169,63 @@ export function WorkReportDialog({
     }
   }, [open, user, visit.id]);
 
-  // Auto-calculate duration from start and finish times
+  // Calculate duration for a work day entry
+  const calculateDayDuration = (start: string, finish: string): string => {
+    if (!start || !finish) return "";
+    
+    const [startHours, startMinutes] = start.split(":").map(Number);
+    const [finishHours, finishMinutes] = finish.split(":").map(Number);
+    
+    let startTotalMinutes = startHours * 60 + startMinutes;
+    let finishTotalMinutes = finishHours * 60 + finishMinutes;
+    
+    // Handle overnight shifts
+    if (finishTotalMinutes < startTotalMinutes) {
+      finishTotalMinutes += 24 * 60;
+    }
+    
+    const diffMinutes = finishTotalMinutes - startTotalMinutes;
+    return (diffMinutes / 60).toFixed(2);
+  };
+
+  // Update work day entry
+  const updateWorkDay = (index: number, field: keyof WorkDayEntry, value: string) => {
+    const updated = [...workDays];
+    updated[index] = { ...updated[index], [field]: value };
+    
+    // Auto-calculate duration when times change
+    if (field === "startTime" || field === "finishTime") {
+      updated[index].duration = calculateDayDuration(
+        field === "startTime" ? value : updated[index].startTime,
+        field === "finishTime" ? value : updated[index].finishTime
+      );
+    }
+    
+    setWorkDays(updated);
+  };
+
+  // Add new work day
+  const addWorkDay = () => {
+    setWorkDays([...workDays, { date: "", startTime: "", finishTime: "", duration: "" }]);
+  };
+
+  // Remove work day
+  const removeWorkDay = (index: number) => {
+    if (workDays.length > 1) {
+      setWorkDays(workDays.filter((_, i) => i !== index));
+    }
+  };
+
+  // Calculate total hours across all days
+  const totalHours = workDays.reduce((sum, day) => {
+    const hours = parseFloat(day.duration) || 0;
+    return sum + hours;
+  }, 0).toFixed(2);
+
+  // Legacy duration calculation for backwards compatibility
   useEffect(() => {
     if (startTime && finishTime) {
-      const calculateDuration = () => {
-        const [startHours, startMinutes] = startTime.split(":").map(Number);
-        const [finishHours, finishMinutes] = finishTime.split(":").map(Number);
-        
-        let startTotalMinutes = startHours * 60 + startMinutes;
-        let finishTotalMinutes = finishHours * 60 + finishMinutes;
-        
-        // Handle overnight shifts (finish time is earlier than start time)
-        if (finishTotalMinutes < startTotalMinutes) {
-          finishTotalMinutes += 24 * 60; // Add 24 hours
-        }
-        
-        const diffMinutes = finishTotalMinutes - startTotalMinutes;
-        const hours = Math.floor(diffMinutes / 60);
-        const minutes = diffMinutes % 60;
-        
-        // Format as decimal hours (e.g., 2.5 for 2 hours 30 minutes)
-        const decimalHours = (diffMinutes / 60).toFixed(2);
-        setDuration(decimalHours);
-      };
-      
-      calculateDuration();
+      setDuration(calculateDayDuration(startTime, finishTime));
     } else {
       setDuration("");
     }
@@ -274,6 +319,18 @@ export function WorkReportDialog({
         setSystemStatusDeparture(parsedNotes.systemStatusDeparture || "");
         setAttendanceDay(parsedNotes.attendanceDay || "");
         setNumEngineers(parsedNotes.numEngineers || 1);
+        // Load multi-day work log or legacy single-day times
+        if (parsedNotes.workDays && parsedNotes.workDays.length > 0) {
+          setWorkDays(parsedNotes.workDays);
+        } else if (parsedNotes.startTime || parsedNotes.finishTime) {
+          // Convert legacy single-day to workDays array
+          setWorkDays([{
+            date: format(new Date(visit.visit_date), "yyyy-MM-dd"),
+            startTime: parsedNotes.startTime || "",
+            finishTime: parsedNotes.finishTime || "",
+            duration: parsedNotes.duration || ""
+          }]);
+        }
         setStartTime(parsedNotes.startTime || "");
         setFinishTime(parsedNotes.finishTime || "");
         setTravelTime(parsedNotes.travelTime || "");
@@ -315,10 +372,12 @@ export function WorkReportDialog({
         systemStatusDeparture,
         attendanceDay,
         numEngineers,
-        startTime,
-        finishTime,
+        workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
+        totalHours,
+        startTime: workDays[0]?.startTime || startTime,
+        finishTime: workDays[0]?.finishTime || finishTime,
         travelTime,
-        duration,
+        duration: workDays[0]?.duration || duration,
         materials: materials.filter((m) => m.name.trim()),
         engineerSignature,
         customerSignature,
@@ -388,10 +447,12 @@ export function WorkReportDialog({
         systemStatusDeparture,
         attendanceDay,
         numEngineers,
-        startTime,
-        finishTime,
+        workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
+        totalHours,
+        startTime: workDays[0]?.startTime || startTime,
+        finishTime: workDays[0]?.finishTime || finishTime,
         travelTime,
-        duration,
+        duration: workDays[0]?.duration || duration,
         materials: materials.filter((m) => m.name.trim()),
         engineerSignature,
         customerSignature,
@@ -486,10 +547,12 @@ export function WorkReportDialog({
           worksReport,
           furtherAction,
           numEngineers,
-          startTime,
-          finishTime,
+          workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
+          totalHours,
+          startTime: workDays[0]?.startTime || "",
+          finishTime: workDays[0]?.finishTime || "",
           travelTime,
-          duration,
+          duration: workDays[0]?.duration || "",
           materials,
           engineerName,
           engineerSignature,
@@ -785,8 +848,102 @@ export function WorkReportDialog({
               </div>
 
               <div className="border-t pt-4">
-                <h4 className="font-medium mb-3">Time & Attendance</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium">Work Days</h4>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={addWorkDay}
+                    disabled={isLocked}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Day
+                  </Button>
+                </div>
+                
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="text-left text-sm font-medium p-3">Date</th>
+                        <th className="text-left text-sm font-medium p-3 w-28">Start</th>
+                        <th className="text-left text-sm font-medium p-3 w-28">Finish</th>
+                        <th className="text-left text-sm font-medium p-3 w-24">Hours</th>
+                        <th className="text-left text-sm font-medium p-3 w-12"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {workDays.map((day, index) => (
+                        <tr key={index} className="border-t border-border">
+                          <td className="p-2">
+                            <Input
+                              type="date"
+                              value={day.date}
+                              onChange={(e) => updateWorkDay(index, "date", e.target.value)}
+                              disabled={isLocked}
+                              className="border-0 bg-transparent focus-visible:ring-0"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="time"
+                              value={day.startTime}
+                              onChange={(e) => updateWorkDay(index, "startTime", e.target.value)}
+                              disabled={isLocked}
+                              className="border-0 bg-transparent focus-visible:ring-0"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="time"
+                              value={day.finishTime}
+                              onChange={(e) => updateWorkDay(index, "finishTime", e.target.value)}
+                              disabled={isLocked}
+                              className="border-0 bg-transparent focus-visible:ring-0"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm font-medium">{day.duration || "—"}</span>
+                              {day.duration && (
+                                <span className="text-xs text-muted-foreground">
+                                  ({Math.floor(parseFloat(day.duration))}h {Math.round((parseFloat(day.duration) % 1) * 60)}m)
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-2">
+                            {workDays.length > 1 && !isLocked && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => removeWorkDay(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-muted/30">
+                      <tr className="border-t border-border">
+                        <td colSpan={3} className="p-3 text-right font-medium">Total Hours:</td>
+                        <td className="p-3" colSpan={2}>
+                          <div className="flex items-center gap-1">
+                            <span className="text-lg font-bold text-primary">{totalHours}</span>
+                            <span className="text-sm text-muted-foreground">
+                              ({Math.floor(parseFloat(totalHours))}h {Math.round((parseFloat(totalHours) % 1) * 60)}m)
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>No. of Engineers</Label>
                     <Input
@@ -794,22 +951,7 @@ export function WorkReportDialog({
                       min={1}
                       value={numEngineers}
                       onChange={(e) => setNumEngineers(e.target.value ? parseInt(e.target.value) : "")}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Start Time</Label>
-                    <Input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Finish Time</Label>
-                    <Input
-                      type="time"
-                      value={finishTime}
-                      onChange={(e) => setFinishTime(e.target.value)}
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -818,29 +960,8 @@ export function WorkReportDialog({
                       value={travelTime}
                       onChange={(e) => setTravelTime(e.target.value)}
                       placeholder="e.g. 1.5"
+                      disabled={isLocked}
                     />
-                  </div>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Duration (hrs)</Label>
-                    <div className="relative">
-                      <Input
-                        value={duration}
-                        readOnly
-                        placeholder="Auto-calculated"
-                        className="bg-muted/50 cursor-default"
-                      />
-                      {startTime && finishTime && (
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                          {(() => {
-                            const hours = Math.floor(parseFloat(duration) || 0);
-                            const minutes = Math.round(((parseFloat(duration) || 0) - hours) * 60);
-                            return `${hours}h ${minutes}m`;
-                          })()}
-                        </span>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>
