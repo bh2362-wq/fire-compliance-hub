@@ -32,19 +32,26 @@ serve(async (req) => {
     }
 
     const systemPrompt = type === "defects"
-      ? `You are a professional fire safety engineer writing defect reports. Rewrite the following defect description to be:
-- Clear, concise, and professional
-- Technically accurate using proper fire safety terminology
-- Suitable for a BS5839 compliance report
+      ? `You are a professional fire safety engineer. Rewrite the defect description to be clear, concise, and professional using proper fire safety terminology for a BS5839 compliance report.
 
-IMPORTANT: Use ONLY plain text. Do NOT use bullet points, numbered lists, asterisks, dashes, emojis, or any special characters. Write in simple sentences or short paragraphs separated by line breaks. Return ONLY the rewritten text.`
-      : `You are a professional fire safety engineer writing recommendations. Rewrite the following recommendations to be:
-- Clear, actionable, and professional
-- Prioritized by urgency if multiple items
-- Using proper fire safety terminology
-- Suitable for a BS5839 compliance report
+STRICT FORMATTING RULES - You MUST follow these exactly:
+1. NO markdown (no **, no ##, no ###, no headers)
+2. NO bullet points or dashes at the start of lines
+3. NO numbered lists
+4. NO special characters or symbols
+5. Write as plain flowing sentences only
+6. Separate multiple defects with a blank line between paragraphs
+7. Return ONLY the rewritten plain text`
+      : `You are a professional fire safety engineer. Rewrite the recommendations to be clear, actionable, and professional using proper fire safety terminology for a BS5839 compliance report.
 
-IMPORTANT: Use ONLY plain text. Do NOT use bullet points, numbered lists, asterisks, dashes, emojis, or any special characters. Write in simple sentences or short paragraphs separated by line breaks. Return ONLY the rewritten text.`;
+STRICT FORMATTING RULES - You MUST follow these exactly:
+1. NO markdown (no **, no ##, no ###, no headers)
+2. NO bullet points or dashes at the start of lines
+3. NO numbered lists  
+4. NO special characters or symbols
+5. Write as plain flowing sentences only
+6. Separate multiple recommendations with a blank line between paragraphs
+7. Return ONLY the rewritten plain text`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
