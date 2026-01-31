@@ -221,9 +221,10 @@ export function WorkReportDialog({
       let existingReport = await getServiceReport(visit.id);
 
       if (!existingReport) {
+        // Use 'JOB' report type for work reports (job sheets)
         existingReport = await createServiceReport(visit.id, visit.site_id, user.id, {
           engineer_name: user.user_metadata?.full_name || "",
-        });
+        }, 'JOB');
       }
 
       setReport(existingReport);

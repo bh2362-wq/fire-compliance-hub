@@ -110,9 +110,10 @@ export function ServiceReportDialog({
       let existingReport = await getServiceReport(visit.id);
 
       if (!existingReport) {
+        // Use 'CERT' report type for BS5839 service reports (certificates)
         existingReport = await createServiceReport(visit.id, visit.site_id, user.id, {
           engineer_name: user.user_metadata?.full_name || "",
-        });
+        }, 'CERT');
       }
 
       setReport(existingReport);

@@ -99,6 +99,14 @@ export function ASDReportDialog({
         setReportId(existing.id);
         populateForm(existing);
       } else {
+        // Get auto-generated report number for ASD (use CERT type)
+        const { data: numberData, error: numberError } = await supabase
+          .rpc('get_next_report_number', { report_type: 'CERT' });
+        
+        if (numberError) {
+          console.error("Failed to generate report number:", numberError);
+        }
+
         // Create new ASD report
         const { data: newReport, error } = await supabase
           .from("service_reports")
@@ -111,6 +119,7 @@ export function ASDReportDialog({
             panel_manufacturer: asset.manufacturer || "",
             panel_model: asset.model || "",
             panel_location: asset.location || "",
+            report_number: numberData || null,
             notes: JSON.stringify({ report_type: "asd", asset_id: asset.id, asset_name: asset.item_name }),
           })
           .select()

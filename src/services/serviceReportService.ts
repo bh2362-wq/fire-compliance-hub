@@ -468,13 +468,23 @@ export async function createServiceReport(
   visitId: string,
   siteId: string,
   userId: string,
-  initialData?: Partial<Omit<ServiceReport, 'checklist'>> & { checklist?: BS5839Checklist }
+  initialData?: Partial<Omit<ServiceReport, 'checklist'>> & { checklist?: BS5839Checklist },
+  reportType: 'JOB' | 'CERT' = 'CERT'
 ): Promise<ServiceReport> {
+  // Get auto-generated report number from database
+  const { data: numberData, error: numberError } = await supabase
+    .rpc('get_next_report_number', { report_type: reportType });
+  
+  if (numberError) {
+    console.error("Failed to generate report number:", numberError);
+  }
+
   const insertData = {
     visit_id: visitId,
     site_id: siteId,
     created_by: userId,
     checklist: JSON.parse(JSON.stringify(getDefaultChecklist())) as Json,
+    report_number: numberData || null,
     ...(initialData?.engineer_name && { engineer_name: initialData.engineer_name }),
   };
 
