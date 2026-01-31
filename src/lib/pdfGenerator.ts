@@ -30,8 +30,8 @@ const COLORS = {
   borderGrey: [220, 220, 225] as [number, number, number],
   white: [255, 255, 255] as [number, number, number],
   black: [0, 0, 0] as [number, number, number],
-  pass: [34, 139, 34] as [number, number, number],
-  fail: [200, 30, 30] as [number, number, number],
+  yes: [34, 139, 34] as [number, number, number],
+  no: [200, 30, 30] as [number, number, number],
   na: [140, 140, 145] as [number, number, number],
 };
 
@@ -63,11 +63,11 @@ function drawStatusBox(
   let color: [number, number, number];
 
   if (value === true) {
-    color = COLORS.pass;
-    label = "PASS";
+    color = COLORS.yes;
+    label = "YES";
   } else if (value === false) {
-    color = COLORS.fail;
-    label = "FAIL";
+    color = COLORS.no;
+    label = "NO";
   } else {
     color = COLORS.na;
     label = "N/A";
@@ -417,7 +417,7 @@ export function generateServiceReportPDF(
       const x = data.cell.x + data.cell.width / 2 - size / 2;
       const y = data.cell.y + data.cell.height / 2 - size / 2;
 
-      const fill = raw === "__PASS__" ? COLORS.pass : raw === "__FAIL__" ? COLORS.fail : COLORS.na;
+      const fill: [number, number, number] = raw === "__PASS__" ? COLORS.yes : raw === "__FAIL__" ? COLORS.no : COLORS.na;
       doc.setFillColor(...fill);
       doc.rect(x, y, size, size, "F");
 
@@ -435,10 +435,10 @@ export function generateServiceReportPDF(
     ? report.system_condition.replace(/_/g, " ").toUpperCase()
     : "NOT ASSESSED";
 
-  let conditionColor = COLORS.mediumGrey;
-  if (report.system_condition === "satisfactory") conditionColor = COLORS.pass;
+  let conditionColor: [number, number, number] = COLORS.mediumGrey;
+  if (report.system_condition === "satisfactory") conditionColor = COLORS.yes;
   else if (report.system_condition === "requires_attention") conditionColor = [200, 150, 0] as [number, number, number];
-  else if (report.system_condition === "unsatisfactory") conditionColor = COLORS.fail;
+  else if (report.system_condition === "unsatisfactory") conditionColor = COLORS.no;
 
   const nextService = report.next_service_due
     ? new Date(report.next_service_due)
@@ -749,7 +749,7 @@ export function generateWorkReportPDF(
   
   // Completion status badge
   const statusText = data.workCompleted ? "WORKS COMPLETED" : "WORKS IN PROGRESS";
-  const statusColor = data.workCompleted ? COLORS.pass : [200, 150, 0] as [number, number, number];
+  const statusColor: [number, number, number] = data.workCompleted ? COLORS.yes : [200, 150, 0];
   doc.setFillColor(...statusColor);
   doc.rect(pageWidth - margin - 40, yPos + 1.5, 38, 4, "F");
   doc.setTextColor(...COLORS.white);
