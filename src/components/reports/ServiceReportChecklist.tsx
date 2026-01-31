@@ -87,13 +87,13 @@ export function ServiceReportChecklist({
   const getSectionStats = (section: keyof BS5839Checklist) => {
     const sectionData = checklist[section];
     if (!sectionData || typeof sectionData !== 'object') {
-      return { passed: 0, failed: 0, total: 0, pending: 0 };
+      return { yes: 0, no: 0, total: 0, na: 0 };
     }
     const items = Object.values(sectionData as Record<string, CheckValue>);
-    const passed = items.filter((v) => v === true).length;
-    const failed = items.filter((v) => v === false).length;
+    const yes = items.filter((v) => v === true).length;
+    const no = items.filter((v) => v === false).length;
     const total = items.length;
-    return { passed, failed, total, pending: total - passed - failed };
+    return { yes, no, total, na: total - yes - no };
   };
 
   return (
@@ -112,9 +112,9 @@ export function ServiceReportChecklist({
                 {SECTION_LABELS[sectionKey]}
               </h4>
               <div className="flex items-center gap-2 text-xs">
-                <span className="text-success">{stats.passed} Pass</span>
-                <span className="text-destructive">{stats.failed} Fail</span>
-                <span className="text-muted-foreground">{stats.pending} N/A</span>
+                <span className="text-success">{stats.yes} Yes</span>
+                <span className="text-destructive">{stats.no} No</span>
+                <span className="text-muted-foreground">{stats.na} N/A</span>
               </div>
             </div>
             <div className="space-y-2">

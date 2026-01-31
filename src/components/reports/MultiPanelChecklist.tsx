@@ -36,8 +36,8 @@ export function MultiPanelChecklist({
 
   const getPanelStats = (panel: PanelChecklistData) => {
     const checklist = panel.checklist;
-    let passed = 0;
-    let failed = 0;
+    let yes = 0;
+    let no = 0;
     let total = 0;
 
     Object.values(checklist).forEach((section) => {
@@ -45,14 +45,14 @@ export function MultiPanelChecklist({
         Object.values(section).forEach((value) => {
           if (typeof value === "boolean" || value === null) {
             total++;
-            if (value === true) passed++;
-            if (value === false) failed++;
+            if (value === true) yes++;
+            if (value === false) no++;
           }
         });
       }
     });
 
-    return { passed, failed, pending: total - passed - failed };
+    return { yes, no, na: total - yes - no };
   };
 
   if (panels.length === 0) {
@@ -105,11 +105,11 @@ export function MultiPanelChecklist({
                 </span>
               </div>
               <div className="flex items-center gap-1 text-[10px]">
-                <span className="text-success">{stats.passed}</span>
+                <span className="text-success">{stats.yes}</span>
                 <span>/</span>
-                <span className="text-destructive">{stats.failed}</span>
+                <span className="text-destructive">{stats.no}</span>
                 <span>/</span>
-                <span className="text-muted-foreground">{stats.pending}</span>
+                <span className="text-muted-foreground">{stats.na}</span>
               </div>
             </TabsTrigger>
           );
