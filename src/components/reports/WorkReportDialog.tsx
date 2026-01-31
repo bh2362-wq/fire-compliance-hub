@@ -155,6 +155,36 @@ export function WorkReportDialog({
     }
   }, [open, user, visit.id]);
 
+  // Auto-calculate duration from start and finish times
+  useEffect(() => {
+    if (startTime && finishTime) {
+      const calculateDuration = () => {
+        const [startHours, startMinutes] = startTime.split(":").map(Number);
+        const [finishHours, finishMinutes] = finishTime.split(":").map(Number);
+        
+        let startTotalMinutes = startHours * 60 + startMinutes;
+        let finishTotalMinutes = finishHours * 60 + finishMinutes;
+        
+        // Handle overnight shifts (finish time is earlier than start time)
+        if (finishTotalMinutes < startTotalMinutes) {
+          finishTotalMinutes += 24 * 60; // Add 24 hours
+        }
+        
+        const diffMinutes = finishTotalMinutes - startTotalMinutes;
+        const hours = Math.floor(diffMinutes / 60);
+        const minutes = diffMinutes % 60;
+        
+        // Format as decimal hours (e.g., 2.5 for 2 hours 30 minutes)
+        const decimalHours = (diffMinutes / 60).toFixed(2);
+        setDuration(decimalHours);
+      };
+      
+      calculateDuration();
+    } else {
+      setDuration("");
+    }
+  }, [startTime, finishTime]);
+
   const loadReport = async () => {
     if (!user) return;
     setLoading(true);
@@ -765,11 +795,23 @@ export function WorkReportDialog({
                 <div className="mt-3 grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Duration (hrs)</Label>
-                    <Input
-                      value={duration}
-                      onChange={(e) => setDuration(e.target.value)}
-                      placeholder="Total hours on site"
-                    />
+                    <div className="relative">
+                      <Input
+                        value={duration}
+                        readOnly
+                        placeholder="Auto-calculated"
+                        className="bg-muted/50 cursor-default"
+                      />
+                      {startTime && finishTime && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                          {(() => {
+                            const hours = Math.floor(parseFloat(duration) || 0);
+                            const minutes = Math.round(((parseFloat(duration) || 0) - hours) * 60);
+                            return `${hours}h ${minutes}m`;
+                          })()}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
