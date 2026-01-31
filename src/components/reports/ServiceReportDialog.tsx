@@ -36,7 +36,7 @@ import { MultiPanelChecklist, PanelChecklistData, initializePanelChecklists } fr
 import { generateServiceReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AIRewriteButton } from "./AIRewriteButton";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 interface VisitForReport {
   id: string;
