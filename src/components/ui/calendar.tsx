@@ -7,6 +7,20 @@ import { buttonVariants } from "@/components/ui/button";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
+const IconLeftFwd = React.forwardRef<SVGSVGElement, React.ComponentPropsWithoutRef<typeof ChevronLeft>>(
+  ({ className, ...props }, ref) => <ChevronLeft ref={ref} className={cn("h-4 w-4", className)} {...props} />,
+);
+IconLeftFwd.displayName = "CalendarIconLeft";
+
+const IconRightFwd = React.forwardRef<SVGSVGElement, React.ComponentPropsWithoutRef<typeof ChevronRight>>(
+  ({ className, ...props }, ref) => <ChevronRight ref={ref} className={cn("h-4 w-4", className)} {...props} />,
+);
+IconRightFwd.displayName = "CalendarIconRight";
+
+// DayPicker's component typing expects a plain function; cast keeps TS happy while still accepting refs if passed.
+const IconLeft = IconLeftFwd as unknown as (props: any) => JSX.Element;
+const IconRight = IconRightFwd as unknown as (props: any) => JSX.Element;
+
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
   return (
     <DayPicker
@@ -42,8 +56,8 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         ...classNames,
       }}
       components={{
-        IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
+        IconLeft,
+        IconRight,
       }}
       {...props}
     />
