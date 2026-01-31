@@ -160,7 +160,7 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
 
     try {
       if (isWorkReport(report)) {
-        // Parse work report data from notes
+        // Parse work report data from notes - includes signatures
         const parsed = JSON.parse(report.notes || "{}");
         generateWorkReportPDF(
           {
@@ -179,16 +179,36 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
             worksReport: report.work_carried_out || "",
             furtherAction: report.recommendations || "",
             numEngineers: parsed.numEngineers || 1,
+            workDays: parsed.workDays || [],
+            totalHours: parsed.totalHours || "",
             startTime: parsed.startTime || "",
             finishTime: parsed.finishTime || "",
             travelTime: parsed.travelTime || "",
             duration: parsed.duration || "",
             materials: parsed.materials || [],
+            // Engineer signature fields
             engineerName: report.engineer_name || "",
+            engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
+            engineerSignDate: parsed.engineerSignDate || "",
+            engineerSignTime: parsed.engineerSignTime || "",
+            // Customer signature fields
+            customerNotPresent: parsed.customerNotPresent || false,
             customerName: report.client_name || "",
+            customerSignature: report.client_signature || parsed.customerSignature || "",
+            customerSignDate: parsed.customerSignDate || "",
+            customerSignTime: parsed.customerSignTime || "",
+            customerPosition: parsed.customerPosition || "",
+            // System info
+            systemType: parsed.systemType || "",
+            panelManufacturer: parsed.panelManufacturer || "",
+            panelModel: parsed.panelModel || "",
+            panelLocation: parsed.panelLocation || "",
+            zonesCount: parsed.zonesCount,
+            devicesCount: parsed.devicesCount,
           },
           siteInfo,
-          visit.visit_date
+          visit.visit_date,
+          visit.visit_type
         );
       } else {
         // BS5839 report
