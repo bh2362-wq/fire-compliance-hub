@@ -88,6 +88,31 @@ interface ReportData {
   client_signature: string | null;
 }
 
+// Parse notes JSON which contains work report data from WorkReportDialog
+interface ParsedNotes {
+  workCompleted?: boolean;
+  startTime?: string;
+  finishTime?: string;
+  duration?: string;
+  jobType?: string;
+  engineerSignature?: string;
+  customerSignature?: string;
+  customerNotPresent?: boolean;
+  engineerSignDate?: string;
+  engineerSignTime?: string;
+  customerSignDate?: string;
+  customerSignTime?: string;
+}
+
+function parseReportNotes(notes: string | null): ParsedNotes {
+  if (!notes) return {};
+  try {
+    return JSON.parse(notes) as ParsedNotes;
+  } catch {
+    return {};
+  }
+}
+
 interface InvoiceData {
   xero_invoice_number: string | null;
   status: string | null;
@@ -369,145 +394,165 @@ export function ReportPreviewDialog({
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Visit Info */}
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Date:</span>
-                  <span className="font-medium">
-                    {format(new Date(report.report_date), "dd MMM yyyy")}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Site:</span>
-                  <span className="font-medium">{siteName}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Engineer:</span>
-                  <span className="font-medium">{report.engineer_name || "N/A"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Wrench className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Job Type:</span>
-                  <span className="font-medium capitalize">
-                    {((report.checklist as Record<string, unknown>)?.jobType as string) || "Service"}
-                  </span>
-                </div>
-              </div>
+              {/* Parse notes for work report data */}
+              {(() => {
+                const parsedNotes = parseReportNotes(report.notes);
+                const checklist = report.checklist as Record<string, unknown>;
+                
+                // Get data from either notes (WorkReportDialog) or checklist (ServiceReportDialog)
+                const workCompleted = parsedNotes.workCompleted ?? checklist?.workCompleted;
+                const startTime = parsedNotes.startTime ?? checklist?.arrivalTime;
+                const finishTime = parsedNotes.finishTime ?? checklist?.departureTime;
+                const duration = parsedNotes.duration;
+                const jobType = parsedNotes.jobType ?? checklist?.jobType;
+                const engSignature = parsedNotes.engineerSignature ?? report.engineer_signature;
+                const custSignature = parsedNotes.customerSignature ?? report.client_signature;
+                const customerNotPresent = parsedNotes.customerNotPresent ?? checklist?.customerNotPresent;
 
-              {/* Status Summary */}
-              <div className="flex items-center gap-3 p-4 rounded-lg border">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  (report.checklist as Record<string, unknown>)?.workCompleted
-                    ? "bg-success/10"
-                    : "bg-amber-100"
-                }`}>
-                  {(report.checklist as Record<string, unknown>)?.workCompleted ? (
-                    <CheckCircle2 className="w-5 h-5 text-success" />
-                  ) : (
-                    <Clock className="w-5 h-5 text-amber-600" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-medium">
-                    {(report.checklist as Record<string, unknown>)?.workCompleted
-                      ? "Works Completed"
-                      : "Works In Progress"}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {(report.checklist as Record<string, unknown>)?.arrivalTime && (report.checklist as Record<string, unknown>)?.departureTime
-                      ? `${(report.checklist as Record<string, unknown>)?.arrivalTime} - ${(report.checklist as Record<string, unknown>)?.departureTime}`
-                      : "Time not recorded"}
-                  </p>
-                </div>
-              </div>
+                return (
+                  <>
+                    {/* Visit Info */}
+                    <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Date:</span>
+                        <span className="font-medium">
+                          {format(new Date(report.report_date), "dd MMM yyyy")}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Site:</span>
+                        <span className="font-medium">{siteName}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Engineer:</span>
+                        <span className="font-medium">{report.engineer_name || "N/A"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Wrench className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Job Type:</span>
+                        <span className="font-medium capitalize">
+                          {(jobType as string) || "Service"}
+                        </span>
+                      </div>
+                    </div>
 
-              <Separator />
+                    {/* Status Summary */}
+                    <div className="flex items-center gap-3 p-4 rounded-lg border">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        workCompleted
+                          ? "bg-success/10"
+                          : "bg-amber-100"
+                      }`}>
+                        {workCompleted ? (
+                          <CheckCircle2 className="w-5 h-5 text-success" />
+                        ) : (
+                          <Clock className="w-5 h-5 text-amber-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">
+                          {workCompleted
+                            ? "Works Completed"
+                            : "Works In Progress"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {startTime && finishTime
+                            ? `${startTime} - ${finishTime}${duration ? ` (${duration} hrs)` : ""}`
+                            : "Time not recorded"}
+                        </p>
+                      </div>
+                    </div>
 
-              {/* Work Details */}
-              <div className="space-y-4">
-                <h4 className="font-medium">Work Carried Out</h4>
-                <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg whitespace-pre-wrap">
-                  {report.work_carried_out || "No details recorded"}
-                </p>
-              </div>
+                    <Separator />
 
-              {report.parts_used && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Parts Used</h4>
-                  <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg whitespace-pre-wrap">
-                    {report.parts_used}
-                  </p>
-                </div>
-              )}
-
-              {report.defects_found && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Defects Found</h4>
-                  <p className="text-sm text-muted-foreground bg-amber-50 border-amber-200 border p-3 rounded-lg whitespace-pre-wrap">
-                    {report.defects_found}
-                  </p>
-                </div>
-              )}
-
-              {report.recommendations && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Recommendations</h4>
-                  <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg whitespace-pre-wrap">
-                    {report.recommendations}
-                  </p>
-                </div>
-              )}
-
-              <Separator />
-
-              {/* Signatures */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Engineer Signature</h4>
-                  {report.engineer_signature ? (
-                    <div className="border rounded-lg p-2 bg-white">
-                      <img
-                        src={report.engineer_signature}
-                        alt="Engineer signature"
-                        className="max-h-16 mx-auto"
-                      />
-                      <p className="text-center text-xs text-muted-foreground mt-1">
-                        {report.engineer_name}
+                    {/* Work Details */}
+                    <div className="space-y-4">
+                      <h4 className="font-medium">Work Carried Out</h4>
+                      <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg whitespace-pre-wrap">
+                        {report.work_carried_out || "No details recorded"}
                       </p>
                     </div>
-                  ) : (
-                    <div className="border rounded-lg p-4 bg-muted/30 text-center text-sm text-muted-foreground">
-                      Not signed
+
+                    {report.parts_used && (
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Parts Used</h4>
+                        <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg whitespace-pre-wrap">
+                          {report.parts_used}
+                        </p>
+                      </div>
+                    )}
+
+                    {report.defects_found && (
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Defects Found</h4>
+                        <p className="text-sm text-muted-foreground bg-amber-50 border-amber-200 border p-3 rounded-lg whitespace-pre-wrap">
+                          {report.defects_found}
+                        </p>
+                      </div>
+                    )}
+
+                    {report.recommendations && (
+                      <div className="space-y-2">
+                        <h4 className="font-medium">Recommendations</h4>
+                        <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg whitespace-pre-wrap">
+                          {report.recommendations}
+                        </p>
+                      </div>
+                    )}
+
+                    <Separator />
+
+                    {/* Signatures */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Engineer Signature</h4>
+                        {engSignature ? (
+                          <div className="border rounded-lg p-2 bg-white">
+                            <img
+                              src={engSignature as string}
+                              alt="Engineer signature"
+                              className="max-h-16 mx-auto"
+                            />
+                            <p className="text-center text-xs text-muted-foreground mt-1">
+                              {report.engineer_name}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="border rounded-lg p-4 bg-muted/30 text-center text-sm text-muted-foreground">
+                            Not signed
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Customer Signature</h4>
+                        {custSignature ? (
+                          <div className="border rounded-lg p-2 bg-white">
+                            <img
+                              src={custSignature as string}
+                              alt="Customer signature"
+                              className="max-h-16 mx-auto"
+                            />
+                            <p className="text-center text-xs text-muted-foreground mt-1">
+                              {report.client_name}
+                            </p>
+                          </div>
+                        ) : customerNotPresent ? (
+                          <div className="border border-amber-200 rounded-lg p-4 bg-amber-50 text-center text-sm text-amber-700">
+                            Customer not present
+                          </div>
+                        ) : (
+                          <div className="border rounded-lg p-4 bg-muted/30 text-center text-sm text-muted-foreground">
+                            Not signed
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Customer Signature</h4>
-                  {report.client_signature ? (
-                    <div className="border rounded-lg p-2 bg-white">
-                      <img
-                        src={report.client_signature}
-                        alt="Customer signature"
-                        className="max-h-16 mx-auto"
-                      />
-                      <p className="text-center text-xs text-muted-foreground mt-1">
-                        {report.client_name}
-                      </p>
-                    </div>
-                  ) : (report.checklist as Record<string, unknown>)?.customerNotPresent ? (
-                    <div className="border border-amber-200 rounded-lg p-4 bg-amber-50 text-center text-sm text-amber-700">
-                      Customer not present
-                    </div>
-                  ) : (
-                    <div className="border rounded-lg p-4 bg-muted/30 text-center text-sm text-muted-foreground">
-                      Not signed
-                    </div>
-                  )}
-                </div>
-              </div>
+                  </>
+                );
+              })()}
             </div>
           )}
         </ScrollArea>
