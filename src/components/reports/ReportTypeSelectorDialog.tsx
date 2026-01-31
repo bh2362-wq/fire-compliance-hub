@@ -169,14 +169,11 @@ export function ReportTypeSelectorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Select Report Type
-          </DialogTitle>
+          <DialogTitle>Select Report Type</DialogTitle>
           <DialogDescription>
-            Choose which service report to create for this visit
+            Choose the type of service report to create for this visit.
           </DialogDescription>
         </DialogHeader>
 
@@ -185,73 +182,85 @@ export function ReportTypeSelectorDialog({
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Fire Alarm Report */}
-            <Button
-              variant="outline"
-              className="w-full h-auto p-4 flex items-start justify-between"
+          <div className="space-y-3 pt-2">
+            {/* Work Report Option */}
+            <button
+              type="button"
+              className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
               onClick={handleFireReportClick}
             >
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center flex-shrink-0">
-                  <Flame className="w-5 h-5 text-destructive" />
+              <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-orange-500/20 transition-colors">
+                <FileText className="w-6 h-6 text-orange-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-foreground">Work Report</div>
+                <div className="text-sm text-muted-foreground mt-0.5">
+                  General job sheet for all service types
                 </div>
-                <div className="text-left">
-                  <div className="font-medium">Fire Alarm Report</div>
-                  <div className="text-sm text-muted-foreground">
-                    BS5839:2025 compliant service report
-                  </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </button>
+
+            {/* Fire Alarm Report Option */}
+            <button
+              type="button"
+              className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
+              onClick={handleFireReportClick}
+            >
+              <div className="w-12 h-12 rounded-lg bg-destructive/10 flex items-center justify-center flex-shrink-0 group-hover:bg-destructive/20 transition-colors">
+                <Flame className="w-6 h-6 text-destructive" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-foreground flex items-center gap-2">
+                  BS5839 Fire Alarm Report
                   {fireAssets.length > 1 && (
-                    <Badge variant="secondary" className="mt-1">
-                      <Server className="w-3 h-3 mr-1" />
+                    <Badge variant="secondary" className="text-xs">
                       {fireAssets.length} panels
                     </Badge>
                   )}
                 </div>
+                <div className="text-sm text-muted-foreground mt-0.5">
+                  BS5839:2025 compliance checklist & condition assessment
+                </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
-            </Button>
+              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </button>
 
             {/* ASD Reports */}
             {asdAssets.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground px-1">
-                  Aspirating Smoke Detection (ASD)
-                </h4>
+              <>
+                <div className="pt-2 pb-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Aspirating Smoke Detection
+                  </span>
+                </div>
                 {asdAssets.map((asset) => (
-                  <Button
+                  <button
                     key={asset.id}
-                    variant="outline"
-                    className="w-full h-auto p-4 flex items-start justify-between"
+                    type="button"
+                    className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
                     onClick={() => handleAsdClick(asset)}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Wind className="w-5 h-5 text-primary" />
-                      </div>
-                      <div className="text-left">
-                        <div className="font-medium">{asset.item_name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {asset.manufacturer && `${asset.manufacturer} `}
-                          {asset.model && `${asset.model}`}
-                          {asset.location && ` • ${asset.location}`}
-                        </div>
+                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                      <Wind className="w-6 h-6 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-foreground">{asset.item_name}</div>
+                      <div className="text-sm text-muted-foreground mt-0.5 truncate">
+                        {[asset.manufacturer, asset.model, asset.location].filter(Boolean).join(" • ") || "ASD Unit"}
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                  </Button>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  </button>
                 ))}
-              </div>
+              </>
             )}
 
-            {/* No ASD assets message */}
+            {/* No ASD message - subtle */}
             {asdAssets.length === 0 && (
-              <div className="text-sm text-muted-foreground text-center py-4 border-t">
-                <Wind className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                No ASD units found in service contracts.
-                <br />
-                Add Aspirator contracts with assets to enable ASD reports.
-              </div>
+              <p className="text-xs text-muted-foreground text-center pt-2">
+                No ASD units on this site's contract.
+              </p>
             )}
           </div>
         )}
