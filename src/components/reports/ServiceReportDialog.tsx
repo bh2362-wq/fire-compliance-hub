@@ -134,6 +134,14 @@ export function ServiceReportDialog({
         existingReport = await createServiceReport(visit.id, visit.site_id, user.id, {
           engineer_name: user.user_metadata?.full_name || "",
         }, 'CERT');
+      } else if (!existingReport.report_number) {
+        // Generate report number for legacy reports that don't have one
+        const { data: numberData } = await supabase
+          .rpc('get_next_report_number', { report_type: 'CERT' });
+        if (numberData) {
+          await updateServiceReport(existingReport.id, { report_number: numberData });
+          existingReport.report_number = numberData;
+        }
       }
 
       setReport(existingReport);
