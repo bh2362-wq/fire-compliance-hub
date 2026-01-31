@@ -609,6 +609,13 @@ export function generateServiceReportPDF(
 
 // ===================== WORK REPORT / JOB SHEET PDF =====================
 // Clean corporate style matching the Service Report format
+export interface WorkDayEntry {
+  date: string;
+  startTime: string;
+  finishTime: string;
+  duration: string;
+}
+
 export interface WorkReportData {
   certificateNo: string;
   jobNumber: string;
@@ -625,6 +632,8 @@ export interface WorkReportData {
   worksReport: string;
   furtherAction: string;
   numEngineers: number | "";
+  workDays?: WorkDayEntry[];
+  totalHours?: string;
   startTime: string;
   finishTime: string;
   travelTime: string;
@@ -857,39 +866,102 @@ export function generateWorkReportPDF(
   
   yPos += 10;
   
-  // Time summary row
-  doc.setFillColor(...COLORS.lightGrey);
-  doc.rect(margin, yPos, contentWidth, 12, "F");
-  doc.setDrawColor(...COLORS.borderGrey);
-  doc.rect(margin, yPos, contentWidth, 12);
+  // Work Days Table or Single Day Row
+  const workDaysData = data.workDays && data.workDays.length > 0 ? data.workDays : [{
+    date: visitDate,
+    startTime: data.startTime,
+    finishTime: data.finishTime,
+    duration: data.duration
+  }];
   
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...COLORS.charcoal);
-  
-  const timeY = yPos + 7.5;
-  const colW = contentWidth / 4;
-  
-  doc.text("Date:", margin + 3, timeY);
-  doc.setFont("helvetica", "normal");
-  doc.text(format(new Date(visitDate), "dd/MM/yyyy"), margin + 16, timeY);
-  
-  doc.setFont("helvetica", "bold");
-  doc.text("Arrival:", margin + colW + 3, timeY);
-  doc.setFont("helvetica", "normal");
-  doc.text(data.startTime || "—", margin + colW + 20, timeY);
-  
-  doc.setFont("helvetica", "bold");
-  doc.text("Departure:", margin + colW * 2 + 3, timeY);
-  doc.setFont("helvetica", "normal");
-  doc.text(data.finishTime || "—", margin + colW * 2 + 28, timeY);
-  
-  doc.setFont("helvetica", "bold");
-  doc.text("Duration:", margin + colW * 3 + 3, timeY);
-  doc.setFont("helvetica", "normal");
-  doc.text(data.duration ? `${data.duration} hrs` : "—", margin + colW * 3 + 24, timeY);
-  
-  yPos += 14;
+  if (workDaysData.length > 1) {
+    // Multi-day table
+    const tableData = workDaysData.map(day => [
+      day.date ? format(new Date(day.date), "dd/MM/yyyy") : "—",
+      day.startTime || "—",
+      day.finishTime || "—",
+      day.duration ? `${day.duration}` : "—"
+    ]);
+    
+    // Add total row
+    tableData.push([
+      "TOTAL",
+      "",
+      "",
+      data.totalHours ? `${data.totalHours} hrs` : "—"
+    ]);
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Date", "Start", "Finish", "Hours"]],
+      body: tableData,
+      margin: { left: margin, right: margin },
+      theme: "plain",
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+        lineColor: COLORS.borderGrey,
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        fillColor: COLORS.lightGrey,
+        textColor: COLORS.charcoal,
+        fontStyle: "bold",
+      },
+      bodyStyles: {
+        textColor: COLORS.charcoal,
+      },
+      columnStyles: {
+        0: { cellWidth: 40 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 30, fontStyle: "bold" },
+      },
+      didParseCell: function(hookData) {
+        // Style the total row
+        if (hookData.row.index === tableData.length - 1 && hookData.section === 'body') {
+          hookData.cell.styles.fillColor = COLORS.lightGrey;
+          hookData.cell.styles.fontStyle = 'bold';
+        }
+      }
+    });
+    
+    yPos = (doc as any).lastAutoTable.finalY + 4;
+  } else {
+    // Single day row (legacy behavior)
+    doc.setFillColor(...COLORS.lightGrey);
+    doc.rect(margin, yPos, contentWidth, 12, "F");
+    doc.setDrawColor(...COLORS.borderGrey);
+    doc.rect(margin, yPos, contentWidth, 12);
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COLORS.charcoal);
+    
+    const timeY = yPos + 7.5;
+    const colW = contentWidth / 4;
+    
+    doc.text("Date:", margin + 3, timeY);
+    doc.setFont("helvetica", "normal");
+    doc.text(format(new Date(visitDate), "dd/MM/yyyy"), margin + 16, timeY);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Arrival:", margin + colW + 3, timeY);
+    doc.setFont("helvetica", "normal");
+    doc.text(data.startTime || "—", margin + colW + 20, timeY);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Departure:", margin + colW * 2 + 3, timeY);
+    doc.setFont("helvetica", "normal");
+    doc.text(data.finishTime || "—", margin + colW * 2 + 28, timeY);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Duration:", margin + colW * 3 + 3, timeY);
+    doc.setFont("helvetica", "normal");
+    doc.text(data.duration ? `${data.duration} hrs` : "—", margin + colW * 3 + 24, timeY);
+    
+    yPos += 14;
+  }
   
   const sigWidth = (contentWidth - 10) / 2;
   const sigBoxHeight = 26;
