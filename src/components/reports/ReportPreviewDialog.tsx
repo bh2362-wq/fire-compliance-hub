@@ -22,6 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Lock,
   Unlock,
@@ -106,8 +108,10 @@ export function ReportPreviewDialog({
   const [downloading, setDownloading] = useState(false);
   const [showUnlockConfirm, setShowUnlockConfirm] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [unlockReason, setUnlockReason] = useState("");
 
   const isLocked = report?.status === "completed";
+  const canUnlock = unlockReason.trim().length >= 10;
 
   useEffect(() => {
     if (open && visit?.id) {
@@ -216,7 +220,7 @@ export function ReportPreviewDialog({
   };
 
   const handleUnlockReport = async () => {
-    if (!report) return;
+    if (!report || !canUnlock) return;
     setUnlocking(true);
     try {
       // Get current user
@@ -230,7 +234,7 @@ export function ReportPreviewDialog({
 
       if (error) throw error;
 
-      // Log the unlock action
+      // Log the unlock action with reason
       await supabase.from("audit_logs").insert({
         user_id: user.id,
         action: "report_unlocked",
@@ -240,6 +244,7 @@ export function ReportPreviewDialog({
           report_number: report.report_number,
           visit_id: visit.id,
           site_name: siteDetails?.name,
+          reason: unlockReason.trim(),
         },
       });
 
@@ -251,6 +256,7 @@ export function ReportPreviewDialog({
       // Reload report to get updated status
       await loadReport();
       setShowUnlockConfirm(false);
+      setUnlockReason("");
     } catch (error) {
       console.error("Failed to unlock report:", error);
       toast({
@@ -261,6 +267,13 @@ export function ReportPreviewDialog({
     } finally {
       setUnlocking(false);
     }
+  };
+
+  const handleCloseUnlockDialog = (open: boolean) => {
+    if (!open) {
+      setUnlockReason("");
+    }
+    setShowUnlockConfirm(open);
   };
 
   const getVisitTypeLabel = (type: string) => {
@@ -544,28 +557,51 @@ export function ReportPreviewDialog({
       </DialogContent>
 
       {/* Unlock Confirmation Dialog */}
-      <AlertDialog open={showUnlockConfirm} onOpenChange={setShowUnlockConfirm}>
+      <AlertDialog open={showUnlockConfirm} onOpenChange={handleCloseUnlockDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Unlock className="w-5 h-5 text-amber-600" />
               Unlock Report for Editing
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>
-                Are you sure you want to unlock this completed report? This will allow modifications to be made.
-              </p>
-              <p className="text-amber-600 font-medium">
-                Note: You will need to complete the report again after making changes.
-              </p>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  Are you sure you want to unlock this completed report? This will allow modifications to be made.
+                </p>
+                <p className="text-amber-600 font-medium">
+                  Note: You will need to complete the report again after making changes.
+                </p>
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="unlock-reason" className="text-foreground font-medium">
+                    Reason for unlocking <span className="text-destructive">*</span>
+                  </Label>
+                  <Textarea
+                    id="unlock-reason"
+                    placeholder="Please provide a reason for unlocking this report (minimum 10 characters)..."
+                    value={unlockReason}
+                    onChange={(e) => setUnlockReason(e.target.value)}
+                    className="min-h-[80px] text-foreground"
+                    maxLength={500}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {unlockReason.length}/500 characters 
+                    {unlockReason.length > 0 && unlockReason.length < 10 && (
+                      <span className="text-destructive ml-2">
+                        (minimum 10 characters required)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={unlocking}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleUnlockReport}
-              disabled={unlocking}
-              className="bg-amber-600 hover:bg-amber-700"
+              disabled={unlocking || !canUnlock}
+              className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50"
             >
               {unlocking ? (
                 <>
