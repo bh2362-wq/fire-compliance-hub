@@ -39,7 +39,6 @@ const visitFormSchema = z.object({
   visit_date: z.string().min(1, "Visit date is required"),
   asset_type: z.string().min(1, "Asset type is required"),
   visit_type: z.string().min(1, "Visit type is required"),
-  asset_id: z.string().optional(),
   notes: z.string().max(1000).optional(),
 });
 
@@ -102,7 +101,6 @@ const VisitFormDialog = ({
       visit_date: format(new Date(), "yyyy-MM-dd"),
       asset_type: "",
       visit_type: "",
-      asset_id: "",
       notes: "",
     },
   });
@@ -168,21 +166,29 @@ const VisitFormDialog = ({
   const fireAssets = siteAssets.filter(a => a.asset_type === "fire_panel");
   const asdAssets = siteAssets.filter(a => a.asset_type === "asd");
 
-  // Determine if we need to show asset selector based on asset type
+  // Fire panel visits cover ALL panels - report will have separate checklists per panel
+  // ASD visits also cover ALL units at the site - same approach
   const isAsdVisit = selectedAssetType === "asd";
-  const relevantAssets = isAsdVisit ? asdAssets : fireAssets;
-  const showAssetSelector = relevantAssets.length > 1;
 
-  // Clear asset_id when asset_type changes
+  // Clear visit_type when asset_type changes
   useEffect(() => {
-    form.setValue("asset_id", "");
     form.setValue("visit_type", "");
   }, [selectedAssetType, form]);
 
   // Get available asset types based on site assets
   const availableAssetTypes = [
-    ...(fireAssets.length > 0 ? [{ value: "fire_panel", label: "Fire Alarm", icon: Flame, count: fireAssets.length }] : []),
-    ...(asdAssets.length > 0 ? [{ value: "asd", label: "ASD (Aspirating Smoke Detection)", icon: Wind, count: asdAssets.length }] : []),
+    ...(fireAssets.length > 0 ? [{ 
+      value: "fire_panel", 
+      label: `Fire Alarm${fireAssets.length > 1 ? ` (${fireAssets.length} panels)` : ""}`, 
+      icon: Flame, 
+      count: fireAssets.length 
+    }] : []),
+    ...(asdAssets.length > 0 ? [{ 
+      value: "asd", 
+      label: `ASD${asdAssets.length > 1 ? ` (${asdAssets.length} units)` : ""}`, 
+      icon: Wind, 
+      count: asdAssets.length 
+    }] : []),
     { value: "general", label: "General / Other", icon: Wrench, count: 0 },
   ];
 
@@ -198,24 +204,11 @@ const VisitFormDialog = ({
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Build notes JSON with asset info
+      // Build notes JSON with asset type info
+      // The report will look up all assets of this type for the site
       const notesData: Record<string, unknown> = {
-        asset_type: data.asset_type, // Store whether this is fire_panel, asd, or general
+        asset_type: data.asset_type, // fire_panel, asd, or general
       };
-      
-      if (data.asset_id) {
-        const selectedAsset = siteAssets.find(a => a.id === data.asset_id);
-        notesData.asset_id = data.asset_id;
-        notesData.asset_name = selectedAsset?.item_name;
-      } else if (isAsdVisit && asdAssets.length === 1) {
-        // Auto-select single ASD
-        notesData.asset_id = asdAssets[0].id;
-        notesData.asset_name = asdAssets[0].item_name;
-      } else if (selectedAssetType === "fire_panel" && fireAssets.length === 1) {
-        // Auto-select single fire panel
-        notesData.asset_id = fireAssets[0].id;
-        notesData.asset_name = fireAssets[0].item_name;
-      }
 
       if (data.notes) {
         notesData.user_notes = data.notes;
@@ -248,7 +241,6 @@ const VisitFormDialog = ({
         visit_date: format(new Date(), "yyyy-MM-dd"),
         asset_type: "",
         visit_type: "",
-        asset_id: "",
         notes: "",
       });
       setOpen(false);
@@ -419,46 +411,39 @@ const VisitFormDialog = ({
               />
             )}
 
-            {/* Asset Selector - show if multiple assets of selected type */}
-            {showAssetSelector && selectedAssetType !== "general" && (
-              <FormField
-                control={form.control}
-                name="asset_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      Select {isAsdVisit ? "ASD Unit" : "Fire Panel"}
-                    </FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={`Select ${isAsdVisit ? "ASD unit" : "fire panel"}`} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {relevantAssets.map((asset) => (
-                          <SelectItem key={asset.id} value={asset.id}>
-                            <div className="flex items-center gap-2">
-                              {isAsdVisit ? (
-                                <Wind className="w-4 h-4 text-primary" />
-                              ) : (
-                                <Flame className="w-4 h-4 text-primary" />
-                              )}
-                              <span>{asset.item_name}</span>
-                              {asset.location && (
-                                <Badge variant="outline" className="text-xs">
-                                  {asset.location}
-                                </Badge>
-                              )}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Asset info summary - show what will be included */}
+            {selectedAssetType === "fire_panel" && fireAssets.length > 0 && (
+              <div className="bg-muted/50 border rounded-lg p-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                  <Flame className="w-4 h-4" />
+                  <span className="font-medium">Panels included in this visit:</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {fireAssets.map((asset) => (
+                    <Badge key={asset.id} variant="secondary" className="text-xs">
+                      {asset.item_name}
+                      {asset.location && ` (${asset.location})`}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedAssetType === "asd" && asdAssets.length > 0 && (
+              <div className="bg-muted/50 border rounded-lg p-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                  <Wind className="w-4 h-4" />
+                  <span className="font-medium">ASD units included in this visit:</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {asdAssets.map((asset) => (
+                    <Badge key={asset.id} variant="secondary" className="text-xs">
+                      {asset.item_name}
+                      {asset.location && ` (${asset.location})`}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Asset info display */}
