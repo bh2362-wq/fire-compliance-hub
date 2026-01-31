@@ -219,12 +219,29 @@ export function ReportPreviewDialog({
     if (!report) return;
     setUnlocking(true);
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       const { error } = await supabase
         .from("service_reports")
         .update({ status: "draft" })
         .eq("id", report.id);
 
       if (error) throw error;
+
+      // Log the unlock action
+      await supabase.from("audit_logs").insert({
+        user_id: user.id,
+        action: "report_unlocked",
+        entity_type: "service_report",
+        entity_id: report.id,
+        details: {
+          report_number: report.report_number,
+          visit_id: visit.id,
+          site_name: siteDetails?.name,
+        },
+      });
 
       toast({
         title: "Report unlocked",
