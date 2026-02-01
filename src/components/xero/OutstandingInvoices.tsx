@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,19 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -68,6 +80,12 @@ interface InvoiceSummary {
   overdueCount: number;
 }
 
+interface InvoiceFilters {
+  customer: string;
+  status: string;
+  search: string;
+}
+
 export function OutstandingInvoices() {
   const [loading, setLoading] = useState(false);
   const [invoices, setInvoices] = useState<XeroInvoice[]>([]);
@@ -80,6 +98,12 @@ export function OutstandingInvoices() {
   const [isPaying, setIsPaying] = useState(false);
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState<InvoiceFilters>({
+    customer: "",
+    status: "",
+    search: "",
+  });
   const { toast } = useToast();
 
   const fetchOutstandingInvoices = async () => {
@@ -185,6 +209,83 @@ export function OutstandingInvoices() {
   useEffect(() => {
     fetchOutstandingInvoices();
   }, []);
+
+  // Get unique customers for filter dropdown
+  const uniqueCustomers = useMemo(() => {
+    const customers = new Set(invoices.map(inv => inv.contactName));
+    return Array.from(customers).sort();
+  }, [invoices]);
+
+  // Filter invoices based on current filters
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((invoice) => {
+      const matchesSearch = !filters.search || 
+        invoice.invoiceNumber.toLowerCase().includes(filters.search.toLowerCase()) ||
+        invoice.contactName.toLowerCase().includes(filters.search.toLowerCase()) ||
+        invoice.reference?.toLowerCase().includes(filters.search.toLowerCase());
+      
+      const matchesCustomer = !filters.customer || invoice.contactName === filters.customer;
+      
+      const matchesStatus = !filters.status || 
+        (filters.status === "overdue" && invoice.isOverdue) ||
+        (filters.status === "current" && !invoice.isOverdue) ||
+        invoice.status === filters.status;
+
+      return matchesSearch && matchesCustomer && matchesStatus;
+    });
+  }, [invoices, filters]);
+
+  const activeFilterCount = [filters.customer, filters.status, filters.search].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setFilters({ customer: "", status: "", search: "" });
+  };
+
+  const handleExport = () => {
+    if (filteredInvoices.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "Apply filters to select invoices to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = ["Invoice #", "Customer", "Reference", "Date", "Due Date", "Total", "Amount Due", "Amount Paid", "Status"];
+    const rows = filteredInvoices.map((inv) => [
+      inv.invoiceNumber,
+      inv.contactName,
+      inv.reference || "",
+      formatDate(inv.date),
+      formatDate(inv.dueDate),
+      inv.total.toFixed(2),
+      inv.amountDue.toFixed(2),
+      inv.amountPaid.toFixed(2),
+      inv.isOverdue ? "Overdue" : inv.status,
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `invoices-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: `Exported ${filteredInvoices.length} invoices to CSV`,
+    });
+  };
 
   const formatCurrency = (amount: number, currency = "GBP") => {
     return new Intl.NumberFormat("en-GB", {
@@ -303,19 +404,105 @@ export function OutstandingInvoices() {
             </div>
           ) : (
             <Tabs defaultValue="invoices">
-              <TabsList>
-                <TabsTrigger value="invoices" className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Invoices ({invoices.length})
-                </TabsTrigger>
-                <TabsTrigger value="customers" className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Customer Balances ({contactBalances.length})
-                </TabsTrigger>
-              </TabsList>
+              <div className="flex items-center justify-between mb-4">
+                <TabsList>
+                  <TabsTrigger value="invoices" className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Invoices ({filteredInvoices.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="customers" className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Customer Balances ({contactBalances.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                <div className="flex items-center gap-2">
+                  <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Filter className="h-4 w-4" />
+                        Filters
+                        {activeFilterCount > 0 && (
+                          <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">
+                            {activeFilterCount}
+                          </Badge>
+                        )}
+                        <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </Collapsible>
+                  <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                </div>
+              </div>
+
+              {/* Filter Panel */}
+              <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <CollapsibleContent>
+                  <div className="p-4 mb-4 border rounded-lg bg-muted/30 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Search</Label>
+                        <Input
+                          placeholder="Invoice #, customer, reference..."
+                          value={filters.search}
+                          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Customer</Label>
+                        <Select
+                          value={filters.customer}
+                          onValueChange={(value) => setFilters({ ...filters, customer: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="All customers" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">All customers</SelectItem>
+                            {uniqueCustomers.map((customer) => (
+                              <SelectItem key={customer} value={customer}>
+                                {customer}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Status</Label>
+                        <Select
+                          value={filters.status}
+                          onValueChange={(value) => setFilters({ ...filters, status: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="All statuses" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">All statuses</SelectItem>
+                            <SelectItem value="overdue">Overdue</SelectItem>
+                            <SelectItem value="current">Current</SelectItem>
+                            <SelectItem value="AUTHORISED">Authorised</SelectItem>
+                            <SelectItem value="DRAFT">Draft</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    {activeFilterCount > 0 && (
+                      <div className="flex justify-end">
+                        <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-2">
+                          <X className="h-4 w-4" />
+                          Clear filters
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
               <TabsContent value="invoices" className="mt-4">
-                {invoices.length === 0 ? (
+                {filteredInvoices.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>No outstanding invoices found</p>
@@ -336,7 +523,7 @@ export function OutstandingInvoices() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {invoices.map((invoice) => (
+                        {filteredInvoices.map((invoice) => (
                           <TableRow key={invoice.invoiceId}>
                             <TableCell className="font-medium">
                               {invoice.invoiceNumber}
