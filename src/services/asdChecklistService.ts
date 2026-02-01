@@ -61,6 +61,9 @@ export interface ASDChecklist {
     environment_class: string;
     filter_replacement_frequency_months: string;
   };
+
+  // Sections excluded from PDF
+  excluded_sections?: string[];
 }
 
 export const getDefaultASDChecklist = (): ASDChecklist => ({
