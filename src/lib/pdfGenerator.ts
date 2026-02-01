@@ -652,9 +652,8 @@ export function generateServiceReportPDF(
   // Signed date/time
   doc.setFontSize(7);
   doc.setTextColor(...COLORS.mediumGrey);
-  const engSignDateStr = signatures?.engineerSignDate 
-    ? format(new Date(signatures.engineerSignDate), "dd/MM/yyyy")
-    : format(new Date(visit.visit_date), "dd/MM/yyyy");
+  // engineerSignDate is already formatted as dd/MM/yyyy, so use it directly
+  const engSignDateStr = signatures?.engineerSignDate || format(new Date(visit.visit_date), "dd/MM/yyyy");
   const engSignTimeStr = signatures?.engineerSignTime || "";
   doc.text(`Signed: ${engSignDateStr}${engSignTimeStr ? ` ${engSignTimeStr}` : ""}`, margin + 2, yPos + sigBoxHeight + 4);
 
@@ -714,9 +713,8 @@ export function generateServiceReportPDF(
     // Signed date/time
     doc.setFontSize(7);
     doc.setTextColor(...COLORS.mediumGrey);
-    const custSignDateStr = signatures?.customerSignDate 
-      ? format(new Date(signatures.customerSignDate), "dd/MM/yyyy")
-      : format(new Date(visit.visit_date), "dd/MM/yyyy");
+    // customerSignDate is already formatted as dd/MM/yyyy, so use it directly
+    const custSignDateStr = signatures?.customerSignDate || format(new Date(visit.visit_date), "dd/MM/yyyy");
     const custSignTimeStr = signatures?.customerSignTime || "";
     doc.text(`Signed: ${custSignDateStr}${custSignTimeStr ? ` ${custSignTimeStr}` : ""}`, custX + 2, yPos + sigBoxHeight + 4);
   }
