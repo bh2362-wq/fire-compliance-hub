@@ -79,7 +79,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [previewVisit, setPreviewVisit] = useState<Visit | null>(null);
   const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
   const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | null>(null);
-  const [selectedAsdAsset, setSelectedAsdAsset] = useState<ASDAsset | null>(null);
+  const [selectedAsdAssets, setSelectedAsdAssets] = useState<ASDAsset[]>([]);
   const [editVisit, setEditVisit] = useState<Visit | null>(null);
   const [deleteVisit, setDeleteVisit] = useState<Visit | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -488,10 +488,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       <ReportTypeSelector
         open={showReportTypeSelector}
         onOpenChange={setShowReportTypeSelector}
-        onSelect={(type, asdAsset) => {
+        onSelect={(type, asdAssets) => {
           setReportType(type);
-          if (asdAsset) {
-            setSelectedAsdAsset(asdAsset);
+          if (asdAssets && asdAssets.length > 0) {
+            setSelectedAsdAssets(asdAssets);
           }
         }}
         siteId={reportVisit?.site_id}
@@ -525,18 +525,18 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         />
       )}
 
-      {reportVisit && reportType === "asd" && selectedAsdAsset && (
+      {reportVisit && reportType === "asd" && selectedAsdAssets.length > 0 && (
         <ASDReportDialog
           open={!!reportVisit && reportType === "asd"}
           onOpenChange={(open) => {
             if (!open) {
               setReportVisit(null);
               setReportType(null);
-              setSelectedAsdAsset(null);
+              setSelectedAsdAssets([]);
             }
           }}
           visit={{ ...reportVisit, sites: reportVisit.site }}
-          asset={selectedAsdAsset}
+          assets={selectedAsdAssets}
           onSuccess={onRefresh}
         />
       )}
