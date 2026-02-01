@@ -105,7 +105,7 @@ export function ManualInvoiceDialog({
   const [selectedContact, setSelectedContact] = useState<string>("");
   const [selectedSite, setSelectedSite] = useState<string>("");
   const [serviceType, setServiceType] = useState<string>("quarterly_service");
-  const [reference, setReference] = useState("");
+  const [poNumber, setPoNumber] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [dueDate, setDueDate] = useState<Date | undefined>(addDays(new Date(), 30));
   const [loadingInvoiceNumber, setLoadingInvoiceNumber] = useState(false);
@@ -123,7 +123,7 @@ export function ManualInvoiceDialog({
       setSelectedContact("");
       setSelectedSite("");
       setServiceType("quarterly_service");
-      setReference("");
+      setPoNumber("");
       setDueDate(addDays(new Date(), 30));
       setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
     }
@@ -211,16 +211,7 @@ export function ManualInvoiceDialog({
   useEffect(() => {
     // Update line items when service type changes
     setLineItems(SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.remedial);
-    
-    // Update reference when site or service type changes
-    if (selectedSite) {
-      const site = sites.find(s => s.id === selectedSite);
-      if (site) {
-        const serviceLabel = SERVICE_TYPES.find(s => s.value === serviceType)?.label || serviceType;
-        setReference(`${serviceLabel} - ${site.name}`);
-      }
-    }
-  }, [serviceType, selectedSite, sites]);
+  }, [serviceType]);
 
   const addLineItem = () => {
     setLineItems([...lineItems, { description: "", quantity: 1, unitAmount: 0 }]);
@@ -261,6 +252,11 @@ export function ManualInvoiceDialog({
 
     setLoading(true);
     try {
+      // Build the reference - use PO number if provided, otherwise generate from service type + site
+      const site = sites.find(s => s.id === selectedSite);
+      const serviceLabel = SERVICE_TYPES.find(s => s.value === serviceType)?.label || serviceType;
+      const invoiceReference = poNumber || `${serviceLabel} - ${site?.name || ""}`;
+      
       // Create a visit record for invoice tracking
       const { data: visit, error: visitError } = await supabase
         .from("visits")
@@ -269,7 +265,7 @@ export function ManualInvoiceDialog({
           visit_type: serviceType,
           visit_date: new Date().toISOString().split("T")[0],
           status: "completed",
-          notes: `Manual invoice: ${reference}`,
+          notes: `Manual invoice: ${invoiceReference}`,
           devices_tested: 0,
           total_devices: 0,
           coverage_percentage: 0,
@@ -281,12 +277,13 @@ export function ManualInvoiceDialog({
 
       // Create the invoice in Xero
       const contact = contacts.find(c => c.ContactID === selectedContact);
+      
       const result = await createXeroInvoice(
         visit.id,
         selectedContact,
         contact?.Name || "",
         validItems,
-        reference,
+        invoiceReference,
         dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
         invoiceNumber || undefined
       );
@@ -364,10 +361,7 @@ export function ManualInvoiceDialog({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={() => {
-                      setSelectedSite("");
-                      setReference("");
-                    }}
+                    onClick={() => setSelectedSite("")}
                     className="shrink-0"
                   >
                     <X className="h-4 w-4" />
@@ -462,11 +456,11 @@ export function ManualInvoiceDialog({
               </Popover>
             </div>
             <div className="space-y-2">
-              <Label>Reference</Label>
+              <Label>PO Number</Label>
               <Input
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder="Invoice reference"
+                value={poNumber}
+                onChange={(e) => setPoNumber(e.target.value)}
+                placeholder="Purchase order number (optional)"
               />
             </div>
           </div>
