@@ -281,13 +281,11 @@ export function generateServiceReportPDF(
     doc.setFont("helvetica", "normal");
     const sysY = yPos + 12;
     const sysColW = contentWidth / 3;
-    sysInfo.slice(0, 3).forEach((txt, i) => {
-      doc.text(txt[0], margin + 3, sysY);
-      if (i > 0) doc.text(txt[0], margin + 3 + i * sysColW, sysY);
-    });
+    // Row 1: Panel, Location, Category
     doc.text(sysInfo[0][0], margin + 3, sysY);
     doc.text(sysInfo[1][0], margin + 3 + sysColW, sysY);
     doc.text(sysInfo[2][0], margin + 3 + sysColW * 2, sysY);
+    // Row 2: Zones, Devices
     doc.text(sysInfo[3][0], margin + 3, sysY + 5);
     doc.text(sysInfo[4][0], margin + 3 + sysColW, sysY + 5);
 
