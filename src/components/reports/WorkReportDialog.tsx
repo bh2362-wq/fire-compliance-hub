@@ -1278,15 +1278,12 @@ export function WorkReportDialog({
                 Cancel
               </Button>
               <Button 
-                variant="secondary" 
-                onClick={async () => {
-                  await handleSave(false);
-                  onOpenChange(false);
-                }} 
+                variant="outline" 
+                onClick={() => handleSave(false)} 
                 disabled={saving}
               >
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Update Report
+                Save Draft
               </Button>
               {showCompleteVisit ? (
                 <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
