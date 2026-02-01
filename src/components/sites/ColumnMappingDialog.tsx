@@ -275,11 +275,13 @@ const ColumnMappingDialog = ({
                 <SelectItem value={UNMAPPED_VALUE}>
                   <span className="text-muted-foreground">-- Not mapped --</span>
                 </SelectItem>
-                {availableColumns.map((col) => (
-                  <SelectItem key={col} value={col}>
-                    {col}
-                  </SelectItem>
-                ))}
+                {availableColumns
+                  .filter((col) => col && col.trim() !== "")
+                  .map((col) => (
+                    <SelectItem key={col} value={col}>
+                      {col}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
 
