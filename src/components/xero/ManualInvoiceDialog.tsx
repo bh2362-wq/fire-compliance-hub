@@ -181,6 +181,33 @@ export function ManualInvoiceDialog({
     }
   };
 
+  // Auto-fill contact when site is selected
+  useEffect(() => {
+    const autoFillContact = async () => {
+      if (selectedSite && contacts.length > 0) {
+        const site = sites.find(s => s.id === selectedSite);
+        if (site?.customer_id) {
+          // Fetch customer to get xero_contact_id
+          const { data: customer } = await supabase
+            .from("customers")
+            .select("xero_contact_id")
+            .eq("id", site.customer_id)
+            .single();
+          
+          if (customer?.xero_contact_id) {
+            // Find matching contact in the loaded contacts
+            const matchingContact = contacts.find(c => c.ContactID === customer.xero_contact_id);
+            if (matchingContact) {
+              setSelectedContact(matchingContact.ContactID);
+            }
+          }
+        }
+      }
+    };
+    
+    autoFillContact();
+  }, [selectedSite, sites, contacts]);
+
   useEffect(() => {
     // Update line items when service type changes
     setLineItems(SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.remedial);
