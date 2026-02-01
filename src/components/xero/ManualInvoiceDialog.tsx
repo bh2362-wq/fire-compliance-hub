@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { format, addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogBody,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -323,100 +324,99 @@ export function ManualInvoiceDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Create Invoice
-          </DialogTitle>
-          <DialogDescription>
-            Create a new Xero invoice manually
-          </DialogDescription>
-        </DialogHeader>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange} className="max-w-2xl">
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          Create Invoice
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription>
+          Create a new Xero invoice manually
+        </ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                Site
-              </Label>
-              <div className="flex gap-2">
-                <Select value={selectedSite} onValueChange={setSelectedSite}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder={loadingSites ? "Loading..." : "Select a site"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sites.map((site) => (
-                      <SelectItem key={site.id} value={site.id}>
-                        {site.name}
-                        {site.city && ` - ${site.city}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedSite && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelectedSite("")}
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Contact (Bill To)</Label>
-              <div className="flex gap-2">
-                <Select value={selectedContact} onValueChange={setSelectedContact}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder={loadingContacts ? "Loading..." : "Select a contact"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contacts.map((contact) => (
-                      <SelectItem key={contact.ContactID} value={contact.ContactID}>
-                        {contact.Name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedContact && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelectedContact("")}
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
+      <ResponsiveDialogBody className="py-4 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              Site
+            </Label>
+            <div className="flex gap-2">
+              <Select value={selectedSite} onValueChange={setSelectedSite}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder={loadingSites ? "Loading..." : "Select a site"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {sites.map((site) => (
+                    <SelectItem key={site.id} value={site.id}>
+                      {site.name}
+                      {site.city && ` - ${site.city}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedSite && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSelectedSite("")}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Service Type</Label>
-            <Select value={serviceType} onValueChange={setServiceType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select service type" />
-              </SelectTrigger>
-              <SelectContent>
-                {SERVICE_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Contact (Bill To)</Label>
+            <div className="flex gap-2">
+              <Select value={selectedContact} onValueChange={setSelectedContact}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder={loadingContacts ? "Loading..." : "Select a contact"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts.map((contact) => (
+                    <SelectItem key={contact.ContactID} value={contact.ContactID}>
+                      {contact.Name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedContact && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSelectedContact("")}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label>Service Type</Label>
+          <Select value={serviceType} onValueChange={setServiceType}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select service type" />
+            </SelectTrigger>
+            <SelectContent>
+              {SERVICE_TYPES.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Invoice Number</Label>
               <Input
@@ -475,15 +475,16 @@ export function ManualInvoiceDialog({
             </div>
 
             <div className="space-y-3">
-              <div className="flex gap-2 items-center text-sm text-muted-foreground font-medium">
+              <div className="hidden sm:flex gap-2 items-center text-sm text-muted-foreground font-medium">
                 <div className="flex-1">Description</div>
                 <div className="w-24 text-center">Unit Price (£)</div>
                 <div className="w-20 text-center">Qty</div>
                 <div className="w-9"></div>
               </div>
               {lineItems.map((item, index) => (
-                <div key={index} className="flex gap-2 items-start">
-                  <div className="flex-1">
+                <div key={index} className="flex flex-col sm:flex-row gap-2 items-start p-3 sm:p-0 border sm:border-0 rounded-lg sm:rounded-none">
+                  <div className="flex-1 w-full">
+                    <Label className="sm:hidden text-xs text-muted-foreground mb-1">Description</Label>
                     <Textarea
                       placeholder="Description"
                       value={item.description}
@@ -491,34 +492,39 @@ export function ManualInvoiceDialog({
                       className="min-h-[60px]"
                     />
                   </div>
-                  <div className="w-24">
-                    <Input
-                      type="number"
-                      placeholder="£0.00"
-                      min={0}
-                      step={0.01}
-                      value={item.unitAmount || ""}
-                      onChange={(e) => updateLineItem(index, "unitAmount", parseFloat(e.target.value) || 0)}
-                    />
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="flex-1 sm:w-24 sm:flex-none">
+                      <Label className="sm:hidden text-xs text-muted-foreground mb-1">Unit Price (£)</Label>
+                      <Input
+                        type="number"
+                        placeholder="£0.00"
+                        min={0}
+                        step={0.01}
+                        value={item.unitAmount || ""}
+                        onChange={(e) => updateLineItem(index, "unitAmount", parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="flex-1 sm:w-20 sm:flex-none">
+                      <Label className="sm:hidden text-xs text-muted-foreground mb-1">Qty</Label>
+                      <Input
+                        type="number"
+                        placeholder="1"
+                        min={1}
+                        value={item.quantity}
+                        onChange={(e) => updateLineItem(index, "quantity", parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeLineItem(index)}
+                      disabled={lineItems.length === 1}
+                      className="shrink-0 mt-auto sm:mt-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <div className="w-20">
-                    <Input
-                      type="number"
-                      placeholder="1"
-                      min={1}
-                      value={item.quantity}
-                      onChange={(e) => updateLineItem(index, "quantity", parseInt(e.target.value) || 1)}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeLineItem(index)}
-                    disabled={lineItems.length === 1}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
               ))}
             </div>
@@ -529,18 +535,17 @@ export function ManualInvoiceDialog({
               Total: £{calculateTotal().toFixed(2)}
             </div>
           </div>
-        </div>
+      </ResponsiveDialogBody>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={loading || !selectedSite || !selectedContact}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create Invoice
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <ResponsiveDialogFooter className="gap-2">
+        <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={loading || !selectedSite || !selectedContact} className="flex-1 sm:flex-none">
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Create Invoice
+        </Button>
+      </ResponsiveDialogFooter>
+    </ResponsiveDialog>
   );
 }

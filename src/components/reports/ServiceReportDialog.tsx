@@ -3,13 +3,14 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogBody,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -432,26 +433,28 @@ export function ServiceReportDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            BS5839:2025 Service Report
-            {isLocked && (
-              <Badge variant="secondary" className="ml-2 bg-muted">
-                <Lock className="w-3 h-3 mr-1" />
-                Completed - Read Only
-              </Badge>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            {visit.visit_type} at {visit.sites?.name} - {visit.visit_date}
-          </DialogDescription>
-        </DialogHeader>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle className="flex items-center gap-2 flex-wrap">
+          <FileText className="h-5 w-5" />
+          <span className="hidden sm:inline">BS5839:2025 Service Report</span>
+          <span className="sm:hidden">Service Report</span>
+          {isLocked && (
+            <Badge variant="secondary" className="bg-muted">
+              <Lock className="w-3 h-3 mr-1" />
+              <span className="hidden sm:inline">Completed - Read Only</span>
+              <span className="sm:hidden">Locked</span>
+            </Badge>
+          )}
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="truncate">
+          {visit.visit_type} at {visit.sites?.name} - {visit.visit_date}
+        </ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
 
+      <ResponsiveDialogBody className="py-4">
         {hasMultiplePanels && (
-          <Alert className="bg-primary/5 border-primary/20">
+          <Alert className="bg-primary/5 border-primary/20 mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               This site has {panels.length} fire panels. Each panel has its own checklist tab.
@@ -459,9 +462,9 @@ export function ServiceReportDialog({
           </Alert>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="details" className="flex items-center gap-1">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <TabsList className="grid w-full grid-cols-5 mb-4">
+            <TabsTrigger value="details" className="flex items-center gap-1 text-xs sm:text-sm">
               <Settings className="w-4 h-4" />
               <span className="hidden sm:inline">Details</span>
             </TabsTrigger>
@@ -483,9 +486,9 @@ export function ServiceReportDialog({
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-y-auto py-4">
+          <div className="flex-1">
             <TabsContent value="details" className="mt-0 space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Certificate Number</Label>
                   <Input
@@ -516,7 +519,7 @@ export function ServiceReportDialog({
               {!hasMultiplePanels && (
                 <div className="border-t pt-4">
                   <h4 className="font-medium mb-3">System Information</h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Panel Manufacturer</Label>
                       <Input
@@ -581,7 +584,7 @@ export function ServiceReportDialog({
               {hasMultiplePanels && (
                 <div className="border-t pt-4">
                   <h4 className="font-medium mb-3">System Information</h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>System Category</Label>
                       <Select value={systemType} onValueChange={setSystemType}>
@@ -905,40 +908,46 @@ export function ServiceReportDialog({
             </TabsContent>
           </div>
         </Tabs>
+      </ResponsiveDialogBody>
 
-        <DialogFooter className="border-t pt-4 flex-wrap gap-2">
-          <Button variant="outline" onClick={handleDownloadPDF} disabled={downloading} className="mr-auto">
-            {downloading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="mr-2 h-4 w-4" />
-            )}
-            Download PDF
-          </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+      <ResponsiveDialogFooter className="flex-wrap gap-2">
+        <Button variant="outline" onClick={handleDownloadPDF} disabled={downloading} className="w-full sm:w-auto sm:mr-auto">
+          {downloading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">Download PDF</span>
+          <span className="sm:hidden">PDF</span>
+        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
             Close
           </Button>
           {!isLocked && (
             <>
-              <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+              <Button variant="outline" onClick={() => handleSave(false)} disabled={saving} className="flex-1 sm:flex-none">
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Draft
+                <span className="hidden sm:inline">Save Draft</span>
+                <span className="sm:hidden">Save</span>
               </Button>
               {showCompleteVisit ? (
-                <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
+                <Button variant="hero" onClick={handleCompleteVisit} disabled={saving} className="flex-1 sm:flex-none">
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Complete Visit
+                  <span className="hidden sm:inline">Complete Visit</span>
+                  <span className="sm:hidden">Complete</span>
                 </Button>
               ) : (
-                <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
+                <Button variant="hero" onClick={() => handleSave(true)} disabled={saving} className="flex-1 sm:flex-none">
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Complete Report
+                  <span className="hidden sm:inline">Complete Report</span>
+                  <span className="sm:hidden">Complete</span>
                 </Button>
               )}
             </>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </ResponsiveDialogFooter>
+    </ResponsiveDialog>
   );
 }

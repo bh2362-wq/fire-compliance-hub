@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogBody,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -592,56 +593,56 @@ export function WorkReportDialog({
     .join(", ");
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Work Report
-            {isLocked && (
-              <Badge variant="secondary" className="ml-2 bg-muted text-muted-foreground">
-                <Lock className="w-3 h-3 mr-1" />
-                Locked
-              </Badge>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            {siteInfo?.name || visit.sites?.name} - {visit.visit_date}
-          </DialogDescription>
-        </DialogHeader>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle className="flex items-center gap-2 flex-wrap">
+          <FileText className="h-5 w-5" />
+          <span>Work Report</span>
+          {isLocked && (
+            <Badge variant="secondary" className="bg-muted text-muted-foreground">
+              <Lock className="w-3 h-3 mr-1" />
+              <span className="hidden sm:inline">Locked</span>
+            </Badge>
+          )}
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="truncate">
+          {siteInfo?.name || visit.sites?.name} - {visit.visit_date}
+        </ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
 
+      <ResponsiveDialogBody className="py-4">
         {isLocked && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm text-amber-800">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm text-amber-800 mb-4">
             <Lock className="w-4 h-4 flex-shrink-0" />
-            <span>This report has been completed and is now read-only. You can still download the PDF.</span>
+            <span className="text-xs sm:text-sm">This report has been completed and is now read-only.</span>
           </div>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="job" className="flex items-center gap-1">
-              <ClipboardList className="w-4 h-4" />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <TabsList className="grid w-full grid-cols-4 mb-4">
+            <TabsTrigger value="job" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
+              <ClipboardList className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Job Details</span>
             </TabsTrigger>
-            <TabsTrigger value="works" className="flex items-center gap-1">
-              <FileText className="w-4 h-4" />
+            <TabsTrigger value="works" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
+              <FileText className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Works</span>
             </TabsTrigger>
-            <TabsTrigger value="materials" className="flex items-center gap-1">
-              <Package className="w-4 h-4" />
+            <TabsTrigger value="materials" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
+              <Package className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Materials</span>
             </TabsTrigger>
-            <TabsTrigger value="sign" className="flex items-center gap-1">
-              <PenTool className="w-4 h-4" />
+            <TabsTrigger value="sign" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
+              <PenTool className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Sign Off</span>
             </TabsTrigger>
           </TabsList>
 
-          <fieldset disabled={isLocked} className="flex-1 overflow-y-auto py-4">
+          <fieldset disabled={isLocked} className="flex-1">
             <TabsContent value="job" className="mt-0 space-y-4">
               {/* Site Info Header */}
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-xs text-muted-foreground">Site Name</Label>
                     <p className="font-medium">{siteInfo?.name || visit.sites?.name}</p>
@@ -1260,46 +1261,52 @@ export function WorkReportDialog({
             </TabsContent>
           </fieldset>
         </Tabs>
+      </ResponsiveDialogBody>
 
-        <DialogFooter className="border-t pt-4 flex-wrap gap-2">
-          <Button variant="outline" onClick={handleDownloadPDF} className="mr-auto">
-            <Download className="mr-2 h-4 w-4" />
-            Download PDF
-          </Button>
-          
+      <ResponsiveDialogFooter className="flex-wrap gap-2">
+        <Button variant="outline" onClick={handleDownloadPDF} className="w-full sm:w-auto sm:mr-auto">
+          <Download className="mr-2 h-4 w-4" />
+          <span className="hidden sm:inline">Download PDF</span>
+          <span className="sm:hidden">PDF</span>
+        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
           {isLocked ? (
             <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
               <Lock className="h-4 w-4" />
-              Report Locked
+              <span className="hidden sm:inline">Report Locked</span>
             </div>
           ) : (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
                 Cancel
               </Button>
               <Button 
                 variant="outline" 
                 onClick={() => handleSave(false)} 
                 disabled={saving}
+                className="flex-1 sm:flex-none"
               >
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Draft
+                <span className="hidden sm:inline">Save Draft</span>
+                <span className="sm:hidden">Save</span>
               </Button>
               {showCompleteVisit ? (
-                <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
+                <Button variant="hero" onClick={handleCompleteVisit} disabled={saving} className="flex-1 sm:flex-none">
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Complete Visit
+                  <span className="hidden sm:inline">Complete Visit</span>
+                  <span className="sm:hidden">Complete</span>
                 </Button>
               ) : (
-                <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
+                <Button variant="hero" onClick={() => handleSave(true)} disabled={saving} className="flex-1 sm:flex-none">
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Complete Report
+                  <span className="hidden sm:inline">Complete Report</span>
+                  <span className="sm:hidden">Complete</span>
                 </Button>
               )}
             </>
           )}
-        </DialogFooter>
-      </DialogContent>
+        </div>
+      </ResponsiveDialogFooter>
 
       {/* Invoice Prompt Dialog */}
       <InvoicePromptDialog
@@ -1329,6 +1336,6 @@ export function WorkReportDialog({
           onSuccess={handleInvoiceDialogClose}
         />
       )}
-    </Dialog>
+    </ResponsiveDialog>
   );
 }

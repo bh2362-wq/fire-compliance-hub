@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { format, addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogBody,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -223,71 +224,70 @@ export function CreateInvoiceDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Create Invoice
-          </DialogTitle>
-          <DialogDescription>
-            Create a Xero invoice for {visit.visit_type} at {visit.sites?.name}
-          </DialogDescription>
-        </DialogHeader>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange} className="max-w-2xl">
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          Create Invoice
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription>
+          Create a Xero invoice for {visit.visit_type} at {visit.sites?.name}
+        </ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
 
-        <div className="space-y-4">
+      <ResponsiveDialogBody className="py-4 space-y-4">
+        <div className="space-y-2">
+          <Label>Contact</Label>
+          <Select value={selectedContact} onValueChange={setSelectedContact}>
+            <SelectTrigger>
+              <SelectValue placeholder={loadingContacts ? "Loading contacts..." : "Select a contact"} />
+            </SelectTrigger>
+            <SelectContent>
+              {contacts.map((contact) => (
+                <SelectItem key={contact.ContactID} value={contact.ContactID}>
+                  {contact.Name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Contact</Label>
-            <Select value={selectedContact} onValueChange={setSelectedContact}>
-              <SelectTrigger>
-                <SelectValue placeholder={loadingContacts ? "Loading contacts..." : "Select a contact"} />
-              </SelectTrigger>
-              <SelectContent>
-                {contacts.map((contact) => (
-                  <SelectItem key={contact.ContactID} value={contact.ContactID}>
-                    {contact.Name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Reference</Label>
+            <Input
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="Invoice reference"
+            />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Reference</Label>
-              <Input
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder="Invoice reference"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Due Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !dueDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, "dd/MM/yyyy") : "Select date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dueDate}
-                    onSelect={setDueDate}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+          <div className="space-y-2">
+            <Label>Due Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !dueDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dueDate ? format(dueDate, "dd/MM/yyyy") : "Select date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dueDate}
+                  onSelect={setDueDate}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
+        </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -298,18 +298,21 @@ export function CreateInvoiceDialog({
               </Button>
             </div>
 
-            <div className="space-y-3">
-              {lineItems.map((item, index) => (
-                <div key={index} className="flex gap-2 items-start">
-                  <div className="flex-1">
-                    <Textarea
-                      placeholder="Description"
-                      value={item.description}
-                      onChange={(e) => updateLineItem(index, "description", e.target.value)}
-                      className="min-h-[60px]"
-                    />
-                  </div>
-                  <div className="w-20">
+          <div className="space-y-3">
+            {lineItems.map((item, index) => (
+              <div key={index} className="flex flex-col sm:flex-row gap-2 items-start p-3 sm:p-0 border sm:border-0 rounded-lg sm:rounded-none">
+                <div className="flex-1 w-full">
+                  <Label className="sm:hidden text-xs text-muted-foreground mb-1">Description</Label>
+                  <Textarea
+                    placeholder="Description"
+                    value={item.description}
+                    onChange={(e) => updateLineItem(index, "description", e.target.value)}
+                    className="min-h-[60px]"
+                  />
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <div className="flex-1 sm:w-20 sm:flex-none">
+                    <Label className="sm:hidden text-xs text-muted-foreground mb-1">Qty</Label>
                     <Input
                       type="number"
                       placeholder="Qty"
@@ -318,7 +321,8 @@ export function CreateInvoiceDialog({
                       onChange={(e) => updateLineItem(index, "quantity", parseInt(e.target.value) || 1)}
                     />
                   </div>
-                  <div className="w-28">
+                  <div className="flex-1 sm:w-28 sm:flex-none">
+                    <Label className="sm:hidden text-xs text-muted-foreground mb-1">Amount (£)</Label>
                     <Input
                       type="number"
                       placeholder="Amount"
@@ -334,31 +338,32 @@ export function CreateInvoiceDialog({
                     size="icon"
                     onClick={() => removeLineItem(index)}
                     disabled={lineItems.length === 1}
+                    className="shrink-0 mt-auto sm:mt-0"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-2 border-t">
-            <div className="text-lg font-semibold">
-              Total: £{calculateTotal().toFixed(2)}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create Invoice
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div className="flex justify-end pt-2 border-t">
+          <div className="text-lg font-semibold">
+            Total: £{calculateTotal().toFixed(2)}
+          </div>
+        </div>
+      </ResponsiveDialogBody>
+
+      <ResponsiveDialogFooter className="gap-2">
+        <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={loading} className="flex-1 sm:flex-none">
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Create Invoice
+        </Button>
+      </ResponsiveDialogFooter>
+    </ResponsiveDialog>
   );
 }
