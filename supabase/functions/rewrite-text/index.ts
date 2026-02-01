@@ -65,12 +65,12 @@ STRICT RULES:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-5",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Rewrite this concisely (similar length to original):\n\n${text}` },
+          { role: "user", content: text },
         ],
-        max_tokens: 500,
+        max_tokens: 350,
       }),
     });
 
