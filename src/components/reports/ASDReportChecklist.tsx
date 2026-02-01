@@ -1,8 +1,9 @@
-import { Check, X, Minus } from "lucide-react";
+import { Check, X, Minus, EyeOff, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,15 @@ interface ASDReportChecklistProps {
 }
 
 type CheckValue = boolean | null;
+
+type SectionKey = 
+  | "pre_service_actions"
+  | "airflow_readings"
+  | "faults_and_repairs"
+  | "cleaning_activities"
+  | "system_checks"
+  | "additional_activities"
+  | "environment_and_filter_info";
 
 const ChecklistItem = ({
   label,
@@ -155,6 +165,23 @@ export function ASDReportChecklist({
     });
   };
 
+  const isSectionExcluded = (section: SectionKey) => {
+    return checklist.excluded_sections?.includes(section) ?? false;
+  };
+
+  const toggleSectionExclusion = (section: SectionKey) => {
+    if (readonly) return;
+    const currentExcluded = checklist.excluded_sections || [];
+    const isExcluded = currentExcluded.includes(section);
+    
+    onChange({
+      ...checklist,
+      excluded_sections: isExcluded
+        ? currentExcluded.filter((s) => s !== section)
+        : [...currentExcluded, section],
+    });
+  };
+
   const getChecklistStats = (items: Record<string, CheckValue>) => {
     const values = Object.values(items);
     const passed = values.filter((v) => v === true).length;
@@ -167,18 +194,68 @@ export function ASDReportChecklist({
   const cleaningStats = getChecklistStats(checklist.cleaning_activities);
   const systemStats = getChecklistStats(checklist.system_checks);
 
+  const SectionHeader = ({
+    sectionKey,
+    title,
+    stats,
+  }: {
+    sectionKey: SectionKey;
+    title: string;
+    stats?: { passed: number; failed: number; pending: number };
+  }) => {
+    const excluded = isSectionExcluded(sectionKey);
+    return (
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <h4 className={cn("font-medium", excluded ? "text-muted-foreground line-through" : "text-foreground")}>
+            {title}
+          </h4>
+          {!readonly && (
+            <button
+              type="button"
+              onClick={() => toggleSectionExclusion(sectionKey)}
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors",
+                excluded
+                  ? "bg-muted text-muted-foreground hover:bg-muted/80"
+                  : "bg-primary/10 text-primary hover:bg-primary/20"
+              )}
+              title={excluded ? "Include in PDF" : "Exclude from PDF"}
+            >
+              {excluded ? (
+                <>
+                  <EyeOff className="w-3 h-3" />
+                  <span className="hidden sm:inline">Excluded</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="w-3 h-3" />
+                  <span className="hidden sm:inline">In PDF</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+        {stats && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-success">{stats.passed} Pass</span>
+            <span className="text-destructive">{stats.failed} Fail</span>
+            <span className="text-muted-foreground">{stats.pending} N/A</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Pre-Service Actions */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-foreground">{ASD_SECTION_LABELS.pre_service_actions}</h4>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-success">{preServiceStats.passed} Pass</span>
-            <span className="text-destructive">{preServiceStats.failed} Fail</span>
-            <span className="text-muted-foreground">{preServiceStats.pending} N/A</span>
-          </div>
-        </div>
+      <div className={cn("space-y-3", isSectionExcluded("pre_service_actions") && "opacity-50")}>
+        <SectionHeader
+          sectionKey="pre_service_actions"
+          title={ASD_SECTION_LABELS.pre_service_actions}
+          stats={preServiceStats}
+        />
         <div className="space-y-2">
           {Object.entries(ASD_CHECKLIST_LABELS.pre_service_actions).map(([key, label]) => (
             <ChecklistItem
@@ -193,8 +270,11 @@ export function ASDReportChecklist({
       </div>
 
       {/* Airflow Readings */}
-      <div className="space-y-3">
-        <h4 className="font-medium text-foreground">{ASD_SECTION_LABELS.airflow_readings}</h4>
+      <div className={cn("space-y-3", isSectionExcluded("airflow_readings") && "opacity-50")}>
+        <SectionHeader
+          sectionKey="airflow_readings"
+          title={ASD_SECTION_LABELS.airflow_readings}
+        />
         <div className="bg-muted/30 rounded-lg p-4 border">
           <div className="grid grid-cols-3 gap-2 mb-2 text-sm font-medium text-muted-foreground">
             <div>Pipe</div>
@@ -226,8 +306,11 @@ export function ASDReportChecklist({
       </div>
 
       {/* Faults & Repairs */}
-      <div className="space-y-3">
-        <h4 className="font-medium text-foreground">{ASD_SECTION_LABELS.faults_and_repairs}</h4>
+      <div className={cn("space-y-3", isSectionExcluded("faults_and_repairs") && "opacity-50")}>
+        <SectionHeader
+          sectionKey="faults_and_repairs"
+          title={ASD_SECTION_LABELS.faults_and_repairs}
+        />
         <div className="space-y-3">
           <ChecklistItem
             label={ASD_CHECKLIST_LABELS.faults_and_repairs.detector_faults_present}
@@ -259,15 +342,12 @@ export function ASDReportChecklist({
       </div>
 
       {/* Cleaning Activities */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-foreground">{ASD_SECTION_LABELS.cleaning_activities}</h4>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-success">{cleaningStats.passed} Pass</span>
-            <span className="text-destructive">{cleaningStats.failed} Fail</span>
-            <span className="text-muted-foreground">{cleaningStats.pending} N/A</span>
-          </div>
-        </div>
+      <div className={cn("space-y-3", isSectionExcluded("cleaning_activities") && "opacity-50")}>
+        <SectionHeader
+          sectionKey="cleaning_activities"
+          title={ASD_SECTION_LABELS.cleaning_activities}
+          stats={cleaningStats}
+        />
         <div className="space-y-2">
           {Object.entries(ASD_CHECKLIST_LABELS.cleaning_activities).map(([key, label]) => (
             <ChecklistItem
@@ -282,15 +362,12 @@ export function ASDReportChecklist({
       </div>
 
       {/* System Checks */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium text-foreground">{ASD_SECTION_LABELS.system_checks}</h4>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-success">{systemStats.passed} Pass</span>
-            <span className="text-destructive">{systemStats.failed} Fail</span>
-            <span className="text-muted-foreground">{systemStats.pending} N/A</span>
-          </div>
-        </div>
+      <div className={cn("space-y-3", isSectionExcluded("system_checks") && "opacity-50")}>
+        <SectionHeader
+          sectionKey="system_checks"
+          title={ASD_SECTION_LABELS.system_checks}
+          stats={systemStats}
+        />
         <div className="space-y-2">
           {Object.entries(ASD_CHECKLIST_LABELS.system_checks).map(([key, label]) => (
             <ChecklistItem
@@ -305,8 +382,11 @@ export function ASDReportChecklist({
       </div>
 
       {/* Additional Activities */}
-      <div className="space-y-3">
-        <h4 className="font-medium text-foreground">{ASD_SECTION_LABELS.additional_activities}</h4>
+      <div className={cn("space-y-3", isSectionExcluded("additional_activities") && "opacity-50")}>
+        <SectionHeader
+          sectionKey="additional_activities"
+          title={ASD_SECTION_LABELS.additional_activities}
+        />
         <Textarea
           value={checklist.additional_activities}
           onChange={(e) => updateAdditionalActivities(e.target.value)}
@@ -317,9 +397,12 @@ export function ASDReportChecklist({
       </div>
 
       {/* Environment & Filter Information */}
-      <div className="space-y-3">
-        <h4 className="font-medium text-foreground">{ASD_SECTION_LABELS.environment_and_filter_info}</h4>
-        <div className="grid grid-cols-2 gap-4">
+      <div className={cn("space-y-3", isSectionExcluded("environment_and_filter_info") && "opacity-50")}>
+        <SectionHeader
+          sectionKey="environment_and_filter_info"
+          title={ASD_SECTION_LABELS.environment_and_filter_info}
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-sm">Environment Class</Label>
             <Select
