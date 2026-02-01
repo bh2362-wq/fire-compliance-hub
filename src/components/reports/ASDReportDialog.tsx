@@ -3,13 +3,14 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogBody,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -384,56 +385,57 @@ export function ASDReportDialog({
   const primaryAsset = assets[0];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wind className="h-5 w-5" />
-            ASD Service Report
-            {hasMultipleUnits && (
-              <Badge variant="secondary" className="ml-2">
-                {assets.length} units
-              </Badge>
-            )}
-            {isLocked && (
-              <Badge variant="secondary" className="ml-2 bg-muted">
-                <Lock className="w-3 h-3 mr-1" />
-                Completed - Read Only
-              </Badge>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            {visit.visit_type} at {visit.sites?.name} - {visit.visit_date}
-          </DialogDescription>
-        </DialogHeader>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle className="flex items-center gap-2 flex-wrap">
+          <Wind className="h-5 w-5" />
+          <span>ASD Service Report</span>
+          {hasMultipleUnits && (
+            <Badge variant="secondary">
+              {assets.length} units
+            </Badge>
+          )}
+          {isLocked && (
+            <Badge variant="secondary" className="bg-muted">
+              <Lock className="w-3 h-3 mr-1" />
+              <span className="hidden sm:inline">Completed - Read Only</span>
+              <span className="sm:hidden">Locked</span>
+            </Badge>
+          )}
+        </ResponsiveDialogTitle>
+        <ResponsiveDialogDescription className="truncate">
+          {visit.visit_type} at {visit.sites?.name} - {visit.visit_date}
+        </ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="details" className="flex items-center gap-1">
-              <Settings className="w-4 h-4" />
+      <ResponsiveDialogBody className="py-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+          <TabsList className="grid w-full grid-cols-5 mb-4">
+            <TabsTrigger value="details" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
+              <Settings className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Details</span>
             </TabsTrigger>
-            <TabsTrigger value="checklist" className="flex items-center gap-1">
-              <ClipboardCheck className="w-4 h-4" />
+            <TabsTrigger value="checklist" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
+              <ClipboardCheck className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Checklist</span>
             </TabsTrigger>
-            <TabsTrigger value="summary" className="flex items-center gap-1">
-              <FileCheck className="w-4 h-4" />
+            <TabsTrigger value="summary" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
+              <FileCheck className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Summary</span>
             </TabsTrigger>
-            <TabsTrigger value="notes" className="flex items-center gap-1">
-              <FileText className="w-4 h-4" />
+            <TabsTrigger value="notes" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
+              <FileText className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Notes</span>
             </TabsTrigger>
-            <TabsTrigger value="signoff" className="flex items-center gap-1">
-              <PenTool className="w-4 h-4" />
+            <TabsTrigger value="signoff" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
+              <PenTool className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Sign-off</span>
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-y-auto py-4">
+          <div className="flex-1">
             <TabsContent value="details" className="mt-0 space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Certificate Number</Label>
                   <Input
@@ -722,32 +724,37 @@ export function ASDReportDialog({
             </TabsContent>
           </div>
         </Tabs>
+      </ResponsiveDialogBody>
 
-        <DialogFooter className="border-t pt-4 flex-wrap gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+      <ResponsiveDialogFooter className="flex-wrap gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
             Close
           </Button>
           {!isLocked && (
             <>
-              <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+              <Button variant="outline" onClick={() => handleSave(false)} disabled={saving} className="flex-1 sm:flex-none">
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Draft
+                <span className="hidden sm:inline">Save Draft</span>
+                <span className="sm:hidden">Save</span>
               </Button>
               {showCompleteVisit ? (
-                <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
+                <Button variant="hero" onClick={handleCompleteVisit} disabled={saving} className="flex-1 sm:flex-none">
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Complete Visit
+                  <span className="hidden sm:inline">Complete Visit</span>
+                  <span className="sm:hidden">Complete</span>
                 </Button>
               ) : (
-                <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
+                <Button variant="hero" onClick={() => handleSave(true)} disabled={saving} className="flex-1 sm:flex-none">
                   {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Complete Report
+                  <span className="hidden sm:inline">Complete Report</span>
+                  <span className="sm:hidden">Complete</span>
                 </Button>
               )}
             </>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </ResponsiveDialogFooter>
+    </ResponsiveDialog>
   );
 }
