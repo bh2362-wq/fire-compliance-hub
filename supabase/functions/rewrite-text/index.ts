@@ -32,31 +32,30 @@ serve(async (req) => {
     }
 
     const formatRules = `
-STRICT FORMATTING RULES - You MUST follow these exactly:
-1. NO markdown (no **, no ##, no ###, no headers)
-2. NO bullet points or dashes at the start of lines
-3. NO numbered lists
-4. NO special characters or symbols
-5. Write as plain flowing sentences only
-6. Separate multiple items with a blank line between paragraphs
-7. Return ONLY the rewritten plain text`;
+STRICT RULES:
+1. Keep the same level of detail as the original - DO NOT add extra information
+2. Just improve grammar, spelling and use professional fire safety terminology
+3. NO markdown, bullet points, numbered lists or special characters
+4. Write as plain flowing sentences only
+5. Keep it concise - similar length to the original text
+6. Return ONLY the rewritten plain text`;
 
     let systemPrompt = "";
     switch (type) {
       case "defects":
-        systemPrompt = `You are a professional fire safety engineer. Rewrite the defect description to be clear, concise, and professional using proper fire safety terminology for a BS5839 compliance report.${formatRules}`;
+        systemPrompt = `You are a professional fire safety engineer. Rewrite this defect description using proper BS5839 terminology. Keep it concise - don't add details that weren't in the original.${formatRules}`;
         break;
       case "recommendations":
-        systemPrompt = `You are a professional fire safety engineer. Rewrite the recommendations to be clear, actionable, and professional using proper fire safety terminology for a BS5839 compliance report.${formatRules}`;
+        systemPrompt = `You are a professional fire safety engineer. Rewrite these recommendations using proper BS5839 terminology. Keep it concise - don't add details that weren't in the original.${formatRules}`;
         break;
       case "works":
-        systemPrompt = `You are a professional fire safety engineer. Rewrite this works report description to be clear, comprehensive, and professional. Use proper fire safety and engineering terminology suitable for a service report or job sheet. Include specific technical details where relevant.${formatRules}`;
+        systemPrompt = `You are a professional fire safety engineer. Rewrite this works description using proper fire safety terminology. Keep it concise - improve the wording but don't expand into multiple paragraphs.${formatRules}`;
         break;
       case "comments":
-        systemPrompt = `You are a professional fire safety engineer. Rewrite these comments or follow-up actions to be clear, actionable, and professional. Use proper fire safety terminology and ensure any required actions are clearly stated.${formatRules}`;
+        systemPrompt = `You are a professional fire safety engineer. Rewrite these comments using proper fire safety terminology. Keep it concise - don't add details that weren't in the original.${formatRules}`;
         break;
       default:
-        systemPrompt = `You are a professional technical writer. Rewrite this text to be clear, concise, and professional.${formatRules}`;
+        systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise.${formatRules}`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -69,8 +68,9 @@ STRICT FORMATTING RULES - You MUST follow these exactly:
         model: "openai/gpt-5",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: text },
+          { role: "user", content: `Rewrite this concisely (similar length to original):\n\n${text}` },
         ],
+        max_tokens: 500,
       }),
     });
 
