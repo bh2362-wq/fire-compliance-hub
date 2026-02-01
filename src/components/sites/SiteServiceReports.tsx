@@ -211,8 +211,9 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
           visit.visit_type
         );
       } else {
-        // BS5839 report - parse signature data from notes
+        // BS5839 report - parse signature data and multi-panel data from notes
         let signatures = {};
+        let panels = undefined;
         try {
           const parsed = JSON.parse(report.notes || "{}");
           signatures = {
@@ -224,10 +225,14 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
             customerSignDate: parsed.customerSignDate || "",
             customerSignTime: parsed.customerSignTime || "",
           };
+          // Extract multi-panel checklist data if present
+          if (parsed.multi_panel && Array.isArray(parsed.panel_checklists)) {
+            panels = parsed.panel_checklists;
+          }
         } catch {
           // Notes parsing failed, use empty signatures
         }
-        generateServiceReportPDF(report, siteInfo, visit, undefined, signatures);
+        generateServiceReportPDF(report, siteInfo, visit, panels, signatures);
       }
       toast.success("PDF downloaded");
     } catch (error) {

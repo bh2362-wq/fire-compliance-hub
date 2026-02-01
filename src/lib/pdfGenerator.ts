@@ -390,14 +390,19 @@ export function generateServiceReportPDF(
         let noVal = "";
         let naVal = "";
         
-        if (typeof value === "boolean") {
-          if (value === true) yesVal = "__PASS__";
-          else if (value === false) noVal = "__FAIL__";
+        // Handle different value types
+        if (value === true) {
+          yesVal = "__PASS__";
+        } else if (value === false) {
+          noVal = "__FAIL__";
         } else if (value === null) {
+          // Explicit null means N/A (grey box)
           naVal = "__NA__";
         } else if (typeof value === "string" || typeof value === "number") {
+          // Numeric or text values go in YES column
           yesVal = String(value);
         }
+        // Note: undefined values will leave all columns empty (no indicator shown)
         
         tableBody.push([labels[key], yesVal, noVal, naVal]);
       });
