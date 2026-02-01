@@ -368,6 +368,17 @@ export function ServiceReportDialog({
 
       const siteInfo = siteData || { name: visit.sites?.name || "Unknown Site" };
 
+      // Build signature data from current form state
+      const signatureData = {
+        engineerSignature,
+        engineerSignDate: engineerSignDate ? format(engineerSignDate, "dd/MM/yyyy") : "",
+        engineerSignTime,
+        customerNotPresent,
+        customerSignature,
+        customerSignDate: customerSignDate ? format(customerSignDate, "dd/MM/yyyy") : "",
+        customerSignTime,
+      };
+
       generateServiceReportPDF(
         {
           ...report,
@@ -389,7 +400,8 @@ export function ServiceReportDialog({
         },
         siteInfo,
         { visit_type: visit.visit_type, visit_date: visit.visit_date },
-        hasMultiplePanels ? panels : undefined // Pass all panels for multi-panel reports
+        hasMultiplePanels ? panels : undefined,
+        signatureData
       );
 
       toast.success("PDF downloaded successfully");
