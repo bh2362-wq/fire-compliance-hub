@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download, AlertCircle, PenTool, CalendarIcon } from "lucide-react";
+import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download, AlertCircle, PenTool, CalendarIcon, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -74,8 +75,12 @@ export function ServiceReportDialog({
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [report, setReport] = useState<ServiceReport | null>(null);
   const [activeTab, setActiveTab] = useState("details");
+
+  // Determine if report is locked (completed)
+  const isLocked = report?.status === "completed";
 
   // Multi-panel state
   const [panels, setPanels] = useState<PanelChecklistData[]>([]);
@@ -358,6 +363,7 @@ export function ServiceReportDialog({
   const handleDownloadPDF = async () => {
     if (!report) return;
 
+    setDownloading(true);
     try {
       // Fetch full site info for PDF
       const { data: siteData } = await supabase
@@ -407,7 +413,9 @@ export function ServiceReportDialog({
       toast.success("PDF downloaded successfully");
     } catch (error) {
       console.error("Failed to generate PDF:", error);
-      toast.error("Failed to generate PDF");
+      toast.error("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -430,6 +438,12 @@ export function ServiceReportDialog({
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
             BS5839:2025 Service Report
+            {isLocked && (
+              <Badge variant="secondary" className="ml-2 bg-muted">
+                <Lock className="w-3 h-3 mr-1" />
+                Completed - Read Only
+              </Badge>
+            )}
           </DialogTitle>
           <DialogDescription>
             {visit.visit_type} at {visit.sites?.name} - {visit.visit_date}
@@ -893,27 +907,35 @@ export function ServiceReportDialog({
         </Tabs>
 
         <DialogFooter className="border-t pt-4 flex-wrap gap-2">
-          <Button variant="outline" onClick={handleDownloadPDF} className="mr-auto">
-            <Download className="mr-2 h-4 w-4" />
+          <Button variant="outline" onClick={handleDownloadPDF} disabled={downloading} className="mr-auto">
+            {downloading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
             Download PDF
           </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            Close
           </Button>
-          <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Draft
-          </Button>
-          {showCompleteVisit ? (
-            <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Complete Visit
-            </Button>
-          ) : (
-            <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Complete Report
-            </Button>
+          {!isLocked && (
+            <>
+              <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Draft
+              </Button>
+              {showCompleteVisit ? (
+                <Button variant="hero" onClick={handleCompleteVisit} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Complete Visit
+                </Button>
+              ) : (
+                <Button variant="hero" onClick={() => handleSave(true)} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Complete Report
+                </Button>
+              )}
+            </>
           )}
         </DialogFooter>
       </DialogContent>
