@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -36,13 +37,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Cpu, Search, ChevronLeft, ChevronRight, Upload, Pencil, Trash2, Loader2, Plus, Filter, Download, X, ChevronDown } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Cpu, Search, ChevronLeft, ChevronRight, Upload, Pencil, Trash2, Loader2, Plus, Filter, Download, X, ChevronDown, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -66,7 +73,7 @@ interface DeviceInventoryProps {
 interface Filters {
   loop: string;
   zone: string;
-  deviceType: string;
+  deviceTypes: string[];  // Changed to array for multi-select
   status: string;
 }
 
@@ -84,7 +91,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
   const [filters, setFilters] = useState<Filters>({
     loop: "",
     zone: "",
-    deviceType: "",
+    deviceTypes: [],  // Array for multi-select
     status: "",
   });
   const [editForm, setEditForm] = useState({
@@ -105,7 +112,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
     return { loops, zones, types, statuses };
   }, [devices]);
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const activeFilterCount = [filters.loop, filters.zone, filters.status].filter(Boolean).length + (filters.deviceTypes.length > 0 ? 1 : 0);
 
   useEffect(() => {
     const fetchDevices = async () => {
@@ -138,7 +145,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
       // Filter matches
       const matchesLoop = !filters.loop || device.loop === filters.loop;
       const matchesZone = !filters.zone || device.zone === filters.zone;
-      const matchesType = !filters.deviceType || device.device_type === filters.deviceType;
+      const matchesType = filters.deviceTypes.length === 0 || filters.deviceTypes.includes(device.device_type);
       const matchesStatus = !filters.status || device.status === filters.status;
 
       return matchesSearch && matchesLoop && matchesZone && matchesType && matchesStatus;
@@ -156,7 +163,16 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
   }, [search, filters]);
 
   const clearFilters = () => {
-    setFilters({ loop: "", zone: "", deviceType: "", status: "" });
+    setFilters({ loop: "", zone: "", deviceTypes: [], status: "" });
+  };
+
+  const toggleDeviceType = (type: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      deviceTypes: prev.deviceTypes.includes(type)
+        ? prev.deviceTypes.filter((t) => t !== type)
+        : [...prev.deviceTypes, type],
+    }));
   };
 
   const handleExport = () => {
@@ -402,22 +418,54 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
 
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Device Type</Label>
-                <Select
-                  value={filters.deviceType}
-                  onValueChange={(value) => setFilters((prev) => ({ ...prev, deviceType: value === "all" ? "" : value }))}
-                >
-                  <SelectTrigger className="w-44 h-9">
-                    <SelectValue placeholder="All types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All types</SelectItem>
-                    {filterOptions.types.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-48 h-9 justify-between font-normal">
+                      {filters.deviceTypes.length === 0 
+                        ? "All types" 
+                        : filters.deviceTypes.length === 1 
+                          ? filters.deviceTypes[0]
+                          : `${filters.deviceTypes.length} types selected`}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-0 bg-popover" align="start">
+                    <div className="p-2 border-b border-border">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start h-8"
+                        onClick={() => setFilters((prev) => ({ ...prev, deviceTypes: [] }))}
+                      >
+                        <X className="w-3 h-3 mr-2" />
+                        Clear selection
+                      </Button>
+                    </div>
+                    <ScrollArea className="h-[200px]">
+                      <div className="p-2 space-y-1">
+                        {filterOptions.types.map((type) => (
+                          <div
+                            key={type}
+                            className="flex items-center space-x-2 p-2 hover:bg-muted rounded-md cursor-pointer"
+                            onClick={() => toggleDeviceType(type)}
+                          >
+                            <Checkbox
+                              id={`type-${type}`}
+                              checked={filters.deviceTypes.includes(type)}
+                              onCheckedChange={() => toggleDeviceType(type)}
+                            />
+                            <label
+                              htmlFor={`type-${type}`}
+                              className="text-sm flex-1 cursor-pointer"
+                            >
+                              {type}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-1.5">
