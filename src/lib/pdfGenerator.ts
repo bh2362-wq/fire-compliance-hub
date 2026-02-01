@@ -334,24 +334,25 @@ export function generateServiceReportPDF(
 
   // === INSPECTION & SERVICING CHECKLIST ===
   doc.setTextColor(...COLORS.charcoal);
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("Fire Detection & Fire Alarm Inspection & Servicing Checklist", margin, yPos + 4);
+  doc.text("Fire Detection & Fire Alarm Inspection & Servicing Checklist", margin, yPos + 5);
   
-  doc.setFontSize(9);
-  doc.setTextColor(...COLORS.red);
-  doc.text("As recommended in BAFE SP203-1 Clause 9.8 & BS5839-1:2025 Clause 45", margin, yPos + 10);
-
-  // Legend
+  yPos += 10;
+  
   doc.setFontSize(8);
+  doc.setTextColor(...COLORS.red);
+  doc.text("As recommended in BAFE SP203-1 Clause 9.8 & BS5839-1:2025 Clause 45", margin, yPos);
+
+  // Legend - positioned to the right of the subtitle
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...COLORS.charcoal);
   let legendX = pageWidth - margin - 70;
-  legendX = drawStatusBox(doc, legendX, yPos + 2, true);
-  legendX = drawStatusBox(doc, legendX, yPos + 2, false);
-  drawStatusBox(doc, legendX, yPos + 2, null);
+  legendX = drawStatusBox(doc, legendX, yPos - 4, true);
+  legendX = drawStatusBox(doc, legendX, yPos - 4, false);
+  drawStatusBox(doc, legendX, yPos - 4, null);
 
-  yPos += 14;
+  yPos += 6;
 
   // Helper to build checklist table body
   const buildChecklistTableBody = (
