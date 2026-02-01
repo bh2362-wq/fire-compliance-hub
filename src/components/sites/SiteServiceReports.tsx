@@ -211,8 +211,23 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
           visit.visit_type
         );
       } else {
-        // BS5839 report
-        generateServiceReportPDF(report, siteInfo, visit);
+        // BS5839 report - parse signature data from notes
+        let signatures = {};
+        try {
+          const parsed = JSON.parse(report.notes || "{}");
+          signatures = {
+            engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
+            engineerSignDate: parsed.engineerSignDate || "",
+            engineerSignTime: parsed.engineerSignTime || "",
+            customerNotPresent: parsed.customerNotPresent || false,
+            customerSignature: report.client_signature || parsed.customerSignature || "",
+            customerSignDate: parsed.customerSignDate || "",
+            customerSignTime: parsed.customerSignTime || "",
+          };
+        } catch {
+          // Notes parsing failed, use empty signatures
+        }
+        generateServiceReportPDF(report, siteInfo, visit, undefined, signatures);
       }
       toast.success("PDF downloaded");
     } catch (error) {
