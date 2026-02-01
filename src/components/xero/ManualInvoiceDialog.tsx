@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, FileText, CalendarIcon, Building2 } from "lucide-react";
+import { Loader2, Plus, Trash2, FileText, CalendarIcon, Building2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   fetchXeroContacts,
@@ -318,35 +318,64 @@ export function ManualInvoiceDialog({
                 <Building2 className="h-4 w-4 text-muted-foreground" />
                 Site
               </Label>
-              <Select value={selectedSite} onValueChange={setSelectedSite}>
-                <SelectTrigger>
-                  <SelectValue placeholder={loadingSites ? "Loading..." : "Select a site"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {sites.map((site) => (
-                    <SelectItem key={site.id} value={site.id}>
-                      {site.name}
-                      {site.city && ` - ${site.city}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={selectedSite} onValueChange={setSelectedSite}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={loadingSites ? "Loading..." : "Select a site"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sites.map((site) => (
+                      <SelectItem key={site.id} value={site.id}>
+                        {site.name}
+                        {site.city && ` - ${site.city}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedSite && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSelectedSite("");
+                      setReference("");
+                    }}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">
               <Label>Contact (Bill To)</Label>
-              <Select value={selectedContact} onValueChange={setSelectedContact}>
-                <SelectTrigger>
-                  <SelectValue placeholder={loadingContacts ? "Loading..." : "Select a contact"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {contacts.map((contact) => (
-                    <SelectItem key={contact.ContactID} value={contact.ContactID}>
-                      {contact.Name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={selectedContact} onValueChange={setSelectedContact}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={loadingContacts ? "Loading..." : "Select a contact"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contacts.map((contact) => (
+                      <SelectItem key={contact.ContactID} value={contact.ContactID}>
+                        {contact.Name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedContact && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedContact("")}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
