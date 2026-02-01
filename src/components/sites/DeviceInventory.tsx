@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,9 +28,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Cpu, Search, ChevronLeft, ChevronRight, Upload, Pencil, Trash2, Loader2, Plus } from "lucide-react";
+import { Cpu, Search, ChevronLeft, ChevronRight, Upload, Pencil, Trash2, Loader2, Plus, Filter, Download, X, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +63,13 @@ interface DeviceInventoryProps {
   onImportClick?: () => void;
 }
 
+interface Filters {
+  loop: string;
+  zone: string;
+  deviceType: string;
+  status: string;
+}
+
 const ITEMS_PER_PAGE = 10;
 
 const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
@@ -61,6 +80,13 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [deletingDevice, setDeletingDevice] = useState<Device | null>(null);
   const [saving, setSaving] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState<Filters>({
+    loop: "",
+    zone: "",
+    deviceType: "",
+    status: "",
+  });
   const [editForm, setEditForm] = useState({
     loop: "",
     address: "",
@@ -69,6 +95,17 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
     zone: "",
   });
   const { toast } = useToast();
+
+  // Extract unique values for filter dropdowns
+  const filterOptions = useMemo(() => {
+    const loops = [...new Set(devices.map((d) => d.loop).filter(Boolean))].sort();
+    const zones = [...new Set(devices.map((d) => d.zone).filter(Boolean) as string[])].sort();
+    const types = [...new Set(devices.map((d) => d.device_type).filter(Boolean))].sort();
+    const statuses = [...new Set(devices.map((d) => d.status).filter(Boolean) as string[])].sort();
+    return { loops, zones, types, statuses };
+  }, [devices]);
+
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
   useEffect(() => {
     const fetchDevices = async () => {
@@ -89,11 +126,24 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
     fetchDevices();
   }, [siteId]);
 
-  const filteredDevices = devices.filter((device) =>
-    [device.loop, device.address, device.device_type, device.location, device.zone]
-      .filter(Boolean)
-      .some((field) => field?.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredDevices = useMemo(() => {
+    return devices.filter((device) => {
+      // Text search
+      const matchesSearch =
+        !search ||
+        [device.loop, device.address, device.device_type, device.location, device.zone]
+          .filter(Boolean)
+          .some((field) => field?.toLowerCase().includes(search.toLowerCase()));
+
+      // Filter matches
+      const matchesLoop = !filters.loop || device.loop === filters.loop;
+      const matchesZone = !filters.zone || device.zone === filters.zone;
+      const matchesType = !filters.deviceType || device.device_type === filters.deviceType;
+      const matchesStatus = !filters.status || device.status === filters.status;
+
+      return matchesSearch && matchesLoop && matchesZone && matchesType && matchesStatus;
+    });
+  }, [devices, search, filters]);
 
   const totalPages = Math.ceil(filteredDevices.length / ITEMS_PER_PAGE);
   const paginatedDevices = filteredDevices.slice(
@@ -103,7 +153,57 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search]);
+  }, [search, filters]);
+
+  const clearFilters = () => {
+    setFilters({ loop: "", zone: "", deviceType: "", status: "" });
+  };
+
+  const handleExport = () => {
+    if (filteredDevices.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "There are no devices matching your current filters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create CSV content
+    const headers = ["Loop", "Address", "Type", "Location", "Zone", "Status", "Last Tested"];
+    const rows = filteredDevices.map((device) => [
+      device.loop,
+      device.address,
+      device.device_type,
+      device.location || "",
+      device.zone || "",
+      device.status || "",
+      device.last_tested_at ? new Date(device.last_tested_at).toLocaleDateString() : "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      ),
+    ].join("\n");
+
+    // Download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `device-inventory-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export complete",
+      description: `Exported ${filteredDevices.length} device${filteredDevices.length !== 1 ? "s" : ""} to CSV.`,
+    });
+  };
 
   const handleEditClick = (device: Device) => {
     setEditingDevice(device);
@@ -219,16 +319,33 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search devices..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 w-64"
+              className="pl-9 w-48"
             />
           </div>
+          <Button
+            variant={filtersOpen || activeFilterCount > 0 ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Filters
+            {activeFilterCount > 0 && (
+              <Badge variant="secondary" className="ml-2 h-5 px-1.5 bg-primary text-primary-foreground">
+                {activeFilterCount}
+              </Badge>
+            )}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
           {onImportClick && (
             <Button variant="outline" size="sm" onClick={onImportClick}>
               <Plus className="w-4 h-4 mr-2" />
@@ -237,6 +354,102 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
           )}
         </div>
       </div>
+
+      {/* Filters Panel */}
+      <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <CollapsibleContent>
+          <div className="px-6 py-4 border-b border-border bg-muted/30">
+            <div className="flex items-end gap-4 flex-wrap">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Loop</Label>
+                <Select
+                  value={filters.loop}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, loop: value === "all" ? "" : value }))}
+                >
+                  <SelectTrigger className="w-32 h-9">
+                    <SelectValue placeholder="All loops" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All loops</SelectItem>
+                    {filterOptions.loops.map((loop) => (
+                      <SelectItem key={loop} value={loop}>
+                        Loop {loop}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Zone</Label>
+                <Select
+                  value={filters.zone}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, zone: value === "all" ? "" : value }))}
+                >
+                  <SelectTrigger className="w-36 h-9">
+                    <SelectValue placeholder="All zones" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All zones</SelectItem>
+                    {filterOptions.zones.map((zone) => (
+                      <SelectItem key={zone} value={zone}>
+                        {zone}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Device Type</Label>
+                <Select
+                  value={filters.deviceType}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, deviceType: value === "all" ? "" : value }))}
+                >
+                  <SelectTrigger className="w-44 h-9">
+                    <SelectValue placeholder="All types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All types</SelectItem>
+                    {filterOptions.types.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Status</Label>
+                <Select
+                  value={filters.status}
+                  onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value === "all" ? "" : value }))}
+                >
+                  <SelectTrigger className="w-32 h-9">
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {filterOptions.statuses.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {activeFilterCount > 0 && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
+                  <X className="w-4 h-4 mr-1" />
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {devices.length === 0 ? (
         <div className="p-12 text-center">
