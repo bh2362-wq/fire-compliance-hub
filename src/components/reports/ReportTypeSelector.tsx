@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,7 @@ interface ASDAsset {
 interface ReportTypeSelectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (type: "bs5839" | "work" | "asd", asdAsset?: ASDAsset) => void;
+  onSelect: (type: "bs5839" | "work" | "asd", asdAssets?: ASDAsset[]) => void;
   siteId?: string;
 }
 
@@ -120,37 +121,38 @@ export function ReportTypeSelector({
               <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
             </button>
 
-            {/* ASD Reports */}
+            {/* ASD Report - Single button for all units */}
             {asdAssets.length > 0 && (
-              <>
-                <div className="pt-2 pb-1">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Aspirating Smoke Detection
-                  </span>
+              <button
+                type="button"
+                className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
+                onClick={() => {
+                  onSelect("asd", asdAssets);
+                  onOpenChange(false);
+                }}
+              >
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                  <Wind className="w-6 h-6 text-primary" />
                 </div>
-                {asdAssets.map((asset) => (
-                  <button
-                    key={asset.id}
-                    type="button"
-                    className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
-                    onClick={() => {
-                      onSelect("asd", asset);
-                      onOpenChange(false);
-                    }}
-                  >
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                      <Wind className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-foreground">{asset.item_name}</div>
-                      <div className="text-sm text-muted-foreground mt-1 truncate">
-                        {[asset.manufacturer, asset.model, asset.location].filter(Boolean).join(" • ") || "ASD Unit"}
-                      </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-                  </button>
-                ))}
-              </>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-foreground flex items-center gap-2 flex-wrap">
+                    ASD Service Report
+                    {asdAssets.length > 1 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {asdAssets.length} units
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                    Aspirating smoke detection service.
+                    <br />
+                    {asdAssets.length === 1 
+                      ? asdAssets[0].item_name
+                      : `Covers all ${asdAssets.length} ASD units on site.`}
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+              </button>
             )}
 
             {/* No ASD message */}

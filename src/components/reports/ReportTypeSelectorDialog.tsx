@@ -51,7 +51,6 @@ export function ReportTypeSelectorDialog({
   // Sub-dialog states
   const [showFireReport, setShowFireReport] = useState(false);
   const [showAsdReport, setShowAsdReport] = useState(false);
-  const [selectedAsdAsset, setSelectedAsdAsset] = useState<ContractAsset | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -115,8 +114,7 @@ export function ReportTypeSelectorDialog({
     onOpenChange(false);
   };
 
-  const handleAsdClick = (asset: ContractAsset) => {
-    setSelectedAsdAsset(asset);
+  const handleAsdClick = () => {
     setShowAsdReport(true);
     onOpenChange(false);
   };
@@ -124,7 +122,6 @@ export function ReportTypeSelectorDialog({
   const handleSubDialogClose = () => {
     setShowFireReport(false);
     setShowAsdReport(false);
-    setSelectedAsdAsset(null);
   };
 
   const handleSubDialogSuccess = () => {
@@ -153,7 +150,7 @@ export function ReportTypeSelectorDialog({
     );
   }
 
-  if (showAsdReport && selectedAsdAsset) {
+  if (showAsdReport && asdAssets.length > 0) {
     return (
       <ASDReportDialog
         open={true}
@@ -161,7 +158,7 @@ export function ReportTypeSelectorDialog({
           if (!open) handleSubDialogClose();
         }}
         visit={visit}
-        asset={selectedAsdAsset}
+        assets={asdAssets}
         onSuccess={handleSubDialogSuccess}
       />
     );
@@ -230,34 +227,35 @@ export function ReportTypeSelectorDialog({
               <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
             </button>
 
-            {/* ASD Reports */}
+            {/* ASD Report - Single button for all ASD units */}
             {asdAssets.length > 0 && (
-              <>
-                <div className="pt-2 pb-1">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Aspirating Smoke Detection
-                  </span>
+              <button
+                type="button"
+                className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
+                onClick={handleAsdClick}
+              >
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                  <Wind className="w-6 h-6 text-primary" />
                 </div>
-                {asdAssets.map((asset) => (
-                  <button
-                    key={asset.id}
-                    type="button"
-                    className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
-                    onClick={() => handleAsdClick(asset)}
-                  >
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                      <Wind className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-foreground">{asset.item_name}</div>
-                      <div className="text-sm text-muted-foreground mt-0.5 truncate">
-                        {[asset.manufacturer, asset.model, asset.location].filter(Boolean).join(" • ") || "ASD Unit"}
-                      </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  </button>
-                ))}
-              </>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-foreground flex items-center gap-2 flex-wrap">
+                    ASD Service Report
+                    {asdAssets.length > 1 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {asdAssets.length} units
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                    Aspirating smoke detection service.
+                    <br />
+                    {asdAssets.length === 1 
+                      ? asdAssets[0].item_name
+                      : `Covers all ${asdAssets.length} ASD units on site.`}
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+              </button>
             )}
 
             {/* No ASD message - subtle */}

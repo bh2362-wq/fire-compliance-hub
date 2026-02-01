@@ -63,7 +63,7 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
   const [selectedVisit, setSelectedVisit] = useState<OpenVisit | null>(null);
   const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
   const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | null>(null);
-  const [selectedAsdAsset, setSelectedAsdAsset] = useState<ASDAsset | null>(null);
+  const [selectedAsdAssets, setSelectedAsdAssets] = useState<ASDAsset[]>([]);
 
   useEffect(() => {
     loadOpenVisits();
@@ -125,10 +125,10 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
     }
   };
 
-  const handleReportTypeSelect = (type: "bs5839" | "work" | "asd", asdAsset?: ASDAsset) => {
+  const handleReportTypeSelect = (type: "bs5839" | "work" | "asd", asdAssets?: ASDAsset[]) => {
     setReportType(type);
-    if (asdAsset) {
-      setSelectedAsdAsset(asdAsset);
+    if (asdAssets && asdAssets.length > 0) {
+      setSelectedAsdAssets(asdAssets);
     }
   };
 
@@ -282,14 +282,14 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
       )}
 
       {/* ASD Report Dialog */}
-      {selectedVisit && reportType === "asd" && selectedAsdAsset && (
+      {selectedVisit && reportType === "asd" && selectedAsdAssets.length > 0 && (
         <ASDReportDialog
           open={!!selectedVisit && reportType === "asd"}
           onOpenChange={(open) => {
             if (!open) {
               setSelectedVisit(null);
               setReportType(null);
-              setSelectedAsdAsset(null);
+              setSelectedAsdAssets([]);
             }
           }}
           visit={{
@@ -299,7 +299,7 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
             site_id: selectedVisit.site_id,
             sites: selectedVisit.sites,
           }}
-          asset={selectedAsdAsset}
+          assets={selectedAsdAssets}
           onSuccess={handleReportSuccess}
           showCompleteVisit
         />
