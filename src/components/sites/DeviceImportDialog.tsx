@@ -587,13 +587,16 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
                 />
               </label>
 
-              {/* Sheet Selector for Excel files with multiple sheets */}
-              {sheetNames.length > 1 && (
+              {/* Sheet Selector for Excel workbooks */}
+              {sheetNames.length > 0 && (
                 <div className="space-y-2">
-                  <Label htmlFor="sheet-select">Select Sheet</Label>
+                  <Label htmlFor="sheet-select">
+                    Select Worksheet {sheetNames.length > 1 && <span className="text-muted-foreground font-normal">({sheetNames.length} sheets available)</span>}
+                  </Label>
                   <Select value={selectedSheet} onValueChange={handleSheetChange}>
                     <SelectTrigger id="sheet-select">
-                      <SelectValue placeholder="Select a sheet" />
+                      <FileSpreadsheet className="w-4 h-4 mr-2 text-muted-foreground" />
+                      <SelectValue placeholder="Select a worksheet" />
                     </SelectTrigger>
                     <SelectContent>
                       {sheetNames.map((name) => (
