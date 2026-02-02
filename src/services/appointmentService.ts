@@ -82,10 +82,33 @@ export async function fetchAppointmentById(id: string): Promise<Appointment | nu
 }
 
 export async function createAppointment(input: AppointmentInput, userId: string): Promise<Appointment> {
+  // First, create a visit record if visit_type is provided and no visit_id exists
+  let visitId = input.visit_id;
+  
+  if (!visitId && input.visit_type) {
+    const { data: visitData, error: visitError } = await supabase
+      .from('visits')
+      .insert({
+        site_id: input.site_id,
+        visit_date: input.appointment_date,
+        visit_type: input.visit_type,
+        status: 'scheduled',
+        engineer_id: input.engineer_id || null,
+        notes: input.description || null,
+      })
+      .select('id')
+      .single();
+
+    if (visitError) throw visitError;
+    visitId = visitData.id;
+  }
+
+  // Now create the appointment with the linked visit
   const { data, error } = await supabase
     .from('appointments')
     .insert({
       ...input,
+      visit_id: visitId,
       created_by: userId,
     })
     .select(`
@@ -118,12 +141,28 @@ export async function updateAppointment(id: string, input: Partial<AppointmentIn
 }
 
 export async function deleteAppointment(id: string): Promise<void> {
+  // First get the appointment to check for linked visit
+  const { data: appointment } = await supabase
+    .from('appointments')
+    .select('visit_id')
+    .eq('id', id)
+    .single();
+
+  // Delete the appointment
   const { error } = await supabase
     .from('appointments')
     .delete()
     .eq('id', id);
 
   if (error) throw error;
+
+  // If there was a linked visit, delete it too
+  if (appointment?.visit_id) {
+    await supabase
+      .from('visits')
+      .delete()
+      .eq('id', appointment.visit_id);
+  }
 }
 
 export async function fetchEngineers(): Promise<{ id: string; full_name: string | null; email: string | null }[]> {
