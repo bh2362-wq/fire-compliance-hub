@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   Bell,
   GitCompare,
-  Receipt
+  Receipt,
+  CalendarDays
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -25,6 +26,7 @@ interface DashboardLayoutProps {
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Schedule", href: "/dashboard/schedule", icon: CalendarDays },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Sites", href: "/sites", icon: Building2 },
   { name: "Visits", href: "/dashboard/visits", icon: ClipboardList },
