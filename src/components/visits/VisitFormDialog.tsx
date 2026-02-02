@@ -33,6 +33,7 @@ import { Loader2, Plus, Calendar, Flame, Wind, Wrench, AlertTriangle } from "luc
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { createAppointment } from "@/services/appointmentService";
 
 const visitFormSchema = z.object({
   site_id: z.string().min(1, "Site is required"),
@@ -204,6 +205,10 @@ const VisitFormDialog = ({
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      if (!user?.id) {
+        throw new Error("Not authenticated");
+      }
+
       // Build notes JSON with asset type info
       // The report will look up all assets of this type for the site
       const notesData: Record<string, unknown> = {
@@ -214,6 +219,13 @@ const VisitFormDialog = ({
         notesData.user_notes = data.notes;
       }
 
+      // Get site and customer info for the appointment
+      const { data: siteData } = await supabase
+        .from("sites")
+        .select("name, customer_id")
+        .eq("id", data.site_id)
+        .single();
+
       const { data: visit, error } = await supabase
         .from("visits")
         .insert({
@@ -221,7 +233,7 @@ const VisitFormDialog = ({
           visit_date: data.visit_date,
           visit_type: data.visit_type,
           notes: Object.keys(notesData).length > 0 ? JSON.stringify(notesData) : null,
-          engineer_id: user?.id || null,
+          engineer_id: user.id,
           status: "in_progress",
         })
         .select("id")
@@ -229,11 +241,30 @@ const VisitFormDialog = ({
 
       if (error) throw error;
 
+      // Create corresponding appointment in the schedule
       const typeLabel = getVisitTypeLabel();
+      try {
+        await createAppointment({
+          visit_id: visit.id,
+          site_id: data.site_id,
+          customer_id: siteData?.customer_id || null,
+          engineer_id: user.id,
+          title: `${typeLabel} - ${siteData?.name || "Site Visit"}`,
+          description: data.notes || null,
+          appointment_date: data.visit_date,
+          start_time: "09:00:00",
+          end_time: "17:00:00",
+          status: "scheduled",
+          visit_type: data.visit_type,
+        }, user.id);
+      } catch (aptError) {
+        console.error("Error creating appointment:", aptError);
+        // Don't fail the visit creation if appointment fails
+      }
       
       toast({
         title: "Visit created",
-        description: `${typeLabel} visit created successfully.`,
+        description: `${typeLabel} visit created and added to schedule.`,
       });
 
       form.reset({

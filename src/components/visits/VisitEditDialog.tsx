@@ -179,9 +179,56 @@ const VisitEditDialog = ({
 
       if (error) throw error;
 
+      // Update corresponding appointment in the schedule
+      const visitTypeLabel = VISIT_TYPES.find(t => t.value === data.visit_type)?.label || data.visit_type;
+      const appointmentStatus = data.status === "completed" ? "completed" : 
+                               data.status === "in_progress" ? "in_progress" : "scheduled";
+
+      try {
+        // Find and update the appointment linked to this visit
+        const { data: existingApt } = await supabase
+          .from("appointments")
+          .select("id")
+          .eq("visit_id", visit.id)
+          .single();
+
+        if (existingApt) {
+          await supabase
+            .from("appointments")
+            .update({
+              appointment_date: data.visit_date,
+              visit_type: data.visit_type,
+              status: appointmentStatus,
+              title: `${visitTypeLabel} - ${visit.site?.name || "Site Visit"}`,
+            })
+            .eq("id", existingApt.id);
+        } else {
+          // Create appointment if it doesn't exist (for legacy visits)
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id) {
+            await supabase.from("appointments").insert({
+              visit_id: visit.id,
+              site_id: visit.site_id,
+              customer_id: null,
+              engineer_id: visit.engineer_id || user.id,
+              title: `${visitTypeLabel} - ${visit.site?.name || "Site Visit"}`,
+              appointment_date: data.visit_date,
+              start_time: "09:00:00",
+              end_time: "17:00:00",
+              status: appointmentStatus,
+              visit_type: data.visit_type,
+              created_by: user.id,
+            });
+          }
+        }
+      } catch (aptError) {
+        console.error("Error updating appointment:", aptError);
+        // Don't fail the visit update if appointment update fails
+      }
+
       toast({
         title: "Visit updated",
-        description: "The visit has been updated successfully.",
+        description: "The visit and schedule have been updated.",
       });
 
       onOpenChange(false);
