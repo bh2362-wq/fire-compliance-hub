@@ -46,6 +46,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { InvoicePromptDialog } from "./InvoicePromptDialog";
 import { AIRewriteButton } from "./AIRewriteButton";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
+import { sendJobCompletedNotification } from "@/services/notificationService";
 
 interface VisitForReport {
   id: string;
@@ -409,6 +410,9 @@ export function WorkReportDialog({
         setIsLocked(true);
         toast.success("Work report completed and locked");
         
+        // Send job completed notification email
+        sendJobCompletedNotification(visit.id).catch(console.error);
+        
         // Show invoice prompt if customer has Xero connection
         if (customerInfo?.xero_contact_id) {
           setShowInvoicePrompt(true);
@@ -484,6 +488,9 @@ export function WorkReportDialog({
 
       setIsLocked(true);
       toast.success("Visit completed and locked");
+      
+      // Send job completed notification email
+      sendJobCompletedNotification(visit.id).catch(console.error);
       
       // Show invoice prompt if customer has Xero connection
       if (customerInfo?.xero_contact_id) {
