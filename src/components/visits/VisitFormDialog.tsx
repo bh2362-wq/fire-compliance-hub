@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { createAppointment } from "@/services/appointmentService";
+import { sendAppointmentCreatedNotification } from "@/services/notificationService";
 
 const visitFormSchema = z.object({
   site_id: z.string().min(1, "Site is required"),
@@ -244,7 +245,7 @@ const VisitFormDialog = ({
       // Create corresponding appointment in the schedule
       const typeLabel = getVisitTypeLabel();
       try {
-        await createAppointment({
+        const newAppointment = await createAppointment({
           visit_id: visit.id,
           site_id: data.site_id,
           customer_id: siteData?.customer_id || null,
@@ -257,6 +258,9 @@ const VisitFormDialog = ({
           status: "scheduled",
           visit_type: data.visit_type,
         }, user.id);
+        
+        // Send confirmation email to customer
+        sendAppointmentCreatedNotification(newAppointment.id).catch(console.error);
       } catch (aptError) {
         console.error("Error creating appointment:", aptError);
         // Don't fail the visit creation if appointment fails

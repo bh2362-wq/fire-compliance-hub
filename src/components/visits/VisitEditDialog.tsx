@@ -32,6 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Visit } from "@/hooks/useVisits";
+import { sendAppointmentUpdatedNotification } from "@/services/notificationService";
 
 const visitEditSchema = z.object({
   visit_date: z.string().min(1, "Visit date is required"),
@@ -202,6 +203,9 @@ const VisitEditDialog = ({
               title: `${visitTypeLabel} - ${visit.site?.name || "Site Visit"}`,
             })
             .eq("id", existingApt.id);
+          
+          // Send update notification email
+          sendAppointmentUpdatedNotification(existingApt.id).catch(console.error);
         } else {
           // Create appointment if it doesn't exist (for legacy visits)
           const { data: { user } } = await supabase.auth.getUser();

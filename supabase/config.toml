@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.xero-next-invoice-number]
 verify_jwt = false
+
+[functions.rewrite-text]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = false

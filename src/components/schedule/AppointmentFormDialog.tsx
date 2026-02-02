@@ -21,6 +21,10 @@ import {
   fetchEngineers,
   APPOINTMENT_STATUS_LABELS,
 } from "@/services/appointmentService";
+import { 
+  sendAppointmentCreatedNotification, 
+  sendAppointmentUpdatedNotification 
+} from "@/services/notificationService";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface AppointmentFormDialogProps {
@@ -171,9 +175,13 @@ export function AppointmentFormDialog({
       if (isEditing && appointment) {
         await updateAppointment(appointment.id, input);
         toast({ title: "Appointment updated" });
+        // Send update notification email
+        sendAppointmentUpdatedNotification(appointment.id).catch(console.error);
       } else {
-        await createAppointment(input, user.id);
+        const newAppointment = await createAppointment(input, user.id);
         toast({ title: "Appointment created" });
+        // Send confirmation email
+        sendAppointmentCreatedNotification(newAppointment.id).catch(console.error);
       }
 
       onSuccess();
