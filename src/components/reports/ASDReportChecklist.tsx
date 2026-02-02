@@ -40,11 +40,17 @@ const ChecklistItem = ({
   value,
   onChange,
   readonly,
+  itemKey,
+  isExcluded,
+  onToggleExclude,
 }: {
   label: string;
   value: CheckValue;
   onChange: (value: CheckValue) => void;
   readonly?: boolean;
+  itemKey?: string;
+  isExcluded?: boolean;
+  onToggleExclude?: () => void;
 }) => {
   const cycleValue = () => {
     if (readonly) return;
@@ -57,30 +63,54 @@ const ChecklistItem = ({
     <div
       className={cn(
         "flex items-center justify-between py-2 px-3 rounded-lg border transition-colors",
+        isExcluded && "opacity-50",
         value === true && "bg-success/10 border-success/30",
         value === false && "bg-destructive/10 border-destructive/30",
         value === null && "bg-muted/50 border-border",
         !readonly && "cursor-pointer hover:bg-muted"
       )}
-      onClick={cycleValue}
     >
-      <span className="text-sm text-foreground">{label}</span>
-      <div className="flex items-center gap-1">
-        {value === true && (
-          <div className="w-6 h-6 rounded-full bg-success flex items-center justify-center">
-            <Check className="w-4 h-4 text-success-foreground" />
-          </div>
+      <div className="flex-1" onClick={cycleValue}>
+        <span className={cn("text-sm text-foreground", isExcluded && "line-through")}>{label}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        {/* Exclude toggle */}
+        {!readonly && onToggleExclude && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExclude();
+            }}
+            className={cn(
+              "p-1.5 rounded-md transition-colors",
+              isExcluded
+                ? "text-muted-foreground hover:text-foreground hover:bg-muted"
+                : "text-primary hover:bg-primary/10"
+            )}
+            title={isExcluded ? "Include in PDF" : "Exclude from PDF"}
+          >
+            {isExcluded ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
         )}
-        {value === false && (
-          <div className="w-6 h-6 rounded-full bg-destructive flex items-center justify-center">
-            <X className="w-4 h-4 text-destructive-foreground" />
-          </div>
-        )}
-        {value === null && (
-          <div className="w-6 h-6 rounded-full bg-muted-foreground/30 flex items-center justify-center">
-            <Minus className="w-4 h-4 text-muted-foreground" />
-          </div>
-        )}
+        {/* Status indicator */}
+        <div onClick={cycleValue}>
+          {value === true && (
+            <div className="w-6 h-6 rounded-full bg-success flex items-center justify-center">
+              <Check className="w-4 h-4 text-success-foreground" />
+            </div>
+          )}
+          {value === false && (
+            <div className="w-6 h-6 rounded-full bg-destructive flex items-center justify-center">
+              <X className="w-4 h-4 text-destructive-foreground" />
+            </div>
+          )}
+          {value === null && (
+            <div className="w-6 h-6 rounded-full bg-muted-foreground/30 flex items-center justify-center">
+              <Minus className="w-4 h-4 text-muted-foreground" />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -182,6 +212,25 @@ export function ASDReportChecklist({
     });
   };
 
+  const isItemExcluded = (section: string, itemKey: string) => {
+    const key = `${section}.${itemKey}`;
+    return checklist.excluded_items?.includes(key) ?? false;
+  };
+
+  const toggleItemExclusion = (section: string, itemKey: string) => {
+    if (readonly) return;
+    const key = `${section}.${itemKey}`;
+    const currentExcluded = checklist.excluded_items || [];
+    const isExcluded = currentExcluded.includes(key);
+    
+    onChange({
+      ...checklist,
+      excluded_items: isExcluded
+        ? currentExcluded.filter((k) => k !== key)
+        : [...currentExcluded, key],
+    });
+  };
+
   const getChecklistStats = (items: Record<string, CheckValue>) => {
     const values = Object.values(items);
     const passed = values.filter((v) => v === true).length;
@@ -264,6 +313,9 @@ export function ASDReportChecklist({
               value={checklist.pre_service_actions[key as keyof ASDChecklist["pre_service_actions"]]}
               onChange={(value) => updatePreServiceAction(key as keyof ASDChecklist["pre_service_actions"], value)}
               readonly={readonly}
+              itemKey={key}
+              isExcluded={isItemExcluded("pre_service_actions", key)}
+              onToggleExclude={() => toggleItemExclusion("pre_service_actions", key)}
             />
           ))}
         </div>
@@ -317,6 +369,9 @@ export function ASDReportChecklist({
             value={checklist.faults_and_repairs.detector_faults_present}
             onChange={(value) => updateFaultsAndRepairs("detector_faults_present", value)}
             readonly={readonly}
+            itemKey="detector_faults_present"
+            isExcluded={isItemExcluded("faults_and_repairs", "detector_faults_present")}
+            onToggleExclude={() => toggleItemExclusion("faults_and_repairs", "detector_faults_present")}
           />
           <div className="space-y-2">
             <Label className="text-sm">Actions Taken</Label>
@@ -356,6 +411,9 @@ export function ASDReportChecklist({
               value={checklist.cleaning_activities[key as keyof ASDChecklist["cleaning_activities"]]}
               onChange={(value) => updateCleaningActivity(key as keyof ASDChecklist["cleaning_activities"], value)}
               readonly={readonly}
+              itemKey={key}
+              isExcluded={isItemExcluded("cleaning_activities", key)}
+              onToggleExclude={() => toggleItemExclusion("cleaning_activities", key)}
             />
           ))}
         </div>
@@ -376,6 +434,9 @@ export function ASDReportChecklist({
               value={checklist.system_checks[key as keyof ASDChecklist["system_checks"]]}
               onChange={(value) => updateSystemCheck(key as keyof ASDChecklist["system_checks"], value)}
               readonly={readonly}
+              itemKey={key}
+              isExcluded={isItemExcluded("system_checks", key)}
+              onToggleExclude={() => toggleItemExclusion("system_checks", key)}
             />
           ))}
         </div>

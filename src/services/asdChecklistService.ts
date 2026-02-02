@@ -64,6 +64,9 @@ export interface ASDChecklist {
 
   // Sections excluded from PDF
   excluded_sections?: string[];
+  
+  // Individual items excluded from PDF (format: "section.item_key")
+  excluded_items?: string[];
 }
 
 export const getDefaultASDChecklist = (): ASDChecklist => ({
