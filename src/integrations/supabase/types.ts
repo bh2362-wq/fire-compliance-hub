@@ -14,6 +14,82 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          appointment_date: string
+          created_at: string
+          created_by: string
+          customer_id: string | null
+          description: string | null
+          end_time: string | null
+          engineer_id: string | null
+          id: string
+          site_id: string
+          start_time: string
+          status: string
+          title: string
+          updated_at: string
+          visit_id: string | null
+          visit_type: string | null
+        }
+        Insert: {
+          appointment_date: string
+          created_at?: string
+          created_by: string
+          customer_id?: string | null
+          description?: string | null
+          end_time?: string | null
+          engineer_id?: string | null
+          id?: string
+          site_id: string
+          start_time: string
+          status?: string
+          title: string
+          updated_at?: string
+          visit_id?: string | null
+          visit_type?: string | null
+        }
+        Update: {
+          appointment_date?: string
+          created_at?: string
+          created_by?: string
+          customer_id?: string | null
+          description?: string | null
+          end_time?: string | null
+          engineer_id?: string | null
+          id?: string
+          site_id?: string
+          start_time?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          visit_id?: string | null
+          visit_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
