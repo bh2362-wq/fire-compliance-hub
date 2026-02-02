@@ -164,6 +164,16 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         return;
       }
 
+      // Delete linked appointment from schedule first
+      const { error: appointmentError } = await supabase
+        .from("appointments")
+        .delete()
+        .eq("visit_id", deleteVisit.id);
+
+      if (appointmentError) {
+        console.error("Error deleting linked appointment:", appointmentError);
+      }
+
       // Check for linked service reports and delete them first
       const { error: reportError } = await supabase
         .from("service_reports")
