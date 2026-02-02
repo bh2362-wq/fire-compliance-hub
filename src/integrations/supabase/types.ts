@@ -127,6 +127,81 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          address: string | null
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          bank_sort_code: string | null
+          city: string | null
+          company_logo_url: string | null
+          company_name: string
+          created_at: string
+          created_by: string | null
+          default_engineer_signature: string | null
+          default_payment_terms: number | null
+          email: string | null
+          id: string
+          phone: string | null
+          postcode: string | null
+          registration_number: string | null
+          report_footer_text: string | null
+          report_logo_url: string | null
+          updated_at: string
+          vat_number: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          bank_sort_code?: string | null
+          city?: string | null
+          company_logo_url?: string | null
+          company_name: string
+          created_at?: string
+          created_by?: string | null
+          default_engineer_signature?: string | null
+          default_payment_terms?: number | null
+          email?: string | null
+          id?: string
+          phone?: string | null
+          postcode?: string | null
+          registration_number?: string | null
+          report_footer_text?: string | null
+          report_logo_url?: string | null
+          updated_at?: string
+          vat_number?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          bank_sort_code?: string | null
+          city?: string | null
+          company_logo_url?: string | null
+          company_name?: string
+          created_at?: string
+          created_by?: string | null
+          default_engineer_signature?: string | null
+          default_payment_terms?: number | null
+          email?: string | null
+          id?: string
+          phone?: string | null
+          postcode?: string | null
+          registration_number?: string | null
+          report_footer_text?: string | null
+          report_logo_url?: string | null
+          updated_at?: string
+          vat_number?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       contract_assets: {
         Row: {
           contract_id: string
@@ -231,6 +306,39 @@ export type Database = {
           status?: string | null
           updated_at?: string
           xero_contact_id?: string | null
+        }
+        Relationships: []
+      }
+      default_service_types: {
+        Row: {
+          created_at: string
+          default_price: number | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_price?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_price?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          sort_order?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
