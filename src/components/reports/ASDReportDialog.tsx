@@ -215,16 +215,30 @@ export function ASDReportDialog({
       const notesData = JSON.parse((r.notes as string) || "{}");
       setNotes(notesData.additional_notes || "");
       
-      // Load units data if available
+      // Load units data if available (new multi-unit format)
       if (notesData.units && Array.isArray(notesData.units)) {
         setUnits(notesData.units);
       } else {
-        // Fallback: initialize from assets
+        // Fallback for old single-asset format or missing units
         const initialUnits = initializeASDChecklists(assets);
-        // If there's a checklist at report level, use it for the first unit
+        
+        // If there's a checklist at report level, use it for the first/matching unit
         const checklistData = r.checklist as ASDChecklist | null;
         if (checklistData && initialUnits.length > 0) {
-          initialUnits[0].checklist = checklistData;
+          // For old format with single asset_id, find the matching unit
+          const oldAssetId = notesData.asset_id;
+          if (oldAssetId) {
+            const matchingIndex = initialUnits.findIndex(u => u.assetId === oldAssetId);
+            if (matchingIndex >= 0) {
+              initialUnits[matchingIndex].checklist = checklistData;
+            } else {
+              // If no match found, apply to first unit
+              initialUnits[0].checklist = checklistData;
+            }
+          } else {
+            // No asset_id in notes, apply to first unit
+            initialUnits[0].checklist = checklistData;
+          }
         }
         setUnits(initialUnits);
       }
