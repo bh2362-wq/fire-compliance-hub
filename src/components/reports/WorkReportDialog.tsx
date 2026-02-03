@@ -82,7 +82,7 @@ const SYSTEM_STATUS_OPTIONS = [
   { value: "partial", label: "Partial Operation" },
 ];
 
-const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+import { createAppointment } from "@/services/appointmentService";
 
 export function WorkReportDialog({
   open,
@@ -125,7 +125,7 @@ export function WorkReportDialog({
   const [logBookEntry, setLogBookEntry] = useState(false);
   const [systemStatusArrival, setSystemStatusArrival] = useState("");
   const [systemStatusDeparture, setSystemStatusDeparture] = useState("");
-  const [attendanceDay, setAttendanceDay] = useState("");
+  const [appointmentDate, setAppointmentDate] = useState<Date | undefined>(undefined);
 
   // Form state - Works & Times
   const [worksReport, setWorksReport] = useState("");
@@ -319,7 +319,12 @@ export function WorkReportDialog({
         setLogBookEntry(parsedNotes.logBookEntry || false);
         setSystemStatusArrival(parsedNotes.systemStatusArrival || "");
         setSystemStatusDeparture(parsedNotes.systemStatusDeparture || "");
-        setAttendanceDay(parsedNotes.attendanceDay || "");
+        if (parsedNotes.appointmentDate) {
+          setAppointmentDate(new Date(parsedNotes.appointmentDate));
+        } else if (parsedNotes.attendanceDay) {
+          // Legacy: attendanceDay was a day name, ignore it for date picker
+          setAppointmentDate(undefined);
+        }
         setNumEngineers(parsedNotes.numEngineers || 1);
         // Load multi-day work log or legacy single-day times
         if (parsedNotes.workDays && parsedNotes.workDays.length > 0) {
@@ -372,7 +377,7 @@ export function WorkReportDialog({
         logBookEntry,
         systemStatusArrival,
         systemStatusDeparture,
-        attendanceDay,
+        appointmentDate: appointmentDate?.toISOString(),
         numEngineers,
         workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
         totalHours,
@@ -399,6 +404,45 @@ export function WorkReportDialog({
         notes: notesData,
         status: complete ? "completed" : "draft",
       });
+
+      // Create or update calendar appointment if appointment date is set
+      if (appointmentDate && user) {
+        const appointmentDateStr = format(appointmentDate, "yyyy-MM-dd");
+        const appointmentTime = workDays[0]?.startTime || "09:00";
+        
+        // Check if there's already an appointment for this visit
+        const { data: existingAppointment } = await supabase
+          .from("appointments")
+          .select("id")
+          .eq("visit_id", visit.id)
+          .maybeSingle();
+
+        if (existingAppointment) {
+          // Update existing appointment
+          await supabase
+            .from("appointments")
+            .update({
+              appointment_date: appointmentDateStr,
+              start_time: appointmentTime,
+              title: `${JOB_TYPES.find(j => j.value === jobType)?.label || "Job"} - ${siteInfo?.name || "Site"}`,
+              status: complete ? "completed" : "scheduled",
+            })
+            .eq("id", existingAppointment.id);
+        } else {
+          // Create new appointment
+          await createAppointment({
+            site_id: visit.site_id,
+            visit_id: visit.id,
+            customer_id: customerInfo?.id || null,
+            title: `${JOB_TYPES.find(j => j.value === jobType)?.label || "Job"} - ${siteInfo?.name || "Site"}`,
+            description: worksReport || furtherAction || null,
+            appointment_date: appointmentDateStr,
+            start_time: appointmentTime,
+            visit_type: jobType || visit.visit_type,
+            status: "scheduled",
+          }, user.id);
+        }
+      }
 
       if (complete) {
         // Mark the visit as completed
@@ -450,7 +494,7 @@ export function WorkReportDialog({
         logBookEntry,
         systemStatusArrival,
         systemStatusDeparture,
-        attendanceDay,
+        appointmentDate: appointmentDate?.toISOString(),
         numEngineers,
         workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
         totalHours,
@@ -477,6 +521,38 @@ export function WorkReportDialog({
         notes: notesData,
         status: "completed",
       });
+
+      // Update calendar appointment to completed if it exists
+      if (user) {
+        const { data: existingAppointment } = await supabase
+          .from("appointments")
+          .select("id")
+          .eq("visit_id", visit.id)
+          .maybeSingle();
+
+        if (existingAppointment) {
+          await supabase
+            .from("appointments")
+            .update({ status: "completed" })
+            .eq("id", existingAppointment.id);
+        } else if (appointmentDate) {
+          // Create appointment if date was set but no appointment exists
+          const appointmentDateStr = format(appointmentDate, "yyyy-MM-dd");
+          const appointmentTime = workDays[0]?.startTime || "09:00";
+          
+          await createAppointment({
+            site_id: visit.site_id,
+            visit_id: visit.id,
+            customer_id: customerInfo?.id || null,
+            title: `${JOB_TYPES.find(j => j.value === jobType)?.label || "Job"} - ${siteInfo?.name || "Site"}`,
+            description: worksReport || furtherAction || null,
+            appointment_date: appointmentDateStr,
+            start_time: appointmentTime,
+            visit_type: jobType || visit.visit_type,
+            status: "completed",
+          }, user.id);
+        }
+      }
 
       // Mark the visit as completed
       const { error: visitError } = await supabase
@@ -543,7 +619,7 @@ export function WorkReportDialog({
           certificateNo,
           jobNumber,
           jobType,
-          attendanceDay,
+          appointmentDate: appointmentDate?.toISOString(),
           systemStatusArrival,
           systemStatusDeparture,
           workCompleted,
@@ -702,19 +778,31 @@ export function WorkReportDialog({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Attendance Day</Label>
-                  <Select value={attendanceDay} onValueChange={setAttendanceDay}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select day" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DAYS.map((day) => (
-                        <SelectItem key={day} value={day}>
-                          {day}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Appointment Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !appointmentDate && "text-muted-foreground"
+                        )}
+                        disabled={isLocked}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {appointmentDate ? format(appointmentDate, "PPP") : "Select date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={appointmentDate}
+                        onSelect={setAppointmentDate}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
 
