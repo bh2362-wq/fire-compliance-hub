@@ -12,7 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -151,6 +157,23 @@ const Reports = () => {
       setDeleting(false);
       setDeleteDialogOpen(false);
       setReportToDelete(null);
+    }
+  };
+
+  const handleStatusChange = async (reportId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from("service_reports")
+        .update({ status: newStatus })
+        .eq("id", reportId);
+
+      if (error) throw error;
+
+      toast.success(`Status updated to ${newStatus}`);
+      fetchReports();
+    } catch (error) {
+      console.error("Failed to update status:", error);
+      toast.error("Failed to update status");
     }
   };
 
@@ -348,17 +371,40 @@ const Reports = () => {
                         <Eye className="w-4 h-4 mr-1" />
                         View Report
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          setReportToDelete(report);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => handleStatusChange(report.id, report.status === "completed" ? "draft" : "completed")}
+                          >
+                            {report.status === "completed" ? (
+                              <>
+                                <FilePen className="w-4 h-4 mr-2" />
+                                Mark as Draft
+                              </>
+                            ) : (
+                              <>
+                                <FileCheck className="w-4 h-4 mr-2" />
+                                Mark as Completed
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setReportToDelete(report);
+                              setDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Report
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </div>
