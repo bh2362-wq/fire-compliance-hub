@@ -23,9 +23,11 @@ import { format, parseISO, isValid, subDays } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function BankReconciliation() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [matched, setMatched] = useState<BankTransaction[]>([]);
   const [unmatched, setUnmatched] = useState<BankTransaction[]>([]);
@@ -39,6 +41,13 @@ export function BankReconciliation() {
   const [toDate, setToDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   const loadTransactions = async () => {
+    // Don't fetch if user is not authenticated
+    if (!user) {
+      setLoading(false);
+      setError("Please log in to view bank reconciliation");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -56,7 +65,7 @@ export function BankReconciliation() {
 
   useEffect(() => {
     loadTransactions();
-  }, []);
+  }, [user]);
 
   const handleReconcile = async (tx: BankTransaction) => {
     if (!tx.matchedInvoice) return;
