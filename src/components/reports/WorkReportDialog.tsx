@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
@@ -239,6 +239,25 @@ export function WorkReportDialog({
     return sum + hours;
   }, 0).toFixed(2);
 
+  // Summary values used on the Sign tab
+  const signSummary = useMemo(() => {
+    const arrival = workDays.find((d) => !!d.startTime)?.startTime || "";
+    const departure = [...workDays].reverse().find((d) => !!d.finishTime)?.finishTime || "";
+    const summaryDateRaw =
+      [...workDays].reverse().find((d) => !!d.date)?.date ||
+      format(new Date(visit.visit_date), "yyyy-MM-dd");
+    const singleDayDuration =
+      [...workDays].reverse().find((d) => !!d.duration)?.duration || "";
+    const displayDuration = workDays.length > 1 ? totalHours : singleDayDuration;
+
+    return {
+      arrival,
+      departure,
+      summaryDateRaw,
+      displayDuration,
+    };
+  }, [workDays, totalHours, visit.visit_date]);
+
   // Legacy duration calculation for backwards compatibility
   useEffect(() => {
     if (startTime && finishTime) {
@@ -458,7 +477,7 @@ export function WorkReportDialog({
     
     // When navigating to sign tab, auto-populate engineer sign time from departure if empty
     if (newTab === "sign") {
-      const departureTime = workDays[0]?.finishTime;
+      const departureTime = signSummary.departure;
       if (departureTime && !engineerSignTime) {
         setEngineerSignTime(departureTime);
       }
@@ -1471,27 +1490,27 @@ export function WorkReportDialog({
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Date</p>
                   <p className="font-semibold text-sm">
-                    {workDays[0]?.date 
-                      ? format(new Date(workDays[0].date), "dd/MM/yyyy")
+                    {signSummary.summaryDateRaw
+                      ? format(new Date(signSummary.summaryDateRaw), "dd/MM/yyyy")
                       : format(new Date(visit.visit_date), "dd/MM/yyyy")}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Arrival</p>
                   <p className="font-semibold text-sm">
-                    {workDays[0]?.startTime || "—"}
+                    {signSummary.arrival || "—"}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Departure</p>
                   <p className="font-semibold text-sm">
-                    {workDays[0]?.finishTime || "—"}
+                    {signSummary.departure || "—"}
                   </p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Duration</p>
                   <p className="font-semibold text-sm">
-                    {workDays[0]?.duration ? `${workDays[0].duration} hrs` : "—"}
+                    {signSummary.displayDuration ? `${signSummary.displayDuration} hrs` : "—"}
                   </p>
                 </div>
               </div>
