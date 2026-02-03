@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -18,7 +20,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import {
@@ -38,6 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ServiceReport, BS5839Checklist, getDefaultChecklist } from "@/services/serviceReportService";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ASDAsset {
   id: string;
@@ -95,6 +106,11 @@ const Reports = () => {
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [reportToInvoice, setReportToInvoice] = useState<ReportWithSite | null>(null);
   const [invoiceContactId, setInvoiceContactId] = useState<string | null>(null);
+  const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
+  const [reportToUnlock, setReportToUnlock] = useState<ReportWithSite | null>(null);
+  const [unlockReason, setUnlockReason] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+  const { user } = useAuth();
 
   const fetchReports = async () => {
     setLoading(true);
@@ -221,6 +237,53 @@ const Reports = () => {
     
     setReportToInvoice(report);
     setInvoiceDialogOpen(true);
+  };
+
+  const handleUnlockReport = async () => {
+    if (!reportToUnlock || !unlockReason.trim() || !user) return;
+
+    setUnlocking(true);
+    try {
+      // Update report status to draft
+      const { error: updateError } = await supabase
+        .from("service_reports")
+        .update({ status: "draft" })
+        .eq("id", reportToUnlock.id);
+
+      if (updateError) throw updateError;
+
+      // Log the unlock action for compliance audit
+      const { error: auditError } = await supabase
+        .from("audit_logs")
+        .insert({
+          user_id: user.id,
+          entity_type: "service_report",
+          entity_id: reportToUnlock.id,
+          action: "unlock",
+          details: {
+            report_number: reportToUnlock.report_number,
+            site_name: reportToUnlock.sites?.name,
+            reason: unlockReason.trim(),
+            unlocked_at: new Date().toISOString(),
+          },
+        });
+
+      if (auditError) {
+        console.error("Failed to create audit log:", auditError);
+        // Don't throw - the unlock succeeded, audit logging is secondary
+      }
+
+      toast.success(`Report ${reportToUnlock.report_number || ""} unlocked for editing`);
+      fetchReports();
+    } catch (error) {
+      console.error("Failed to unlock report:", error);
+      toast.error("Failed to unlock report");
+    } finally {
+      setUnlocking(false);
+      setUnlockDialogOpen(false);
+      setReportToUnlock(null);
+      setUnlockReason("");
+    }
   };
 
   const filteredReports = reports.filter((report) => {
@@ -445,21 +508,24 @@ const Reports = () => {
                             <ReceiptText className="w-4 h-4 mr-2" />
                             {(report as any).invoiced ? "Mark as Not Invoiced" : "Mark as Invoiced"}
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleStatusChange(report.id, report.status === "completed" ? "draft" : "completed")}
-                          >
-                            {report.status === "completed" ? (
-                              <>
-                                <FilePen className="w-4 h-4 mr-2" />
-                                Mark as Draft
-                              </>
-                            ) : (
-                              <>
-                                <FileCheck className="w-4 h-4 mr-2" />
-                                Mark as Completed
-                              </>
-                            )}
-                          </DropdownMenuItem>
+                          {report.status === "completed" ? (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setReportToUnlock(report);
+                                setUnlockDialogOpen(true);
+                              }}
+                            >
+                              <Unlock className="w-4 h-4 mr-2" />
+                              Unlock Report
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => handleStatusChange(report.id, "completed")}
+                            >
+                              <FileCheck className="w-4 h-4 mr-2" />
+                              Mark as Completed
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => {
@@ -553,6 +619,60 @@ const Reports = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Unlock Report Dialog */}
+      <Dialog open={unlockDialogOpen} onOpenChange={(open) => {
+        setUnlockDialogOpen(open);
+        if (!open) {
+          setReportToUnlock(null);
+          setUnlockReason("");
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unlock Report for Editing</DialogTitle>
+            <DialogDescription>
+              You are about to unlock report{" "}
+              <strong>{reportToUnlock?.report_number || "this report"}</strong>.
+              This action will be logged for compliance purposes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="unlock-reason">Reason for unlocking *</Label>
+              <Textarea
+                id="unlock-reason"
+                placeholder="Enter reason for unlocking this completed report..."
+                value={unlockReason}
+                onChange={(e) => setUnlockReason(e.target.value)}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">
+                This reason will be recorded in the audit log.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUnlockDialogOpen(false);
+                setReportToUnlock(null);
+                setUnlockReason("");
+              }}
+              disabled={unlocking}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUnlockReport}
+              disabled={unlocking || !unlockReason.trim()}
+            >
+              {unlocking ? "Unlocking..." : "Unlock Report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Invoice Dialog */}
       {reportToInvoice && (
