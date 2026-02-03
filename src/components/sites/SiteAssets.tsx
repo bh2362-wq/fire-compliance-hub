@@ -209,7 +209,7 @@ export function SiteAssets({ siteId }: SiteAssetsProps) {
   };
 
   const getAssetTypeConfig = (type: string) => {
-    return ASSET_TYPES.find((t) => t.value === type) || ASSET_TYPES[4];
+    return ASSET_TYPES.find((t) => t.value === type) || ASSET_TYPES[8];
   };
 
   const groupedAssets = assets.reduce((acc, asset) => {
@@ -221,29 +221,17 @@ export function SiteAssets({ siteId }: SiteAssetsProps) {
 
   if (loading) {
     return (
-      <div className="bg-card rounded-xl border border-border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-9 w-24" />
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 w-full" />
-          ))}
-        </div>
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-16 w-full" />
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">Site Assets</h3>
-          <p className="text-sm text-muted-foreground">
-            Equipment and systems installed at this site
-          </p>
-        </div>
+    <div className="p-4">
+      <div className="flex items-center justify-end mb-4">
         <Button variant="hero" size="sm" onClick={openAddDialog}>
           <Plus className="w-4 h-4 mr-2" />
           Add Asset

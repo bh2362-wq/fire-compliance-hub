@@ -11,16 +11,16 @@ import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Site } from "@/services/siteService";
 import { Customer } from "@/services/customerService";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import { useToast } from "@/hooks/use-toast";
-
 const statusConfig = {
   active: { label: "Active", className: "bg-success/10 text-success border-success/20" },
   inactive: { label: "Inactive", className: "bg-muted text-muted-foreground border-border" },
@@ -218,22 +218,34 @@ const SiteDetail = () => {
         <OpenVisitsCard siteId={site.id} />
 
         {/* Site Assets */}
-        <SiteAssets siteId={site.id} />
+        <CollapsibleSection title="Site Assets" icon={Server} defaultOpen={false}>
+          <SiteAssets siteId={site.id} />
+        </CollapsibleSection>
 
         {/* Service Contracts */}
-        <SiteServiceContracts siteId={site.id} />
+        <CollapsibleSection title="Service Contracts" icon={FileText} defaultOpen={false}>
+          <SiteServiceContracts siteId={site.id} />
+        </CollapsibleSection>
 
         {/* Device Inventory */}
-        <DeviceInventory siteId={site.id} onImportClick={() => setImportOpen(true)} />
+        <CollapsibleSection title="Device Inventory" icon={Cpu} defaultOpen={false}>
+          <DeviceInventory siteId={site.id} onImportClick={() => setImportOpen(true)} />
+        </CollapsibleSection>
 
         {/* Service Reports */}
-        <SiteServiceReports siteId={site.id} siteName={site.name} />
+        <CollapsibleSection title="Service Reports" icon={ClipboardList} defaultOpen={false}>
+          <SiteServiceReports siteId={site.id} siteName={site.name} />
+        </CollapsibleSection>
 
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Upload History */}
+        <CollapsibleSection title="Upload History" icon={Upload} defaultOpen={false}>
           <SiteUploadHistory siteId={site.id} />
+        </CollapsibleSection>
+
+        {/* Reconciliation History */}
+        <CollapsibleSection title="Reconciliation History" icon={GitCompare} defaultOpen={false}>
           <SiteReconciliationHistory siteId={site.id} />
-        </div>
+        </CollapsibleSection>
       </div>
 
       {/* Dialogs */}
