@@ -61,7 +61,7 @@ serve(async (req) => {
     console.log(`Sending report email to ${to}, report: ${reportNumber}`);
 
     const emailResponse = await resend.emails.send({
-      from: `${fromName} <noreply@bhofire.co.uk>`,
+      from: `${fromName} <onboarding@resend.dev>`,
       to: [to],
       subject: subject || `Service Report - ${siteName || "Site"}`,
       html: `
@@ -95,7 +95,16 @@ serve(async (req) => {
       ],
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    // Check for Resend API errors
+    if (emailResponse.error) {
+      console.error("Resend API error:", emailResponse.error);
+      return new Response(
+        JSON.stringify({ error: emailResponse.error.message || "Failed to send email" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Email sent successfully:", emailResponse.data);
 
     return new Response(
       JSON.stringify({ success: true, data: emailResponse.data }),
