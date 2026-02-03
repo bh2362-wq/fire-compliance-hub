@@ -757,6 +757,7 @@ export interface WorkReportData {
   travelTime: string;
   duration: string;
   materials: { name: string; qty: string; cost: string }[];
+  photos?: { url: string; caption: string }[];
   engineerName: string;
   engineerSignature?: string;
   engineerSignDate?: string;
@@ -767,7 +768,13 @@ export interface WorkReportData {
   customerSignDate?: string;
   customerSignTime?: string;
   customerPosition?: string;
-  // System info
+  // Custom system info fields (only show if populated)
+  panelInfo?: string;
+  locationInfo?: string;
+  typeInfo?: string;
+  zonesInfo?: string;
+  contactPhone?: string;
+  // Legacy system info (deprecated - use custom fields above)
   systemType?: string;
   panelManufacturer?: string;
   panelModel?: string;
@@ -895,33 +902,42 @@ export function generateWorkReportPDF(
 
   yPos += boxHeight + 5;
 
-  // === System Info Row ===
-  doc.rect(margin, yPos, contentWidth, 22);
-  doc.setFillColor(...COLORS.charcoal);
-  doc.rect(margin, yPos, contentWidth, 8, "F");
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text("SYSTEM", margin + 3, yPos + 5.5);
+  // === System Info Row (only show if any custom fields are populated) ===
+  const hasCustomSystemFields = data.panelInfo || data.locationInfo || data.typeInfo || data.zonesInfo || data.contactPhone;
+  
+  if (hasCustomSystemFields) {
+    // Calculate how many rows we need based on populated fields
+    const systemFields: string[] = [];
+    if (data.panelInfo) systemFields.push(`Panel: ${data.panelInfo}`);
+    if (data.locationInfo) systemFields.push(`Location: ${data.locationInfo}`);
+    if (data.typeInfo) systemFields.push(`Type: ${data.typeInfo}`);
+    if (data.zonesInfo) systemFields.push(`Zones: ${data.zonesInfo}`);
+    if (data.contactPhone) systemFields.push(`Phone: ${data.contactPhone}`);
 
-  doc.setFontSize(9);
-  doc.setTextColor(...COLORS.charcoal);
-  doc.setFont("helvetica", "normal");
-  const sysY = yPos + 14;
-  const sysColW = contentWidth / 3;
+    const boxHeight = 8 + Math.ceil(systemFields.length / 3) * 7 + 4;
+    doc.rect(margin, yPos, contentWidth, boxHeight);
+    doc.setFillColor(...COLORS.charcoal);
+    doc.rect(margin, yPos, contentWidth, 8, "F");
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("SYSTEM", margin + 3, yPos + 5.5);
 
-  const panelInfo = `Panel: ${data.panelManufacturer || "-"} ${data.panelModel || ""}`.trim();
-  const locationInfo = `Location: ${data.panelLocation || "-"}`;
-  const typeInfo = `Type: ${data.systemType || "-"}`;
+    doc.setFontSize(9);
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFont("helvetica", "normal");
+    const sysColW = contentWidth / 3;
+    
+    // Render fields in rows of 3
+    systemFields.forEach((field, idx) => {
+      const row = Math.floor(idx / 3);
+      const col = idx % 3;
+      const fieldY = yPos + 14 + row * 7;
+      doc.text(field, margin + 3 + sysColW * col, fieldY);
+    });
 
-  doc.text(panelInfo, margin + 3, sysY);
-  doc.text(locationInfo, margin + 3 + sysColW, sysY);
-  doc.text(typeInfo, margin + 3 + sysColW * 2, sysY);
-
-  doc.text(`Zones: ${data.zonesCount || "-"}`, margin + 3, sysY + 6);
-  doc.text(`Devices: ${data.devicesCount || "-"}`, margin + 3 + sysColW, sysY + 6);
-
-  yPos += 26;
+    yPos += boxHeight + 4;
+  }
 
   // === WORKS CARRIED OUT (Dynamic height using autoTable) ===
   autoTable(doc, {
@@ -974,6 +990,85 @@ export function generateWorkReportPDF(
     },
   });
   yPos = (doc as any).lastAutoTable.finalY + 5;
+
+  // === PHOTOS SECTION (only if photos exist) ===
+  if (data.photos && data.photos.length > 0) {
+    // Check if we need a new page for photos
+    const photosPerRow = 3;
+    const photoSize = (contentWidth - 10) / photosPerRow;
+    const estimatedPhotoHeight = 8 + Math.ceil(data.photos.length / photosPerRow) * (photoSize + 20);
+    
+    if (yPos + Math.min(estimatedPhotoHeight, 80) > pageHeight - 15) {
+      doc.addPage();
+      yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+    }
+
+    // Photos header bar
+    doc.setFillColor(...COLORS.charcoal);
+    doc.rect(margin, yPos, contentWidth, 8, "F");
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("SITE PHOTOS", margin + 3, yPos + 5.5);
+    
+    yPos += 12;
+
+    // Render photos in a grid
+    let photoX = margin;
+    let photoY = yPos;
+    const captionHeight = 10;
+    
+    for (let i = 0; i < data.photos.length; i++) {
+      const photo = data.photos[i];
+      
+      // Check if we need a new row or page
+      if (photoX + photoSize > pageWidth - margin) {
+        photoX = margin;
+        photoY += photoSize + captionHeight + 5;
+      }
+      
+      // Check if we need a new page
+      if (photoY + photoSize + captionHeight > pageHeight - 15) {
+        doc.addPage();
+        photoY = addCompactHeader(doc, pageWidth, margin, logoImg);
+        photoX = margin;
+      }
+
+      // Draw photo placeholder with border
+      doc.setDrawColor(...COLORS.borderGrey);
+      doc.setLineWidth(0.3);
+      doc.rect(photoX, photoY, photoSize, photoSize);
+      
+      // Try to add the image
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = photo.url;
+        doc.addImage(img, "JPEG", photoX + 1, photoY + 1, photoSize - 2, photoSize - 2);
+      } catch {
+        // If image fails, show placeholder text
+        doc.setFillColor(...COLORS.lightGrey);
+        doc.rect(photoX + 1, photoY + 1, photoSize - 2, photoSize - 2, "F");
+        doc.setFontSize(8);
+        doc.setTextColor(...COLORS.mediumGrey);
+        doc.text("Photo", photoX + photoSize / 2, photoY + photoSize / 2, { align: "center" });
+      }
+      
+      // Add caption if present
+      if (photo.caption) {
+        doc.setFontSize(7);
+        doc.setTextColor(...COLORS.charcoal);
+        doc.setFont("helvetica", "normal");
+        const captionLines = doc.splitTextToSize(photo.caption, photoSize - 2);
+        doc.text(captionLines.slice(0, 2), photoX + 1, photoY + photoSize + 4);
+      }
+      
+      photoX += photoSize + 5;
+    }
+    
+    // Calculate final Y position after photos
+    yPos = photoY + photoSize + captionHeight + 5;
+  }
 
   // === SIGN-OFF SECTION ===
   // Check if we need a new page for signatures (need ~50mm)
