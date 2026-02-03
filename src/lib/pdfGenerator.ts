@@ -1474,23 +1474,38 @@ export function generateASDReportPDF(
 
     // Defects & Recommendations for this unit
     if (unit.defects || unit.recommendations || unit.systemCondition) {
-      if (yPos > pageHeight - 40) {
+      // Calculate dynamic box height based on content
+      const defectLines = unit.defects 
+        ? doc.splitTextToSize(unit.defects, contentWidth - 30) 
+        : [];
+      const recLines = unit.recommendations 
+        ? doc.splitTextToSize(unit.recommendations, contentWidth - 45) 
+        : [];
+      
+      const lineHeight = 5;
+      const headerHeight = 6;
+      const padding = 8;
+      const defectRowHeight = unit.defects ? Math.max(1, defectLines.length) * lineHeight : 0;
+      const recRowHeight = unit.recommendations ? Math.max(1, recLines.length) * lineHeight : 0;
+      const conditionRowHeight = unit.systemCondition ? lineHeight : 0;
+      const defectBoxHeight = headerHeight + padding + defectRowHeight + recRowHeight + conditionRowHeight + 4;
+
+      if (yPos > pageHeight - defectBoxHeight - 10) {
         doc.addPage();
         yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
       }
 
-      const defectBoxHeight = 24;
       doc.setDrawColor(...COLORS.borderGrey);
       doc.rect(margin, yPos, contentWidth, defectBoxHeight);
 
       doc.setFillColor(...COLORS.charcoal);
-      doc.rect(margin, yPos, contentWidth, 6, "F");
+      doc.rect(margin, yPos, contentWidth, headerHeight, "F");
       doc.setTextColor(...COLORS.white);
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.text("Defects & Recommendations", margin + 3, yPos + 4);
 
-      // System condition badge
+      // System condition badge in header
       if (unit.systemCondition) {
         const condLabel = unit.systemCondition === "satisfactory" 
           ? "Satisfactory" 
@@ -1503,6 +1518,7 @@ export function generateASDReportPDF(
           ? [255, 165, 0] as [number, number, number]
           : COLORS.no;
         doc.setTextColor(...condColor);
+        doc.setFont("helvetica", "bold");
         doc.text(condLabel, pageWidth - margin - 3, yPos + 4, { align: "right" });
       }
 
@@ -1510,21 +1526,22 @@ export function generateASDReportPDF(
       doc.setTextColor(...COLORS.charcoal);
       doc.setFont("helvetica", "normal");
 
-      let textY = yPos + 10;
+      let textY = yPos + headerHeight + 5;
+      
       if (unit.defects) {
         doc.setFont("helvetica", "bold");
-        doc.text("Defects: ", margin + 3, textY);
+        doc.text("Defects:", margin + 3, textY);
         doc.setFont("helvetica", "normal");
-        const defectLines = doc.splitTextToSize(unit.defects, contentWidth - 25);
-        doc.text(defectLines[0] || "-", margin + 20, textY);
-        textY += 6;
+        doc.text(defectLines, margin + 22, textY);
+        textY += defectRowHeight + 2;
       }
+      
       if (unit.recommendations) {
         doc.setFont("helvetica", "bold");
-        doc.text("Recommendations: ", margin + 3, textY);
+        doc.text("Recommendations:", margin + 3, textY);
         doc.setFont("helvetica", "normal");
-        const recLines = doc.splitTextToSize(unit.recommendations, contentWidth - 40);
-        doc.text(recLines[0] || "-", margin + 35, textY);
+        doc.text(recLines, margin + 35, textY);
+        textY += recRowHeight + 2;
       }
 
       yPos += defectBoxHeight + 5;
