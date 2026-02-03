@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, Plus, Trash2, Camera, X, Image } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -443,6 +443,25 @@ export function WorkReportDialog({
       await autoSave();
     }
     setActiveTab(newTab);
+  };
+
+  // Tab order for navigation
+  const TAB_ORDER = ["job", "works", "materials", "photos", "sign"] as const;
+  
+  const currentTabIndex = TAB_ORDER.indexOf(activeTab as typeof TAB_ORDER[number]);
+  const isFirstTab = currentTabIndex === 0;
+  const isLastTab = currentTabIndex === TAB_ORDER.length - 1;
+
+  const handleNextTab = () => {
+    if (!isLastTab) {
+      handleTabChange(TAB_ORDER[currentTabIndex + 1]);
+    }
+  };
+
+  const handlePrevTab = () => {
+    if (!isFirstTab) {
+      handleTabChange(TAB_ORDER[currentTabIndex - 1]);
+    }
   };
 
   // Handle dialog close - auto-save before closing
@@ -1554,9 +1573,23 @@ export function WorkReportDialog({
             </div>
           ) : (
             <>
-              <Button variant="outline" onClick={() => handleDialogClose(false)} className="flex-1 sm:flex-none">
-                Cancel
-              </Button>
+              {/* Previous button - show on all tabs except first */}
+              {!isFirstTab && (
+                <Button variant="outline" onClick={handlePrevTab} className="flex-1 sm:flex-none">
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  <span className="hidden sm:inline">Previous</span>
+                  <span className="sm:hidden">Back</span>
+                </Button>
+              )}
+              
+              {/* Cancel button - only show on first tab */}
+              {isFirstTab && (
+                <Button variant="outline" onClick={() => handleDialogClose(false)} className="flex-1 sm:flex-none">
+                  Cancel
+                </Button>
+              )}
+              
+              {/* Save Draft button */}
               <Button 
                 variant="outline" 
                 onClick={() => handleSave(false)} 
@@ -1567,18 +1600,31 @@ export function WorkReportDialog({
                 <span className="hidden sm:inline">Save Draft</span>
                 <span className="sm:hidden">Save</span>
               </Button>
-              {showCompleteVisit ? (
-                <Button variant="hero" onClick={handleCompleteVisit} disabled={saving} className="flex-1 sm:flex-none">
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <span className="hidden sm:inline">Complete Visit</span>
-                  <span className="sm:hidden">Complete</span>
+              
+              {/* Next button - show on all tabs except last */}
+              {!isLastTab && (
+                <Button variant="hero" onClick={handleNextTab} className="flex-1 sm:flex-none">
+                  <span className="hidden sm:inline">Next</span>
+                  <span className="sm:hidden">Next</span>
+                  <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
-              ) : (
-                <Button variant="hero" onClick={() => handleSave(true)} disabled={saving} className="flex-1 sm:flex-none">
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <span className="hidden sm:inline">Complete Report</span>
-                  <span className="sm:hidden">Complete</span>
-                </Button>
+              )}
+              
+              {/* Complete button - only show on last tab (sign) */}
+              {isLastTab && (
+                showCompleteVisit ? (
+                  <Button variant="hero" onClick={handleCompleteVisit} disabled={saving} className="flex-1 sm:flex-none">
+                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <span className="hidden sm:inline">Complete Visit</span>
+                    <span className="sm:hidden">Complete</span>
+                  </Button>
+                ) : (
+                  <Button variant="hero" onClick={() => handleSave(true)} disabled={saving} className="flex-1 sm:flex-none">
+                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <span className="hidden sm:inline">Complete Report</span>
+                    <span className="sm:hidden">Complete</span>
+                  </Button>
+                )
               )}
             </>
           )}
