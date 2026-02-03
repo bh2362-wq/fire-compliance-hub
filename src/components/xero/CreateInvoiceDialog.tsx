@@ -36,6 +36,7 @@ import {
   XeroContact,
   InvoiceLineItem,
 } from "@/services/xeroService";
+import { updateVisitStatus } from "@/hooks/useVisits";
 import { cn } from "@/lib/utils";
 import { getServiceContracts, getServiceTypeLabel, ServiceContract } from "@/services/serviceContractService";
 
@@ -259,6 +260,9 @@ export function CreateInvoiceDialog({
         xeroReference,
         dueDate ? format(dueDate, "yyyy-MM-dd") : undefined
       );
+
+      // Update visit status to "invoiced"
+      await updateVisitStatus(visit.id, "invoiced");
 
       toast.success(`Invoice ${result.number} created successfully`);
       onOpenChange(false);
