@@ -9,6 +9,8 @@ interface AIRewriteButtonProps {
   type: "defects" | "recommendations" | "works" | "comments";
   onRewrite: (newText: string) => void;
   disabled?: boolean;
+  generateRecommendations?: boolean;
+  onRecommendationsGenerated?: (recommendations: string) => void;
 }
 
 export function AIRewriteButton({
@@ -16,6 +18,8 @@ export function AIRewriteButton({
   type,
   onRewrite,
   disabled = false,
+  generateRecommendations = false,
+  onRecommendationsGenerated,
 }: AIRewriteButtonProps) {
   const [loading, setLoading] = useState(false);
   const [originalText, setOriginalText] = useState<string | null>(null);
@@ -31,7 +35,7 @@ export function AIRewriteButton({
 
     try {
       const { data, error } = await supabase.functions.invoke("rewrite-text", {
-        body: { text, type },
+        body: { text, type, generateRecommendations },
       });
 
       if (error) {
@@ -45,6 +49,12 @@ export function AIRewriteButton({
       if (data.rewrittenText) {
         onRewrite(data.rewrittenText);
         toast.success("Text improved with AI");
+      }
+
+      // If recommendations were generated and callback provided, call it
+      if (data.generatedRecommendations && onRecommendationsGenerated) {
+        onRecommendationsGenerated(data.generatedRecommendations);
+        toast.success("Further action auto-filled based on work report");
       }
     } catch (error) {
       console.error("Rewrite error:", error);

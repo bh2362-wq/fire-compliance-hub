@@ -926,6 +926,15 @@ export function WorkReportDialog({
                     type="works"
                     onRewrite={setWorksReport}
                     disabled={isLocked}
+                    generateRecommendations={true}
+                    onRecommendationsGenerated={(recs) => {
+                      if (!furtherAction.trim()) {
+                        setFurtherAction(recs);
+                      } else {
+                        // If there's already content, append the generated recommendations
+                        setFurtherAction(prev => `${prev}\n\n${recs}`);
+                      }
+                    }}
                   />
                 </div>
                 <Textarea

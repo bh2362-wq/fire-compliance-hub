@@ -9,6 +9,7 @@ const corsHeaders = {
 interface RewriteRequest {
   text: string;
   type: "defects" | "recommendations" | "works" | "comments";
+  generateRecommendations?: boolean;
 }
 
 serve(async (req) => {
@@ -22,7 +23,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const { text, type } = (await req.json()) as RewriteRequest;
+    const { text, type, generateRecommendations } = (await req.json()) as RewriteRequest;
 
     if (!text || !text.trim()) {
       return new Response(
@@ -58,7 +59,8 @@ STRICT RULES:
         systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise.${formatRules}`;
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // First, rewrite the text
+    const rewriteResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -74,33 +76,71 @@ STRICT RULES:
       }),
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    if (!rewriteResponse.ok) {
+      if (rewriteResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+      if (rewriteResponse.status === 402) {
         return new Response(
           JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      const errorText = await rewriteResponse.text();
+      console.error("AI gateway error:", rewriteResponse.status, errorText);
+      throw new Error(`AI gateway error: ${rewriteResponse.status}`);
     }
 
-    const data = await response.json();
-    const rewrittenText = data.choices?.[0]?.message?.content?.trim();
+    const rewriteData = await rewriteResponse.json();
+    const rewrittenText = rewriteData.choices?.[0]?.message?.content?.trim();
 
     if (!rewrittenText) {
       throw new Error("No response from AI");
     }
 
+    // If generateRecommendations is requested and this is a works report, generate recommendations
+    let generatedRecommendations: string | null = null;
+    if (generateRecommendations && type === "works") {
+      const recommendationsPrompt = `You are a professional fire safety engineer. Based on the following work report, analyze if there are any issues, defects, or areas that need follow-up action. If the work mentions any problems, faults, repairs needed, or areas of concern, generate a concise recommendation for further action.
+
+STRICT RULES:
+1. If the work report indicates everything is fine with no issues, return exactly: "No further action required."
+2. If there are issues mentioned, provide a brief, professional recommendation for follow-up
+3. NO markdown, bullet points, or special characters
+4. Write as plain flowing sentences only
+5. Keep it under 100 words
+6. Focus only on actionable recommendations based on what's mentioned
+7. Return ONLY the recommendation text, nothing else
+
+Work Report:
+${text}`;
+
+      const recommendationsResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { role: "user", content: recommendationsPrompt },
+          ],
+          max_tokens: 200,
+        }),
+      });
+
+      if (recommendationsResponse.ok) {
+        const recommendationsData = await recommendationsResponse.json();
+        generatedRecommendations = recommendationsData.choices?.[0]?.message?.content?.trim() || null;
+      }
+    }
+
     return new Response(
-      JSON.stringify({ rewrittenText }),
+      JSON.stringify({ rewrittenText, generatedRecommendations }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
