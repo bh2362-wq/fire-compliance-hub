@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, AlertTriangle, CheckCircle2, Eye, Download, Receipt } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle2, Eye, Download, Receipt, Wind } from "lucide-react";
 import { format } from "date-fns";
 import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportService";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
-import { generateServiceReportPDF, generateWorkReportPDF } from "@/lib/pdfGenerator";
+import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
+import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -34,6 +35,14 @@ interface SiteInfo {
   contact_name?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
+}
+
+interface ASDAsset {
+  id: string;
+  item_name: string;
+  manufacturer?: string | null;
+  model?: string | null;
+  location?: string | null;
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -70,8 +79,19 @@ function isWorkReport(report: ServiceReport): boolean {
   if (!report.notes) return false;
   try {
     const parsed = JSON.parse(report.notes);
-    // Work reports have these specific fields
-    return typeof parsed.jobNumber !== "undefined" || typeof parsed.jobType !== "undefined";
+    // Work reports have these specific fields (but NOT asd)
+    return (typeof parsed.jobNumber !== "undefined" || typeof parsed.jobType !== "undefined") && parsed.report_type !== "asd";
+  } catch {
+    return false;
+  }
+}
+
+// Helper to detect if a report is an ASD Report
+function isASDReport(report: ServiceReport): boolean {
+  if (!report.notes) return false;
+  try {
+    const parsed = JSON.parse(report.notes);
+    return parsed.report_type === "asd";
   } catch {
     return false;
   }
@@ -84,7 +104,8 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
   const [siteInfo, setSiteInfo] = useState<SiteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ServiceReport | null>(null);
-  const [dialogType, setDialogType] = useState<"work" | "bs5839" | null>(null);
+  const [dialogType, setDialogType] = useState<"work" | "bs5839" | "asd" | null>(null);
+  const [asdAssets, setAsdAssets] = useState<ASDAsset[]>([]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -145,10 +166,39 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
     fetchReports();
   }, [siteId]);
 
-  const handleViewReport = (report: ServiceReport) => {
+  const handleViewReport = async (report: ServiceReport) => {
     setSelectedReport(report);
+    
     // Auto-detect report type from data
-    setDialogType(isWorkReport(report) ? "work" : "bs5839");
+    if (isASDReport(report)) {
+      // Load ASD assets for the dialog
+      try {
+        const parsed = JSON.parse(report.notes || "{}");
+        const assetIds = parsed.asset_ids || [];
+        if (assetIds.length > 0) {
+          const { data: assets } = await supabase
+            .from("site_assets")
+            .select("id, item_name, manufacturer, model, location")
+            .in("id", assetIds);
+          setAsdAssets(assets || []);
+        } else {
+          // Fallback: load all ASD assets for the site
+          const { data: assets } = await supabase
+            .from("site_assets")
+            .select("id, item_name, manufacturer, model, location")
+            .eq("site_id", siteId)
+            .eq("asset_type", "asd");
+          setAsdAssets(assets || []);
+        }
+      } catch {
+        setAsdAssets([]);
+      }
+      setDialogType("asd");
+    } else if (isWorkReport(report)) {
+      setDialogType("work");
+    } else {
+      setDialogType("bs5839");
+    }
   };
 
   const handleDownloadPDF = async (report: ServiceReport) => {
@@ -159,7 +209,34 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
     }
 
     try {
-      if (isWorkReport(report)) {
+      if (isASDReport(report)) {
+        // ASD Report PDF
+        const parsed = JSON.parse(report.notes || "{}");
+        const units = parsed.units || [];
+        
+        generateASDReportPDF(
+          {
+            reportNumber: report.report_number || "",
+            reportDate: report.report_date,
+            engineerName: report.engineer_name || "",
+            clientName: report.client_name || "",
+            units: units,
+            workCarriedOut: report.work_carried_out || "",
+            partsUsed: report.parts_used || "",
+            notes: parsed.additional_notes || "",
+            engineerSignature: parsed.engineerSignature || "",
+            engineerSignDate: parsed.engineerSignDate || "",
+            engineerSignTime: parsed.engineerSignTime || "",
+            customerNotPresent: parsed.customerNotPresent || false,
+            customerSignature: parsed.customerSignature || "",
+            customerSignDate: parsed.customerSignDate || "",
+            customerSignTime: parsed.customerSignTime || "",
+          },
+          siteInfo,
+          visit.visit_date,
+          visit.visit_type
+        );
+      } else if (isWorkReport(report)) {
         // Parse work report data from notes - includes signatures
         const parsed = JSON.parse(report.notes || "{}");
         generateWorkReportPDF(
@@ -286,6 +363,8 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
             const visit = visitMap[report.visit_id];
             const invoice = invoiceMap[report.visit_id];
             const isWork = isWorkReport(report);
+            const isAsd = isASDReport(report);
+            const reportTypeLabel = isAsd ? "ASD" : isWork ? "Work Report" : "BS5839";
 
             return (
               <div
@@ -301,8 +380,9 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
                       <Badge variant="outline" className={status.className}>
                         {status.label}
                       </Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        {isWork ? "Work Report" : "BS5839"}
+                      <Badge variant="secondary" className={`text-xs ${isAsd ? 'flex items-center gap-1' : ''}`}>
+                        {isAsd && <Wind className="w-3 h-3" />}
+                        {reportTypeLabel}
                       </Badge>
                       {visit && (
                         <span className="text-xs text-muted-foreground capitalize">
@@ -411,6 +491,29 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
             site_id: siteId,
             sites: siteName ? { name: siteName } : null,
           }}
+          onSuccess={fetchReports}
+        />
+      )}
+
+      {/* ASD Report Dialog */}
+      {selectedReport && dialogType === "asd" && asdAssets.length > 0 && (
+        <ASDReportDialog
+          open={!!selectedReport && dialogType === "asd"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedReport(null);
+              setDialogType(null);
+              setAsdAssets([]);
+            }
+          }}
+          visit={{
+            id: selectedReport.visit_id,
+            visit_type: visitMap[selectedReport.visit_id]?.visit_type || "",
+            visit_date: visitMap[selectedReport.visit_id]?.visit_date || selectedReport.report_date,
+            site_id: siteId,
+            sites: siteName ? { name: siteName } : null,
+          }}
+          assets={asdAssets}
           onSuccess={fetchReports}
         />
       )}

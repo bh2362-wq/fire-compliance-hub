@@ -483,10 +483,27 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           open={!!previewVisit}
           onOpenChange={(open) => !open && setPreviewVisit(null)}
           visit={previewVisit}
-          onEdit={() => {
+          onEdit={async (existingReportType) => {
             setReportVisit(previewVisit);
             setPreviewVisit(null);
-            if (previewVisit.visit_type === "remedial" || previewVisit.visit_type === "emergency") {
+            
+            // If report exists, use its type directly - skip the selector
+            if (existingReportType) {
+              setReportType(existingReportType);
+              // If ASD, load assets
+              if (existingReportType === "asd") {
+                try {
+                  const { data: assets } = await supabase
+                    .from("site_assets")
+                    .select("id, item_name, manufacturer, model, location")
+                    .eq("site_id", previewVisit.site_id)
+                    .eq("asset_type", "asd");
+                  setSelectedAsdAssets(assets || []);
+                } catch {
+                  setSelectedAsdAssets([]);
+                }
+              }
+            } else if (previewVisit.visit_type === "remedial" || previewVisit.visit_type === "emergency") {
               setReportType("work");
             } else {
               setShowReportTypeSelector(true);
