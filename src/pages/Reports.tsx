@@ -12,11 +12,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import { ServiceReport, BS5839Checklist, getDefaultChecklist } from "@/services/serviceReportService";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
+import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
+
+interface ASDAsset {
+  id: string;
+  item_name: string;
+  manufacturer?: string | null;
+  model?: string | null;
+  location?: string | null;
+}
 
 interface ReportWithSite extends ServiceReport {
   sites: { name: string } | null;
@@ -59,6 +69,7 @@ const Reports = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedReport, setSelectedReport] = useState<ReportWithSite | null>(null);
+  const [asdAssets, setAsdAssets] = useState<ASDAsset[]>([]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -178,6 +189,30 @@ const Reports = () => {
                 : null;
               const ConditionIcon = condition?.icon;
 
+              // Check if this is an ASD report
+              let isAsdReport = false;
+              try {
+                const notesData = JSON.parse(report.notes || "{}");
+                isAsdReport = notesData.report_type === "asd";
+              } catch {
+                // Not JSON, not an ASD report
+              }
+
+              const handleViewReport = async () => {
+                if (isAsdReport) {
+                  // Load ASD assets for this site
+                  const { data: assets } = await supabase
+                    .from("site_assets")
+                    .select("id, item_name, manufacturer, model, location")
+                    .eq("site_id", report.site_id)
+                    .eq("asset_type", "asd_unit")
+                    .order("created_at", { ascending: true });
+                  
+                  setAsdAssets(assets || []);
+                }
+                setSelectedReport(report);
+              };
+
               return (
                 <div
                   key={report.id}
@@ -185,14 +220,26 @@ const Reports = () => {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-6 h-6 text-primary" />
+                      <div className={cn(
+                        "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
+                        isAsdReport ? "bg-secondary/10" : "bg-primary/10"
+                      )}>
+                        {isAsdReport ? (
+                          <Wind className="w-6 h-6 text-secondary" />
+                        ) : (
+                          <FileText className="w-6 h-6 text-primary" />
+                        )}
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-foreground">
                             {report.sites?.name || "Unknown Site"}
                           </h3>
+                          {isAsdReport && (
+                            <Badge variant="secondary" className="text-xs">
+                              ASD
+                            </Badge>
+                          )}
                           <Badge variant="outline" className={status.className}>
                             {status.label}
                           </Badge>
@@ -239,7 +286,7 @@ const Reports = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedReport(report)}
+                        onClick={handleViewReport}
                       >
                         <Eye className="w-4 h-4 mr-1" />
                         View Report
@@ -253,21 +300,54 @@ const Reports = () => {
         )}
       </div>
 
-      {/* Report Dialog */}
-      {selectedReport && (
-        <ServiceReportDialog
-          open={!!selectedReport}
-          onOpenChange={(open) => !open && setSelectedReport(null)}
-          visit={{
-            id: selectedReport.visit_id,
-            visit_type: selectedReport.visits?.visit_type || "",
-            visit_date: selectedReport.visits?.visit_date || selectedReport.report_date,
-            site_id: selectedReport.site_id,
-            sites: selectedReport.sites,
-          }}
-          onSuccess={fetchReports}
-        />
-      )}
+      {/* Report Dialog - conditionally show ASD or Service Report dialog */}
+      {selectedReport && (() => {
+        let isAsdReport = false;
+        try {
+          const notesData = JSON.parse(selectedReport.notes || "{}");
+          isAsdReport = notesData.report_type === "asd";
+        } catch {
+          // Not JSON
+        }
+
+        if (isAsdReport) {
+          return (
+            <ASDReportDialog
+              open={!!selectedReport}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setSelectedReport(null);
+                  setAsdAssets([]);
+                }
+              }}
+              visit={{
+                id: selectedReport.visit_id,
+                visit_type: selectedReport.visits?.visit_type || "",
+                visit_date: selectedReport.visits?.visit_date || selectedReport.report_date,
+                site_id: selectedReport.site_id,
+                sites: selectedReport.sites,
+              }}
+              assets={asdAssets}
+              onSuccess={fetchReports}
+            />
+          );
+        }
+
+        return (
+          <ServiceReportDialog
+            open={!!selectedReport}
+            onOpenChange={(open) => !open && setSelectedReport(null)}
+            visit={{
+              id: selectedReport.visit_id,
+              visit_type: selectedReport.visits?.visit_type || "",
+              visit_date: selectedReport.visits?.visit_date || selectedReport.report_date,
+              site_id: selectedReport.site_id,
+              sites: selectedReport.sites,
+            }}
+            onSuccess={fetchReports}
+          />
+        );
+      })()}
     </DashboardLayout>
   );
 };
