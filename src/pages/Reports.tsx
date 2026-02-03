@@ -12,7 +12,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind } from "lucide-react";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,6 +81,9 @@ const Reports = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedReport, setSelectedReport] = useState<ReportWithSite | null>(null);
   const [asdAssets, setAsdAssets] = useState<ASDAsset[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<ReportWithSite | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -96,6 +110,49 @@ const Reports = () => {
   useEffect(() => {
     fetchReports();
   }, []);
+
+  const handleDeleteReport = async () => {
+    if (!reportToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const reportNumber = reportToDelete.report_number;
+      const reportType = reportNumber?.startsWith("CERT") ? "CERT" : "JOB";
+
+      // Delete the report
+      const { error: deleteError } = await supabase
+        .from("service_reports")
+        .delete()
+        .eq("id", reportToDelete.id);
+
+      if (deleteError) throw deleteError;
+
+      // Recycle the report number if it exists
+      if (reportNumber) {
+        const { error: recycleError } = await supabase
+          .from("recycled_report_numbers")
+          .insert({
+            report_number: reportNumber,
+            report_type: reportType,
+          });
+
+        if (recycleError) {
+          console.error("Failed to recycle report number:", recycleError);
+          // Don't throw - the report is deleted, recycling is optional
+        }
+      }
+
+      toast.success(`Report ${reportNumber || ""} deleted successfully. The number will be reused.`);
+      fetchReports();
+    } catch (error) {
+      console.error("Failed to delete report:", error);
+      toast.error("Failed to delete report");
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setReportToDelete(null);
+    }
+  };
 
   const filteredReports = reports.filter((report) => {
     const matchesSearch =
@@ -291,6 +348,17 @@ const Reports = () => {
                         <Eye className="w-4 h-4 mr-1" />
                         View Report
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          setReportToDelete(report);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -348,6 +416,30 @@ const Reports = () => {
           />
         );
       })()}
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Report</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete report{" "}
+              <strong>{reportToDelete?.report_number || "this report"}</strong>?
+              <br /><br />
+              This action cannot be undone. The report number will be recycled and reused for the next report.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteReport}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete Report"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

@@ -1416,6 +1416,27 @@ export type Database = {
         }
         Relationships: []
       }
+      recycled_report_numbers: {
+        Row: {
+          id: string
+          recycled_at: string
+          report_number: string
+          report_type: string
+        }
+        Insert: {
+          id?: string
+          recycled_at?: string
+          report_number: string
+          report_type?: string
+        }
+        Update: {
+          id?: string
+          recycled_at?: string
+          report_number?: string
+          report_type?: string
+        }
+        Relationships: []
+      }
       service_reports: {
         Row: {
           checklist: Json
