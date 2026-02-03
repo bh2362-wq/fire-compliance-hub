@@ -47,6 +47,7 @@ import { InvoicePromptDialog } from "./InvoicePromptDialog";
 import { AIRewriteButton } from "./AIRewriteButton";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import { sendJobCompletedNotification } from "@/services/notificationService";
+import { getServiceContracts } from "@/services/serviceContractService";
 
 interface VisitForReport {
   id: string;
@@ -112,6 +113,7 @@ export function WorkReportDialog({
     postcode?: string | null;
     contact_name?: string | null;
   } | null>(null);
+  const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
 
   // Form state - Job Details
   const [certificateNo, setCertificateNo] = useState("");
@@ -270,6 +272,17 @@ export function WorkReportDialog({
         }
       }
 
+      // Fetch service contracts to get PO number
+      try {
+        const contracts = await getServiceContracts(visit.site_id);
+        // Find the first contract with a PO number (prioritize fire-related contracts)
+        const contractWithPo = contracts.find(c => c.po_number);
+        if (contractWithPo) {
+          setContractPoNumber(contractWithPo.po_number);
+        }
+      } catch (error) {
+        console.error("Failed to load service contracts:", error);
+      }
       let existingReport = await getServiceReport(visit.id);
 
       if (!existingReport) {
@@ -1556,6 +1569,13 @@ export function WorkReportDialog({
             city: siteInfo.city || null,
           }]}
           onSuccess={handleInvoiceDialogClose}
+          jobReportData={{
+            jobType,
+            reportDate: visit.visit_date,
+            reportNumber: certificateNo,
+            poNumber: contractPoNumber || undefined,
+            siteName: siteInfo.name,
+          }}
         />
       )}
     </ResponsiveDialog>
