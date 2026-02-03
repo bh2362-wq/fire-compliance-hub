@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/select";
 import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind } from "lucide-react";
 import { format } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import { ServiceReport, BS5839Checklist, getDefaultChecklist } from "@/services/serviceReportService";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
