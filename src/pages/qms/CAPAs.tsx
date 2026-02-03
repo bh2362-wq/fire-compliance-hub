@@ -7,33 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { 
-  ClipboardCheck, 
-  Plus, 
-  Search,
-  AlertCircle
-} from "lucide-react";
+import { ClipboardCheck, Plus, Search, AlertCircle } from "lucide-react";
 import { fetchCAPAs, QMSCAPA } from "@/services/qmsService";
 import { format } from "date-fns";
+import { CAPAFormDialog } from "@/components/qms/CAPAFormDialog";
 
 const CAPAs = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: capas, isLoading } = useQuery({
     queryKey: ['qms-capas'],
@@ -82,10 +70,11 @@ const CAPAs = () => {
             <h2 className="text-2xl font-bold text-foreground">Corrective & Preventive Actions</h2>
             <p className="text-muted-foreground">Manage CAPAs and track effectiveness</p>
           </div>
-          <Button>
+          <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             New CAPA
           </Button>
+          <CAPAFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
         </div>
 
         {/* Stats */}
