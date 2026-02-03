@@ -619,6 +619,803 @@ export type Database = {
         }
         Relationships: []
       }
+      qms_attachments: {
+        Row: {
+          created_at: string
+          description: string | null
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          entity_id?: string
+          entity_type?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
+      qms_audit_templates: {
+        Row: {
+          checklist: Json
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          iso_clauses: string[] | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          checklist?: Json
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          iso_clauses?: string[] | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          checklist?: Json
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          iso_clauses?: string[] | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qms_audits: {
+        Row: {
+          audit_number: string
+          audit_type: string
+          auditee_department: string | null
+          completed_date: string | null
+          created_at: string
+          created_by: string
+          findings: Json | null
+          id: string
+          lead_auditor_id: string | null
+          scheduled_date: string
+          scope: string | null
+          status: string
+          summary: string | null
+          template_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audit_number: string
+          audit_type: string
+          auditee_department?: string | null
+          completed_date?: string | null
+          created_at?: string
+          created_by: string
+          findings?: Json | null
+          id?: string
+          lead_auditor_id?: string | null
+          scheduled_date: string
+          scope?: string | null
+          status?: string
+          summary?: string | null
+          template_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audit_number?: string
+          audit_type?: string
+          auditee_department?: string | null
+          completed_date?: string | null
+          created_at?: string
+          created_by?: string
+          findings?: Json | null
+          id?: string
+          lead_auditor_id?: string | null
+          scheduled_date?: string
+          scope?: string | null
+          status?: string
+          summary?: string | null
+          template_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qms_audits_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "qms_audit_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qms_capas: {
+        Row: {
+          action_plan: string | null
+          assigned_to: string | null
+          capa_number: string
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          description: string
+          due_date: string | null
+          effectiveness_review: string | null
+          id: string
+          ncr_id: string | null
+          priority: string
+          status: string
+          title: string
+          type: string
+          updated_at: string
+          verification_required: boolean | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          action_plan?: string | null
+          assigned_to?: string | null
+          capa_number: string
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          description: string
+          due_date?: string | null
+          effectiveness_review?: string | null
+          id?: string
+          ncr_id?: string | null
+          priority?: string
+          status?: string
+          title: string
+          type: string
+          updated_at?: string
+          verification_required?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          action_plan?: string | null
+          assigned_to?: string | null
+          capa_number?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string
+          due_date?: string | null
+          effectiveness_review?: string | null
+          id?: string
+          ncr_id?: string | null
+          priority?: string
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+          verification_required?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qms_capas_ncr_id_fkey"
+            columns: ["ncr_id"]
+            isOneToOne: false
+            referencedRelation: "qms_ncrs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qms_document_acknowledgements: {
+        Row: {
+          acknowledged_at: string
+          document_version_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          document_version_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          document_version_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qms_document_acknowledgements_document_version_id_fkey"
+            columns: ["document_version_id"]
+            isOneToOne: false
+            referencedRelation: "qms_document_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qms_document_approvals: {
+        Row: {
+          approved_at: string | null
+          approver_id: string
+          comments: string | null
+          created_at: string
+          document_version_id: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approver_id: string
+          comments?: string | null
+          created_at?: string
+          document_version_id: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approver_id?: string
+          comments?: string | null
+          created_at?: string
+          document_version_id?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qms_document_approvals_document_version_id_fkey"
+            columns: ["document_version_id"]
+            isOneToOne: false
+            referencedRelation: "qms_document_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qms_document_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qms_document_versions: {
+        Row: {
+          changes_summary: string | null
+          created_at: string
+          created_by: string
+          document_id: string
+          file_name: string | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          version_number: number
+        }
+        Insert: {
+          changes_summary?: string | null
+          created_at?: string
+          created_by: string
+          document_id: string
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          version_number: number
+        }
+        Update: {
+          changes_summary?: string | null
+          created_at?: string
+          created_by?: string
+          document_id?: string
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qms_document_versions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "qms_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qms_documents: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          created_by: string
+          current_version: number | null
+          description: string | null
+          document_number: string
+          id: string
+          next_review_date: string | null
+          review_frequency_months: number | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          created_by: string
+          current_version?: number | null
+          description?: string | null
+          document_number: string
+          id?: string
+          next_review_date?: string | null
+          review_frequency_months?: number | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          created_by?: string
+          current_version?: number | null
+          description?: string | null
+          document_number?: string
+          id?: string
+          next_review_date?: string | null
+          review_frequency_months?: number | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qms_documents_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "qms_document_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qms_feedback: {
+        Row: {
+          assigned_to: string | null
+          channel: string | null
+          created_at: string
+          created_by: string
+          customer_id: string | null
+          description: string
+          feedback_number: string
+          id: string
+          ncr_id: string | null
+          priority: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          satisfaction_rating: number | null
+          site_id: string | null
+          status: string
+          subject: string
+          type: string
+          updated_at: string
+          visit_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          channel?: string | null
+          created_at?: string
+          created_by: string
+          customer_id?: string | null
+          description: string
+          feedback_number: string
+          id?: string
+          ncr_id?: string | null
+          priority?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          satisfaction_rating?: number | null
+          site_id?: string | null
+          status?: string
+          subject: string
+          type: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          channel?: string | null
+          created_at?: string
+          created_by?: string
+          customer_id?: string | null
+          description?: string
+          feedback_number?: string
+          id?: string
+          ncr_id?: string | null
+          priority?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          satisfaction_rating?: number | null
+          site_id?: string | null
+          status?: string
+          subject?: string
+          type?: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qms_feedback_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qms_feedback_ncr_id_fkey"
+            columns: ["ncr_id"]
+            isOneToOne: false
+            referencedRelation: "qms_ncrs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qms_feedback_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qms_feedback_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qms_management_reviews: {
+        Row: {
+          action_items: Json | null
+          agenda: Json | null
+          attendees: string[] | null
+          created_at: string
+          created_by: string
+          decisions: Json | null
+          id: string
+          kpi_data: Json | null
+          minutes: string | null
+          next_review_date: string | null
+          review_date: string
+          review_number: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action_items?: Json | null
+          agenda?: Json | null
+          attendees?: string[] | null
+          created_at?: string
+          created_by: string
+          decisions?: Json | null
+          id?: string
+          kpi_data?: Json | null
+          minutes?: string | null
+          next_review_date?: string | null
+          review_date: string
+          review_number: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action_items?: Json | null
+          agenda?: Json | null
+          attendees?: string[] | null
+          created_at?: string
+          created_by?: string
+          decisions?: Json | null
+          id?: string
+          kpi_data?: Json | null
+          minutes?: string | null
+          next_review_date?: string | null
+          review_date?: string
+          review_number?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qms_ncrs: {
+        Row: {
+          assigned_to: string | null
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          customer_id: string | null
+          description: string
+          due_date: string | null
+          id: string
+          immediate_action: string | null
+          ncr_number: string
+          raised_by: string
+          root_cause: string | null
+          severity: string
+          site_id: string | null
+          source: string
+          status: string
+          title: string
+          updated_at: string
+          visit_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          customer_id?: string | null
+          description: string
+          due_date?: string | null
+          id?: string
+          immediate_action?: string | null
+          ncr_number: string
+          raised_by: string
+          root_cause?: string | null
+          severity?: string
+          site_id?: string | null
+          source: string
+          status?: string
+          title: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          customer_id?: string | null
+          description?: string
+          due_date?: string | null
+          id?: string
+          immediate_action?: string | null
+          ncr_number?: string
+          raised_by?: string
+          root_cause?: string | null
+          severity?: string
+          site_id?: string | null
+          source?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qms_ncrs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qms_ncrs_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qms_ncrs_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qms_risks: {
+        Row: {
+          additional_controls: string | null
+          category: string
+          created_at: string
+          created_by: string
+          current_controls: string | null
+          description: string
+          id: string
+          impact: number
+          likelihood: number
+          owner_id: string | null
+          residual_impact: number | null
+          residual_likelihood: number | null
+          residual_score: number | null
+          review_date: string | null
+          risk_number: string
+          risk_score: number | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          additional_controls?: string | null
+          category: string
+          created_at?: string
+          created_by: string
+          current_controls?: string | null
+          description: string
+          id?: string
+          impact: number
+          likelihood: number
+          owner_id?: string | null
+          residual_impact?: number | null
+          residual_likelihood?: number | null
+          residual_score?: number | null
+          review_date?: string | null
+          risk_number: string
+          risk_score?: number | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          additional_controls?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string
+          current_controls?: string | null
+          description?: string
+          id?: string
+          impact?: number
+          likelihood?: number
+          owner_id?: string | null
+          residual_impact?: number | null
+          residual_likelihood?: number | null
+          residual_score?: number | null
+          review_date?: string | null
+          risk_number?: string
+          risk_score?: number | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qms_training_records: {
+        Row: {
+          certificate_number: string | null
+          certificate_url: string | null
+          completion_date: string
+          created_at: string
+          created_by: string
+          expiry_date: string | null
+          id: string
+          notes: string | null
+          status: string
+          trainer: string | null
+          training_type_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          certificate_number?: string | null
+          certificate_url?: string | null
+          completion_date: string
+          created_at?: string
+          created_by: string
+          expiry_date?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          trainer?: string | null
+          training_type_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          certificate_number?: string | null
+          certificate_url?: string | null
+          completion_date?: string
+          created_at?: string
+          created_by?: string
+          expiry_date?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          trainer?: string | null
+          training_type_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qms_training_records_training_type_id_fkey"
+            columns: ["training_type_id"]
+            isOneToOne: false
+            referencedRelation: "qms_training_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qms_training_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_mandatory: boolean | null
+          name: string
+          sort_order: number | null
+          updated_at: string
+          validity_months: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          name: string
+          sort_order?: number | null
+          updated_at?: string
+          validity_months?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          name?: string
+          sort_order?: number | null
+          updated_at?: string
+          validity_months?: number | null
+        }
+        Relationships: []
+      }
       service_reports: {
         Row: {
           checklist: Json
@@ -1057,6 +1854,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_next_qms_number: { Args: { prefix: string }; Returns: string }
       get_next_report_number: {
         Args: { report_type?: string }
         Returns: string
@@ -1071,7 +1869,14 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "owner" | "admin" | "engineer" | "client" | "auditor"
+      app_role:
+        | "owner"
+        | "admin"
+        | "engineer"
+        | "client"
+        | "auditor"
+        | "apprentice"
+        | "office"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1199,7 +2004,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["owner", "admin", "engineer", "client", "auditor"],
+      app_role: [
+        "owner",
+        "admin",
+        "engineer",
+        "client",
+        "auditor",
+        "apprentice",
+        "office",
+      ],
     },
   },
 } as const
