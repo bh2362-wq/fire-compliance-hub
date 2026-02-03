@@ -805,6 +805,28 @@ export function generateWorkReportPDF(
   const margin = 12;
   const contentWidth = pageWidth - 2 * margin;
 
+  const parseTimeToMinutes = (time: string): number | null => {
+    if (!time) return null;
+    const [h, m] = time.split(":").map((n) => Number(n));
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    return h * 60 + m;
+  };
+
+  const formatMinutesToTime = (mins: number): string => {
+    const m = ((mins % (24 * 60)) + 24 * 60) % (24 * 60);
+    const hh = String(Math.floor(m / 60)).padStart(2, "0");
+    const mm = String(m % 60).padStart(2, "0");
+    return `${hh}:${mm}`;
+  };
+
+  const deriveFinishTime = (start: string, durationHours: string): string => {
+    const startMins = parseTimeToMinutes(start);
+    const dur = Number(durationHours);
+    if (startMins === null || !Number.isFinite(dur) || dur <= 0) return "";
+    const durMins = Math.round(dur * 60);
+    return formatMinutesToTime(startMins + durMins);
+  };
+
   // Load logo
   const logoImg = new Image();
   logoImg.src = "/bho-fire-logo.png";
@@ -1105,13 +1127,23 @@ export function generateWorkReportPDF(
     finishTime: data.finishTime,
     duration: data.duration
   }];
+
+  const derivedArrival = workDaysData.find((d) => !!d.startTime)?.startTime || data.startTime || "";
+  const lastDayWithTimes = [...workDaysData]
+    .reverse()
+    .find((d) => !!d.finishTime || (!!d.startTime && !!d.duration));
+  const derivedDeparture =
+    lastDayWithTimes?.finishTime ||
+    (lastDayWithTimes?.startTime && lastDayWithTimes?.duration
+      ? deriveFinishTime(lastDayWithTimes.startTime, lastDayWithTimes.duration)
+      : data.finishTime || "");
   
   if (workDaysData.length > 1) {
     // Multi-day table
     const tableData = workDaysData.map(day => [
       day.date ? format(new Date(day.date), "dd/MM/yyyy") : "—",
       day.startTime || "—",
-      day.finishTime || "—",
+      day.finishTime || (day.startTime && day.duration ? deriveFinishTime(day.startTime, day.duration) : "—"),
       day.duration ? `${day.duration}` : "—"
     ]);
     
@@ -1180,12 +1212,12 @@ export function generateWorkReportPDF(
     doc.setFont("helvetica", "bold");
     doc.text("Arrival:", margin + colW + 3, timeY);
     doc.setFont("helvetica", "normal");
-    doc.text(data.startTime || "—", margin + colW + 20, timeY);
+    doc.text(derivedArrival || "—", margin + colW + 20, timeY);
     
     doc.setFont("helvetica", "bold");
     doc.text("Departure:", margin + colW * 2 + 3, timeY);
     doc.setFont("helvetica", "normal");
-    doc.text(data.finishTime || "—", margin + colW * 2 + 28, timeY);
+    doc.text(derivedDeparture || "—", margin + colW * 2 + 28, timeY);
     
     doc.setFont("helvetica", "bold");
     doc.text("Duration:", margin + colW * 3 + 3, timeY);
@@ -1240,7 +1272,7 @@ export function generateWorkReportPDF(
   const engSignDateStr = data.engineerSignDate 
     ? format(new Date(data.engineerSignDate), "dd/MM/yyyy")
     : format(new Date(visitDate), "dd/MM/yyyy");
-  const engSignTimeStr = data.engineerSignTime || data.finishTime || "";
+  const engSignTimeStr = data.engineerSignTime || derivedDeparture || "";
   doc.text(`Signed: ${engSignDateStr}${engSignTimeStr ? ` ${engSignTimeStr}` : ""}`, margin + 3, yPos + sigBoxHeight + 5);
 
   // Customer signature box

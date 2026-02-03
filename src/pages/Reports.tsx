@@ -48,6 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ServiceReport, BS5839Checklist, getDefaultChecklist } from "@/services/serviceReportService";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
+import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface ASDAsset {
@@ -550,9 +551,16 @@ const Reports = () => {
       {/* Report Dialog - conditionally show ASD or Service Report dialog */}
       {selectedReport && (() => {
         let isAsdReport = false;
+        let isJobReport = false;
         try {
           const notesData = JSON.parse(selectedReport.notes || "{}");
           isAsdReport = notesData.report_type === "asd";
+          // Job sheets store job/work metadata in notes (and typically have JOB-* report numbers)
+          isJobReport =
+            (selectedReport.report_number || "").startsWith("JOB-") ||
+            !!notesData.jobNumber ||
+            !!notesData.jobType ||
+            Array.isArray(notesData.workDays);
         } catch {
           // Not JSON
         }
@@ -575,6 +583,23 @@ const Reports = () => {
                 sites: selectedReport.sites,
               }}
               assets={asdAssets}
+              onSuccess={fetchReports}
+            />
+          );
+        }
+
+        if (isJobReport) {
+          return (
+            <WorkReportDialog
+              open={!!selectedReport}
+              onOpenChange={(open) => !open && setSelectedReport(null)}
+              visit={{
+                id: selectedReport.visit_id,
+                visit_type: selectedReport.visits?.visit_type || "",
+                visit_date: selectedReport.visits?.visit_date || selectedReport.report_date,
+                site_id: selectedReport.site_id,
+                sites: selectedReport.sites,
+              }}
               onSuccess={fetchReports}
             />
           );
