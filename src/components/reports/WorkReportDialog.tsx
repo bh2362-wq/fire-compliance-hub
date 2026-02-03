@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, Plus, Trash2 } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, Plus, Trash2, Camera, X, Image } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -153,6 +153,10 @@ export function WorkReportDialog({
   const [materials, setMaterials] = useState<{ name: string; qty: string; cost: string }[]>([
     { name: "", qty: "", cost: "" },
   ]);
+
+  // Photos
+  const [photos, setPhotos] = useState<{ url: string; caption: string }[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Signatures
   const [engineerName, setEngineerName] = useState("");
@@ -343,6 +347,7 @@ export function WorkReportDialog({
         setTravelTime(parsedNotes.travelTime || "");
         setDuration(parsedNotes.duration || "");
         setMaterials(parsedNotes.materials || [{ name: "", qty: "", cost: "" }]);
+        setPhotos(parsedNotes.photos || []);
         setEngineerSignature(parsedNotes.engineerSignature || "");
         setCustomerSignature(parsedNotes.customerSignature || "");
         setCustomerNotPresent(parsedNotes.customerNotPresent || false);
@@ -386,6 +391,7 @@ export function WorkReportDialog({
         travelTime,
         duration: workDays[0]?.duration || duration,
         materials: materials.filter((m) => m.name.trim()),
+        photos,
         engineerSignature,
         customerSignature,
         customerNotPresent,
@@ -503,6 +509,7 @@ export function WorkReportDialog({
         travelTime,
         duration: workDays[0]?.duration || duration,
         materials: materials.filter((m) => m.name.trim()),
+        photos,
         engineerSignature,
         customerSignature,
         customerNotPresent,
@@ -702,10 +709,10 @@ export function WorkReportDialog({
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-4 mb-4">
+          <TabsList className="grid w-full grid-cols-5 mb-4">
             <TabsTrigger value="job" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
               <ClipboardList className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Job Details</span>
+              <span className="hidden sm:inline">Job</span>
             </TabsTrigger>
             <TabsTrigger value="works" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
               <FileText className="w-4 h-4 shrink-0" />
@@ -715,9 +722,13 @@ export function WorkReportDialog({
               <Package className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Materials</span>
             </TabsTrigger>
+            <TabsTrigger value="photos" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
+              <Camera className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Photos</span>
+            </TabsTrigger>
             <TabsTrigger value="sign" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
               <PenTool className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Sign Off</span>
+              <span className="hidden sm:inline">Sign</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1112,6 +1123,113 @@ export function WorkReportDialog({
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="photos" className="mt-0 space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Site Photos</Label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={async (e) => {
+                        const files = e.target.files;
+                        if (!files || files.length === 0 || !report) return;
+                        
+                        setUploadingPhoto(true);
+                        try {
+                          const newPhotos: { url: string; caption: string }[] = [];
+                          
+                          for (const file of Array.from(files)) {
+                            const fileExt = file.name.split('.').pop();
+                            const fileName = `${report.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                            
+                            const { error: uploadError } = await supabase.storage
+                              .from('work-report-photos')
+                              .upload(fileName, file);
+                            
+                            if (uploadError) throw uploadError;
+                            
+                            const { data: { publicUrl } } = supabase.storage
+                              .from('work-report-photos')
+                              .getPublicUrl(fileName);
+                            
+                            newPhotos.push({ url: publicUrl, caption: '' });
+                          }
+                          
+                          setPhotos(prev => [...prev, ...newPhotos]);
+                          toast.success(`${newPhotos.length} photo(s) uploaded`);
+                        } catch (error) {
+                          console.error('Failed to upload photo:', error);
+                          toast.error('Failed to upload photo');
+                        } finally {
+                          setUploadingPhoto(false);
+                          e.target.value = '';
+                        }
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={isLocked || uploadingPhoto}
+                    />
+                    <Button variant="outline" size="sm" disabled={isLocked || uploadingPhoto}>
+                      {uploadingPhoto ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Photos
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                
+                {photos.length === 0 ? (
+                  <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
+                    <Image className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm">No photos added yet</p>
+                    <p className="text-xs mt-1">Click "Add Photos" to upload images from the site</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {photos.map((photo, index) => (
+                      <div key={index} className="relative group">
+                        <div className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                          <img 
+                            src={photo.url} 
+                            alt={photo.caption || `Photo ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        {!isLocked && (
+                          <button
+                            type="button"
+                            onClick={() => setPhotos(photos.filter((_, i) => i !== index))}
+                            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                        <Input
+                          value={photo.caption}
+                          onChange={(e) => {
+                            const updated = [...photos];
+                            updated[index] = { ...updated[index], caption: e.target.value };
+                            setPhotos(updated);
+                          }}
+                          placeholder="Add caption..."
+                          className="mt-2 text-xs"
+                          disabled={isLocked}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </TabsContent>
 
