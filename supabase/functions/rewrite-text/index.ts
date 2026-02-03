@@ -39,24 +39,26 @@ STRICT RULES:
 3. NO markdown, bullet points, numbered lists or special characters
 4. Write as plain flowing sentences only
 5. Keep it concise - similar length to the original text
-6. Return ONLY the rewritten plain text`;
+6. IMPORTANT: Separate distinct topics or steps with blank lines (double newline) for readability
+7. Each paragraph should cover one topic or action
+8. Return ONLY the rewritten plain text`;
 
     let systemPrompt = "";
     switch (type) {
       case "defects":
-        systemPrompt = `You are a professional fire safety engineer. Rewrite this defect description using proper BS5839 terminology. Keep it concise - don't add details that weren't in the original.${formatRules}`;
+        systemPrompt = `You are a professional fire safety engineer. Rewrite this defect description using proper BS5839 terminology. Keep it concise - don't add details that weren't in the original. Separate different defects or issues with blank lines.${formatRules}`;
         break;
       case "recommendations":
-        systemPrompt = `You are a professional fire safety engineer. Rewrite these recommendations using proper BS5839 terminology. Keep it concise - don't add details that weren't in the original.${formatRules}`;
+        systemPrompt = `You are a professional fire safety engineer. Rewrite these recommendations using proper BS5839 terminology. Keep it concise - don't add details that weren't in the original. Separate different recommendations with blank lines.${formatRules}`;
         break;
       case "works":
-        systemPrompt = `You are a professional fire safety engineer. Rewrite this works description using proper fire safety terminology. Keep it concise - improve the wording but don't expand into multiple paragraphs.${formatRules}`;
+        systemPrompt = `You are a professional fire safety engineer. Rewrite this works description using proper fire safety terminology. Keep it concise but well-structured. Separate different work items or steps with blank lines for clarity.${formatRules}`;
         break;
       case "comments":
-        systemPrompt = `You are a professional fire safety engineer. Rewrite these comments using proper fire safety terminology. Keep it concise - don't add details that weren't in the original.${formatRules}`;
+        systemPrompt = `You are a professional fire safety engineer. Rewrite these comments using proper fire safety terminology. Keep it concise - don't add details that weren't in the original. Separate different points with blank lines.${formatRules}`;
         break;
       default:
-        systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise.${formatRules}`;
+        systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise. Separate different topics with blank lines.${formatRules}`;
     }
 
     // First, rewrite the text
@@ -108,12 +110,13 @@ STRICT RULES:
 
 STRICT RULES:
 1. If the work report indicates everything is fine with no issues, return exactly: "No further action required."
-2. If there are issues mentioned, provide a brief, professional recommendation for follow-up
+2. If there are issues mentioned, provide brief, professional recommendations for follow-up
 3. NO markdown, bullet points, or special characters
 4. Write as plain flowing sentences only
-5. Keep it under 100 words
+5. Keep it under 100 words total
 6. Focus only on actionable recommendations based on what's mentioned
-7. Return ONLY the recommendation text, nothing else
+7. IMPORTANT: Separate different recommendations with blank lines (double newline) for readability
+8. Return ONLY the recommendation text, nothing else
 
 Work Report:
 ${text}`;
