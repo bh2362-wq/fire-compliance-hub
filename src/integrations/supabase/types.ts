@@ -1449,6 +1449,7 @@ export type Database = {
           engineer_name: string | null
           engineer_signature: string | null
           id: string
+          invoiced: boolean | null
           next_service_due: string | null
           notes: string | null
           panel_location: string | null
@@ -1478,6 +1479,7 @@ export type Database = {
           engineer_name?: string | null
           engineer_signature?: string | null
           id?: string
+          invoiced?: boolean | null
           next_service_due?: string | null
           notes?: string | null
           panel_location?: string | null
@@ -1507,6 +1509,7 @@ export type Database = {
           engineer_name?: string | null
           engineer_signature?: string | null
           id?: string
+          invoiced?: boolean | null
           next_service_due?: string | null
           notes?: string | null
           panel_location?: string | null

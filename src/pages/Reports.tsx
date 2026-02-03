@@ -18,7 +18,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen } from "lucide-react";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -90,6 +92,8 @@ const Reports = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<ReportWithSite | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [reportToInvoice, setReportToInvoice] = useState<ReportWithSite | null>(null);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -175,6 +179,28 @@ const Reports = () => {
       console.error("Failed to update status:", error);
       toast.error("Failed to update status");
     }
+  };
+
+  const handleInvoicedToggle = async (reportId: string, invoiced: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("service_reports")
+        .update({ invoiced })
+        .eq("id", reportId);
+
+      if (error) throw error;
+
+      toast.success(invoiced ? "Marked as invoiced" : "Marked as not invoiced");
+      fetchReports();
+    } catch (error) {
+      console.error("Failed to update invoiced status:", error);
+      toast.error("Failed to update invoiced status");
+    }
+  };
+
+  const handleCreateInvoice = (report: ReportWithSite) => {
+    setReportToInvoice(report);
+    setInvoiceDialogOpen(true);
   };
 
   const filteredReports = reports.filter((report) => {
@@ -323,6 +349,12 @@ const Reports = () => {
                           <Badge variant="outline" className={status.className}>
                             {status.label}
                           </Badge>
+                          {(report as any).invoiced && (
+                            <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                              <ReceiptText className="w-3 h-3 mr-1" />
+                              Invoiced
+                            </Badge>
+                          )}
                           {condition && ConditionIcon && (
                             <span className={`flex items-center gap-1 text-sm ${condition.className}`}>
                               <ConditionIcon className="w-4 h-4" />
@@ -378,6 +410,21 @@ const Reports = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => handleCreateInvoice(report)}
+                          >
+                            <Receipt className="w-4 h-4 mr-2" />
+                            Create Invoice
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleInvoicedToggle(report.id, !(report as any).invoiced);
+                            }}
+                          >
+                            <ReceiptText className="w-4 h-4 mr-2" />
+                            {(report as any).invoiced ? "Mark as Not Invoiced" : "Mark as Invoiced"}
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleStatusChange(report.id, report.status === "completed" ? "draft" : "completed")}
                           >
@@ -486,6 +533,28 @@ const Reports = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create Invoice Dialog */}
+      {reportToInvoice && (
+        <CreateInvoiceDialog
+          open={invoiceDialogOpen}
+          onOpenChange={(open) => {
+            setInvoiceDialogOpen(open);
+            if (!open) setReportToInvoice(null);
+          }}
+          visit={{
+            id: reportToInvoice.visit_id,
+            visit_type: reportToInvoice.visits?.visit_type || "",
+            visit_date: reportToInvoice.visits?.visit_date || reportToInvoice.report_date,
+            site_id: reportToInvoice.site_id,
+            sites: reportToInvoice.sites,
+          }}
+          onSuccess={() => {
+            // Mark report as invoiced after successful invoice creation
+            handleInvoicedToggle(reportToInvoice.id, true);
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 };
