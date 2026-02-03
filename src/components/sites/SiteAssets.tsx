@@ -31,8 +31,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, Server, Wind, Lightbulb, ShieldAlert, Pencil, Trash2, Loader2, Flame, Box, Accessibility, PanelTop } from "lucide-react";
+import { Plus, Server, Wind, Lightbulb, ShieldAlert, Pencil, Trash2, Loader2, Flame, Box, Accessibility, PanelTop, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { SERVICE_TYPES } from "@/services/serviceContractService";
 
 interface SiteAsset {
   id: string;
@@ -54,17 +55,18 @@ interface SiteAssetsProps {
   siteId: string;
 }
 
-const ASSET_TYPES = [
-  { value: "fire_panel", label: "Fire Alarm Panel", icon: Server, color: "text-destructive" },
-  { value: "asd", label: "ASD (Aspirating)", icon: Wind, color: "text-primary" },
-  { value: "gas_suppression", label: "Gas Suppression", icon: Flame, color: "text-orange-500" },
-  { value: "room_integrity", label: "Room Integrity", icon: Box, color: "text-cyan-500" },
-  { value: "disabled_refuge", label: "Disabled Refuge", icon: Accessibility, color: "text-blue-500" },
-  { value: "fire_curtain", label: "Fire Curtain", icon: PanelTop, color: "text-rose-500" },
-  { value: "emergency_lighting", label: "Emergency Lighting", icon: Lightbulb, color: "text-warning" },
-  { value: "intruder_alarm", label: "Intruder Alarm", icon: ShieldAlert, color: "text-accent" },
-  { value: "other", label: "Other", icon: Server, color: "text-muted-foreground" },
-];
+// Use same types as service contracts for consistency
+const ASSET_TYPE_CONFIG: Record<string, { icon: typeof Server; color: string }> = {
+  fire: { icon: Server, color: "text-destructive" },
+  aspirator: { icon: Wind, color: "text-primary" },
+  gas_suppression: { icon: Flame, color: "text-orange-500" },
+  room_integrity: { icon: Box, color: "text-cyan-500" },
+  fire_curtain: { icon: PanelTop, color: "text-rose-500" },
+  disabled_refuge: { icon: Accessibility, color: "text-blue-500" },
+  emergency_lighting: { icon: Lightbulb, color: "text-warning" },
+  intruder_alarm: { icon: ShieldAlert, color: "text-accent" },
+  nurse_call: { icon: Phone, color: "text-purple-500" },
+};
 
 export function SiteAssets({ siteId }: SiteAssetsProps) {
   const [assets, setAssets] = useState<SiteAsset[]>([]);
@@ -76,7 +78,7 @@ export function SiteAssets({ siteId }: SiteAssetsProps) {
   const [deleting, setDeleting] = useState(false);
 
   // Form state
-  const [assetType, setAssetType] = useState("fire_panel");
+  const [assetType, setAssetType] = useState("fire");
   const [itemName, setItemName] = useState("");
   const [manufacturer, setManufacturer] = useState("");
   const [model, setModel] = useState("");
@@ -106,7 +108,7 @@ export function SiteAssets({ siteId }: SiteAssetsProps) {
   }, [siteId]);
 
   const resetForm = () => {
-    setAssetType("fire_panel");
+    setAssetType("fire");
     setItemName("");
     setManufacturer("");
     setModel("");
@@ -209,7 +211,13 @@ export function SiteAssets({ siteId }: SiteAssetsProps) {
   };
 
   const getAssetTypeConfig = (type: string) => {
-    return ASSET_TYPES.find((t) => t.value === type) || ASSET_TYPES[8];
+    const serviceType = SERVICE_TYPES.find((t) => t.value === type);
+    const config = ASSET_TYPE_CONFIG[type] || { icon: Server, color: "text-muted-foreground" };
+    return {
+      value: type,
+      label: serviceType?.label || type,
+      ...config,
+    };
   };
 
   const groupedAssets = assets.reduce((acc, asset) => {
@@ -324,7 +332,7 @@ export function SiteAssets({ siteId }: SiteAssetsProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ASSET_TYPES.map((type) => (
+                  {SERVICE_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
                     </SelectItem>
@@ -380,7 +388,7 @@ export function SiteAssets({ siteId }: SiteAssetsProps) {
               </div>
             </div>
 
-            {(assetType === "fire_panel" || assetType === "asd") && (
+            {(assetType === "fire" || assetType === "aspirator") && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Zones</Label>
