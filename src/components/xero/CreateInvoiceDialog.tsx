@@ -105,6 +105,7 @@ export function CreateInvoiceDialog({
   const [hasConnection, setHasConnection] = useState<boolean | null>(null);
   const [contacts, setContacts] = useState<XeroContact[]>([]);
   const [selectedContact, setSelectedContact] = useState<string>("");
+  const [poNumber, setPoNumber] = useState("");
   const [reference, setReference] = useState("");
   const [dueDate, setDueDate] = useState<Date | undefined>(addDays(new Date(), 30));
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([
@@ -123,6 +124,8 @@ export function CreateInvoiceDialog({
       setDueDate(addDays(new Date(), 30));
       // Reset selected contact - will be auto-selected after contacts load
       setSelectedContact("");
+      // Reset PO number
+      setPoNumber("");
     }
   }, [open, user, visit]);
 
@@ -194,12 +197,14 @@ export function CreateInvoiceDialog({
     setLoading(true);
     try {
       const contact = contacts.find(c => c.ContactID === selectedContact);
+      // Use PO number as the Xero reference (this maps to the Reference field in Xero)
+      const xeroReference = poNumber || reference;
       const result = await createXeroInvoice(
         visit.id,
         selectedContact,
         contact?.Name || "",
         validItems,
-        reference,
+        xeroReference,
         dueDate ? format(dueDate, "yyyy-MM-dd") : undefined
       );
 
@@ -209,6 +214,7 @@ export function CreateInvoiceDialog({
       
       // Reset form
       setSelectedContact("");
+      setPoNumber("");
       setReference("");
       setLineItems([{ description: "", quantity: 1, unitAmount: 0 }]);
     } catch (error: any) {
@@ -267,7 +273,15 @@ export function CreateInvoiceDialog({
           </Select>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>PO Number</Label>
+            <Input
+              value={poNumber}
+              onChange={(e) => setPoNumber(e.target.value)}
+              placeholder="Customer PO number"
+            />
+          </div>
           <div className="space-y-2">
             <Label>Reference</Label>
             <Input
