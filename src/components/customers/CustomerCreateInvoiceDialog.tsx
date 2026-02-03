@@ -44,6 +44,15 @@ interface Site {
   city: string | null;
 }
 
+// Job report data for auto-filling invoice fields
+interface JobReportData {
+  jobType?: string;
+  reportDate?: string;
+  reportNumber?: string;
+  poNumber?: string;
+  siteName?: string;
+}
+
 interface CustomerCreateInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,6 +61,8 @@ interface CustomerCreateInvoiceDialogProps {
   xeroContactId: string | null;
   sites: Site[];
   onSuccess?: () => void;
+  // Optional job report data for auto-filling
+  jobReportData?: JobReportData;
 }
 
 const SERVICE_TYPES = [
@@ -99,6 +110,7 @@ export function CustomerCreateInvoiceDialog({
   xeroContactId,
   sites,
   onSuccess,
+  jobReportData,
 }: CustomerCreateInvoiceDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -117,14 +129,49 @@ export function CustomerCreateInvoiceDialog({
     if (open && user) {
       checkConnection();
       fetchNextInvoiceNumber();
-      // Reset form
-      setSelectedSite("");
-      setServiceType("quarterly_service");
-      setReference("");
-      setDueDate(addDays(new Date(), 30));
-      setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+      
+      // If we have job report data, use it to auto-fill the invoice
+      if (jobReportData) {
+        // Auto-select the first site (should be the job's site)
+        if (sites.length > 0) {
+          setSelectedSite(sites[0].id);
+        }
+        
+        // Set service type based on job type
+        // If emergency job, use emergency callout type
+        if (jobReportData.jobType === "emergency") {
+          setServiceType("emergency");
+        } else if (jobReportData.jobType === "service") {
+          setServiceType("quarterly_service");
+        } else if (jobReportData.jobType === "repair" || jobReportData.jobType === "remedial") {
+          setServiceType("remedial");
+        } else {
+          setServiceType("quarterly_service");
+        }
+        
+        // Due date is the report date (the job date)
+        if (jobReportData.reportDate) {
+          setDueDate(new Date(jobReportData.reportDate));
+        } else {
+          setDueDate(addDays(new Date(), 30));
+        }
+        
+        // Reference is the PO number if available
+        if (jobReportData.poNumber) {
+          setReference(jobReportData.poNumber);
+        } else {
+          setReference("");
+        }
+      } else {
+        // Reset form to defaults
+        setSelectedSite("");
+        setServiceType("quarterly_service");
+        setReference("");
+        setDueDate(addDays(new Date(), 30));
+        setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+      }
     }
-  }, [open, user]);
+  }, [open, user, jobReportData, sites]);
 
   const fetchNextInvoiceNumber = async () => {
     setLoadingInvoiceNumber(true);
@@ -139,14 +186,66 @@ export function CustomerCreateInvoiceDialog({
     }
   };
 
-  useEffect(() => {
-    // Update line items when service type changes
-    setLineItems(SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.remedial);
+  // Build the line item description based on job report data
+  const buildJobLineItemDescription = (): string => {
+    if (!jobReportData) return "";
     
-    // Update reference when site or service type changes
-    if (selectedSite) {
+    const parts: string[] = [];
+    
+    // Callout for emergency jobs
+    if (jobReportData.jobType === "emergency") {
+      parts.push("Callout");
+    }
+    
+    // Add report date
+    if (jobReportData.reportDate) {
+      parts.push(format(new Date(jobReportData.reportDate), "dd/MM/yyyy"));
+    }
+    
+    // Add site name
+    if (jobReportData.siteName) {
+      parts.push(jobReportData.siteName);
+    }
+    
+    // Add job sheet number
+    if (jobReportData.reportNumber) {
+      parts.push(jobReportData.reportNumber);
+    }
+    
+    return parts.join(" - ");
+  };
+
+  useEffect(() => {
+    // If we have job report data, build custom line items
+    if (jobReportData && selectedSite) {
+      const description = buildJobLineItemDescription();
+      
+      if (jobReportData.jobType === "emergency") {
+        // Emergency callout line items
+        setLineItems([
+          { description: `Callout - ${description}`, quantity: 1, unitAmount: 195 },
+        ]);
+      } else {
+        // Default service line items with job info
+        const baseItems = SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.quarterly_service;
+        // Update first item description to include job info
+        const updatedItems = baseItems.map((item, index) => {
+          if (index === 0) {
+            return { ...item, description: description || item.description };
+          }
+          return item;
+        });
+        setLineItems(updatedItems);
+      }
+    } else if (!jobReportData) {
+      // Update line items when service type changes (no job report data)
+      setLineItems(SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.remedial);
+    }
+    
+    // Update reference when site or service type changes (only if no job report data providing PO)
+    if (selectedSite && !jobReportData?.poNumber) {
       const site = sites.find(s => s.id === selectedSite);
-      if (site) {
+      if (site && !jobReportData) {
         const serviceLabel = SERVICE_TYPES.find(s => s.value === serviceType)?.label || serviceType;
         setReference(`${serviceLabel} - ${site.name}`);
       }
