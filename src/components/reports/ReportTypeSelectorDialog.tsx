@@ -12,6 +12,7 @@ import { Loader2, FileText, Wind, Server, Flame, ChevronRight } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { ServiceReportDialog } from "./ServiceReportDialog";
 import { ASDReportDialog } from "./ASDReportDialog";
+import { WorkReportDialog } from "./WorkReportDialog";
 
 interface VisitForReport {
   id: string;
@@ -38,6 +39,9 @@ interface ReportTypeSelectorDialogProps {
   onSuccess?: () => void;
 }
 
+// Visit types that should go directly to Job Sheet (Work Report)
+const JOB_SHEET_VISIT_TYPES = ["remedial", "emergency", "supply_only"];
+
 export function ReportTypeSelectorDialog({
   open,
   onOpenChange,
@@ -51,12 +55,19 @@ export function ReportTypeSelectorDialog({
   // Sub-dialog states
   const [showFireReport, setShowFireReport] = useState(false);
   const [showAsdReport, setShowAsdReport] = useState(false);
+  const [showJobSheet, setShowJobSheet] = useState(false);
 
   useEffect(() => {
     if (open) {
+      // For remedial, emergency (callout), or supply_only visits, go directly to Job Sheet
+      if (JOB_SHEET_VISIT_TYPES.includes(visit.visit_type)) {
+        setShowJobSheet(true);
+        onOpenChange(false);
+        return;
+      }
       loadAssets();
     }
-  }, [open, visit.site_id]);
+  }, [open, visit.site_id, visit.visit_type]);
 
   const loadAssets = async () => {
     setLoading(true);
@@ -119,9 +130,15 @@ export function ReportTypeSelectorDialog({
     onOpenChange(false);
   };
 
+  const handleJobSheetClick = () => {
+    setShowJobSheet(true);
+    onOpenChange(false);
+  };
+
   const handleSubDialogClose = () => {
     setShowFireReport(false);
     setShowAsdReport(false);
+    setShowJobSheet(false);
   };
 
   const handleSubDialogSuccess = () => {
@@ -137,6 +154,19 @@ export function ReportTypeSelectorDialog({
   }, [loading, fireAssets, asdAssets]);
 
   // Render sub-dialogs
+  if (showJobSheet) {
+    return (
+      <WorkReportDialog
+        open={true}
+        onOpenChange={(open) => {
+          if (!open) handleSubDialogClose();
+        }}
+        visit={visit}
+        onSuccess={handleSubDialogSuccess}
+      />
+    );
+  }
+
   if (showFireReport) {
     return (
       <ServiceReportDialog
@@ -184,7 +214,7 @@ export function ReportTypeSelectorDialog({
             <button
               type="button"
               className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
-              onClick={handleFireReportClick}
+              onClick={handleJobSheetClick}
             >
               <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-orange-500/20 transition-colors">
                 <FileText className="w-6 h-6 text-orange-600" />
