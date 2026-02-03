@@ -735,6 +735,46 @@ export function ASDReportDialog({
                   </div>
                 </div>
               </div>
+
+              {/* Generate Report / Download Actions */}
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-medium">Report Actions</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Generate or download a PDF of this ASD service report
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        // Save current state before generating
+                        await handleSave(false);
+                        toast.success("Report saved - PDF generation coming soon");
+                      }}
+                      disabled={saving}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Generate Report
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        // Save current state before downloading
+                        await handleSave(false);
+                        toast.success("Report saved - PDF download coming soon");
+                      }}
+                      disabled={saving}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download PDF
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
           </div>
         </Tabs>
