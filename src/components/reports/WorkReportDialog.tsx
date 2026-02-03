@@ -1453,40 +1453,42 @@ export function WorkReportDialog({
                 </div>
               </div>
 
-              {/* Service Summary Row */}
+              {/* Service Summary Row - Pulls from workDays */}
               <div className="grid grid-cols-4 gap-3 bg-muted/30 rounded-lg p-3">
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Date</p>
-                  <p className="font-semibold text-sm">{visit.visit_date}</p>
+                  <p className="font-semibold text-sm">
+                    {workDays[0]?.date 
+                      ? format(new Date(workDays[0].date), "dd/MM/yyyy")
+                      : format(new Date(visit.visit_date), "dd/MM/yyyy")}
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Arrival</p>
-                  <Input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="text-sm h-8 text-center border-0 bg-background"
-                  />
+                  <p className="font-semibold text-sm">
+                    {workDays[0]?.startTime || "—"}
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Departure</p>
-                  <Input
-                    type="time"
-                    value={finishTime}
-                    onChange={(e) => setFinishTime(e.target.value)}
-                    className="text-sm h-8 text-center border-0 bg-background"
-                  />
+                  <p className="font-semibold text-sm">
+                    {workDays[0]?.finishTime || "—"}
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Duration</p>
-                  <Input
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    placeholder="hrs"
-                    className="text-sm h-8 text-center border-0 bg-background"
-                  />
+                  <p className="font-semibold text-sm">
+                    {workDays[0]?.duration ? `${workDays[0].duration} hrs` : "—"}
+                  </p>
                 </div>
               </div>
+              
+              {/* Show all work days summary if multiple days */}
+              {workDays.length > 1 && (
+                <div className="text-center text-sm text-muted-foreground bg-muted/20 rounded-lg p-2">
+                  <span className="font-medium text-foreground">{workDays.length} work days</span> • Total: <span className="font-medium text-foreground">{totalHours} hours</span>
+                </div>
+              )}
 
               {/* Signature Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
