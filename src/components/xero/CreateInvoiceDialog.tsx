@@ -39,6 +39,8 @@ import {
 import { updateVisitStatus } from "@/hooks/useVisits";
 import { cn } from "@/lib/utils";
 import { getServiceContracts, getServiceTypeLabel, ServiceContract } from "@/services/serviceContractService";
+import { getServiceReport, ServiceReport } from "@/services/serviceReportService";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VisitForInvoice {
   id: string;
@@ -128,13 +130,39 @@ const VISIT_TYPE_LINE_ITEMS: Record<string, InvoiceLineItem[]> = {
   ],
 };
 
-const getDefaultLineItems = (visitType: string, contract?: ServiceContract | null, siteName?: string): InvoiceLineItem[] => {
+interface LineItemContext {
+  contract?: ServiceContract | null;
+  siteName?: string;
+  reportNumber?: string | null;
+  serviceDate?: string | null;
+  poNumber?: string | null;
+}
+
+const getDefaultLineItems = (visitType: string, context: LineItemContext = {}): InvoiceLineItem[] => {
+  const { contract, siteName, reportNumber, serviceDate, poNumber } = context;
+  
   // If we have a contract, use its price
   if (contract && contract.unit_price > 0) {
     const serviceLabel = getServiceTypeLabel(contract.service_type);
-    const description = contract.description || `${serviceLabel} Service - ${siteName || "Site"}`;
+    const frequencyLabel = contract.frequency 
+      ? FREQUENCY_LABELS[contract.frequency] || contract.frequency
+      : "";
+    
+    // Build multi-line description
+    const lines: string[] = [];
+    lines.push(`${serviceLabel} Service${frequencyLabel ? ` ${frequencyLabel}` : ""} - ${siteName || "Site"}`);
+    if (reportNumber) {
+      lines.push(`Report: ${reportNumber}`);
+    }
+    if (serviceDate) {
+      lines.push(`Service Date: ${serviceDate}`);
+    }
+    if (poNumber) {
+      lines.push(`PO: ${poNumber}`);
+    }
+    
     return [
-      { description, quantity: 1, unitAmount: contract.unit_price },
+      { description: lines.join("\n"), quantity: 1, unitAmount: contract.unit_price },
     ];
   }
   
@@ -197,7 +225,11 @@ export function CreateInvoiceDialog({
     }
 
     try {
-      const contracts = await getServiceContracts(visit.site_id);
+      // Fetch contracts and service report in parallel
+      const [contracts, serviceReport] = await Promise.all([
+        getServiceContracts(visit.site_id),
+        getServiceReport(visit.id),
+      ]);
       
       // First try to get service type from asset_type in notes
       const assetType = getAssetTypeFromVisit(visit);
@@ -212,12 +244,9 @@ export function CreateInvoiceDialog({
         ? contracts.find(c => c.service_type === serviceType)
         : null;
       
-      // Auto-fill PO number from contract
-      if (matchingContract?.po_number) {
-        setPoNumber(matchingContract.po_number);
-      } else {
-        setPoNumber("");
-      }
+      // Get the PO number from contract
+      const contractPoNumber = matchingContract?.po_number || "";
+      setPoNumber(contractPoNumber);
       
       // Build reference from contract: "Service Type + Frequency"
       if (matchingContract) {
@@ -230,8 +259,31 @@ export function CreateInvoiceDialog({
         setReference(`${visit.visit_type} - ${visit.sites?.name || "Site"} - ${visit.visit_date}`);
       }
       
-      // Auto-fill line items with contract price
-      setLineItems(getDefaultLineItems(visit.visit_type, matchingContract, visit.sites?.name));
+      // Get service date from report (use engineer sign date if available, else report_date)
+      let serviceDate: string | null = null;
+      if (serviceReport) {
+        // Try to get the sign-off date from notes
+        try {
+          const notesData = serviceReport.notes ? JSON.parse(serviceReport.notes) : null;
+          if (notesData?.engineerSignDate) {
+            serviceDate = format(new Date(notesData.engineerSignDate), "dd/MM/yyyy");
+          }
+        } catch { /* ignore parse errors */ }
+        
+        // Fallback to report_date
+        if (!serviceDate && serviceReport.report_date) {
+          serviceDate = format(new Date(serviceReport.report_date), "dd/MM/yyyy");
+        }
+      }
+      
+      // Auto-fill line items with contract price and report details
+      setLineItems(getDefaultLineItems(visit.visit_type, {
+        contract: matchingContract,
+        siteName: visit.sites?.name,
+        reportNumber: serviceReport?.report_number,
+        serviceDate,
+        poNumber: contractPoNumber,
+      }));
     } catch (error) {
       console.error("Failed to load service contract:", error);
       // Fallback to default line items
