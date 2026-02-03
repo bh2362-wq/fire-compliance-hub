@@ -1228,3 +1228,442 @@ const JOB_TYPES_PDF = [
   { value: "emergency", label: "Emergency" },
   { value: "supply_only", label: "Supply Only" },
 ];
+
+// ===================== ASD SERVICE REPORT PDF =====================
+import { ASDChecklist, ASD_CHECKLIST_LABELS, ASD_SECTION_LABELS } from "@/services/asdChecklistService";
+
+interface ASDUnitData {
+  assetId: string;
+  assetName: string;
+  manufacturer?: string;
+  model?: string;
+  location?: string;
+  checklist: ASDChecklist;
+  defects?: string;
+  recommendations?: string;
+  systemCondition?: string;
+}
+
+interface ASDReportData {
+  reportNumber: string;
+  reportDate: string;
+  engineerName: string;
+  clientName: string;
+  units: ASDUnitData[];
+  workCarriedOut?: string;
+  partsUsed?: string;
+  notes?: string;
+  // Signatures
+  engineerSignature?: string;
+  engineerSignDate?: string;
+  engineerSignTime?: string;
+  customerNotPresent?: boolean;
+  customerSignature?: string;
+  customerSignDate?: string;
+  customerSignTime?: string;
+}
+
+export function generateASDReportPDF(
+  data: ASDReportData,
+  site: SiteInfo,
+  visitDate: string,
+  visitType?: string
+): void {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 12;
+  const contentWidth = pageWidth - 2 * margin;
+
+  const logoImg = new Image();
+  logoImg.src = "/bho-fire-logo.png";
+
+  let yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+
+  // === Title Row ===
+  doc.setTextColor(...COLORS.charcoal);
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("ASD Service Report", margin, yPos + 4);
+
+  doc.setTextColor(...COLORS.red);
+  doc.setFontSize(10);
+  doc.text("Aspirating Smoke Detection", margin, yPos + 10);
+
+  doc.setTextColor(...COLORS.darkGrey);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  if (data.reportNumber) {
+    doc.text(`Ref: ${data.reportNumber}`, pageWidth - margin, yPos + 4, { align: "right" });
+  }
+  doc.text(format(new Date(data.reportDate), "dd MMM yyyy"), pageWidth - margin, yPos + 10, { align: "right" });
+
+  yPos += 16;
+
+  // === Site & Service Details (Side by Side) ===
+  const colWidth = (contentWidth - 6) / 2;
+  const boxHeight = 38;
+
+  // Left: Site Info
+  doc.setDrawColor(...COLORS.borderGrey);
+  doc.setLineWidth(0.3);
+  doc.rect(margin, yPos, colWidth, boxHeight);
+
+  doc.setFillColor(...COLORS.charcoal);
+  doc.rect(margin, yPos, colWidth, 7, "F");
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("SITE", margin + 3, yPos + 5);
+
+  const siteAddr = [site.address, site.city, site.postcode].filter(Boolean).join(", ");
+  const siteRows = [
+    ["Site:", site.name],
+    ["Address:", siteAddr || "-"],
+    ["Contact:", site.contact_name || "-"],
+    ["Phone:", site.contact_phone || "-"],
+  ];
+
+  doc.setFontSize(9);
+  let rowY = yPos + 13;
+  siteRows.forEach(([label, val]) => {
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.setFont("helvetica", "bold");
+    doc.text(label, margin + 3, rowY);
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFont("helvetica", "normal");
+    const maxW = colWidth - 26;
+    const txt = doc.splitTextToSize(val, maxW)[0] || "-";
+    doc.text(txt, margin + 22, rowY);
+    rowY += 6.5;
+  });
+
+  // Right: Service Info
+  const rightX = margin + colWidth + 6;
+  doc.rect(rightX, yPos, colWidth, boxHeight);
+
+  doc.setFillColor(...COLORS.charcoal);
+  doc.rect(rightX, yPos, colWidth, 7, "F");
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("SERVICE", rightX + 3, yPos + 5);
+
+  const typeLabel = visitType
+    ? visitType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "ASD Service";
+  const serviceRows = [
+    ["Type:", typeLabel],
+    ["Date:", format(new Date(visitDate), "dd MMM yyyy")],
+    ["Engineer:", data.engineerName || "-"],
+    ["Units:", `${data.units.length} ASD unit${data.units.length > 1 ? "s" : ""}`],
+  ];
+
+  doc.setFontSize(9);
+  rowY = yPos + 13;
+  serviceRows.forEach(([label, val]) => {
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.setFont("helvetica", "bold");
+    doc.text(label, rightX + 3, rowY);
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFont("helvetica", "normal");
+    doc.text(val, rightX + 24, rowY);
+    rowY += 6.5;
+  });
+
+  yPos += boxHeight + 5;
+
+  // === Loop through each unit ===
+  data.units.forEach((unit, unitIndex) => {
+    // Check if we need a new page
+    if (yPos > pageHeight - 80) {
+      doc.addPage();
+      yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+    }
+
+    // Unit header
+    doc.setFillColor(...COLORS.red);
+    doc.rect(margin, yPos, contentWidth, 8, "F");
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(`UNIT ${unitIndex + 1}: ${unit.assetName}`, margin + 3, yPos + 5.5);
+
+    // Unit info on same line if space
+    if (unit.manufacturer || unit.location) {
+      const infoText = [unit.manufacturer, unit.model, unit.location].filter(Boolean).join(" | ");
+      doc.setFontSize(8);
+      doc.text(infoText, pageWidth - margin - 3, yPos + 5.5, { align: "right" });
+    }
+
+    yPos += 11;
+
+    // Checklist sections as compact table
+    const checklist = unit.checklist;
+    const checklistRows: (string | { content: string; styles?: Record<string, unknown> })[][] = [];
+
+    // Pre-service actions
+    Object.entries(ASD_CHECKLIST_LABELS.pre_service_actions).forEach(([key, label]) => {
+      const val = checklist.pre_service_actions[key as keyof typeof checklist.pre_service_actions];
+      checklistRows.push([
+        label,
+        val === true ? "YES" : val === false ? "NO" : "N/A",
+      ]);
+    });
+
+    // Airflow readings
+    checklistRows.push([
+      { content: "Airflow Readings", styles: { fontStyle: "bold", fillColor: COLORS.lightGrey } },
+      { content: "Before / After", styles: { fontStyle: "bold", fillColor: COLORS.lightGrey } },
+    ]);
+    Object.entries(checklist.airflow_readings).forEach(([key, reading]) => {
+      const pipeNum = key.replace("pipe_", "Pipe ");
+      checklistRows.push([
+        pipeNum,
+        `${reading.before || "-"} / ${reading.after || "-"}`,
+      ]);
+    });
+
+    // Cleaning activities
+    Object.entries(ASD_CHECKLIST_LABELS.cleaning_activities).forEach(([key, label]) => {
+      const val = checklist.cleaning_activities[key as keyof typeof checklist.cleaning_activities];
+      checklistRows.push([
+        label,
+        val === true ? "YES" : val === false ? "NO" : "N/A",
+      ]);
+    });
+
+    // System checks
+    Object.entries(ASD_CHECKLIST_LABELS.system_checks).forEach(([key, label]) => {
+      const val = checklist.system_checks[key as keyof typeof checklist.system_checks];
+      checklistRows.push([
+        label,
+        val === true ? "YES" : val === false ? "NO" : "N/A",
+      ]);
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Checklist Item", "Status"]],
+      body: checklistRows,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: COLORS.charcoal, textColor: COLORS.white, fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: contentWidth * 0.75 },
+        1: { cellWidth: contentWidth * 0.25, halign: "center" },
+      },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 1) {
+          const val = String(data.cell.raw);
+          if (val === "YES") {
+            data.cell.styles.textColor = COLORS.yes;
+            data.cell.styles.fontStyle = "bold";
+          } else if (val === "NO") {
+            data.cell.styles.textColor = COLORS.no;
+            data.cell.styles.fontStyle = "bold";
+          } else if (val === "N/A") {
+            data.cell.styles.textColor = COLORS.mediumGrey;
+          }
+        }
+      },
+    });
+
+    yPos = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || yPos + 50;
+    yPos += 3;
+
+    // Defects & Recommendations for this unit
+    if (unit.defects || unit.recommendations || unit.systemCondition) {
+      if (yPos > pageHeight - 40) {
+        doc.addPage();
+        yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+      }
+
+      const defectBoxHeight = 24;
+      doc.setDrawColor(...COLORS.borderGrey);
+      doc.rect(margin, yPos, contentWidth, defectBoxHeight);
+
+      doc.setFillColor(...COLORS.charcoal);
+      doc.rect(margin, yPos, contentWidth, 6, "F");
+      doc.setTextColor(...COLORS.white);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("Defects & Recommendations", margin + 3, yPos + 4);
+
+      // System condition badge
+      if (unit.systemCondition) {
+        const condLabel = unit.systemCondition === "satisfactory" 
+          ? "Satisfactory" 
+          : unit.systemCondition === "requires_attention" 
+          ? "Requires Attention" 
+          : "Unsatisfactory";
+        const condColor = unit.systemCondition === "satisfactory" 
+          ? COLORS.yes 
+          : unit.systemCondition === "requires_attention" 
+          ? [255, 165, 0] as [number, number, number]
+          : COLORS.no;
+        doc.setTextColor(...condColor);
+        doc.text(condLabel, pageWidth - margin - 3, yPos + 4, { align: "right" });
+      }
+
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.charcoal);
+      doc.setFont("helvetica", "normal");
+
+      let textY = yPos + 10;
+      if (unit.defects) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Defects: ", margin + 3, textY);
+        doc.setFont("helvetica", "normal");
+        const defectLines = doc.splitTextToSize(unit.defects, contentWidth - 25);
+        doc.text(defectLines[0] || "-", margin + 20, textY);
+        textY += 6;
+      }
+      if (unit.recommendations) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Recommendations: ", margin + 3, textY);
+        doc.setFont("helvetica", "normal");
+        const recLines = doc.splitTextToSize(unit.recommendations, contentWidth - 40);
+        doc.text(recLines[0] || "-", margin + 35, textY);
+      }
+
+      yPos += defectBoxHeight + 5;
+    }
+
+    yPos += 5;
+  });
+
+  // === Work Carried Out / Notes ===
+  if (data.workCarriedOut || data.notes) {
+    if (yPos > pageHeight - 50) {
+      doc.addPage();
+      yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+    }
+
+    const notesBoxHeight = 30;
+    doc.setDrawColor(...COLORS.borderGrey);
+    doc.rect(margin, yPos, contentWidth, notesBoxHeight);
+
+    doc.setFillColor(...COLORS.charcoal);
+    doc.rect(margin, yPos, contentWidth, 6, "F");
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Work Summary & Notes", margin + 3, yPos + 4);
+
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFont("helvetica", "normal");
+
+    let textY = yPos + 11;
+    if (data.workCarriedOut) {
+      const workLines = doc.splitTextToSize(data.workCarriedOut, contentWidth - 6);
+      doc.text(workLines.slice(0, 2).join("\n"), margin + 3, textY);
+      textY += 8;
+    }
+    if (data.notes) {
+      const noteLines = doc.splitTextToSize(data.notes, contentWidth - 6);
+      doc.text(noteLines.slice(0, 2).join("\n"), margin + 3, textY);
+    }
+
+    yPos += notesBoxHeight + 5;
+  }
+
+  // === Signatures Section ===
+  if (yPos > pageHeight - 60) {
+    doc.addPage();
+    yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+  }
+
+  const sigWidth = (contentWidth - 6) / 2;
+  const sigBoxHeight = 45;
+  const sigAreaHeight = 25;
+
+  // Engineer Signature
+  doc.setDrawColor(...COLORS.borderGrey);
+  doc.rect(margin, yPos, sigWidth, sigBoxHeight);
+  doc.setFillColor(...COLORS.charcoal);
+  doc.rect(margin, yPos, sigWidth, 6, "F");
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Engineer Signature", margin + 3, yPos + 4);
+
+  doc.setTextColor(...COLORS.charcoal);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.engineerName || "-", margin + 3, yPos + 11);
+
+  const engSigY = yPos + 14;
+  doc.setFillColor(...COLORS.white);
+  doc.rect(margin + 2, engSigY, sigWidth - 4, sigAreaHeight, "F");
+  doc.setDrawColor(...COLORS.borderGrey);
+  doc.line(margin + 4, engSigY + sigAreaHeight - 2, margin + sigWidth - 4, engSigY + sigAreaHeight - 2);
+
+  if (data.engineerSignature) {
+    try {
+      doc.addImage(data.engineerSignature, "PNG", margin + 4, engSigY + 1, sigWidth - 8, sigAreaHeight - 4);
+    } catch {
+      // Signature failed
+    }
+  }
+
+  const engSignDateStr = data.engineerSignDate
+    ? format(new Date(data.engineerSignDate), "dd/MM/yyyy")
+    : format(new Date(visitDate), "dd/MM/yyyy");
+  doc.setFontSize(7);
+  doc.setTextColor(...COLORS.mediumGrey);
+  doc.text(`Signed: ${engSignDateStr}${data.engineerSignTime ? ` ${data.engineerSignTime}` : ""}`, margin + 3, yPos + sigBoxHeight + 3);
+
+  // Customer Signature
+  const custX = margin + sigWidth + 6;
+  doc.rect(custX, yPos, sigWidth, sigBoxHeight);
+  doc.setFillColor(...COLORS.charcoal);
+  doc.rect(custX, yPos, sigWidth, 6, "F");
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Customer Signature", custX + 3, yPos + 4);
+
+  if (data.customerNotPresent) {
+    doc.setFillColor(...COLORS.lightGrey);
+    doc.rect(custX + 2, yPos + 10, sigWidth - 4, sigAreaHeight, "F");
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.text("Customer not present", custX + 3, yPos + 22);
+    doc.setFontSize(7);
+    doc.text("Signed by engineer only", custX + 3, yPos + sigBoxHeight + 3);
+  } else {
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text(data.clientName || "-", custX + 3, yPos + 11);
+
+    const custSigY = yPos + 14;
+    doc.setFillColor(...COLORS.white);
+    doc.rect(custX + 2, custSigY, sigWidth - 4, sigAreaHeight, "F");
+    doc.setDrawColor(...COLORS.borderGrey);
+    doc.line(custX + 4, custSigY + sigAreaHeight - 2, custX + sigWidth - 4, custSigY + sigAreaHeight - 2);
+
+    if (data.customerSignature) {
+      try {
+        doc.addImage(data.customerSignature, "PNG", custX + 4, custSigY + 1, sigWidth - 8, sigAreaHeight - 4);
+      } catch {
+        // Signature failed
+      }
+    }
+
+    const custSignDateStr = data.customerSignDate
+      ? format(new Date(data.customerSignDate), "dd/MM/yyyy")
+      : format(new Date(visitDate), "dd/MM/yyyy");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.text(`Signed: ${custSignDateStr}${data.customerSignTime ? ` ${data.customerSignTime}` : ""}`, custX + 3, yPos + sigBoxHeight + 3);
+  }
+
+  addCompactFooter(doc, pageWidth, margin);
+
+  const fileName = `BHO_ASD_Report_${site.name.replace(/\s+/g, "_")}_${format(new Date(visitDate), "yyyy-MM-dd")}.pdf`;
+  doc.save(fileName);
+}
