@@ -24,17 +24,19 @@ import {
 import { 
   AlertTriangle, 
   Plus, 
-  Search, 
-  Filter,
-  ArrowUpDown
+  Search,
+  Pencil
 } from "lucide-react";
 import { fetchNCRs, QMSNCR } from "@/services/qmsService";
+import { NCRFormDialog } from "@/components/qms/NCRFormDialog";
 import { format } from "date-fns";
 
 const NCRs = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedNCR, setSelectedNCR] = useState<QMSNCR | null>(null);
 
   const { data: ncrs, isLoading } = useQuery({
     queryKey: ['qms-ncrs'],
@@ -73,6 +75,16 @@ const NCRs = () => {
     return source.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  const handleCreateNCR = () => {
+    setSelectedNCR(null);
+    setDialogOpen(true);
+  };
+
+  const handleEditNCR = (ncr: QMSNCR) => {
+    setSelectedNCR(ncr);
+    setDialogOpen(true);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -82,7 +94,7 @@ const NCRs = () => {
             <h2 className="text-2xl font-bold text-foreground">Non-Conformance Reports</h2>
             <p className="text-muted-foreground">Track and manage non-conformances</p>
           </div>
-          <Button>
+          <Button onClick={handleCreateNCR}>
             <Plus className="h-4 w-4 mr-2" />
             Raise NCR
           </Button>
@@ -181,35 +193,41 @@ const NCRs = () => {
                   <TableRow>
                     <TableHead>NCR #</TableHead>
                     <TableHead>Title</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Site/Customer</TableHead>
+                    <TableHead className="hidden md:table-cell">Source</TableHead>
+                    <TableHead className="hidden lg:table-cell">Site/Customer</TableHead>
                     <TableHead>Severity</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead className="hidden md:table-cell">Due Date</TableHead>
+                    <TableHead className="hidden lg:table-cell">Created</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredNCRs.map((ncr) => (
-                    <TableRow key={ncr.id} className="cursor-pointer hover:bg-muted/50">
+                    <TableRow key={ncr.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleEditNCR(ncr)}>
                       <TableCell className="font-mono">{ncr.ncr_number}</TableCell>
                       <TableCell className="font-medium max-w-[200px] truncate">{ncr.title}</TableCell>
-                      <TableCell>{getSourceLabel(ncr.source)}</TableCell>
-                      <TableCell>{ncr.site?.name || ncr.customer?.name || '-'}</TableCell>
+                      <TableCell className="hidden md:table-cell">{getSourceLabel(ncr.source)}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{ncr.site?.name || ncr.customer?.name || '-'}</TableCell>
                       <TableCell>
                         <Badge className={getSeverityColor(ncr.severity)}>{ncr.severity}</Badge>
                       </TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(ncr.status)}>{ncr.status.replace('_', ' ')}</Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {ncr.due_date ? (
                           <span className={new Date(ncr.due_date) < new Date() && ncr.status !== 'closed' ? 'text-destructive font-medium' : ''}>
                             {format(new Date(ncr.due_date), 'dd MMM yyyy')}
                           </span>
                         ) : '-'}
                       </TableCell>
-                      <TableCell>{format(new Date(ncr.created_at), 'dd MMM yyyy')}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{format(new Date(ncr.created_at), 'dd MMM yyyy')}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditNCR(ncr); }}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -218,6 +236,12 @@ const NCRs = () => {
           </CardContent>
         </Card>
       </div>
+
+      <NCRFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        ncr={selectedNCR}
+      />
     </DashboardLayout>
   );
 };
