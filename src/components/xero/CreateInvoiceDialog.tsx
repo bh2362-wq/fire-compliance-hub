@@ -46,6 +46,7 @@ interface VisitForInvoice {
   visit_date: string;
   site_id: string;
   sites?: { name: string } | null;
+  notes?: string | null;
 }
 
 interface CreateInvoiceDialogProps {
@@ -56,14 +57,24 @@ interface CreateInvoiceDialogProps {
   defaultContactId?: string | null;
 }
 
-// Map visit types to service contract types
+// Map asset types to service contract types (from visit notes.asset_type)
+const ASSET_TYPE_TO_SERVICE_TYPE: Record<string, string> = {
+  fire_panel: "fire",
+  asd: "aspirator",
+  gas_suppression: "gas_suppression",
+  room_integrity: "room_integrity",
+  fire_curtain: "fire_curtain",
+  disabled_refuge: "disabled_refuge",
+  emergency_lighting: "emergency_lighting",
+  intruder_alarm: "intruder_alarm",
+  nurse_call: "nurse_call",
+};
+
+// Map visit types to service contract types (fallback if no asset_type)
 const VISIT_TYPE_TO_SERVICE_TYPE: Record<string, string> = {
   quarterly_service: "fire",
   annual_inspection: "fire",
-  emergency: "fire",
-  remedial: "fire",
-  installation: "fire",
-  commissioning: "fire",
+  biannual_service: "fire", // Default, overridden by asset_type
   aspirator_service: "aspirator",
   gas_suppression_service: "gas_suppression",
   room_integrity_test: "room_integrity",
@@ -72,6 +83,17 @@ const VISIT_TYPE_TO_SERVICE_TYPE: Record<string, string> = {
   emergency_lighting_service: "emergency_lighting",
   intruder_alarm_service: "intruder_alarm",
   nurse_call_service: "nurse_call",
+};
+
+// Visit types that should NOT auto-fill from contracts
+const SKIP_CONTRACT_AUTOFILL = ["emergency", "remedial", "callout"];
+
+// Frequency labels for reference
+const FREQUENCY_LABELS: Record<string, string> = {
+  "1m": "Monthly",
+  "3m": "Quarterly",
+  "6m": "6 Month",
+  "12m": "Annual",
 };
 
 // Default line items based on visit type (fallback when no contract exists)
@@ -122,6 +144,17 @@ const getDefaultLineItems = (visitType: string, contract?: ServiceContract | nul
   ];
 };
 
+// Helper to parse visit notes and get asset_type
+const getAssetTypeFromVisit = (visit: VisitForInvoice): string | null => {
+  if (!visit.notes) return null;
+  try {
+    const parsed = typeof visit.notes === "string" ? JSON.parse(visit.notes) : visit.notes;
+    return parsed?.asset_type || null;
+  } catch {
+    return null;
+  }
+};
+
 export function CreateInvoiceDialog({
   open,
   onOpenChange,
@@ -147,8 +180,6 @@ export function CreateInvoiceDialog({
       checkConnection();
       loadContacts();
       loadServiceContract();
-      // Pre-fill reference with visit info
-      setReference(`${visit.visit_type} - ${visit.sites?.name || "Site"} - ${visit.visit_date}`);
       // Reset due date to 30 days from now
       setDueDate(addDays(new Date(), 30));
       // Reset selected contact - will be auto-selected after contacts load
@@ -157,10 +188,26 @@ export function CreateInvoiceDialog({
   }, [open, user, visit]);
 
   const loadServiceContract = async () => {
+    // Skip contract auto-fill for callouts and remedial works
+    if (SKIP_CONTRACT_AUTOFILL.includes(visit.visit_type)) {
+      setPoNumber("");
+      setReference(`${visit.visit_type} - ${visit.sites?.name || "Site"} - ${visit.visit_date}`);
+      setLineItems(getDefaultLineItems(visit.visit_type));
+      return;
+    }
+
     try {
       const contracts = await getServiceContracts(visit.site_id);
-      // Map visit type to service type and find matching contract
-      const serviceType = VISIT_TYPE_TO_SERVICE_TYPE[visit.visit_type];
+      
+      // First try to get service type from asset_type in notes
+      const assetType = getAssetTypeFromVisit(visit);
+      let serviceType = assetType ? ASSET_TYPE_TO_SERVICE_TYPE[assetType] : null;
+      
+      // Fallback to visit type mapping if no asset_type
+      if (!serviceType) {
+        serviceType = VISIT_TYPE_TO_SERVICE_TYPE[visit.visit_type];
+      }
+      
       const matchingContract = serviceType 
         ? contracts.find(c => c.service_type === serviceType)
         : null;
@@ -172,6 +219,17 @@ export function CreateInvoiceDialog({
         setPoNumber("");
       }
       
+      // Build reference from contract: "Service Type + Frequency"
+      if (matchingContract) {
+        const serviceLabel = getServiceTypeLabel(matchingContract.service_type);
+        const frequencyLabel = matchingContract.frequency 
+          ? FREQUENCY_LABELS[matchingContract.frequency] || matchingContract.frequency
+          : "";
+        setReference(`${serviceLabel} Service${frequencyLabel ? ` ${frequencyLabel}` : ""}`);
+      } else {
+        setReference(`${visit.visit_type} - ${visit.sites?.name || "Site"} - ${visit.visit_date}`);
+      }
+      
       // Auto-fill line items with contract price
       setLineItems(getDefaultLineItems(visit.visit_type, matchingContract, visit.sites?.name));
     } catch (error) {
@@ -179,6 +237,7 @@ export function CreateInvoiceDialog({
       // Fallback to default line items
       setLineItems(getDefaultLineItems(visit.visit_type));
       setPoNumber("");
+      setReference(`${visit.visit_type} - ${visit.sites?.name || "Site"} - ${visit.visit_date}`);
     }
   };
 
