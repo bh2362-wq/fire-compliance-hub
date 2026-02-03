@@ -37,6 +37,7 @@ import {
   InvoiceLineItem,
 } from "@/services/xeroService";
 import { cn } from "@/lib/utils";
+import { getServiceContracts, getServiceTypeLabel, ServiceContract } from "@/services/serviceContractService";
 
 interface VisitForInvoice {
   id: string;
@@ -54,7 +55,25 @@ interface CreateInvoiceDialogProps {
   defaultContactId?: string | null;
 }
 
-// Default line items based on visit type
+// Map visit types to service contract types
+const VISIT_TYPE_TO_SERVICE_TYPE: Record<string, string> = {
+  quarterly_service: "fire",
+  annual_inspection: "fire",
+  emergency: "fire",
+  remedial: "fire",
+  installation: "fire",
+  commissioning: "fire",
+  aspirator_service: "aspirator",
+  gas_suppression_service: "gas_suppression",
+  room_integrity_test: "room_integrity",
+  fire_curtain_service: "fire_curtain",
+  disabled_refuge_service: "disabled_refuge",
+  emergency_lighting_service: "emergency_lighting",
+  intruder_alarm_service: "intruder_alarm",
+  nurse_call_service: "nurse_call",
+};
+
+// Default line items based on visit type (fallback when no contract exists)
 const VISIT_TYPE_LINE_ITEMS: Record<string, InvoiceLineItem[]> = {
   quarterly_service: [
     { description: "Fire Alarm Quarterly Service - Routine testing and maintenance of fire alarm system", quantity: 1, unitAmount: 150 },
@@ -86,7 +105,17 @@ const VISIT_TYPE_LINE_ITEMS: Record<string, InvoiceLineItem[]> = {
   ],
 };
 
-const getDefaultLineItems = (visitType: string): InvoiceLineItem[] => {
+const getDefaultLineItems = (visitType: string, contract?: ServiceContract | null, siteName?: string): InvoiceLineItem[] => {
+  // If we have a contract, use its price
+  if (contract && contract.unit_price > 0) {
+    const serviceLabel = getServiceTypeLabel(contract.service_type);
+    const description = contract.description || `${serviceLabel} Service - ${siteName || "Site"}`;
+    return [
+      { description, quantity: 1, unitAmount: contract.unit_price },
+    ];
+  }
+  
+  // Fallback to default line items
   return VISIT_TYPE_LINE_ITEMS[visitType] || [
     { description: "", quantity: 1, unitAmount: 0 },
   ];
@@ -116,18 +145,41 @@ export function CreateInvoiceDialog({
     if (open && user) {
       checkConnection();
       loadContacts();
+      loadServiceContract();
       // Pre-fill reference with visit info
       setReference(`${visit.visit_type} - ${visit.sites?.name || "Site"} - ${visit.visit_date}`);
-      // Auto-fill line items based on visit type
-      setLineItems(getDefaultLineItems(visit.visit_type));
       // Reset due date to 30 days from now
       setDueDate(addDays(new Date(), 30));
       // Reset selected contact - will be auto-selected after contacts load
       setSelectedContact("");
-      // Reset PO number
-      setPoNumber("");
     }
   }, [open, user, visit]);
+
+  const loadServiceContract = async () => {
+    try {
+      const contracts = await getServiceContracts(visit.site_id);
+      // Map visit type to service type and find matching contract
+      const serviceType = VISIT_TYPE_TO_SERVICE_TYPE[visit.visit_type];
+      const matchingContract = serviceType 
+        ? contracts.find(c => c.service_type === serviceType)
+        : null;
+      
+      // Auto-fill PO number from contract
+      if (matchingContract?.po_number) {
+        setPoNumber(matchingContract.po_number);
+      } else {
+        setPoNumber("");
+      }
+      
+      // Auto-fill line items with contract price
+      setLineItems(getDefaultLineItems(visit.visit_type, matchingContract, visit.sites?.name));
+    } catch (error) {
+      console.error("Failed to load service contract:", error);
+      // Fallback to default line items
+      setLineItems(getDefaultLineItems(visit.visit_type));
+      setPoNumber("");
+    }
+  };
 
   // Auto-select contact when defaultContactId is provided and contacts are loaded
   useEffect(() => {
