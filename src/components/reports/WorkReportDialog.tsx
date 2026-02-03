@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -49,6 +49,8 @@ import { AIRewriteButton } from "./AIRewriteButton";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import { sendJobCompletedNotification } from "@/services/notificationService";
 import { getServiceContracts } from "@/services/serviceContractService";
+import { EmailReportDialog } from "./EmailReportDialog";
+import { getCompanySettings } from "@/services/companySettingsService";
 
 interface VisitForReport {
   id: string;
@@ -114,8 +116,11 @@ export function WorkReportDialog({
     city?: string | null;
     postcode?: string | null;
     contact_name?: string | null;
+    contact_email?: string | null;
   } | null>(null);
   const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [companyName, setCompanyName] = useState<string>("BHO Fire Ltd");
 
   // Form state - Job Details
   const [certificateNo, setCertificateNo] = useState("");
@@ -275,11 +280,15 @@ export function WorkReportDialog({
       // Fetch site info with customer details
       const { data: site } = await supabase
         .from("sites")
-        .select("id, name, address, city, postcode, contact_name, customer_id, customers(id, name, xero_contact_id)")
+        .select("id, name, address, city, postcode, contact_name, contact_email, customer_id, customers(id, name, xero_contact_id, contact_email)")
         .eq("id", visit.site_id)
         .maybeSingle();
 
       if (site) {
+        // Get customer contact email if site doesn't have one
+        const customerData = site.customers as { id: string; name: string; xero_contact_id: string | null; contact_email?: string | null } | null;
+        const contactEmail = site.contact_email || customerData?.contact_email || "";
+        
         setSiteInfo({
           id: site.id,
           name: site.name,
@@ -287,17 +296,27 @@ export function WorkReportDialog({
           city: site.city,
           postcode: site.postcode,
           contact_name: site.contact_name,
+          contact_email: contactEmail,
         });
         
         // Set customer info for invoice creation
-        if (site.customers) {
-          const customer = site.customers as { id: string; name: string; xero_contact_id: string | null };
+        if (customerData) {
           setCustomerInfo({
-            id: customer.id,
-            name: customer.name,
-            xero_contact_id: customer.xero_contact_id,
+            id: customerData.id,
+            name: customerData.name,
+            xero_contact_id: customerData.xero_contact_id,
           });
         }
+      }
+
+      // Fetch company settings for email branding
+      try {
+        const settings = await getCompanySettings();
+        if (settings?.company_name) {
+          setCompanyName(settings.company_name);
+        }
+      } catch (e) {
+        console.error("Failed to load company settings:", e);
       }
 
       // Fetch service contracts to get PO number
@@ -762,46 +781,7 @@ export function WorkReportDialog({
 
     try {
       generateWorkReportPDF(
-        {
-          certificateNo,
-          jobNumber,
-          jobType,
-          appointmentDate: appointmentDate?.toISOString(),
-          systemStatusArrival,
-          systemStatusDeparture,
-          workCompleted,
-          returnRequired,
-          surveyRequired,
-          quotationRequired,
-          ramsCompleted,
-          logBookEntry,
-          worksReport,
-          furtherAction,
-          numEngineers,
-          workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
-          totalHours,
-          startTime: workDays[0]?.startTime || "",
-          finishTime: workDays[0]?.finishTime || "",
-          travelTime,
-          duration: workDays[0]?.duration || "",
-          materials,
-          photos,
-          engineerName,
-          engineerSignature,
-          engineerSignDate: engineerSignDate?.toISOString(),
-          engineerSignTime,
-          customerNotPresent,
-          customerName,
-          customerSignature,
-          customerSignDate: customerSignDate?.toISOString(),
-          customerSignTime,
-          // Custom system fields
-          panelInfo,
-          locationInfo,
-          typeInfo,
-          zonesInfo,
-          contactPhone,
-        },
+        buildPdfData(),
         siteInfo,
         visit.visit_date
       );
@@ -811,6 +791,64 @@ export function WorkReportDialog({
       console.error("Failed to generate PDF:", error);
       toast.error("Failed to generate PDF");
     }
+  };
+
+  // Build PDF data object (shared between download and email)
+  const buildPdfData = () => ({
+    certificateNo,
+    jobNumber,
+    jobType,
+    appointmentDate: appointmentDate?.toISOString(),
+    systemStatusArrival,
+    systemStatusDeparture,
+    workCompleted,
+    returnRequired,
+    surveyRequired,
+    quotationRequired,
+    ramsCompleted,
+    logBookEntry,
+    worksReport,
+    furtherAction,
+    numEngineers,
+    workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
+    totalHours,
+    startTime: workDays[0]?.startTime || "",
+    finishTime: workDays[0]?.finishTime || "",
+    travelTime,
+    duration: workDays[0]?.duration || "",
+    materials,
+    photos,
+    engineerName,
+    engineerSignature,
+    engineerSignDate: engineerSignDate?.toISOString(),
+    engineerSignTime: engineerSignTime || signSummary.departure,
+    customerNotPresent,
+    customerName,
+    customerSignature,
+    customerSignDate: customerSignDate?.toISOString(),
+    customerSignTime,
+    // Custom system fields
+    panelInfo,
+    locationInfo,
+    typeInfo,
+    zonesInfo,
+    contactPhone,
+  });
+
+  // Generate PDF as base64 for email attachment
+  const generatePdfBase64 = async (): Promise<string> => {
+    if (!siteInfo) throw new Error("Site info not loaded");
+    
+    const base64 = generateWorkReportPDF(
+      buildPdfData(),
+      siteInfo,
+      visit.visit_date,
+      undefined,
+      true // return base64
+    );
+    
+    if (!base64) throw new Error("Failed to generate PDF");
+    return base64 as string;
   };
 
   if (loading) {
@@ -1586,12 +1624,26 @@ export function WorkReportDialog({
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Time Signed</Label>
-                        <Input
-                          type="time"
-                          value={engineerSignTime}
-                          onChange={(e) => setEngineerSignTime(e.target.value)}
-                          className="text-xs h-8"
-                        />
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="time"
+                            value={engineerSignTime || signSummary.departure}
+                            onChange={(e) => setEngineerSignTime(e.target.value)}
+                            className="text-xs h-8 flex-1"
+                          />
+                          {signSummary.departure && !engineerSignTime && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setEngineerSignTime(signSummary.departure)}
+                              title="Use departure time"
+                            >
+                              <Clock className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1716,10 +1768,21 @@ export function WorkReportDialog({
         </Button>
         <div className="flex gap-2 w-full sm:w-auto">
           {isLocked ? (
-            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
-              <Lock className="h-4 w-4" />
-              <span className="hidden sm:inline">Report Locked</span>
-            </div>
+            <>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowEmailDialog(true)}
+                className="flex-1 sm:flex-none"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Email Report</span>
+                <span className="sm:hidden">Email</span>
+              </Button>
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
+                <Lock className="h-4 w-4" />
+                <span className="hidden sm:inline">Report Locked</span>
+              </div>
+            </>
           ) : (
             <>
               {/* Previous button - show on all tabs except first */}
@@ -1815,6 +1878,19 @@ export function WorkReportDialog({
           }}
         />
       )}
+
+      {/* Email Report Dialog */}
+      <EmailReportDialog
+        open={showEmailDialog}
+        onOpenChange={setShowEmailDialog}
+        defaultEmail={siteInfo?.contact_email || ""}
+        customerName={customerInfo?.name || siteInfo?.contact_name || ""}
+        siteName={siteInfo?.name || ""}
+        reportNumber={certificateNo}
+        reportDate={format(new Date(visit.visit_date), "dd-MM-yyyy")}
+        companyName={companyName}
+        generatePdfBase64={generatePdfBase64}
+      />
     </ResponsiveDialog>
   );
 }
