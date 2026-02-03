@@ -469,14 +469,22 @@ export async function createServiceReport(
   siteId: string,
   userId: string,
   initialData?: Partial<Omit<ServiceReport, 'checklist'>> & { checklist?: BS5839Checklist },
-  reportType: 'JOB' | 'CERT' = 'CERT'
+  reportType: 'JOB' | 'CERT' = 'CERT',
+  assignNumberNow: boolean = false
 ): Promise<ServiceReport> {
-  // Get auto-generated report number from database
-  const { data: numberData, error: numberError } = await supabase
-    .rpc('get_next_report_number', { report_type: reportType });
+  // Only get report number now if explicitly requested (e.g., when completing)
+  // This prevents consuming numbers for drafts that may be abandoned
+  let reportNumber: string | null = null;
   
-  if (numberError) {
-    console.error("Failed to generate report number:", numberError);
+  if (assignNumberNow) {
+    const { data: numberData, error: numberError } = await supabase
+      .rpc('get_next_report_number', { report_type: reportType });
+    
+    if (numberError) {
+      console.error("Failed to generate report number:", numberError);
+    } else {
+      reportNumber = numberData;
+    }
   }
 
   const insertData = {
@@ -484,7 +492,7 @@ export async function createServiceReport(
     site_id: siteId,
     created_by: userId,
     checklist: JSON.parse(JSON.stringify(getDefaultChecklist())) as Json,
-    report_number: numberData || null,
+    report_number: reportNumber,
     ...(initialData?.engineer_name && { engineer_name: initialData.engineer_name }),
   };
 
@@ -499,6 +507,34 @@ export async function createServiceReport(
     ...data,
     checklist: (data.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
   } as ServiceReport;
+}
+
+// Assign a report number to an existing report (call when completing/finalizing)
+export async function assignReportNumber(
+  reportId: string,
+  reportType: 'JOB' | 'CERT' = 'JOB'
+): Promise<string | null> {
+  const { data: numberData, error: numberError } = await supabase
+    .rpc('get_next_report_number', { report_type: reportType });
+  
+  if (numberError) {
+    console.error("Failed to generate report number:", numberError);
+    return null;
+  }
+
+  if (numberData) {
+    const { error: updateError } = await supabase
+      .from("service_reports")
+      .update({ report_number: numberData })
+      .eq("id", reportId);
+    
+    if (updateError) {
+      console.error("Failed to assign report number:", updateError);
+      return null;
+    }
+  }
+
+  return numberData;
 }
 
 export async function updateServiceReport(

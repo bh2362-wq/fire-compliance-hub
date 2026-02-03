@@ -40,6 +40,7 @@ import {
   getServiceReport,
   createServiceReport,
   updateServiceReport,
+  assignReportNumber,
 } from "@/services/serviceReportService";
 import { generateWorkReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
@@ -294,19 +295,12 @@ export function WorkReportDialog({
       let existingReport = await getServiceReport(visit.id);
 
       if (!existingReport) {
-        // Use 'JOB' report type for work reports (job sheets)
+        // Create draft without assigning number yet (number assigned when completing)
         existingReport = await createServiceReport(visit.id, visit.site_id, user.id, {
           engineer_name: user.user_metadata?.full_name || "",
-        }, 'JOB');
-      } else if (!existingReport.report_number) {
-        // Generate report number for legacy reports that don't have one
-        const { data: numberData } = await supabase
-          .rpc('get_next_report_number', { report_type: 'JOB' });
-        if (numberData) {
-          await updateServiceReport(existingReport.id, { report_number: numberData });
-          existingReport.report_number = numberData;
-        }
+        }, 'JOB', false);  // false = don't assign number now
       }
+      // Note: Legacy reports without numbers will get a number assigned when they complete
 
       setReport(existingReport);
       populateForm(existingReport);
@@ -518,11 +512,21 @@ export function WorkReportDialog({
     setSaving(true);
     try {
       const notesData = buildNotesData();
+      
+      // If completing and no report number yet, assign one now
+      let finalReportNumber = certificateNo;
+      if (complete && !report.report_number) {
+        const newNumber = await assignReportNumber(report.id, 'JOB');
+        if (newNumber) {
+          finalReportNumber = newNumber;
+          setCertificateNo(newNumber);
+        }
+      }
 
       await updateServiceReport(report.id, {
         engineer_name: engineerName,
         client_name: customerName,
-        report_number: certificateNo,
+        report_number: finalReportNumber || null,
         work_carried_out: worksReport,
         recommendations: furtherAction,
         notes: notesData,
@@ -578,7 +582,7 @@ export function WorkReportDialog({
           .eq("id", visit.id);
           
         setIsLocked(true);
-        toast.success("Work report completed and locked");
+        toast.success(`Work report ${finalReportNumber || ""} completed and locked`);
         
         // Send job completed notification email
         sendJobCompletedNotification(visit.id).catch(console.error);
@@ -610,11 +614,21 @@ export function WorkReportDialog({
     setSaving(true);
     try {
       const notesData = buildNotesData();
+      
+      // If no report number yet, assign one now
+      let finalReportNumber = certificateNo;
+      if (!report.report_number) {
+        const newNumber = await assignReportNumber(report.id, 'JOB');
+        if (newNumber) {
+          finalReportNumber = newNumber;
+          setCertificateNo(newNumber);
+        }
+      }
 
       await updateServiceReport(report.id, {
         engineer_name: engineerName,
         client_name: customerName,
-        report_number: certificateNo,
+        report_number: finalReportNumber || null,
         work_carried_out: worksReport,
         recommendations: furtherAction,
         notes: notesData,
@@ -664,7 +678,7 @@ export function WorkReportDialog({
       if (visitError) throw visitError;
 
       setIsLocked(true);
-      toast.success("Visit completed and locked");
+      toast.success(`Visit ${finalReportNumber || ""} completed and locked`);
       
       // Send job completed notification email
       sendJobCompletedNotification(visit.id).catch(console.error);

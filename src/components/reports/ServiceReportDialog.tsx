@@ -41,6 +41,7 @@ import {
   getServiceReport,
   createServiceReport,
   updateServiceReport,
+  assignReportNumber,
   SYSTEM_TYPES,
 } from "@/services/serviceReportService";
 import { ServiceReportChecklist } from "./ServiceReportChecklist";
@@ -136,19 +137,12 @@ export function ServiceReportDialog({
       let existingReport = await getServiceReport(visit.id);
 
       if (!existingReport) {
-        // Use 'CERT' report type for BS5839 service reports (certificates)
+        // Create draft without assigning number yet (number assigned when completing)
         existingReport = await createServiceReport(visit.id, visit.site_id, user.id, {
           engineer_name: user.user_metadata?.full_name || "",
-        }, 'CERT');
-      } else if (!existingReport.report_number) {
-        // Generate report number for legacy reports that don't have one
-        const { data: numberData } = await supabase
-          .rpc('get_next_report_number', { report_type: 'CERT' });
-        if (numberData) {
-          await updateServiceReport(existingReport.id, { report_number: numberData });
-          existingReport.report_number = numberData;
-        }
+        }, 'CERT', false);  // false = don't assign number now
       }
+      // Note: Legacy reports without numbers will get a number assigned when they complete
 
       setReport(existingReport);
       populateForm(existingReport);
@@ -246,6 +240,16 @@ export function ServiceReportDialog({
 
     setSaving(true);
     try {
+      // If completing and no report number yet, assign one now
+      let finalReportNumber = reportNumber;
+      if (complete && !report.report_number) {
+        const newNumber = await assignReportNumber(report.id, 'CERT');
+        if (newNumber) {
+          finalReportNumber = newNumber;
+          setReportNumber(newNumber);
+        }
+      }
+
       // Build notes JSON with all data including signatures
       const notesJson: Record<string, unknown> = {
         report_type: "fire_alarm",
@@ -267,6 +271,7 @@ export function ServiceReportDialog({
       const notesValue = JSON.stringify(notesJson);
 
       await updateServiceReport(report.id, {
+        report_number: finalReportNumber || null,
         engineer_name: engineerName,
         client_name: clientName,
         panel_manufacturer: panelManufacturer,
@@ -285,7 +290,7 @@ export function ServiceReportDialog({
         status: complete ? "completed" : "draft",
       });
 
-      toast.success(complete ? "Service report completed" : "Service report saved");
+      toast.success(complete ? `Service report ${finalReportNumber || ""} completed` : "Service report saved");
       if (complete) {
         onOpenChange(false);
         onSuccess?.();
@@ -303,6 +308,16 @@ export function ServiceReportDialog({
 
     setSaving(true);
     try {
+      // If no report number yet, assign one now
+      let finalReportNumber = reportNumber;
+      if (!report.report_number) {
+        const newNumber = await assignReportNumber(report.id, 'CERT');
+        if (newNumber) {
+          finalReportNumber = newNumber;
+          setReportNumber(newNumber);
+        }
+      }
+
       // Build notes JSON with all data including signatures
       const notesJson: Record<string, unknown> = {
         report_type: "fire_alarm",
@@ -324,6 +339,7 @@ export function ServiceReportDialog({
       const notesValue = JSON.stringify(notesJson);
 
       await updateServiceReport(report.id, {
+        report_number: finalReportNumber || null,
         engineer_name: engineerName,
         client_name: clientName,
         panel_manufacturer: panelManufacturer,
@@ -350,7 +366,7 @@ export function ServiceReportDialog({
 
       if (visitError) throw visitError;
 
-      toast.success("Visit completed successfully");
+      toast.success(`Visit ${finalReportNumber || ""} completed successfully`);
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
