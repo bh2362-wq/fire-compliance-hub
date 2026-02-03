@@ -455,6 +455,19 @@ export function WorkReportDialog({
     if (hasUnsavedChanges && !isLocked) {
       await autoSave();
     }
+    
+    // When navigating to sign tab, auto-populate engineer sign time from departure if empty
+    if (newTab === "sign") {
+      const departureTime = workDays[0]?.finishTime;
+      if (departureTime && !engineerSignTime) {
+        setEngineerSignTime(departureTime);
+      }
+      // Auto-set sign date to today if not set
+      if (!engineerSignDate) {
+        setEngineerSignDate(new Date());
+      }
+    }
+    
     setActiveTab(newTab);
   };
 
