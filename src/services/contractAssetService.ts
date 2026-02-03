@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { SERVICE_TYPES } from "@/services/serviceContractService";
 
 export interface ContractAsset {
   id: string;
@@ -72,7 +73,7 @@ export async function deleteContractAsset(id: string): Promise<void> {
   if (error) throw error;
 }
 
-// Common asset item types by discipline
+// Common asset item types by service type (matches SERVICE_TYPES from serviceContractService)
 export const ASSET_ITEMS: Record<string, { value: string; label: string }[]> = {
   fire: [
     { value: "control_panel", label: "Control Panel" },
@@ -93,21 +94,26 @@ export const ASSET_ITEMS: Record<string, { value: string; label: string }[]> = {
     { value: "cylinder", label: "Cylinder" },
     { value: "detector", label: "Detector" },
     { value: "release_panel", label: "Release Panel" },
+    { value: "nozzle", label: "Discharge Nozzle" },
+    { value: "abort_switch", label: "Abort Switch" },
   ],
   room_integrity: [
     { value: "door_holder", label: "Door Holder" },
     { value: "damper", label: "Damper" },
     { value: "seal", label: "Seal" },
+    { value: "vent", label: "Vent" },
   ],
   fire_curtain: [
     { value: "fire_curtain", label: "Fire Curtain" },
     { value: "control_panel", label: "Control Panel" },
     { value: "motor", label: "Motor" },
+    { value: "limit_switch", label: "Limit Switch" },
   ],
   disabled_refuge: [
     { value: "call_point", label: "Call Point" },
     { value: "master_station", label: "Master Station" },
-    { value: "oustation", label: "Outstation" },
+    { value: "outstation", label: "Outstation" },
+    { value: "handset", label: "Handset" },
   ],
   emergency_lighting: [
     { value: "luminaire", label: "Luminaire" },
@@ -121,15 +127,20 @@ export const ASSET_ITEMS: Record<string, { value: string; label: string }[]> = {
     { value: "pir_detector", label: "PIR Detector" },
     { value: "door_contact", label: "Door Contact" },
     { value: "sounder", label: "Sounder" },
+    { value: "strobe", label: "Strobe" },
   ],
   nurse_call: [
     { value: "master_station", label: "Master Station" },
     { value: "call_point", label: "Call Point" },
     { value: "corridor_light", label: "Corridor Light" },
     { value: "pear_push", label: "Pear Push" },
+    { value: "pull_cord", label: "Pull Cord" },
   ],
 };
 
-export function getAssetItemsForDiscipline(discipline: string): { value: string; label: string }[] {
-  return ASSET_ITEMS[discipline] || ASSET_ITEMS.fire;
+export function getAssetItemsForDiscipline(serviceType: string): { value: string; label: string }[] {
+  return ASSET_ITEMS[serviceType] || ASSET_ITEMS.fire;
 }
+
+// Re-export SERVICE_TYPES for convenience
+export { SERVICE_TYPES };
