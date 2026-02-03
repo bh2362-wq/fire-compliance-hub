@@ -99,7 +99,7 @@ interface ParsedNotes {
   logBookEntry?: boolean;
   systemStatusArrival?: string;
   systemStatusDeparture?: string;
-  attendanceDay?: string;
+  appointmentDate?: string;
   numEngineers?: number;
   startTime?: string;
   finishTime?: string;
@@ -270,7 +270,7 @@ export function ReportPreviewDialog({
           certificateNo: src.report_number || "",
           jobNumber: parsedNotes.jobNumber || "",
           jobType: (parsedNotes.jobType as string) || (checklist.jobType as string) || "service",
-          attendanceDay: parsedNotes.attendanceDay || "",
+          appointmentDate: parsedNotes.appointmentDate || "",
           systemStatusArrival: parsedNotes.systemStatusArrival || "",
           systemStatusDeparture: parsedNotes.systemStatusDeparture || "",
           workCompleted: !!parsedNotes.workCompleted,

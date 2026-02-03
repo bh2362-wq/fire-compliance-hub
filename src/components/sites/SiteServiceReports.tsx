@@ -248,7 +248,7 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
             certificateNo: report.report_number || "",
             jobNumber: parsed.jobNumber || "",
             jobType: parsed.jobType || "",
-            attendanceDay: parsed.attendanceDay || "",
+            appointmentDate: parsed.appointmentDate || "",
             systemStatusArrival: parsed.systemStatusArrival || "",
             systemStatusDeparture: parsed.systemStatusDeparture || "",
             workCompleted: parsed.workCompleted || false,

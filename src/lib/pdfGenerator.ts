@@ -738,7 +738,7 @@ export interface WorkReportData {
   certificateNo: string;
   jobNumber: string;
   jobType: string;
-  attendanceDay: string;
+  appointmentDate?: string;
   systemStatusArrival: string;
   systemStatusDeparture: string;
   workCompleted: boolean;
