@@ -10,10 +10,11 @@ import { SiteAssets } from "@/components/sites/SiteAssets";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
+import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Site } from "@/services/siteService";
 import { Customer } from "@/services/customerService";
@@ -34,6 +35,7 @@ const SiteDetail = () => {
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [ramsOpen, setRamsOpen] = useState(false);
 
   const fetchSite = async () => {
     if (!siteId) return;
@@ -183,6 +185,10 @@ const SiteDetail = () => {
                 </Button>
               }
             />
+            <Button variant="outline" size="sm" onClick={() => setRamsOpen(true)}>
+              <HardHat className="w-4 h-4 mr-2" />
+              New RAMS
+            </Button>
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Pencil className="w-4 h-4 mr-2" />
               Edit Site
@@ -242,6 +248,14 @@ const SiteDetail = () => {
         onOpenChange={setEditOpen}
         site={site}
         onSuccess={fetchSite}
+      />
+      <RamsDocumentDialog
+        open={ramsOpen}
+        onOpenChange={setRamsOpen}
+        preselectedSiteId={site.id}
+        onSuccess={() => {
+          // Optionally navigate to RAMS page
+        }}
       />
     </DashboardLayout>
   );

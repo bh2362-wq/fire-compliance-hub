@@ -42,8 +42,10 @@ import {
 interface RamsDocumentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  document: RamsDocument | null;
-  templateToUse: RamsTemplate | null;
+  document?: RamsDocument | null;
+  templateToUse?: RamsTemplate | null;
+  preselectedSiteId?: string;
+  onSuccess?: () => void;
 }
 
 const emptyHazard: RamsHazard = {
@@ -70,8 +72,10 @@ const emptyMethod: MethodStatement = {
 export function RamsDocumentDialog({
   open,
   onOpenChange,
-  document,
-  templateToUse,
+  document = null,
+  templateToUse = null,
+  preselectedSiteId,
+  onSuccess,
 }: RamsDocumentDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -146,7 +150,7 @@ export function RamsDocumentDialog({
       } else if (templateToUse) {
         setTitle(templateToUse.name);
         setTemplateId(templateToUse.id);
-        setSiteId(null);
+        setSiteId(preselectedSiteId || null);
         setVisitId(null);
         setContractId(null);
         setHazards(templateToUse.hazards.length > 0 ? templateToUse.hazards : [{ ...emptyHazard, id: crypto.randomUUID() }]);
@@ -164,7 +168,7 @@ export function RamsDocumentDialog({
       } else {
         setTitle("");
         setTemplateId(null);
-        setSiteId(null);
+        setSiteId(preselectedSiteId || null);
         setVisitId(null);
         setContractId(null);
         setHazards([{ ...emptyHazard, id: crypto.randomUUID() }]);
@@ -181,7 +185,7 @@ export function RamsDocumentDialog({
         setClientName("");
       }
     }
-  }, [open, document, templateToUse]);
+  }, [open, document, templateToUse, preselectedSiteId]);
 
   // Load template when selected
   const handleTemplateChange = (id: string) => {
@@ -202,6 +206,7 @@ export function RamsDocumentDialog({
       queryClient.invalidateQueries({ queryKey: ["rams-documents"] });
       toast.success("RAMS document created");
       onOpenChange(false);
+      onSuccess?.();
     },
     onError: () => toast.error("Failed to create document"),
   });
@@ -213,6 +218,7 @@ export function RamsDocumentDialog({
       queryClient.invalidateQueries({ queryKey: ["rams-documents"] });
       toast.success("RAMS document updated");
       onOpenChange(false);
+      onSuccess?.();
     },
     onError: () => toast.error("Failed to update document"),
   });
