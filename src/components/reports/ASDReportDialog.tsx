@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ASDChecklist, getDefaultASDChecklist } from "@/services/asdChecklistService";
 import { MultiASDChecklist, ASDChecklistData, initializeASDChecklists } from "./MultiASDChecklist";
+import { generateASDReportPDF } from "@/lib/pdfGenerator";
 
 interface ASDAsset {
   id: string;
@@ -381,6 +382,63 @@ export function ASDReportDialog({
       toast.error("Failed to complete visit");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    try {
+      // Fetch site info for PDF
+      const { data: siteData } = await supabase
+        .from("sites")
+        .select("name, address, city, postcode, contact_name, contact_phone, contact_email")
+        .eq("id", visit.site_id)
+        .maybeSingle();
+
+      if (!siteData) {
+        toast.error("Could not load site information");
+        return;
+      }
+
+      // Build unit data from current state
+      const pdfUnits = units.map((u) => ({
+        assetId: u.assetId,
+        assetName: u.assetName,
+        manufacturer: u.manufacturer,
+        model: u.model,
+        location: u.location,
+        checklist: u.checklist,
+        defects: u.defects,
+        recommendations: u.recommendations,
+        systemCondition: u.systemCondition,
+      }));
+
+      generateASDReportPDF(
+        {
+          reportNumber: reportNumber,
+          reportDate: visit.visit_date,
+          engineerName: engineerName,
+          clientName: clientName,
+          units: pdfUnits,
+          workCarriedOut: workCarriedOut,
+          partsUsed: partsUsed,
+          notes: notes,
+          engineerSignature: engineerSignature,
+          engineerSignDate: engineerSignDate?.toISOString(),
+          engineerSignTime: engineerSignTime,
+          customerNotPresent: customerNotPresent,
+          customerSignature: customerSignature,
+          customerSignDate: customerSignDate?.toISOString(),
+          customerSignTime: customerSignTime,
+        },
+        siteData,
+        visit.visit_date,
+        visit.visit_type
+      );
+
+      toast.success("PDF downloaded");
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      toast.error("Failed to generate PDF");
     }
   };
 
@@ -752,7 +810,7 @@ export function ASDReportDialog({
                       onClick={async () => {
                         // Save current state before generating
                         await handleSave(false);
-                        toast.success("Report saved - PDF generation coming soon");
+                        handleDownloadPDF();
                       }}
                       disabled={saving}
                     >
@@ -765,7 +823,7 @@ export function ASDReportDialog({
                       onClick={async () => {
                         // Save current state before downloading
                         await handleSave(false);
-                        toast.success("Report saved - PDF download coming soon");
+                        handleDownloadPDF();
                       }}
                       disabled={saving}
                     >
