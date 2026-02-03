@@ -2,7 +2,16 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Wind, Copy, MapPin, Star } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Wind, Copy, MapPin, Star, AlertTriangle } from "lucide-react";
 import { ASDReportChecklist } from "./ASDReportChecklist";
 import { ASDChecklist, getDefaultASDChecklist } from "@/services/asdChecklistService";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +45,13 @@ export function MultiASDChecklist({
   const updateUnitChecklist = (assetId: string, checklist: ASDChecklist) => {
     const updatedUnits = units.map((u) =>
       u.assetId === assetId ? { ...u, checklist } : u
+    );
+    onChange(updatedUnits);
+  };
+
+  const updateUnitField = (assetId: string, field: keyof ASDChecklistData, value: string) => {
+    const updatedUnits = units.map((u) =>
+      u.assetId === assetId ? { ...u, [field]: value } : u
     );
     onChange(updatedUnits);
   };
@@ -138,13 +154,61 @@ export function MultiASDChecklist({
   if (units.length === 1) {
     const unit = units[0];
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         {renderUnitDetails(unit, true)}
         <ASDReportChecklist
           checklist={unit.checklist}
           onChange={(c) => updateUnitChecklist(unit.assetId, c)}
           readonly={readonly}
         />
+        
+        {/* Defects & Recommendations Section */}
+        <div className="space-y-4 pt-4 border-t">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-warning" />
+            <h4 className="font-medium text-foreground">Defects & Recommendations</h4>
+          </div>
+          
+          <div className="space-y-2">
+            <Label className="text-sm">System Condition</Label>
+            <Select
+              value={unit.systemCondition || ""}
+              onValueChange={(value) => updateUnitField(unit.assetId, "systemCondition", value)}
+              disabled={readonly}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select condition" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="satisfactory">Satisfactory</SelectItem>
+                <SelectItem value="requires_attention">Requires Attention</SelectItem>
+                <SelectItem value="unsatisfactory">Unsatisfactory</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label className="text-sm">Defects Found</Label>
+            <Textarea
+              value={unit.defects || ""}
+              onChange={(e) => updateUnitField(unit.assetId, "defects", e.target.value)}
+              placeholder="Describe any defects found during the service..."
+              disabled={readonly}
+              className="min-h-[100px]"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label className="text-sm">Recommendations</Label>
+            <Textarea
+              value={unit.recommendations || ""}
+              onChange={(e) => updateUnitField(unit.assetId, "recommendations", e.target.value)}
+              placeholder="Enter any recommendations for the customer..."
+              disabled={readonly}
+              className="min-h-[100px]"
+            />
+          </div>
+        </div>
       </div>
     );
   }
@@ -208,6 +272,54 @@ export function MultiASDChecklist({
                 onChange={(c) => updateUnitChecklist(unit.assetId, c)}
                 readonly={readonly}
               />
+              
+              {/* Defects & Recommendations Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-warning" />
+                  <h4 className="font-medium text-foreground">Defects & Recommendations</h4>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm">System Condition</Label>
+                  <Select
+                    value={unit.systemCondition || ""}
+                    onValueChange={(value) => updateUnitField(unit.assetId, "systemCondition", value)}
+                    disabled={readonly}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select condition" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="satisfactory">Satisfactory</SelectItem>
+                      <SelectItem value="requires_attention">Requires Attention</SelectItem>
+                      <SelectItem value="unsatisfactory">Unsatisfactory</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm">Defects Found</Label>
+                  <Textarea
+                    value={unit.defects || ""}
+                    onChange={(e) => updateUnitField(unit.assetId, "defects", e.target.value)}
+                    placeholder="Describe any defects found during the service..."
+                    disabled={readonly}
+                    className="min-h-[100px]"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm">Recommendations</Label>
+                  <Textarea
+                    value={unit.recommendations || ""}
+                    onChange={(e) => updateUnitField(unit.assetId, "recommendations", e.target.value)}
+                    placeholder="Enter any recommendations for the customer..."
+                    disabled={readonly}
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </div>
             </div>
           </TabsContent>
         );
