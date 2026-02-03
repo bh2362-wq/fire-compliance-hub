@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, Server, Wind, Lightbulb, ShieldAlert, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Server, Wind, Lightbulb, ShieldAlert, Pencil, Trash2, Loader2, Flame, Box, Accessibility, PanelTop } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface SiteAsset {
@@ -57,6 +57,10 @@ interface SiteAssetsProps {
 const ASSET_TYPES = [
   { value: "fire_panel", label: "Fire Alarm Panel", icon: Server, color: "text-destructive" },
   { value: "asd", label: "ASD (Aspirating)", icon: Wind, color: "text-primary" },
+  { value: "gas_suppression", label: "Gas Suppression", icon: Flame, color: "text-orange-500" },
+  { value: "room_integrity", label: "Room Integrity", icon: Box, color: "text-cyan-500" },
+  { value: "disabled_refuge", label: "Disabled Refuge", icon: Accessibility, color: "text-blue-500" },
+  { value: "fire_curtain", label: "Fire Curtain", icon: PanelTop, color: "text-rose-500" },
   { value: "emergency_lighting", label: "Emergency Lighting", icon: Lightbulb, color: "text-warning" },
   { value: "intruder_alarm", label: "Intruder Alarm", icon: ShieldAlert, color: "text-accent" },
   { value: "other", label: "Other", icon: Server, color: "text-muted-foreground" },
