@@ -129,6 +129,13 @@ export function WorkReportDialog({
   const [systemStatusArrival, setSystemStatusArrival] = useState("");
   const [systemStatusDeparture, setSystemStatusDeparture] = useState("");
   const [appointmentDate, setAppointmentDate] = useState<Date | undefined>(undefined);
+  
+  // Custom system fields
+  const [panelInfo, setPanelInfo] = useState("");
+  const [locationInfo, setLocationInfo] = useState("");
+  const [typeInfo, setTypeInfo] = useState("");
+  const [zonesInfo, setZonesInfo] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
 
   // Form state - Works & Times
   const [worksReport, setWorksReport] = useState("");
@@ -337,6 +344,12 @@ export function WorkReportDialog({
         setLogBookEntry(parsedNotes.logBookEntry || false);
         setSystemStatusArrival(parsedNotes.systemStatusArrival || "");
         setSystemStatusDeparture(parsedNotes.systemStatusDeparture || "");
+        // Custom system fields
+        setPanelInfo(parsedNotes.panelInfo || "");
+        setLocationInfo(parsedNotes.locationInfo || "");
+        setTypeInfo(parsedNotes.typeInfo || "");
+        setZonesInfo(parsedNotes.zonesInfo || "");
+        setContactPhone(parsedNotes.contactPhone || "");
         if (parsedNotes.appointmentDate) {
           setAppointmentDate(new Date(parsedNotes.appointmentDate));
         } else if (parsedNotes.attendanceDay) {
@@ -394,6 +407,12 @@ export function WorkReportDialog({
       systemStatusArrival,
       systemStatusDeparture,
       appointmentDate: appointmentDate?.toISOString(),
+      // Custom system fields
+      panelInfo,
+      locationInfo,
+      typeInfo,
+      zonesInfo,
+      contactPhone,
       numEngineers,
       workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
       totalHours,
@@ -480,6 +499,7 @@ export function WorkReportDialog({
   }, [
     jobNumber, jobType, workCompleted, returnRequired, surveyRequired, quotationRequired,
     ramsCompleted, logBookEntry, systemStatusArrival, systemStatusDeparture, appointmentDate,
+    panelInfo, locationInfo, typeInfo, zonesInfo, contactPhone,
     numEngineers, workDays, travelTime, materials, photos, worksReport, furtherAction,
     engineerName, engineerSignature, engineerSignDate, engineerSignTime,
     customerName, customerSignature, customerSignDate, customerSignTime, customerNotPresent
@@ -719,6 +739,7 @@ export function WorkReportDialog({
           travelTime,
           duration: workDays[0]?.duration || "",
           materials,
+          photos,
           engineerName,
           engineerSignature,
           engineerSignDate: engineerSignDate?.toISOString(),
@@ -728,6 +749,12 @@ export function WorkReportDialog({
           customerSignature,
           customerSignDate: customerSignDate?.toISOString(),
           customerSignTime,
+          // Custom system fields
+          panelInfo,
+          locationInfo,
+          typeInfo,
+          zonesInfo,
+          contactPhone,
         },
         siteInfo,
         visit.visit_date
@@ -887,7 +914,55 @@ export function WorkReportDialog({
                         className="pointer-events-auto"
                       />
                     </PopoverContent>
-                  </Popover>
+                </Popover>
+                </div>
+              </div>
+
+              {/* Custom System Fields */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <Label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">System Information (Optional)</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Panel</Label>
+                    <Input
+                      value={panelInfo}
+                      onChange={(e) => setPanelInfo(e.target.value)}
+                      placeholder="e.g. Morley IAS"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Location</Label>
+                    <Input
+                      value={locationInfo}
+                      onChange={(e) => setLocationInfo(e.target.value)}
+                      placeholder="e.g. Ground Floor Reception"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Type</Label>
+                    <Input
+                      value={typeInfo}
+                      onChange={(e) => setTypeInfo(e.target.value)}
+                      placeholder="e.g. Addressable"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Zones</Label>
+                    <Input
+                      value={zonesInfo}
+                      onChange={(e) => setZonesInfo(e.target.value)}
+                      placeholder="e.g. 8"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label className="text-xs">Contact Phone</Label>
+                    <Input
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      placeholder="e.g. 0123 456 7890"
+                      type="tel"
+                    />
+                  </div>
                 </div>
               </div>
 
