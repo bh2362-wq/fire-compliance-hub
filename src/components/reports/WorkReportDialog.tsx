@@ -122,6 +122,28 @@ export function WorkReportDialog({
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [companyName, setCompanyName] = useState<string>("BHO Fire Ltd");
 
+  const parseTimeToMinutes = (time: string): number | null => {
+    if (!time) return null;
+    const [h, m] = time.split(":").map((n) => Number(n));
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    return h * 60 + m;
+  };
+
+  const formatMinutesToTime = (mins: number): string => {
+    const m = ((mins % (24 * 60)) + 24 * 60) % (24 * 60);
+    const hh = String(Math.floor(m / 60)).padStart(2, "0");
+    const mm = String(m % 60).padStart(2, "0");
+    return `${hh}:${mm}`;
+  };
+
+  const deriveFinishTime = (start: string, durationHours: string): string => {
+    const startMins = parseTimeToMinutes(start);
+    const dur = Number(durationHours);
+    if (startMins === null || !Number.isFinite(dur) || dur <= 0) return "";
+    const durMins = Math.round(dur * 60);
+    return formatMinutesToTime(startMins + durMins);
+  };
+
   // Form state - Job Details
   const [certificateNo, setCertificateNo] = useState("");
   const [jobNumber, setJobNumber] = useState("");
@@ -247,7 +269,14 @@ export function WorkReportDialog({
   // Summary values used on the Sign tab
   const signSummary = useMemo(() => {
     const arrival = workDays.find((d) => !!d.startTime)?.startTime || "";
-    const departure = [...workDays].reverse().find((d) => !!d.finishTime)?.finishTime || "";
+    const lastDayWithTimes = [...workDays]
+      .reverse()
+      .find((d) => !!d.finishTime || (!!d.startTime && !!d.duration));
+    const departure =
+      lastDayWithTimes?.finishTime ||
+      (lastDayWithTimes?.startTime && lastDayWithTimes?.duration
+        ? deriveFinishTime(lastDayWithTimes.startTime, lastDayWithTimes.duration)
+        : "");
     const summaryDateRaw =
       [...workDays].reverse().find((d) => !!d.date)?.date ||
       format(new Date(visit.visit_date), "yyyy-MM-dd");
@@ -813,7 +842,11 @@ export function WorkReportDialog({
     workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
     totalHours,
     startTime: workDays[0]?.startTime || "",
-    finishTime: workDays[0]?.finishTime || "",
+    finishTime:
+      workDays[0]?.finishTime ||
+      (workDays[0]?.startTime && workDays[0]?.duration
+        ? deriveFinishTime(workDays[0].startTime, workDays[0].duration)
+        : ""),
     travelTime,
     duration: workDays[0]?.duration || "",
     materials,
