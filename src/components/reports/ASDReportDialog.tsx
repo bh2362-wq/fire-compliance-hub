@@ -419,9 +419,14 @@ export function ASDReportDialog({
           engineerName: engineerName,
           clientName: clientName,
           units: pdfUnits,
+          // Global summary from Summary tab
+          systemCondition: systemCondition,
+          defectsFound: defectsFound,
+          recommendations: recommendations,
           workCarriedOut: workCarriedOut,
           partsUsed: partsUsed,
           notes: notes,
+          // Signatures
           engineerSignature: engineerSignature,
           engineerSignDate: engineerSignDate?.toISOString(),
           engineerSignTime: engineerSignTime,
