@@ -221,14 +221,18 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
             engineerName: report.engineer_name || "",
             clientName: report.client_name || "",
             units: units,
+            // Global summary fields from report columns
+            systemCondition: report.system_condition || "",
+            defectsFound: report.defects_found || "",
+            recommendations: report.recommendations || "",
             workCarriedOut: report.work_carried_out || "",
             partsUsed: report.parts_used || "",
             notes: parsed.additional_notes || "",
-            engineerSignature: parsed.engineerSignature || "",
+            engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
             engineerSignDate: parsed.engineerSignDate || "",
             engineerSignTime: parsed.engineerSignTime || "",
             customerNotPresent: parsed.customerNotPresent || false,
-            customerSignature: parsed.customerSignature || "",
+            customerSignature: report.client_signature || parsed.customerSignature || "",
             customerSignDate: parsed.customerSignDate || "",
             customerSignTime: parsed.customerSignTime || "",
           },
@@ -496,7 +500,7 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
       )}
 
       {/* ASD Report Dialog */}
-      {selectedReport && dialogType === "asd" && asdAssets.length > 0 && (
+      {selectedReport && dialogType === "asd" && (
         <ASDReportDialog
           open={!!selectedReport && dialogType === "asd"}
           onOpenChange={(open) => {
