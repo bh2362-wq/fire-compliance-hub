@@ -109,13 +109,13 @@ export function ASDReportDialog({
   const [customerId, setCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open && user && assets.length > 0) {
+    if (open && user) {
       loadOrCreateReport();
     }
   }, [open, user, visit.id, assets]);
 
   const loadOrCreateReport = async () => {
-    if (!user || assets.length === 0) return;
+    if (!user) return;
     setLoading(true);
 
     try {
@@ -153,7 +153,8 @@ export function ASDReportDialog({
         setReportId(existing.id);
         setIsLocked(existing.status === "completed");
         populateForm(existing);
-      } else {
+      } else if (assets.length > 0) {
+        // Only create new report if we have assets
         // Initialize unit checklists from assets
         const initialUnits = initializeASDChecklists(assets);
         setUnits(initialUnits);
@@ -192,6 +193,9 @@ export function ASDReportDialog({
         setReportId(newReport.id);
         setReportNumber(numberData || "");
         setEngineerName(user.user_metadata?.full_name || "");
+      } else {
+        // No existing report and no assets - show error
+        toast.error("No ASD units found for this report");
       }
     } catch (error) {
       console.error("Failed to load ASD report:", error);
