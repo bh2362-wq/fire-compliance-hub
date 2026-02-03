@@ -20,10 +20,12 @@ import {
 } from "lucide-react";
 import { fetchDocuments, fetchDocumentCategories, QMSDocument } from "@/services/qmsService";
 import { format } from "date-fns";
+import { DocumentFormDialog } from "@/components/qms/DocumentFormDialog";
 
 const Documents = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: documents, isLoading } = useQuery({
     queryKey: ['qms-documents'],
@@ -71,10 +73,11 @@ const Documents = () => {
             <h2 className="text-2xl font-bold text-foreground">Document Control</h2>
             <p className="text-muted-foreground">Manage controlled documents and approvals</p>
           </div>
-          <Button>
+          <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             New Document
           </Button>
+          <DocumentFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
         </div>
 
         {/* Search and Filter */}

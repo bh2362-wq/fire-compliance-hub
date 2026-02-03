@@ -26,9 +26,11 @@ import {
 } from "lucide-react";
 import { fetchTrainingRecords, fetchTrainingTypes, QMSTrainingRecord } from "@/services/qmsService";
 import { format, differenceInDays } from "date-fns";
+import { TrainingRecordDialog } from "@/components/qms/TrainingRecordDialog";
 
 const Training = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: records, isLoading } = useQuery({
     queryKey: ['qms-training-records'],
@@ -93,10 +95,11 @@ const Training = () => {
               <Plus className="h-4 w-4 mr-2" />
               Add Training Type
             </Button>
-            <Button>
+            <Button onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Record Training
             </Button>
+            <TrainingRecordDialog open={dialogOpen} onOpenChange={setDialogOpen} />
           </div>
         </div>
 

@@ -28,11 +28,13 @@ import {
 } from "lucide-react";
 import { fetchRisks, QMSRisk } from "@/services/qmsService";
 import { format } from "date-fns";
+import { RiskFormDialog } from "@/components/qms/RiskFormDialog";
 
 const Risks = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: risks, isLoading } = useQuery({
     queryKey: ['qms-risks'],
@@ -94,10 +96,11 @@ const Risks = () => {
             <h2 className="text-2xl font-bold text-foreground">Risk Register</h2>
             <p className="text-muted-foreground">Identify, assess, and mitigate risks</p>
           </div>
-          <Button>
+          <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Risk
           </Button>
+          <RiskFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
         </div>
 
         {/* Risk Summary */}

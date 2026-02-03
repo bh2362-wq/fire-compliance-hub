@@ -29,11 +29,13 @@ import {
 } from "lucide-react";
 import { fetchAudits, QMSAudit } from "@/services/qmsService";
 import { format } from "date-fns";
+import { AuditFormDialog } from "@/components/qms/AuditFormDialog";
 
 const Audits = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: audits, isLoading } = useQuery({
     queryKey: ['qms-audits'],
@@ -84,10 +86,11 @@ const Audits = () => {
               <ClipboardList className="h-4 w-4 mr-2" />
               Audit Templates
             </Button>
-            <Button>
+            <Button onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Schedule Audit
             </Button>
+            <AuditFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
           </div>
         </div>
 

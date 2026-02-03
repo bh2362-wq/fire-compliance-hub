@@ -32,11 +32,13 @@ import {
 } from "lucide-react";
 import { fetchFeedback, QMSFeedback } from "@/services/qmsService";
 import { format } from "date-fns";
+import { FeedbackFormDialog } from "@/components/qms/FeedbackFormDialog";
 
 const Feedback = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: feedback, isLoading } = useQuery({
     queryKey: ['qms-feedback'],
@@ -103,10 +105,11 @@ const Feedback = () => {
             <h2 className="text-2xl font-bold text-foreground">Customer Feedback</h2>
             <p className="text-muted-foreground">Track complaints, suggestions, and positive feedback</p>
           </div>
-          <Button>
+          <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Log Feedback
           </Button>
+          <FeedbackFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
         </div>
 
         {/* Stats */}
