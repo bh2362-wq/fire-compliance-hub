@@ -22,6 +22,17 @@ import Settings from "./pages/Settings";
 import Schedule from "./pages/Schedule";
 import NotFound from "./pages/NotFound";
 
+// QMS Pages
+import QMSDashboard from "./pages/qms/QMSDashboard";
+import Documents from "./pages/qms/Documents";
+import NCRs from "./pages/qms/NCRs";
+import CAPAs from "./pages/qms/CAPAs";
+import Risks from "./pages/qms/Risks";
+import Training from "./pages/qms/Training";
+import Audits from "./pages/qms/Audits";
+import Feedback from "./pages/qms/Feedback";
+import ManagementReview from "./pages/qms/ManagementReview";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -49,6 +60,18 @@ const App = () => (
             <Route path="/dashboard/upload" element={<ProtectedRoute><UploadDemo /></ProtectedRoute>} />
             <Route path="/dashboard/reconciliation" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            
+            {/* QMS Routes */}
+            <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
+            <Route path="/qms/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+            <Route path="/qms/ncrs" element={<ProtectedRoute><NCRs /></ProtectedRoute>} />
+            <Route path="/qms/capas" element={<ProtectedRoute><CAPAs /></ProtectedRoute>} />
+            <Route path="/qms/risks" element={<ProtectedRoute><Risks /></ProtectedRoute>} />
+            <Route path="/qms/training" element={<ProtectedRoute><Training /></ProtectedRoute>} />
+            <Route path="/qms/audits" element={<ProtectedRoute><Audits /></ProtectedRoute>} />
+            <Route path="/qms/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
+            <Route path="/qms/management-review" element={<ProtectedRoute><ManagementReview /></ProtectedRoute>} />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

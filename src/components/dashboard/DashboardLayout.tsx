@@ -10,21 +10,32 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
+  ChevronDown,
   Bell,
   GitCompare,
   Receipt,
-  CalendarDays
+  CalendarDays,
+  Shield,
+  FileCheck,
+  AlertTriangle,
+  ClipboardCheck,
+  ShieldAlert,
+  GraduationCap,
+  Search,
+  MessageSquare,
+  TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-const navigation = [
+const mainNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Schedule", href: "/dashboard/schedule", icon: CalendarDays },
   { name: "Customers", href: "/customers", icon: Users },
@@ -34,14 +45,30 @@ const navigation = [
   { name: "Uploads", href: "/dashboard/upload", icon: Upload },
   { name: "Reconciliation", href: "/dashboard/reconciliation", icon: GitCompare },
   { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
+];
+
+const qmsNavigation = [
+  { name: "QMS Dashboard", href: "/qms", icon: TrendingUp },
+  { name: "Documents", href: "/qms/documents", icon: FileCheck },
+  { name: "NCRs", href: "/qms/ncrs", icon: AlertTriangle },
+  { name: "CAPAs", href: "/qms/capas", icon: ClipboardCheck },
+  { name: "Risks", href: "/qms/risks", icon: ShieldAlert },
+  { name: "Training", href: "/qms/training", icon: GraduationCap },
+  { name: "Audits", href: "/qms/audits", icon: Search },
+  { name: "Feedback", href: "/qms/feedback", icon: MessageSquare },
+  { name: "Mgmt Review", href: "/qms/management-review", icon: BarChart3 },
 ];
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [qmsOpen, setQmsOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, signOut } = useAuth();
 
+  // Auto-expand QMS section if on a QMS route
+  const isQmsRoute = location.pathname.startsWith('/qms');
+  
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -57,11 +84,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     <div className="min-h-screen flex w-full bg-background">
       {/* Sidebar */}
       <aside className={cn(
-        "fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 z-40",
+        "fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 z-40 overflow-y-auto",
         collapsed ? "w-16" : "w-64"
       )}>
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border sticky top-0 bg-sidebar z-10">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-lg gradient-accent flex items-center justify-center flex-shrink-0">
               <Flame className="w-5 h-5 text-accent-foreground" />
@@ -85,7 +112,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         {/* Navigation */}
         <nav className="p-3 space-y-1">
-          {navigation.map((item) => (
+          {/* Main Navigation */}
+          {mainNavigation.map((item) => (
             <NavLink
               key={item.name}
               to={item.href}
@@ -101,6 +129,66 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {!collapsed && <span>{item.name}</span>}
             </NavLink>
           ))}
+
+          {/* QMS Section */}
+          {!collapsed ? (
+            <Collapsible open={qmsOpen || isQmsRoute} onOpenChange={setQmsOpen}>
+              <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all">
+                <div className="flex items-center gap-3">
+                  <Shield className="w-5 h-5 flex-shrink-0" />
+                  <span>QMS</span>
+                </div>
+                <ChevronDown className={cn(
+                  "w-4 h-4 transition-transform",
+                  (qmsOpen || isQmsRoute) && "rotate-180"
+                )} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pl-4 space-y-1 mt-1">
+                {qmsNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    end={item.href === "/qms"}
+                    className={({ isActive }) => cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                      isActive 
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground" 
+                        : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                    )}
+                  >
+                    <item.icon className="w-4 h-4 flex-shrink-0" />
+                    <span>{item.name}</span>
+                  </NavLink>
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <NavLink
+              to="/qms"
+              className={({ isActive }) => cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                isActive || isQmsRoute
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground" 
+                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+              )}
+            >
+              <Shield className="w-5 h-5 flex-shrink-0" />
+            </NavLink>
+          )}
+
+          {/* Settings */}
+          <NavLink
+            to="/dashboard/settings"
+            className={({ isActive }) => cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+              isActive 
+                ? "bg-sidebar-primary text-sidebar-primary-foreground" 
+                : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            )}
+          >
+            <Settings className="w-5 h-5 flex-shrink-0" />
+            {!collapsed && <span>Settings</span>}
+          </NavLink>
         </nav>
 
         {/* User section */}
