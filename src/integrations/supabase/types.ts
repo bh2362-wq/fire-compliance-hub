@@ -1416,6 +1416,218 @@ export type Database = {
         }
         Relationships: []
       }
+      rams_documents: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          client_name: string | null
+          client_signature: string | null
+          client_signed_at: string | null
+          contract_id: string | null
+          created_at: string
+          created_by: string
+          emergency_procedures: string | null
+          hazards: Json
+          id: string
+          method_statements: Json
+          parent_version_id: string | null
+          ppe_requirements: string[] | null
+          preparer_signature: string | null
+          preparer_signed_at: string | null
+          rams_number: string
+          review_date: string | null
+          reviewer_signature: string | null
+          reviewer_signed_at: string | null
+          site_access_notes: string | null
+          site_id: string | null
+          site_specific_hazards: string | null
+          status: string
+          template_id: string | null
+          title: string
+          updated_at: string
+          version: number
+          visit_id: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          client_name?: string | null
+          client_signature?: string | null
+          client_signed_at?: string | null
+          contract_id?: string | null
+          created_at?: string
+          created_by: string
+          emergency_procedures?: string | null
+          hazards?: Json
+          id?: string
+          method_statements?: Json
+          parent_version_id?: string | null
+          ppe_requirements?: string[] | null
+          preparer_signature?: string | null
+          preparer_signed_at?: string | null
+          rams_number: string
+          review_date?: string | null
+          reviewer_signature?: string | null
+          reviewer_signed_at?: string | null
+          site_access_notes?: string | null
+          site_id?: string | null
+          site_specific_hazards?: string | null
+          status?: string
+          template_id?: string | null
+          title: string
+          updated_at?: string
+          version?: number
+          visit_id?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          client_name?: string | null
+          client_signature?: string | null
+          client_signed_at?: string | null
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string
+          emergency_procedures?: string | null
+          hazards?: Json
+          id?: string
+          method_statements?: Json
+          parent_version_id?: string | null
+          ppe_requirements?: string[] | null
+          preparer_signature?: string | null
+          preparer_signed_at?: string | null
+          rams_number?: string
+          review_date?: string | null
+          reviewer_signature?: string | null
+          reviewer_signed_at?: string | null
+          site_access_notes?: string | null
+          site_id?: string | null
+          site_specific_hazards?: string | null
+          status?: string
+          template_id?: string | null
+          title?: string
+          updated_at?: string
+          version?: number
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_documents_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "site_service_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_documents_parent_version_id_fkey"
+            columns: ["parent_version_id"]
+            isOneToOne: false
+            referencedRelation: "rams_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_documents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "rams_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_documents_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rams_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          emergency_procedures: string | null
+          hazards: Json
+          id: string
+          method_statements: Json
+          name: string
+          ppe_requirements: string[] | null
+          service_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          emergency_procedures?: string | null
+          hazards?: Json
+          id?: string
+          method_statements?: Json
+          name: string
+          ppe_requirements?: string[] | null
+          service_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          emergency_procedures?: string | null
+          hazards?: Json
+          id?: string
+          method_statements?: Json
+          name?: string
+          ppe_requirements?: string[] | null
+          service_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rams_versions: {
+        Row: {
+          changes_summary: string | null
+          created_at: string
+          created_by: string
+          document_snapshot: Json
+          id: string
+          rams_document_id: string
+          version_number: number
+        }
+        Insert: {
+          changes_summary?: string | null
+          created_at?: string
+          created_by: string
+          document_snapshot: Json
+          id?: string
+          rams_document_id: string
+          version_number: number
+        }
+        Update: {
+          changes_summary?: string | null
+          created_at?: string
+          created_by?: string
+          document_snapshot?: Json
+          id?: string
+          rams_document_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_versions_rams_document_id_fkey"
+            columns: ["rams_document_id"]
+            isOneToOne: false
+            referencedRelation: "rams_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recycled_report_numbers: {
         Row: {
           id: string
