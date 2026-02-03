@@ -18,6 +18,7 @@ interface SendReportRequest {
   pdfBase64: string;
   customerName?: string;
   companyName?: string;
+  logoUrl?: string;
 }
 
 serve(async (req) => {
@@ -36,6 +37,7 @@ serve(async (req) => {
       pdfBase64,
       customerName,
       companyName,
+      logoUrl,
     }: SendReportRequest = await req.json();
 
     // Validate required fields
@@ -65,26 +67,37 @@ serve(async (req) => {
       to: [to],
       subject: subject || `Service Report - ${siteName || "Site"}`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Service Report</h2>
-          ${customerName ? `<p>Dear ${customerName},</p>` : "<p>Dear Customer,</p>"}
-          <p>Please find attached the service report for your records.</p>
-          <table style="border-collapse: collapse; margin: 20px 0;">
-            <tr>
-              <td style="padding: 8px 16px 8px 0; color: #666;">Report Number:</td>
-              <td style="padding: 8px 0; font-weight: bold;">${reportNumber || "—"}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 16px 8px 0; color: #666;">Site:</td>
-              <td style="padding: 8px 0; font-weight: bold;">${siteName || "—"}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 16px 8px 0; color: #666;">Date:</td>
-              <td style="padding: 8px 0; font-weight: bold;">${reportDate || "—"}</td>
-            </tr>
-          </table>
-          <p>If you have any questions regarding this report, please don't hesitate to contact us.</p>
-          <p style="margin-top: 30px;">Kind regards,<br/>${companyName || "The Service Team"}</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+          ${logoUrl ? `
+          <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #dc2626;">
+            <img src="${logoUrl}" alt="${companyName || 'Company'} Logo" style="max-height: 60px; max-width: 200px;" />
+          </div>
+          ` : ''}
+          <div style="padding: 30px 20px;">
+            <h2 style="color: #1f2937; margin-top: 0;">Service Report</h2>
+            ${customerName ? `<p style="color: #374151;">Dear ${customerName},</p>` : '<p style="color: #374151;">Dear Customer,</p>'}
+            <p style="color: #374151;">Please find attached the service report for your records.</p>
+            <table style="border-collapse: collapse; margin: 20px 0; width: 100%;">
+              <tr style="background-color: #f9fafb;">
+                <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Report Number:</td>
+                <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${reportNumber || "—"}</td>
+              </tr>
+              <tr>
+                <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Site:</td>
+                <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${siteName || "—"}</td>
+              </tr>
+              <tr style="background-color: #f9fafb;">
+                <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Date:</td>
+                <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${reportDate || "—"}</td>
+              </tr>
+            </table>
+            <p style="color: #374151;">If you have any questions regarding this report, please don't hesitate to contact us.</p>
+            <p style="margin-top: 30px; color: #374151;">Kind regards,<br/><strong>${companyName || "The Service Team"}</strong></p>
+          </div>
+          <div style="background-color: #1f2937; color: #9ca3af; padding: 20px; text-align: center; font-size: 12px;">
+            <p style="margin: 0;">${companyName || "BHO Fire"}</p>
+            <p style="margin: 5px 0 0 0;">This is an automated email. Please do not reply directly to this message.</p>
+          </div>
         </div>
       `,
       attachments: [

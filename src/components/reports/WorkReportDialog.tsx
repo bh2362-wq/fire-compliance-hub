@@ -121,6 +121,7 @@ export function WorkReportDialog({
   const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [companyName, setCompanyName] = useState<string>("BHO Fire Ltd");
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
 
   const parseTimeToMinutes = (time: string): number | null => {
     if (!time) return null;
@@ -343,6 +344,9 @@ export function WorkReportDialog({
         const settings = await getCompanySettings();
         if (settings?.company_name) {
           setCompanyName(settings.company_name);
+        }
+        if (settings?.report_logo_url || settings?.company_logo_url) {
+          setLogoUrl(settings.report_logo_url || settings.company_logo_url || undefined);
         }
       } catch (e) {
         console.error("Failed to load company settings:", e);
@@ -1922,6 +1926,7 @@ export function WorkReportDialog({
         reportNumber={certificateNo}
         reportDate={format(new Date(visit.visit_date), "dd-MM-yyyy")}
         companyName={companyName}
+        logoUrl={logoUrl}
         generatePdfBase64={generatePdfBase64}
       />
     </ResponsiveDialog>

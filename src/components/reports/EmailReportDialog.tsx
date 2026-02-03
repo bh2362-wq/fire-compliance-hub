@@ -24,6 +24,7 @@ interface EmailReportDialogProps {
   reportNumber: string;
   reportDate: string;
   companyName?: string;
+  logoUrl?: string;
   generatePdfBase64: () => Promise<string>;
 }
 
@@ -36,6 +37,7 @@ export function EmailReportDialog({
   reportNumber,
   reportDate,
   companyName,
+  logoUrl,
   generatePdfBase64,
 }: EmailReportDialogProps) {
   const [sending, setSending] = useState(false);
@@ -82,6 +84,7 @@ export function EmailReportDialog({
           pdfBase64,
           customerName,
           companyName,
+          logoUrl,
         },
       });
 
