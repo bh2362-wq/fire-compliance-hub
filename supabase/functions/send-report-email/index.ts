@@ -61,7 +61,7 @@ serve(async (req) => {
     console.log(`Sending report email to ${to}, report: ${reportNumber}`);
 
     const emailResponse = await resend.emails.send({
-      from: `${fromName} <onboarding@resend.dev>`,
+      from: `${fromName} <noreply@bhofire.com>`,
       to: [to],
       subject: subject || `Service Report - ${siteName || "Site"}`,
       html: `
