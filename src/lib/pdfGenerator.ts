@@ -1250,6 +1250,10 @@ interface ASDReportData {
   engineerName: string;
   clientName: string;
   units: ASDUnitData[];
+  // Global Summary fields (from Summary tab)
+  systemCondition?: string;
+  defectsFound?: string;
+  recommendations?: string;
   workCarriedOut?: string;
   partsUsed?: string;
   notes?: string;
@@ -1550,19 +1554,111 @@ export function generateASDReportPDF(
     yPos += 5;
   });
 
-  // === Work Carried Out / Notes ===
-  if (data.workCarriedOut || data.notes) {
-    if (yPos > pageHeight - 50) {
+  // === OVERALL SUMMARY (Global - from Summary Tab) ===
+  if (data.systemCondition || data.defectsFound || data.recommendations) {
+    // Calculate dynamic box height
+    const defectLinesGlobal = data.defectsFound 
+      ? doc.splitTextToSize(data.defectsFound, contentWidth - 30) 
+      : [];
+    const recLinesGlobal = data.recommendations 
+      ? doc.splitTextToSize(data.recommendations, contentWidth - 45) 
+      : [];
+    
+    const lineHeightS = 5;
+    const headerHeightS = 7;
+    const paddingS = 6;
+    const defectRowHeightS = data.defectsFound ? Math.max(1, defectLinesGlobal.length) * lineHeightS : 0;
+    const recRowHeightS = data.recommendations ? Math.max(1, recLinesGlobal.length) * lineHeightS : 0;
+    const conditionRowHeightS = data.systemCondition ? lineHeightS + 2 : 0;
+    const summaryBoxHeight = headerHeightS + paddingS + conditionRowHeightS + defectRowHeightS + recRowHeightS + 6;
+
+    if (yPos > pageHeight - summaryBoxHeight - 10) {
       doc.addPage();
       yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
     }
 
-    const notesBoxHeight = 30;
+    doc.setDrawColor(...COLORS.borderGrey);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, yPos, contentWidth, summaryBoxHeight);
+
+    // Header
+    doc.setFillColor(...COLORS.charcoal);
+    doc.rect(margin, yPos, contentWidth, headerHeightS, "F");
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("OVERALL SUMMARY", margin + 3, yPos + 5);
+
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFont("helvetica", "normal");
+
+    let textYS = yPos + headerHeightS + 5;
+
+    // System Condition with badge
+    if (data.systemCondition) {
+      const condLabelS = data.systemCondition === "satisfactory" 
+        ? "SATISFACTORY" 
+        : data.systemCondition === "requires_attention" 
+        ? "REQUIRES ATTENTION" 
+        : "UNSATISFACTORY";
+      const condColorS = data.systemCondition === "satisfactory" 
+        ? COLORS.yes 
+        : data.systemCondition === "requires_attention" 
+        ? [255, 165, 0] as [number, number, number]
+        : COLORS.no;
+      
+      doc.setFont("helvetica", "bold");
+      doc.text("System Condition:", margin + 3, textYS);
+      doc.setTextColor(...condColorS);
+      doc.text(condLabelS, margin + 38, textYS);
+      doc.setTextColor(...COLORS.charcoal);
+      textYS += lineHeightS + 3;
+    }
+
+    if (data.defectsFound) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Defects Found:", margin + 3, textYS);
+      doc.setFont("helvetica", "normal");
+      doc.text(defectLinesGlobal, margin + 35, textYS);
+      textYS += defectRowHeightS + 2;
+    }
+
+    if (data.recommendations) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Recommendations:", margin + 3, textYS);
+      doc.setFont("helvetica", "normal");
+      doc.text(recLinesGlobal, margin + 40, textYS);
+      textYS += recRowHeightS + 2;
+    }
+
+    yPos += summaryBoxHeight + 5;
+  }
+
+  // === Work Carried Out / Notes ===
+  if (data.workCarriedOut || data.partsUsed || data.notes) {
+    // Calculate dynamic height
+    const workLinesCalc = data.workCarriedOut ? doc.splitTextToSize(data.workCarriedOut, contentWidth - 6) : [];
+    const partsLinesCalc = data.partsUsed ? doc.splitTextToSize(data.partsUsed, contentWidth - 6) : [];
+    const notesLinesCalc = data.notes ? doc.splitTextToSize(data.notes, contentWidth - 6) : [];
+    
+    const lineH = 4;
+    const headerH = 6;
+    const workRowH = data.workCarriedOut ? Math.max(1, Math.min(workLinesCalc.length, 4)) * lineH : 0;
+    const partsRowH = data.partsUsed ? Math.max(1, Math.min(partsLinesCalc.length, 2)) * lineH : 0;
+    const notesRowH = data.notes ? Math.max(1, Math.min(notesLinesCalc.length, 3)) * lineH : 0;
+    const notesBoxHeight = headerH + 8 + workRowH + partsRowH + notesRowH;
+
+    if (yPos > pageHeight - notesBoxHeight - 10) {
+      doc.addPage();
+      yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+    }
+
     doc.setDrawColor(...COLORS.borderGrey);
     doc.rect(margin, yPos, contentWidth, notesBoxHeight);
 
     doc.setFillColor(...COLORS.charcoal);
-    doc.rect(margin, yPos, contentWidth, 6, "F");
+    doc.rect(margin, yPos, contentWidth, headerH, "F");
     doc.setTextColor(...COLORS.white);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
@@ -1572,15 +1668,29 @@ export function generateASDReportPDF(
     doc.setTextColor(...COLORS.charcoal);
     doc.setFont("helvetica", "normal");
 
-    let textY = yPos + 11;
+    let textYN = yPos + headerH + 5;
     if (data.workCarriedOut) {
-      const workLines = doc.splitTextToSize(data.workCarriedOut, contentWidth - 6);
-      doc.text(workLines.slice(0, 2).join("\n"), margin + 3, textY);
-      textY += 8;
+      doc.setFont("helvetica", "bold");
+      doc.text("Work Carried Out:", margin + 3, textYN);
+      doc.setFont("helvetica", "normal");
+      const workLines = workLinesCalc.slice(0, 4);
+      doc.text(workLines, margin + 40, textYN);
+      textYN += workRowH + 2;
+    }
+    if (data.partsUsed) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Parts Used:", margin + 3, textYN);
+      doc.setFont("helvetica", "normal");
+      const partsLines = partsLinesCalc.slice(0, 2);
+      doc.text(partsLines, margin + 28, textYN);
+      textYN += partsRowH + 2;
     }
     if (data.notes) {
-      const noteLines = doc.splitTextToSize(data.notes, contentWidth - 6);
-      doc.text(noteLines.slice(0, 2).join("\n"), margin + 3, textY);
+      doc.setFont("helvetica", "bold");
+      doc.text("Notes:", margin + 3, textYN);
+      doc.setFont("helvetica", "normal");
+      const noteLines = notesLinesCalc.slice(0, 3);
+      doc.text(noteLines, margin + 18, textYN);
     }
 
     yPos += notesBoxHeight + 5;
