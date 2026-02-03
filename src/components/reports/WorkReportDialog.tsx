@@ -97,6 +97,7 @@ export function WorkReportDialog({
   const [saving, setSaving] = useState(false);
   const [report, setReport] = useState<ServiceReport | null>(null);
   const [activeTab, setActiveTab] = useState("job");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [showInvoicePrompt, setShowInvoicePrompt] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
@@ -379,40 +380,105 @@ export function WorkReportDialog({
     }
   };
 
+  // Build notes data object - centralized to avoid duplication
+  const buildNotesData = () => {
+    return JSON.stringify({
+      jobNumber,
+      jobType,
+      workCompleted,
+      returnRequired,
+      surveyRequired,
+      quotationRequired,
+      ramsCompleted,
+      logBookEntry,
+      systemStatusArrival,
+      systemStatusDeparture,
+      appointmentDate: appointmentDate?.toISOString(),
+      numEngineers,
+      workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
+      totalHours,
+      startTime: workDays[0]?.startTime || startTime,
+      finishTime: workDays[0]?.finishTime || finishTime,
+      travelTime,
+      duration: workDays[0]?.duration || duration,
+      materials: materials.filter((m) => m.name.trim()),
+      photos,
+      engineerSignature,
+      customerSignature,
+      customerNotPresent,
+      engineerSignDate: engineerSignDate?.toISOString(),
+      engineerSignTime,
+      customerSignDate: customerSignDate?.toISOString(),
+      customerSignTime,
+    });
+  };
+
+  // Auto-save function - saves silently without toast
+  const autoSave = async () => {
+    if (!report || isLocked || !hasUnsavedChanges) return;
+
+    try {
+      const notesData = buildNotesData();
+
+      await updateServiceReport(report.id, {
+        engineer_name: engineerName,
+        client_name: customerName,
+        report_number: certificateNo,
+        work_carried_out: worksReport,
+        recommendations: furtherAction,
+        notes: notesData,
+        status: "draft",
+      });
+
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error("Auto-save failed:", error);
+      // Silent fail - don't show error toast for auto-save
+    }
+  };
+
+  // Handle tab change - auto-save before switching
+  const handleTabChange = async (newTab: string) => {
+    if (hasUnsavedChanges && !isLocked) {
+      await autoSave();
+    }
+    setActiveTab(newTab);
+  };
+
+  // Handle dialog close - auto-save before closing
+  const handleDialogClose = async (open: boolean) => {
+    if (!open && hasUnsavedChanges && !isLocked && report) {
+      await autoSave();
+    }
+    onOpenChange(open);
+  };
+
+  // Mark form as having unsaved changes when any field changes
+  useEffect(() => {
+    if (report && !loading) {
+      setHasUnsavedChanges(true);
+    }
+  }, [
+    jobNumber, jobType, workCompleted, returnRequired, surveyRequired, quotationRequired,
+    ramsCompleted, logBookEntry, systemStatusArrival, systemStatusDeparture, appointmentDate,
+    numEngineers, workDays, travelTime, materials, photos, worksReport, furtherAction,
+    engineerName, engineerSignature, engineerSignDate, engineerSignTime,
+    customerName, customerSignature, customerSignDate, customerSignTime, customerNotPresent
+  ]);
+
+  // Reset unsaved changes flag after loading report
+  useEffect(() => {
+    if (!loading && report) {
+      setHasUnsavedChanges(false);
+    }
+  }, [loading]);
+
   const handleSave = async (complete = false) => {
     if (!report || isLocked) return;
 
     setSaving(true);
     try {
-      const notesData = JSON.stringify({
-        jobNumber,
-        jobType,
-        workCompleted,
-        returnRequired,
-        surveyRequired,
-        quotationRequired,
-        ramsCompleted,
-        logBookEntry,
-        systemStatusArrival,
-        systemStatusDeparture,
-        appointmentDate: appointmentDate?.toISOString(),
-        numEngineers,
-        workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
-        totalHours,
-        startTime: workDays[0]?.startTime || startTime,
-        finishTime: workDays[0]?.finishTime || finishTime,
-        travelTime,
-        duration: workDays[0]?.duration || duration,
-        materials: materials.filter((m) => m.name.trim()),
-        photos,
-        engineerSignature,
-        customerSignature,
-        customerNotPresent,
-        engineerSignDate: engineerSignDate?.toISOString(),
-        engineerSignTime,
-        customerSignDate: customerSignDate?.toISOString(),
-        customerSignTime,
-      });
+      const notesData = buildNotesData();
 
       await updateServiceReport(report.id, {
         engineer_name: engineerName,
@@ -423,6 +489,8 @@ export function WorkReportDialog({
         notes: notesData,
         status: complete ? "completed" : "draft",
       });
+
+      setHasUnsavedChanges(false);
 
       // Create or update calendar appointment if appointment date is set
       if (appointmentDate && user) {
@@ -502,35 +570,7 @@ export function WorkReportDialog({
 
     setSaving(true);
     try {
-      const notesData = JSON.stringify({
-        jobNumber,
-        jobType,
-        workCompleted,
-        returnRequired,
-        surveyRequired,
-        quotationRequired,
-        ramsCompleted,
-        logBookEntry,
-        systemStatusArrival,
-        systemStatusDeparture,
-        appointmentDate: appointmentDate?.toISOString(),
-        numEngineers,
-        workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
-        totalHours,
-        startTime: workDays[0]?.startTime || startTime,
-        finishTime: workDays[0]?.finishTime || finishTime,
-        travelTime,
-        duration: workDays[0]?.duration || duration,
-        materials: materials.filter((m) => m.name.trim()),
-        photos,
-        engineerSignature,
-        customerSignature,
-        customerNotPresent,
-        engineerSignDate: engineerSignDate?.toISOString(),
-        engineerSignTime,
-        customerSignDate: customerSignDate?.toISOString(),
-        customerSignTime,
-      });
+      const notesData = buildNotesData();
 
       await updateServiceReport(report.id, {
         engineer_name: engineerName,
@@ -541,6 +581,8 @@ export function WorkReportDialog({
         notes: notesData,
         status: "completed",
       });
+
+      setHasUnsavedChanges(false);
 
       // Update calendar appointment to completed if it exists
       if (user) {
@@ -681,7 +723,7 @@ export function WorkReportDialog({
 
   if (loading) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-4xl">
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -696,7 +738,7 @@ export function WorkReportDialog({
     .join(", ");
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+    <ResponsiveDialog open={open} onOpenChange={handleDialogClose}>
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle className="flex items-center gap-2 flex-wrap">
           <FileText className="h-5 w-5" />
@@ -721,7 +763,7 @@ export function WorkReportDialog({
           </div>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col">
           <TabsList className="grid w-full grid-cols-5 mb-4">
             <TabsTrigger value="job" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-3">
               <ClipboardList className="w-4 h-4 shrink-0" />
@@ -1512,7 +1554,7 @@ export function WorkReportDialog({
             </div>
           ) : (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
+              <Button variant="outline" onClick={() => handleDialogClose(false)} className="flex-1 sm:flex-none">
                 Cancel
               </Button>
               <Button 
