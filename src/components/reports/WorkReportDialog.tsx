@@ -72,7 +72,7 @@ const JOB_TYPES = [
   { value: "inspection", label: "Inspection" },
   { value: "commissioning", label: "Commissioning" },
   { value: "remedial", label: "Remedial" },
-  { value: "emergency", label: "Emergency" },
+  { value: "callout", label: "Callout" },
 ];
 
 const SYSTEM_STATUS_OPTIONS = [
