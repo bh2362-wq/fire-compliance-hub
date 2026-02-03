@@ -1083,14 +1083,18 @@ export function WorkReportDialog({
             <TabsContent value="works" className="mt-0 space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Works Report</Label>
+                  <Label>Works Report / Carried Out</Label>
                   <AIRewriteButton
                     text={worksReport}
                     type="works"
-                    onRewrite={setWorksReport}
+                    onRewrite={(newText) => {
+                      // AI rewrite should only update the works report field, not move text elsewhere
+                      setWorksReport(newText);
+                    }}
                     disabled={isLocked}
                     generateRecommendations={true}
                     onRecommendationsGenerated={(recs) => {
+                      // Only auto-fill recommendations if Further Action is empty
                       if (!furtherAction.trim()) {
                         setFurtherAction(recs);
                       } else {
@@ -1183,11 +1187,33 @@ export function WorkReportDialog({
                           </td>
                           <td className="p-2">
                             <div className="flex items-center gap-1">
-                              <span className="text-sm font-medium">{day.duration || "—"}</span>
+                              <Input
+                                type="text"
+                                value={day.duration}
+                                onChange={(e) => updateWorkDay(index, "duration", e.target.value)}
+                                placeholder="0.00"
+                                disabled={isLocked}
+                                className="border-0 bg-transparent focus-visible:ring-0 w-16"
+                              />
                               {day.duration && (
                                 <span className="text-xs text-muted-foreground">
-                                  ({Math.floor(parseFloat(day.duration))}h {Math.round((parseFloat(day.duration) % 1) * 60)}m)
+                                  ({Math.floor(parseFloat(day.duration) || 0)}h {Math.round(((parseFloat(day.duration) || 0) % 1) * 60)}m)
                                 </span>
+                              )}
+                              {!isLocked && day.startTime && day.finishTime && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => {
+                                    const calculated = calculateDayDuration(day.startTime, day.finishTime);
+                                    updateWorkDay(index, "duration", calculated);
+                                  }}
+                                  title="Calculate hours"
+                                >
+                                  <Clock className="h-3 w-3" />
+                                </Button>
                               )}
                             </div>
                           </td>
