@@ -41,7 +41,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { generateWorkReportPDF, WorkReportData } from "@/lib/pdfGenerator";
+import { generateWorkReportPDF, WorkReportData, generateASDReportPDF, generateServiceReportPDF } from "@/lib/pdfGenerator";
 import { Visit } from "@/hooks/useVisits";
 import { Json } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
@@ -50,7 +50,7 @@ interface ReportPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   visit: Visit;
-  onEdit?: () => void;
+  onEdit?: (reportType?: "bs5839" | "work" | "asd") => void;
 }
 
 interface SiteDetails {
@@ -122,6 +122,22 @@ function parseReportNotes(notes: string | null): ParsedNotes {
     return JSON.parse(notes) as ParsedNotes;
   } catch {
     return {};
+  }
+}
+
+// Helper to detect report type from notes
+function detectReportType(notes: string | null): "bs5839" | "work" | "asd" | undefined {
+  if (!notes) return undefined;
+  try {
+    const parsed = JSON.parse(notes);
+    // ASD reports have report_type: "asd"
+    if (parsed.report_type === "asd") return "asd";
+    // Work reports have jobNumber or jobType but not asd
+    if (typeof parsed.jobNumber !== "undefined" || typeof parsed.jobType !== "undefined") return "work";
+    // Default to BS5839
+    return "bs5839";
+  } catch {
+    return undefined;
   }
 }
 
@@ -211,61 +227,132 @@ export function ReportPreviewDialog({
 
       const src = (latestReport || report) as ReportData;
       const parsedNotes = parseReportNotes(src.notes);
-      const checklist = (src.checklist || {}) as Record<string, unknown>;
+      const reportType = detectReportType(src.notes);
 
-      // WorkReportDialog stores its fields in notes JSON; prefer those.
-      const workReportData: WorkReportData = {
-        certificateNo: src.report_number || "",
-        jobNumber: parsedNotes.jobNumber || "",
-        jobType: (parsedNotes.jobType as string) || (checklist.jobType as string) || "service",
-        attendanceDay: parsedNotes.attendanceDay || "",
-        systemStatusArrival: parsedNotes.systemStatusArrival || "",
-        systemStatusDeparture: parsedNotes.systemStatusDeparture || "",
-        workCompleted: !!parsedNotes.workCompleted,
-        returnRequired: !!parsedNotes.returnRequired,
-        surveyRequired: !!parsedNotes.surveyRequired,
-        quotationRequired: !!parsedNotes.quotationRequired,
-        ramsCompleted: !!parsedNotes.ramsCompleted,
-        logBookEntry: !!parsedNotes.logBookEntry,
-        worksReport: src.work_carried_out || "",
-        furtherAction: src.recommendations || "",
-        numEngineers: parsedNotes.numEngineers ?? 1,
-        startTime: parsedNotes.startTime || "",
-        finishTime: parsedNotes.finishTime || "",
-        travelTime: parsedNotes.travelTime || "",
-        duration: parsedNotes.duration || "",
-        materials: parsedNotes.materials || [],
-        engineerName: src.engineer_name || "",
-        engineerSignature: parsedNotes.engineerSignature || undefined,
-        engineerSignDate: parsedNotes.engineerSignDate || undefined,
-        engineerSignTime: parsedNotes.engineerSignTime || undefined,
-        customerNotPresent: parsedNotes.customerNotPresent || false,
-        customerName: src.client_name || "",
-        customerSignature: parsedNotes.customerSignature || undefined,
-        customerSignDate: parsedNotes.customerSignDate || undefined,
-        customerSignTime: parsedNotes.customerSignTime || undefined,
-        customerPosition: "",
-        systemType: src.system_type || undefined,
-        panelManufacturer: src.panel_manufacturer || undefined,
-        panelModel: src.panel_model || undefined,
-        panelLocation: src.panel_location || undefined,
-        zonesCount: src.zones_count || undefined,
-        devicesCount: src.devices_count || undefined,
-      };
+      if (reportType === "asd") {
+        // ASD Report PDF
+        const parsed = JSON.parse(src.notes || "{}");
+        const units = parsed.units || [];
+        
+        generateASDReportPDF(
+          {
+            reportNumber: src.report_number || "",
+            reportDate: src.report_date,
+            engineerName: src.engineer_name || "",
+            clientName: src.client_name || "",
+            units: units,
+            workCarriedOut: src.work_carried_out || "",
+            partsUsed: "",
+            notes: parsed.additional_notes || "",
+            engineerSignature: parsed.engineerSignature || "",
+            engineerSignDate: parsed.engineerSignDate || "",
+            engineerSignTime: parsed.engineerSignTime || "",
+            customerNotPresent: parsed.customerNotPresent || false,
+            customerSignature: parsed.customerSignature || "",
+            customerSignDate: parsed.customerSignDate || "",
+            customerSignTime: parsed.customerSignTime || "",
+          },
+          {
+            name: siteDetails.name,
+            address: siteDetails.address,
+            city: siteDetails.city,
+            postcode: siteDetails.postcode,
+            contact_name: siteDetails.contact_name,
+            contact_phone: siteDetails.contact_phone,
+          },
+          visit.visit_date,
+          visit.visit_type
+        );
+      } else if (reportType === "work") {
+        // Work Report PDF
+        const checklist = (src.checklist || {}) as Record<string, unknown>;
+        const workReportData: WorkReportData = {
+          certificateNo: src.report_number || "",
+          jobNumber: parsedNotes.jobNumber || "",
+          jobType: (parsedNotes.jobType as string) || (checklist.jobType as string) || "service",
+          attendanceDay: parsedNotes.attendanceDay || "",
+          systemStatusArrival: parsedNotes.systemStatusArrival || "",
+          systemStatusDeparture: parsedNotes.systemStatusDeparture || "",
+          workCompleted: !!parsedNotes.workCompleted,
+          returnRequired: !!parsedNotes.returnRequired,
+          surveyRequired: !!parsedNotes.surveyRequired,
+          quotationRequired: !!parsedNotes.quotationRequired,
+          ramsCompleted: !!parsedNotes.ramsCompleted,
+          logBookEntry: !!parsedNotes.logBookEntry,
+          worksReport: src.work_carried_out || "",
+          furtherAction: src.recommendations || "",
+          numEngineers: parsedNotes.numEngineers ?? 1,
+          startTime: parsedNotes.startTime || "",
+          finishTime: parsedNotes.finishTime || "",
+          travelTime: parsedNotes.travelTime || "",
+          duration: parsedNotes.duration || "",
+          materials: parsedNotes.materials || [],
+          engineerName: src.engineer_name || "",
+          engineerSignature: parsedNotes.engineerSignature || undefined,
+          engineerSignDate: parsedNotes.engineerSignDate || undefined,
+          engineerSignTime: parsedNotes.engineerSignTime || undefined,
+          customerNotPresent: parsedNotes.customerNotPresent || false,
+          customerName: src.client_name || "",
+          customerSignature: parsedNotes.customerSignature || undefined,
+          customerSignDate: parsedNotes.customerSignDate || undefined,
+          customerSignTime: parsedNotes.customerSignTime || undefined,
+          customerPosition: "",
+          systemType: src.system_type || undefined,
+          panelManufacturer: src.panel_manufacturer || undefined,
+          panelModel: src.panel_model || undefined,
+          panelLocation: src.panel_location || undefined,
+          zonesCount: src.zones_count || undefined,
+          devicesCount: src.devices_count || undefined,
+        };
 
-      generateWorkReportPDF(
-        workReportData,
-        {
-          name: siteDetails.name,
-          address: siteDetails.address,
-          city: siteDetails.city,
-          postcode: siteDetails.postcode,
-          contact_name: siteDetails.contact_name,
-          contact_phone: siteDetails.contact_phone,
-        },
-        visit.visit_date,
-        visit.visit_type
-      );
+        generateWorkReportPDF(
+          workReportData,
+          {
+            name: siteDetails.name,
+            address: siteDetails.address,
+            city: siteDetails.city,
+            postcode: siteDetails.postcode,
+            contact_name: siteDetails.contact_name,
+            contact_phone: siteDetails.contact_phone,
+          },
+          visit.visit_date,
+          visit.visit_type
+        );
+      } else {
+        // BS5839 Report PDF
+        const parsed = JSON.parse(src.notes || "{}");
+        const signatures = {
+          engineerSignature: src.engineer_signature || parsed.engineerSignature || "",
+          engineerSignDate: parsed.engineerSignDate || "",
+          engineerSignTime: parsed.engineerSignTime || "",
+          customerNotPresent: parsed.customerNotPresent || false,
+          customerSignature: src.client_signature || parsed.customerSignature || "",
+          customerSignDate: parsed.customerSignDate || "",
+          customerSignTime: parsed.customerSignTime || "",
+        };
+        
+        // Extract multi-panel checklist data if present
+        let panels = undefined;
+        if (parsed.multi_panel && Array.isArray(parsed.panel_checklists)) {
+          panels = parsed.panel_checklists;
+        }
+        
+        generateServiceReportPDF(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          src as any,
+          {
+            name: siteDetails.name,
+            address: siteDetails.address,
+            city: siteDetails.city,
+            postcode: siteDetails.postcode,
+            contact_name: siteDetails.contact_name,
+            contact_phone: siteDetails.contact_phone,
+          },
+          { visit_type: visit.visit_type, visit_date: visit.visit_date },
+          panels,
+          signatures
+        );
+      }
     } catch (error) {
       console.error("Failed to generate PDF:", error);
     } finally {
@@ -415,7 +502,7 @@ export function ReportPreviewDialog({
                 A report hasn't been created for this visit yet.
               </p>
               {onEdit && (
-                <Button onClick={onEdit}>
+                <Button onClick={() => onEdit()}>
                   <Pencil className="w-4 h-4 mr-2" />
                   Create Report
                 </Button>
@@ -627,13 +714,13 @@ export function ReportPreviewDialog({
               Close
             </Button>
             {report && onEdit && (
-              <Button onClick={onEdit} disabled={isLocked}>
+              <Button onClick={() => onEdit(detectReportType(report.notes))} disabled={isLocked}>
                 <Pencil className="w-4 h-4 mr-2" />
                 {isLocked ? "View Only" : "Edit Report"}
               </Button>
             )}
             {!report && onEdit && (
-              <Button onClick={onEdit}>
+              <Button onClick={() => onEdit()}>
                 <Pencil className="w-4 h-4 mr-2" />
                 Create Report
               </Button>
