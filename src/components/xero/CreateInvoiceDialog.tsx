@@ -51,6 +51,7 @@ interface CreateInvoiceDialogProps {
   onOpenChange: (open: boolean) => void;
   visit: VisitForInvoice;
   onSuccess?: () => void;
+  defaultContactId?: string | null;
 }
 
 // Default line items based on visit type
@@ -96,6 +97,7 @@ export function CreateInvoiceDialog({
   onOpenChange,
   visit,
   onSuccess,
+  defaultContactId,
 }: CreateInvoiceDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -119,8 +121,20 @@ export function CreateInvoiceDialog({
       setLineItems(getDefaultLineItems(visit.visit_type));
       // Reset due date to 30 days from now
       setDueDate(addDays(new Date(), 30));
+      // Reset selected contact - will be auto-selected after contacts load
+      setSelectedContact("");
     }
   }, [open, user, visit]);
+
+  // Auto-select contact when defaultContactId is provided and contacts are loaded
+  useEffect(() => {
+    if (defaultContactId && contacts.length > 0 && !selectedContact) {
+      const matchingContact = contacts.find(c => c.ContactID === defaultContactId);
+      if (matchingContact) {
+        setSelectedContact(matchingContact.ContactID);
+      }
+    }
+  }, [defaultContactId, contacts, selectedContact]);
 
   const checkConnection = async () => {
     if (!user) return;
@@ -135,7 +149,8 @@ export function CreateInvoiceDialog({
   const loadContacts = async () => {
     setLoadingContacts(true);
     try {
-      const data = await fetchXeroContacts();
+      // Only fetch customers (contacts with invoice history)
+      const data = await fetchXeroContacts({ customersOnly: true });
       setContacts(data);
     } catch (error) {
       console.error("Failed to load contacts:", error);

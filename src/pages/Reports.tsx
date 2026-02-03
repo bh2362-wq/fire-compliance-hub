@@ -94,6 +94,7 @@ const Reports = () => {
   const [deleting, setDeleting] = useState(false);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [reportToInvoice, setReportToInvoice] = useState<ReportWithSite | null>(null);
+  const [invoiceContactId, setInvoiceContactId] = useState<string | null>(null);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -198,7 +199,26 @@ const Reports = () => {
     }
   };
 
-  const handleCreateInvoice = (report: ReportWithSite) => {
+  const handleCreateInvoice = async (report: ReportWithSite) => {
+    // Look up the customer linked to this site
+    const { data: siteData } = await supabase
+      .from("sites")
+      .select("customer_id")
+      .eq("id", report.site_id)
+      .maybeSingle();
+    
+    if (siteData?.customer_id) {
+      const { data: customerData } = await supabase
+        .from("customers")
+        .select("xero_contact_id")
+        .eq("id", siteData.customer_id)
+        .maybeSingle();
+      
+      setInvoiceContactId(customerData?.xero_contact_id || null);
+    } else {
+      setInvoiceContactId(null);
+    }
+    
     setReportToInvoice(report);
     setInvoiceDialogOpen(true);
   };
@@ -540,7 +560,10 @@ const Reports = () => {
           open={invoiceDialogOpen}
           onOpenChange={(open) => {
             setInvoiceDialogOpen(open);
-            if (!open) setReportToInvoice(null);
+            if (!open) {
+              setReportToInvoice(null);
+              setInvoiceContactId(null);
+            }
           }}
           visit={{
             id: reportToInvoice.visit_id,
@@ -549,6 +572,7 @@ const Reports = () => {
             site_id: reportToInvoice.site_id,
             sites: reportToInvoice.sites,
           }}
+          defaultContactId={invoiceContactId}
           onSuccess={() => {
             // Mark report as invoiced after successful invoice creation
             handleInvoicedToggle(reportToInvoice.id, true);

@@ -75,6 +75,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const navigate = useNavigate();
   const { toast } = useToast();
   const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
+  const [invoiceContactId, setInvoiceContactId] = useState<string | null>(null);
   const [reportVisit, setReportVisit] = useState<Visit | null>(null);
   const [previewVisit, setPreviewVisit] = useState<Visit | null>(null);
   const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
@@ -366,7 +367,28 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setInvoiceVisit(visit)}
+                onClick={async () => {
+                  // Look up the customer linked to this site
+                  const { data: siteData } = await supabase
+                    .from("sites")
+                    .select("customer_id")
+                    .eq("id", visit.site_id)
+                    .maybeSingle();
+                  
+                  if (siteData?.customer_id) {
+                    const { data: customerData } = await supabase
+                      .from("customers")
+                      .select("xero_contact_id")
+                      .eq("id", siteData.customer_id)
+                      .maybeSingle();
+                    
+                    setInvoiceContactId(customerData?.xero_contact_id || null);
+                  } else {
+                    setInvoiceContactId(null);
+                  }
+                  
+                  setInvoiceVisit(visit);
+                }}
               >
                 <FileText className="w-4 h-4 mr-1" />
                 Invoice
@@ -472,9 +494,15 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       {invoiceVisit && (
         <CreateInvoiceDialog
           open={!!invoiceVisit}
-          onOpenChange={(open) => !open && setInvoiceVisit(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setInvoiceVisit(null);
+              setInvoiceContactId(null);
+            }
+          }}
           visit={{ ...invoiceVisit, sites: invoiceVisit.site }}
           onSuccess={onRefresh}
+          defaultContactId={invoiceContactId}
         />
       )}
 
