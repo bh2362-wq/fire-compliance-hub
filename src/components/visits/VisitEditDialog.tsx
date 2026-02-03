@@ -56,6 +56,7 @@ const STATUSES = [
   { value: "in_progress", label: "In Progress" },
   { value: "completed", label: "Completed" },
   { value: "pending_review", label: "Pending Review" },
+  { value: "invoiced", label: "Invoiced" },
 ];
 
 interface VisitEditDialogProps {
