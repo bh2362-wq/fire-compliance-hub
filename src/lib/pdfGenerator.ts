@@ -796,8 +796,9 @@ export function generateWorkReportPDF(
   data: WorkReportData,
   site: WorkReportSiteInfo,
   visitDate: string,
-  visitType?: string
-): void {
+  visitType?: string,
+  returnBase64?: boolean
+): string | void {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -1309,6 +1310,12 @@ export function generateWorkReportPDF(
   addCompactFooter(doc, pageWidth, margin);
 
   const fileName = `BHO_Work_Report_${site.name.replace(/\s+/g, "_")}_${format(new Date(visitDate), "yyyy-MM-dd")}.pdf`;
+  
+  if (returnBase64) {
+    // Return base64 string (without data URI prefix)
+    return doc.output("datauristring").split(",")[1];
+  }
+  
   doc.save(fileName);
 }
 
