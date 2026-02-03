@@ -23,7 +23,8 @@ import {
   GraduationCap,
   Search,
   MessageSquare,
-  TrendingUp
+  TrendingUp,
+  HardHat
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -53,6 +54,7 @@ const qmsNavigation = [
   { name: "NCRs", href: "/qms/ncrs", icon: AlertTriangle },
   { name: "CAPAs", href: "/qms/capas", icon: ClipboardCheck },
   { name: "Risks", href: "/qms/risks", icon: ShieldAlert },
+  { name: "RAMS", href: "/qms/rams", icon: HardHat },
   { name: "Training", href: "/qms/training", icon: GraduationCap },
   { name: "Audits", href: "/qms/audits", icon: Search },
   { name: "Feedback", href: "/qms/feedback", icon: MessageSquare },
