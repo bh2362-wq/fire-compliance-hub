@@ -108,6 +108,7 @@ export function WorkReportDialog({
     id: string;
     name: string;
     xero_contact_id: string | null;
+    email_recipients?: string | null;
   } | null>(null);
   const [siteInfo, setSiteInfo] = useState<{
     id: string;
@@ -310,13 +311,13 @@ export function WorkReportDialog({
       // Fetch site info with customer details
       const { data: site } = await supabase
         .from("sites")
-        .select("id, name, address, city, postcode, contact_name, contact_email, customer_id, customers(id, name, xero_contact_id, contact_email)")
+        .select("id, name, address, city, postcode, contact_name, contact_email, customer_id, customers(id, name, xero_contact_id, contact_email, email_recipients)")
         .eq("id", visit.site_id)
         .maybeSingle();
 
       if (site) {
         // Get customer contact email if site doesn't have one
-        const customerData = site.customers as { id: string; name: string; xero_contact_id: string | null; contact_email?: string | null } | null;
+        const customerData = site.customers as { id: string; name: string; xero_contact_id: string | null; contact_email?: string | null; email_recipients?: string | null } | null;
         const contactEmail = site.contact_email || customerData?.contact_email || "";
         
         setSiteInfo({
@@ -335,6 +336,7 @@ export function WorkReportDialog({
             id: customerData.id,
             name: customerData.name,
             xero_contact_id: customerData.xero_contact_id,
+            email_recipients: customerData.email_recipients,
           });
         }
       }
@@ -1921,7 +1923,12 @@ export function WorkReportDialog({
         open={showEmailDialog}
         onOpenChange={setShowEmailDialog}
         defaultEmail={siteInfo?.contact_email || ""}
+        defaultRecipients={customerInfo?.email_recipients || ""}
         customerName={customerInfo?.name || siteInfo?.contact_name || ""}
+        customerId={customerInfo?.id}
+        siteId={siteInfo?.id}
+        visitId={visit.id}
+        reportId={report?.id}
         siteName={siteInfo?.name || ""}
         reportNumber={certificateNo}
         reportDate={format(new Date(visit.visit_date), "dd-MM-yyyy")}

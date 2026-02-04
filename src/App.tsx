@@ -21,6 +21,7 @@ import Reconciliation from "./pages/Reconciliation";
 import Settings from "./pages/Settings";
 import Schedule from "./pages/Schedule";
 import NotFound from "./pages/NotFound";
+import EmailLogs from "./pages/EmailLogs";
 
 // QMS Pages
 import QMSDashboard from "./pages/qms/QMSDashboard";
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/dashboard/upload" element={<ProtectedRoute><UploadDemo /></ProtectedRoute>} />
             <Route path="/dashboard/reconciliation" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/dashboard/email-logs" element={<ProtectedRoute><EmailLogs /></ProtectedRoute>} />
             
             {/* QMS Routes */}
             <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
