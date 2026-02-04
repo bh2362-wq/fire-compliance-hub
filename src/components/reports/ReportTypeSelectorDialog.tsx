@@ -8,11 +8,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileText, Wind, Server, Flame, ChevronRight } from "lucide-react";
+import { Loader2, FileText, Wind, Phone, Flame, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ServiceReportDialog } from "./ServiceReportDialog";
 import { ASDReportDialog } from "./ASDReportDialog";
 import { WorkReportDialog } from "./WorkReportDialog";
+import { DisabledRefugeReportDialog } from "./DisabledRefugeReportDialog";
 
 interface VisitForReport {
   id: string;
@@ -51,11 +52,13 @@ export function ReportTypeSelectorDialog({
   const [loading, setLoading] = useState(true);
   const [fireAssets, setFireAssets] = useState<ContractAsset[]>([]);
   const [asdAssets, setAsdAssets] = useState<ContractAsset[]>([]);
+  const [disabledRefugeAssets, setDisabledRefugeAssets] = useState<ContractAsset[]>([]);
 
   // Sub-dialog states
   const [showFireReport, setShowFireReport] = useState(false);
   const [showAsdReport, setShowAsdReport] = useState(false);
   const [showJobSheet, setShowJobSheet] = useState(false);
+  const [showDisabledRefugeReport, setShowDisabledRefugeReport] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -98,7 +101,7 @@ export function ReportTypeSelectorDialog({
           service_type: contractTypeMap.get(a.contract_id) || "Unknown",
         }));
 
-        // Separate fire panels and ASD units
+        // Separate fire panels, ASD units, and disabled refuge units
         const fire = enrichedAssets.filter(
           (a) => a.service_type === "Fire" && 
                  (a.item_type?.toLowerCase().includes("panel") || 
@@ -109,9 +112,16 @@ export function ReportTypeSelectorDialog({
                  a.item_type?.toLowerCase().includes("asd") ||
                  a.item_type?.toLowerCase().includes("aspirat")
         );
+        const disabledRefuge = enrichedAssets.filter(
+          (a) => a.service_type === "Disabled Refuge" ||
+                 a.item_type?.toLowerCase().includes("disabled refuge") ||
+                 a.item_type?.toLowerCase().includes("evc") ||
+                 a.item_type?.toLowerCase().includes("refuge")
+        );
 
         setFireAssets(fire);
         setAsdAssets(asd);
+        setDisabledRefugeAssets(disabledRefuge);
       }
     } catch (error) {
       console.error("Failed to load assets:", error);
@@ -135,10 +145,16 @@ export function ReportTypeSelectorDialog({
     onOpenChange(false);
   };
 
+  const handleDisabledRefugeClick = () => {
+    setShowDisabledRefugeReport(true);
+    onOpenChange(false);
+  };
+
   const handleSubDialogClose = () => {
     setShowFireReport(false);
     setShowAsdReport(false);
     setShowJobSheet(false);
+    setShowDisabledRefugeReport(false);
   };
 
   const handleSubDialogSuccess = () => {
@@ -148,10 +164,10 @@ export function ReportTypeSelectorDialog({
 
   // If no assets, go straight to fire report
   useEffect(() => {
-    if (!loading && fireAssets.length === 0 && asdAssets.length === 0) {
+    if (!loading && fireAssets.length === 0 && asdAssets.length === 0 && disabledRefugeAssets.length === 0) {
       handleFireReportClick();
     }
-  }, [loading, fireAssets, asdAssets]);
+  }, [loading, fireAssets, asdAssets, disabledRefugeAssets]);
 
   // Render sub-dialogs
   if (showJobSheet) {
@@ -189,6 +205,20 @@ export function ReportTypeSelectorDialog({
         }}
         visit={visit}
         assets={asdAssets}
+        onSuccess={handleSubDialogSuccess}
+      />
+    );
+  }
+
+  if (showDisabledRefugeReport && disabledRefugeAssets.length > 0) {
+    return (
+      <DisabledRefugeReportDialog
+        open={true}
+        onOpenChange={(open) => {
+          if (!open) handleSubDialogClose();
+        }}
+        visit={visit}
+        assets={disabledRefugeAssets}
         onSuccess={handleSubDialogSuccess}
       />
     );
@@ -288,10 +318,41 @@ export function ReportTypeSelectorDialog({
               </button>
             )}
 
-            {/* No ASD message - subtle */}
-            {asdAssets.length === 0 && (
+            {/* Disabled Refuge Report */}
+            {disabledRefugeAssets.length > 0 && (
+              <button
+                type="button"
+                className="w-full group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-accent hover:border-accent transition-all text-left"
+                onClick={handleDisabledRefugeClick}
+              >
+                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0 group-hover:bg-secondary/80 transition-colors">
+                  <Phone className="w-6 h-6 text-secondary-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-foreground flex items-center gap-2 flex-wrap">
+                    Disabled Refuge / EVC Report
+                    {disabledRefugeAssets.length > 1 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {disabledRefugeAssets.length} units
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                    BS 5839-9 compliance checklist.
+                    <br />
+                    {disabledRefugeAssets.length === 1 
+                      ? disabledRefugeAssets[0].item_name
+                      : `Covers all ${disabledRefugeAssets.length} EVC units on site.`}
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+              </button>
+            )}
+
+            {/* No specialty reports message */}
+            {asdAssets.length === 0 && disabledRefugeAssets.length === 0 && (
               <p className="text-xs text-muted-foreground text-center pt-2">
-                No ASD units on this site's contract.
+                No ASD or Disabled Refuge units on this site's contract.
               </p>
             )}
           </div>

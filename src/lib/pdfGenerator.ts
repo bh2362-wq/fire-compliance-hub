@@ -1928,3 +1928,561 @@ export function generateASDReportPDF(
   const fileName = `BHO_ASD_Report_${site.name.replace(/\s+/g, "_")}_${format(new Date(visitDate), "yyyy-MM-dd")}.pdf`;
   doc.save(fileName);
 }
+
+// ===================== DISABLED REFUGE REPORT PDF =====================
+import {
+  DisabledRefugeChecklist,
+  DISABLED_REFUGE_CHECKLIST_LABELS,
+  DISABLED_REFUGE_SECTION_LABELS,
+} from "@/services/disabledRefugeChecklistService";
+
+interface DisabledRefugeUnitData {
+  assetId: string;
+  assetName: string;
+  manufacturer?: string;
+  model?: string;
+  location?: string;
+  checklist: DisabledRefugeChecklist;
+  defects?: string;
+  recommendations?: string;
+  systemCondition?: string;
+}
+
+interface DisabledRefugeReportData {
+  reportNumber: string;
+  reportDate: string;
+  engineerName: string;
+  clientName: string;
+  units: DisabledRefugeUnitData[];
+  systemCondition?: string;
+  defectsFound?: string;
+  recommendations?: string;
+  workCarriedOut?: string;
+  partsUsed?: string;
+  notes?: string;
+  engineerSignature?: string;
+  engineerSignDate?: string;
+  engineerSignTime?: string;
+  customerNotPresent?: boolean;
+  customerSignature?: string;
+  customerSignDate?: string;
+  customerSignTime?: string;
+}
+
+export async function generateDisabledRefugeReportPDF(
+  data: DisabledRefugeReportData,
+  site: SiteInfo,
+  visitDate: string,
+  visitType: string
+) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 10;
+  const contentWidth = pageWidth - 2 * margin;
+
+  // Load logo
+  let logoImg: HTMLImageElement | null = null;
+  try {
+    logoImg = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = "/bho-fire-logo.png";
+    });
+  } catch {
+    // Logo load failed
+  }
+
+  let yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+
+  // Report title
+  doc.setFillColor(...COLORS.red);
+  doc.rect(margin, yPos, contentWidth, 10, "F");
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("DISABLED REFUGE / EVC SERVICE REPORT", margin + 3, yPos + 7);
+
+  // Report number badge
+  if (data.reportNumber) {
+    doc.setFillColor(...COLORS.charcoal);
+    const numWidth = doc.getTextWidth(data.reportNumber) + 8;
+    doc.rect(pageWidth - margin - numWidth, yPos + 1, numWidth, 8, "F");
+    doc.setFontSize(9);
+    doc.text(data.reportNumber, pageWidth - margin - 4, yPos + 6.5, { align: "right" });
+  }
+
+  yPos += 14;
+
+  // Site & Service Info Grid
+  const boxHeight = 32;
+  const leftWidth = contentWidth * 0.55;
+  const rightWidth = contentWidth * 0.45 - 4;
+  const leftX = margin;
+  const rightX = margin + leftWidth + 4;
+
+  // Site Info Box
+  doc.setDrawColor(...COLORS.borderGrey);
+  doc.setLineWidth(0.3);
+  doc.rect(leftX, yPos, leftWidth, boxHeight);
+  doc.setFillColor(...COLORS.charcoal);
+  doc.rect(leftX, yPos, leftWidth, 6, "F");
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Site Information", leftX + 3, yPos + 4);
+
+  doc.setTextColor(...COLORS.charcoal);
+  doc.setFontSize(9);
+  let rowY = yPos + 12;
+  const siteRows = [
+    ["Site:", site.name],
+    ["Address:", [site.address, site.city, site.postcode].filter(Boolean).join(", ") || "-"],
+    ["Contact:", site.contact_name || "-"],
+  ];
+  siteRows.forEach(([label, val]) => {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.text(label as string, leftX + 3, rowY);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.charcoal);
+    const valText = doc.splitTextToSize(val as string, leftWidth - 30);
+    doc.text(valText[0] || "-", leftX + 22, rowY);
+    rowY += 6.5;
+  });
+
+  // Service Info Box
+  doc.rect(rightX, yPos, rightWidth, boxHeight);
+  doc.setFillColor(...COLORS.charcoal);
+  doc.rect(rightX, yPos, rightWidth, 6, "F");
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Service Details", rightX + 3, yPos + 4);
+
+  const serviceRows = [
+    ["Date:", format(new Date(visitDate), "dd/MM/yyyy")],
+    ["Type:", visitType || "EVC Service"],
+    ["Engineer:", data.engineerName || "-"],
+    ["Units:", `${data.units.length}`],
+  ];
+  doc.setFontSize(9);
+  rowY = yPos + 12;
+  serviceRows.forEach(([label, val]) => {
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.setFont("helvetica", "bold");
+    doc.text(label, rightX + 3, rowY);
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFont("helvetica", "normal");
+    doc.text(val, rightX + 24, rowY);
+    rowY += 6.5;
+  });
+
+  yPos += boxHeight + 5;
+
+  // === Loop through each unit ===
+  data.units.forEach((unit, unitIndex) => {
+    // Check if we need a new page
+    if (yPos > pageHeight - 80) {
+      doc.addPage();
+      yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+    }
+
+    // Unit header
+    doc.setFillColor(...COLORS.red);
+    doc.rect(margin, yPos, contentWidth, 8, "F");
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(`UNIT ${unitIndex + 1}: ${unit.assetName}`, margin + 3, yPos + 5.5);
+
+    // Unit info on same line if space
+    if (unit.manufacturer || unit.location) {
+      const infoText = [unit.manufacturer, unit.model, unit.location].filter(Boolean).join(" | ");
+      doc.setFontSize(8);
+      doc.text(infoText, pageWidth - margin - 3, yPos + 5.5, { align: "right" });
+    }
+
+    yPos += 11;
+
+    // Checklist sections as compact table
+    const checklist = unit.checklist;
+    const checklistRows: (string | { content: string; styles?: Record<string, unknown> })[][] = [];
+
+    // All checkable sections
+    const sections = [
+      "documentation_compliance",
+      "control_equipment", 
+      "power_supplies",
+      "refuge_outstations",
+      "communication_performance",
+      "cabling_installation",
+      "signage_identification",
+      "testing_maintenance",
+      "staff_awareness",
+      "final_status",
+    ] as const;
+
+    sections.forEach((sectionKey) => {
+      const labels = DISABLED_REFUGE_CHECKLIST_LABELS[sectionKey];
+      const sectionData = checklist[sectionKey] as Record<string, boolean | null>;
+      
+      // Add section header row
+      checklistRows.push([
+        { content: DISABLED_REFUGE_SECTION_LABELS[sectionKey], styles: { fontStyle: "bold", fillColor: COLORS.lightGrey } },
+        { content: "", styles: { fillColor: COLORS.lightGrey } },
+      ]);
+      
+      Object.entries(labels).forEach(([key, label]) => {
+        const val = sectionData[key];
+        checklistRows.push([
+          label,
+          val === true ? "YES" : val === false ? "NO" : "N/A",
+        ]);
+      });
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Checklist Item", "Status"]],
+      body: checklistRows,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 7, cellPadding: 1.5 },
+      headStyles: { fillColor: COLORS.charcoal, textColor: COLORS.white, fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: contentWidth * 0.8 },
+        1: { cellWidth: contentWidth * 0.2, halign: "center" },
+      },
+      didParseCell: (tableData) => {
+        if (tableData.section === "body" && tableData.column.index === 1) {
+          const val = String(tableData.cell.raw);
+          if (val === "YES") {
+            tableData.cell.styles.textColor = COLORS.yes;
+            tableData.cell.styles.fontStyle = "bold";
+          } else if (val === "NO") {
+            tableData.cell.styles.textColor = COLORS.no;
+            tableData.cell.styles.fontStyle = "bold";
+          } else if (val === "N/A") {
+            tableData.cell.styles.textColor = COLORS.mediumGrey;
+          }
+        }
+      },
+    });
+
+    yPos = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || yPos + 50;
+    yPos += 3;
+
+    // Defects & Recommendations for this unit
+    if (unit.defects || unit.recommendations || unit.systemCondition) {
+      const defectLines = unit.defects 
+        ? doc.splitTextToSize(unit.defects, contentWidth - 30) 
+        : [];
+      const recLines = unit.recommendations 
+        ? doc.splitTextToSize(unit.recommendations, contentWidth - 45) 
+        : [];
+      
+      const lineHeight = 5;
+      const headerHeight = 6;
+      const padding = 8;
+      const defectRowHeight = unit.defects ? Math.max(1, defectLines.length) * lineHeight : 0;
+      const recRowHeight = unit.recommendations ? Math.max(1, recLines.length) * lineHeight : 0;
+      const conditionRowHeight = unit.systemCondition ? lineHeight : 0;
+      const defectBoxHeight = headerHeight + padding + defectRowHeight + recRowHeight + conditionRowHeight + 4;
+
+      if (yPos > pageHeight - defectBoxHeight - 10) {
+        doc.addPage();
+        yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+      }
+
+      doc.setDrawColor(...COLORS.borderGrey);
+      doc.rect(margin, yPos, contentWidth, defectBoxHeight);
+
+      doc.setFillColor(...COLORS.charcoal);
+      doc.rect(margin, yPos, contentWidth, headerHeight, "F");
+      doc.setTextColor(...COLORS.white);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("Defects & Recommendations", margin + 3, yPos + 4);
+
+      // System condition badge in header
+      if (unit.systemCondition) {
+        const condLabel = unit.systemCondition === "satisfactory" 
+          ? "Satisfactory" 
+          : unit.systemCondition === "requires_attention" 
+          ? "Requires Attention" 
+          : "Unsatisfactory";
+        const condColor = unit.systemCondition === "satisfactory" 
+          ? COLORS.yes 
+          : unit.systemCondition === "requires_attention" 
+          ? [255, 165, 0] as [number, number, number]
+          : COLORS.no;
+        doc.setTextColor(...condColor);
+        doc.setFont("helvetica", "bold");
+        doc.text(condLabel, pageWidth - margin - 3, yPos + 4, { align: "right" });
+      }
+
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.charcoal);
+      doc.setFont("helvetica", "normal");
+
+      let textY = yPos + headerHeight + 5;
+      
+      if (unit.defects) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Defects:", margin + 3, textY);
+        doc.setFont("helvetica", "normal");
+        doc.text(defectLines, margin + 22, textY);
+        textY += defectRowHeight + 2;
+      }
+      
+      if (unit.recommendations) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Recommendations:", margin + 3, textY);
+        doc.setFont("helvetica", "normal");
+        doc.text(recLines, margin + 35, textY);
+        textY += recRowHeight + 2;
+      }
+
+      yPos += defectBoxHeight + 5;
+    }
+
+    yPos += 5;
+  });
+
+  // === OVERALL SUMMARY ===
+  if (data.systemCondition || data.defectsFound || data.recommendations) {
+    const defectLinesGlobal = data.defectsFound 
+      ? doc.splitTextToSize(data.defectsFound, contentWidth - 30) 
+      : [];
+    const recLinesGlobal = data.recommendations 
+      ? doc.splitTextToSize(data.recommendations, contentWidth - 45) 
+      : [];
+    
+    const lineHeightS = 5;
+    const headerHeightS = 7;
+    const paddingS = 6;
+    const defectRowHeightS = data.defectsFound ? Math.max(1, defectLinesGlobal.length) * lineHeightS : 0;
+    const recRowHeightS = data.recommendations ? Math.max(1, recLinesGlobal.length) * lineHeightS : 0;
+    const conditionRowHeightS = data.systemCondition ? lineHeightS + 2 : 0;
+    const summaryBoxHeight = headerHeightS + paddingS + conditionRowHeightS + defectRowHeightS + recRowHeightS + 6;
+
+    if (yPos > pageHeight - summaryBoxHeight - 10) {
+      doc.addPage();
+      yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+    }
+
+    doc.setDrawColor(...COLORS.borderGrey);
+    doc.setLineWidth(0.5);
+    doc.rect(margin, yPos, contentWidth, summaryBoxHeight);
+
+    doc.setFillColor(...COLORS.charcoal);
+    doc.rect(margin, yPos, contentWidth, headerHeightS, "F");
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("OVERALL SUMMARY", margin + 3, yPos + 5);
+
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFont("helvetica", "normal");
+
+    let textYS = yPos + headerHeightS + 5;
+
+    if (data.systemCondition) {
+      const condLabelS = data.systemCondition === "satisfactory" 
+        ? "SATISFACTORY" 
+        : data.systemCondition === "requires_attention" 
+        ? "REQUIRES ATTENTION" 
+        : "UNSATISFACTORY";
+      const condColorS = data.systemCondition === "satisfactory" 
+        ? COLORS.yes 
+        : data.systemCondition === "requires_attention" 
+        ? [255, 165, 0] as [number, number, number]
+        : COLORS.no;
+      
+      doc.setFont("helvetica", "bold");
+      doc.text("System Condition:", margin + 3, textYS);
+      doc.setTextColor(...condColorS);
+      doc.text(condLabelS, margin + 38, textYS);
+      doc.setTextColor(...COLORS.charcoal);
+      textYS += lineHeightS + 3;
+    }
+
+    if (data.defectsFound) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Defects Found:", margin + 3, textYS);
+      doc.setFont("helvetica", "normal");
+      doc.text(defectLinesGlobal, margin + 35, textYS);
+      textYS += defectRowHeightS + 2;
+    }
+
+    if (data.recommendations) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Recommendations:", margin + 3, textYS);
+      doc.setFont("helvetica", "normal");
+      doc.text(recLinesGlobal, margin + 40, textYS);
+    }
+
+    yPos += summaryBoxHeight + 5;
+  }
+
+  // === Work Carried Out / Notes ===
+  if (data.workCarriedOut || data.partsUsed || data.notes) {
+    const workLinesCalc = data.workCarriedOut ? doc.splitTextToSize(data.workCarriedOut, contentWidth - 6) : [];
+    const partsLinesCalc = data.partsUsed ? doc.splitTextToSize(data.partsUsed, contentWidth - 6) : [];
+    const notesLinesCalc = data.notes ? doc.splitTextToSize(data.notes, contentWidth - 6) : [];
+    
+    const lineH = 4;
+    const headerH = 6;
+    const workRowH = data.workCarriedOut ? Math.max(1, Math.min(workLinesCalc.length, 4)) * lineH : 0;
+    const partsRowH = data.partsUsed ? Math.max(1, Math.min(partsLinesCalc.length, 2)) * lineH : 0;
+    const notesRowH = data.notes ? Math.max(1, Math.min(notesLinesCalc.length, 3)) * lineH : 0;
+    const notesBoxHeight = headerH + 8 + workRowH + partsRowH + notesRowH;
+
+    if (yPos > pageHeight - notesBoxHeight - 10) {
+      doc.addPage();
+      yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+    }
+
+    doc.setDrawColor(...COLORS.borderGrey);
+    doc.rect(margin, yPos, contentWidth, notesBoxHeight);
+
+    doc.setFillColor(...COLORS.charcoal);
+    doc.rect(margin, yPos, contentWidth, headerH, "F");
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Work Summary & Notes", margin + 3, yPos + 4);
+
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFont("helvetica", "normal");
+
+    let textYN = yPos + headerH + 5;
+    if (data.workCarriedOut) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Work Carried Out:", margin + 3, textYN);
+      doc.setFont("helvetica", "normal");
+      const workLines = workLinesCalc.slice(0, 4);
+      doc.text(workLines, margin + 40, textYN);
+      textYN += workRowH + 2;
+    }
+    if (data.partsUsed) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Parts Used:", margin + 3, textYN);
+      doc.setFont("helvetica", "normal");
+      const partsLines = partsLinesCalc.slice(0, 2);
+      doc.text(partsLines, margin + 28, textYN);
+      textYN += partsRowH + 2;
+    }
+    if (data.notes) {
+      doc.setFont("helvetica", "bold");
+      doc.text("Notes:", margin + 3, textYN);
+      doc.setFont("helvetica", "normal");
+      const noteLines = notesLinesCalc.slice(0, 3);
+      doc.text(noteLines, margin + 18, textYN);
+    }
+
+    yPos += notesBoxHeight + 5;
+  }
+
+  // === Signatures Section ===
+  if (yPos > pageHeight - 60) {
+    doc.addPage();
+    yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
+  }
+
+  const sigWidth = (contentWidth - 6) / 2;
+  const sigBoxHeight = 45;
+  const sigAreaHeight = 25;
+
+  // Engineer Signature
+  doc.setDrawColor(...COLORS.borderGrey);
+  doc.rect(margin, yPos, sigWidth, sigBoxHeight);
+  doc.setFillColor(...COLORS.charcoal);
+  doc.rect(margin, yPos, sigWidth, 6, "F");
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Engineer Signature", margin + 3, yPos + 4);
+
+  doc.setTextColor(...COLORS.charcoal);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.engineerName || "-", margin + 3, yPos + 11);
+
+  const engSigY = yPos + 14;
+  doc.setFillColor(...COLORS.white);
+  doc.rect(margin + 2, engSigY, sigWidth - 4, sigAreaHeight, "F");
+  doc.setDrawColor(...COLORS.borderGrey);
+  doc.line(margin + 4, engSigY + sigAreaHeight - 2, margin + sigWidth - 4, engSigY + sigAreaHeight - 2);
+
+  if (data.engineerSignature) {
+    try {
+      doc.addImage(data.engineerSignature, "PNG", margin + 4, engSigY + 1, sigWidth - 8, sigAreaHeight - 4);
+    } catch {
+      // Signature failed
+    }
+  }
+
+  const engSignDateStr = data.engineerSignDate
+    ? format(new Date(data.engineerSignDate), "dd/MM/yyyy")
+    : format(new Date(visitDate), "dd/MM/yyyy");
+  doc.setFontSize(7);
+  doc.setTextColor(...COLORS.mediumGrey);
+  doc.text(`Signed: ${engSignDateStr}${data.engineerSignTime ? ` ${data.engineerSignTime}` : ""}`, margin + 3, yPos + sigBoxHeight + 3);
+
+  // Customer Signature
+  const custX = margin + sigWidth + 6;
+  doc.rect(custX, yPos, sigWidth, sigBoxHeight);
+  doc.setFillColor(...COLORS.charcoal);
+  doc.rect(custX, yPos, sigWidth, 6, "F");
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Customer Signature", custX + 3, yPos + 4);
+
+  if (data.customerNotPresent) {
+    doc.setFillColor(...COLORS.lightGrey);
+    doc.rect(custX + 2, yPos + 10, sigWidth - 4, sigAreaHeight, "F");
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.text("Customer not present", custX + 3, yPos + 22);
+    doc.setFontSize(7);
+    doc.text("Signed by engineer only", custX + 3, yPos + sigBoxHeight + 3);
+  } else {
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text(data.clientName || "-", custX + 3, yPos + 11);
+
+    const custSigY = yPos + 14;
+    doc.setFillColor(...COLORS.white);
+    doc.rect(custX + 2, custSigY, sigWidth - 4, sigAreaHeight, "F");
+    doc.setDrawColor(...COLORS.borderGrey);
+    doc.line(custX + 4, custSigY + sigAreaHeight - 2, custX + sigWidth - 4, custSigY + sigAreaHeight - 2);
+
+    if (data.customerSignature) {
+      try {
+        doc.addImage(data.customerSignature, "PNG", custX + 4, custSigY + 1, sigWidth - 8, sigAreaHeight - 4);
+      } catch {
+        // Signature failed
+      }
+    }
+
+    const custSignDateStr = data.customerSignDate
+      ? format(new Date(data.customerSignDate), "dd/MM/yyyy")
+      : format(new Date(visitDate), "dd/MM/yyyy");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLORS.mediumGrey);
+    doc.text(`Signed: ${custSignDateStr}${data.customerSignTime ? ` ${data.customerSignTime}` : ""}`, custX + 3, yPos + sigBoxHeight + 3);
+  }
+
+  addCompactFooter(doc, pageWidth, margin);
+
+  const fileName = `BHO_DisabledRefuge_Report_${site.name.replace(/\s+/g, "_")}_${format(new Date(visitDate), "yyyy-MM-dd")}.pdf`;
+  doc.save(fileName);
+}
