@@ -10,7 +10,7 @@ const corsHeaders = {
 };
 
 interface SendReportRequest {
-  to: string;
+  to: string | string[]; // Support single email or array of emails
   subject: string;
   siteName: string;
   reportNumber: string;
@@ -20,6 +20,9 @@ interface SendReportRequest {
   companyName?: string;
   logoUrl?: string;
 }
+
+// Helper to delay execution
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -40,19 +43,23 @@ serve(async (req) => {
       logoUrl,
     }: SendReportRequest = await req.json();
 
+    // Normalize to array of recipients
+    const recipients = Array.isArray(to) ? to : [to];
+
     // Validate required fields
-    if (!to || !pdfBase64) {
+    if (!recipients.length || !pdfBase64) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: to and pdfBase64" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate email format
+    // Validate email formats
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(to)) {
+    const invalidEmails = recipients.filter((email) => !emailRegex.test(email));
+    if (invalidEmails.length > 0) {
       return new Response(
-        JSON.stringify({ error: "Invalid email address" }),
+        JSON.stringify({ error: `Invalid email address(es): ${invalidEmails.join(", ")}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -60,67 +67,95 @@ serve(async (req) => {
     const fileName = `${reportNumber || "Report"}-${reportDate || "report"}.pdf`;
     const fromName = companyName || "Service Reports";
 
-    console.log(`Sending report email to ${to}, report: ${reportNumber}`);
-
-    const emailResponse = await resend.emails.send({
-      from: `${fromName} <noreply@bhofire.com>`,
-      to: [to],
-      subject: subject || `Service Report - ${siteName || "Site"}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-          ${logoUrl ? `
-          <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #dc2626;">
-            <img src="${logoUrl}" alt="${companyName || 'Company'} Logo" style="max-height: 60px; max-width: 200px;" />
-          </div>
-          ` : ''}
-          <div style="padding: 30px 20px;">
-            <h2 style="color: #1f2937; margin-top: 0;">Service Report</h2>
-            ${customerName ? `<p style="color: #374151;">Dear ${customerName},</p>` : '<p style="color: #374151;">Dear Customer,</p>'}
-            <p style="color: #374151;">Please find attached the service report for your records.</p>
-            <table style="border-collapse: collapse; margin: 20px 0; width: 100%;">
-              <tr style="background-color: #f9fafb;">
-                <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Report Number:</td>
-                <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${reportNumber || "—"}</td>
-              </tr>
-              <tr>
-                <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Site:</td>
-                <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${siteName || "—"}</td>
-              </tr>
-              <tr style="background-color: #f9fafb;">
-                <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Date:</td>
-                <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${reportDate || "—"}</td>
-              </tr>
-            </table>
-            <p style="color: #374151;">If you have any questions regarding this report, please don't hesitate to contact us.</p>
-            <p style="margin-top: 30px; color: #374151;">Kind regards,<br/><strong>${companyName || "The Service Team"}</strong></p>
-          </div>
-          <div style="background-color: #1f2937; color: #9ca3af; padding: 20px; text-align: center; font-size: 12px;">
-            <p style="margin: 0;">${companyName || "BHO Fire"}</p>
-            <p style="margin: 5px 0 0 0;">This is an automated email. Please do not reply directly to this message.</p>
-          </div>
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        ${logoUrl ? `
+        <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #dc2626;">
+          <img src="${logoUrl}" alt="${companyName || 'Company'} Logo" style="max-height: 60px; max-width: 200px;" />
         </div>
-      `,
-      attachments: [
-        {
-          filename: fileName,
-          content: pdfBase64,
-        },
-      ],
-    });
+        ` : ''}
+        <div style="padding: 30px 20px;">
+          <h2 style="color: #1f2937; margin-top: 0;">Service Report</h2>
+          ${customerName ? `<p style="color: #374151;">Dear ${customerName},</p>` : '<p style="color: #374151;">Dear Customer,</p>'}
+          <p style="color: #374151;">Please find attached the service report for your records.</p>
+          <table style="border-collapse: collapse; margin: 20px 0; width: 100%;">
+            <tr style="background-color: #f9fafb;">
+              <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Report Number:</td>
+              <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${reportNumber || "—"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Site:</td>
+              <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${siteName || "—"}</td>
+            </tr>
+            <tr style="background-color: #f9fafb;">
+              <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Date:</td>
+              <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${reportDate || "—"}</td>
+            </tr>
+          </table>
+          <p style="color: #374151;">If you have any questions regarding this report, please don't hesitate to contact us.</p>
+          <p style="margin-top: 30px; color: #374151;">Kind regards,<br/><strong>${companyName || "The Service Team"}</strong></p>
+        </div>
+        <div style="background-color: #1f2937; color: #9ca3af; padding: 20px; text-align: center; font-size: 12px;">
+          <p style="margin: 0;">${companyName || "BHO Fire"}</p>
+          <p style="margin: 5px 0 0 0;">This is an automated email. Please do not reply directly to this message.</p>
+        </div>
+      </div>
+    `;
 
-    // Check for Resend API errors
-    if (emailResponse.error) {
-      console.error("Resend API error:", emailResponse.error);
-      return new Response(
-        JSON.stringify({ error: emailResponse.error.message || "Failed to send email" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const results: { email: string; success: boolean; id?: string; error?: string }[] = [];
+
+    // Send emails sequentially with delay to respect rate limit (2 req/sec)
+    for (let i = 0; i < recipients.length; i++) {
+      const email = recipients[i];
+      
+      // Add delay between requests (600ms to stay under 2/sec limit)
+      if (i > 0) {
+        await delay(600);
+      }
+
+      console.log(`Sending report email to ${email}, report: ${reportNumber}`);
+
+      try {
+        const emailResponse = await resend.emails.send({
+          from: `${fromName} <noreply@bhofire.com>`,
+          to: [email],
+          subject: subject || `Service Report - ${siteName || "Site"}`,
+          html: emailHtml,
+          attachments: [
+            {
+              filename: fileName,
+              content: pdfBase64,
+            },
+          ],
+        });
+
+        if (emailResponse.error) {
+          console.error(`Failed to send to ${email}:`, emailResponse.error);
+          results.push({ email, success: false, error: emailResponse.error.message });
+        } else {
+          console.log(`Email sent successfully to ${email}:`, emailResponse.data);
+          results.push({ email, success: true, id: emailResponse.data?.id });
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : "Unknown error";
+        console.error(`Error sending to ${email}:`, errMsg);
+        results.push({ email, success: false, error: errMsg });
+      }
     }
 
-    console.log("Email sent successfully:", emailResponse.data);
+    const successful = results.filter((r) => r.success);
+    const failed = results.filter((r) => !r.success);
 
     return new Response(
-      JSON.stringify({ success: true, data: emailResponse.data }),
+      JSON.stringify({
+        success: failed.length === 0,
+        results,
+        summary: {
+          total: recipients.length,
+          sent: successful.length,
+          failed: failed.length,
+        },
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

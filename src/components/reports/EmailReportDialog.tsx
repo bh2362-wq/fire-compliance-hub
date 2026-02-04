@@ -152,43 +152,35 @@ export function EmailReportDialog({
       // Generate PDF as base64
       const pdfBase64 = await generatePdfBase64();
 
-      // Send to each recipient
-      const results = await Promise.all(
-        recipients.map(async (email) => {
-          try {
-            const { data, error } = await supabase.functions.invoke("send-report-email", {
-              body: {
-                to: email,
-                subject: subject.trim(),
-                siteName,
-                reportNumber,
-                reportDate,
-                pdfBase64,
-                customerName,
-                companyName,
-                logoUrl,
-              },
-            });
+      // Send all recipients in a single request (edge function handles rate limiting)
+      const { data, error } = await supabase.functions.invoke("send-report-email", {
+        body: {
+          to: recipients, // Pass array of recipients
+          subject: subject.trim(),
+          siteName,
+          reportNumber,
+          reportDate,
+          pdfBase64,
+          customerName,
+          companyName,
+          logoUrl,
+        },
+      });
 
-            if (error) throw error;
-            if (data?.error) throw new Error(data.error);
-            
-            return { email, success: true, resendId: data?.data?.id };
-          } catch (err) {
-            return { email, success: false, error: err };
-          }
-        })
-      );
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      const successful = results.filter((r) => r.success);
-      const failed = results.filter((r) => !r.success);
+      const summary = data?.summary || { sent: 0, failed: 0 };
+      const results = data?.results || [];
+      const successful = results.filter((r: { success: boolean }) => r.success);
+      const failed = results.filter((r: { success: boolean }) => !r.success);
 
       // Update email log with status
       if (emailLogId) {
         const status = failed.length === 0 ? "sent" : failed.length === recipients.length ? "failed" : "partial";
-        const resendId = successful[0]?.resendId || null;
+        const resendId = successful[0]?.id || null;
         const errorMessage = failed.length > 0 
-          ? `Failed: ${failed.map((f) => f.email).join(", ")}` 
+          ? `Failed: ${failed.map((f: { email: string }) => f.email).join(", ")}` 
           : null;
 
         await supabase
@@ -201,18 +193,18 @@ export function EmailReportDialog({
           .eq("id", emailLogId);
       }
 
-      if (successful.length > 0) {
+      if (summary.sent > 0) {
         toast.success(
-          `Report sent to ${successful.length} recipient${successful.length > 1 ? "s" : ""}`
+          `Report sent to ${summary.sent} recipient${summary.sent > 1 ? "s" : ""}`
         );
       }
-      if (failed.length > 0) {
+      if (summary.failed > 0) {
         toast.error(
-          `Failed to send to: ${failed.map((f) => f.email).join(", ")}`
+          `Failed to send to: ${failed.map((f: { email: string }) => f.email).join(", ")}`
         );
       }
 
-      if (successful.length > 0) {
+      if (summary.sent > 0) {
         onOpenChange(false);
       }
     } catch (error) {
