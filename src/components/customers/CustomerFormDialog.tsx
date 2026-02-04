@@ -51,6 +51,7 @@ const customerSchema = z.object({
   city: z.string().optional(),
   postcode: z.string().optional(),
   notes: z.string().optional(),
+  email_recipients: z.string().optional(),
 });
 
 type CustomerFormData = z.infer<typeof customerSchema>;
@@ -91,6 +92,7 @@ export function CustomerFormDialog({
       city: customer?.city || "",
       postcode: customer?.postcode || "",
       notes: customer?.notes || "",
+      email_recipients: (customer as any)?.email_recipients || "",
     },
   });
 
@@ -130,6 +132,7 @@ export function CustomerFormDialog({
         city: customer?.city || "",
         postcode: customer?.postcode || "",
         notes: customer?.notes || "",
+        email_recipients: (customer as any)?.email_recipients || "",
       });
       setSelectedXeroContact("");
       setSearchQuery("");
@@ -246,6 +249,7 @@ export function CustomerFormDialog({
       city: data.city || null,
       postcode: data.postcode || null,
       notes: data.notes || null,
+      email_recipients: data.email_recipients || null,
       status: "active",
       ...(xeroContactId && { xero_contact_id: xeroContactId }),
     };
@@ -549,6 +553,26 @@ export function CustomerFormDialog({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="email_recipients"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Default Report Recipients</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="email1@company.com, email2@company.com"
+                      {...field}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Comma-separated email addresses for automatic report delivery
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

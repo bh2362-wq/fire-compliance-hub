@@ -267,6 +267,7 @@ export type Database = {
           contact_name: string | null
           contact_phone: string | null
           created_at: string
+          email_recipients: string | null
           id: string
           name: string
           notes: string | null
@@ -283,6 +284,7 @@ export type Database = {
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          email_recipients?: string | null
           id?: string
           name: string
           notes?: string | null
@@ -299,6 +301,7 @@ export type Database = {
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          email_recipients?: string | null
           id?: string
           name?: string
           notes?: string | null
@@ -391,6 +394,95 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_logs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          delivered_at: string | null
+          email_type: string
+          error_message: string | null
+          id: string
+          opened_at: string | null
+          recipients: string[]
+          report_id: string | null
+          resend_id: string | null
+          sent_at: string
+          site_id: string | null
+          status: string
+          subject: string
+          updated_at: string
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          delivered_at?: string | null
+          email_type?: string
+          error_message?: string | null
+          id?: string
+          opened_at?: string | null
+          recipients: string[]
+          report_id?: string | null
+          resend_id?: string | null
+          sent_at?: string
+          site_id?: string | null
+          status?: string
+          subject: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          delivered_at?: string | null
+          email_type?: string
+          error_message?: string | null
+          id?: string
+          opened_at?: string | null
+          recipients?: string[]
+          report_id?: string | null
+          resend_id?: string | null
+          sent_at?: string
+          site_id?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "service_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
             referencedColumns: ["id"]
           },
         ]

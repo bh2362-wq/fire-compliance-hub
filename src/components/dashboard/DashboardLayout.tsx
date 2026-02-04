@@ -24,7 +24,8 @@ import {
   Search,
   MessageSquare,
   TrendingUp,
-  HardHat
+  HardHat,
+  Mail
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -46,6 +47,7 @@ const mainNavigation = [
   { name: "Uploads", href: "/dashboard/upload", icon: Upload },
   { name: "Reconciliation", href: "/dashboard/reconciliation", icon: GitCompare },
   { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
+  { name: "Email Logs", href: "/dashboard/email-logs", icon: Mail },
 ];
 
 const qmsNavigation = [

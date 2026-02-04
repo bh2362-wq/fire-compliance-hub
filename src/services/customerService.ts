@@ -12,6 +12,7 @@ export interface Customer {
   notes: string | null;
   status: string | null;
   xero_contact_id: string | null;
+  email_recipients: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +82,7 @@ export interface CreateCustomerData {
   notes?: string | null;
   status?: string;
   xero_contact_id?: string | null;
+  email_recipients?: string | null;
 }
 
 export async function createCustomer(customer: CreateCustomerData): Promise<{ customer: Customer | null; error: Error | null }> {

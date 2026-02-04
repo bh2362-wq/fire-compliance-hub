@@ -21,6 +21,7 @@ import { Customer, getCustomer, getCustomerSites } from "@/services/customerServ
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
 import { CustomerReports } from "@/components/customers/CustomerReports";
+import { CustomerEmailLogs } from "@/components/customers/CustomerEmailLogs";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
@@ -280,6 +281,9 @@ const CustomerDetail = () => {
           customerName={customer.name}
           refreshKey={invoiceRefreshKey}
         />
+
+        {/* Email Logs */}
+        <CustomerEmailLogs customerId={customer.id} />
 
         {/* Notes */}
         {customer.notes && (
