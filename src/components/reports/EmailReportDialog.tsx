@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -81,14 +81,17 @@ export function EmailReportDialog({
     return emails;
   };
 
-  // Reset form when dialog opens
-  const handleOpenChange = (open: boolean) => {
+  // Initialize recipients when dialog opens
+  useEffect(() => {
     if (open) {
       setRecipients(parseRecipients());
       setSubject(`Service Report ${reportNumber} - ${siteName}`);
       setNewEmail("");
     }
-    onOpenChange(open);
+  }, [open, defaultEmail, defaultRecipients, reportNumber, siteName]);
+
+  const handleOpenChange = (newOpen: boolean) => {
+    onOpenChange(newOpen);
   };
 
   const addRecipient = () => {
