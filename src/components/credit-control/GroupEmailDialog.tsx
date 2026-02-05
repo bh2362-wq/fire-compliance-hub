@@ -1,4 +1,4 @@
- import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
  import {
    Dialog,
    DialogContent,
@@ -15,8 +15,7 @@
  import { ScrollArea } from "@/components/ui/scroll-area";
  import { Checkbox } from "@/components/ui/checkbox";
  import { toast } from "sonner";
- import { format } from "date-fns";
- import { Mail, Send, Loader2, Users } from "lucide-react";
+import { Mail, Send, Loader2, Users, X, Plus } from "lucide-react";
  import { XeroOutstandingInvoice } from "@/services/xeroService";
  import { supabase } from "@/integrations/supabase/client";
  
@@ -32,6 +31,7 @@
    contactName: string;
    invoices: XeroOutstandingInvoice[];
    totalDue: number;
+  storedEmails: string[];
  }
  
  const DEFAULT_MESSAGE = `Please confirm the following information:
@@ -60,8 +60,38 @@
  }: GroupEmailDialogProps) {
    const [sending, setSending] = useState(false);
    const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set());
-   const [emailAddresses, setEmailAddresses] = useState<Record<string, string>>({});
+  const [emailAddresses, setEmailAddresses] = useState<Record<string, string[]>>({});
    const [message, setMessage] = useState(DEFAULT_MESSAGE);
+  const [customerData, setCustomerData] = useState<Record<string, { email_recipients: string | null }>>({});
+
+  // Fetch customer data with email_recipients based on xero_contact_id
+  useEffect(() => {
+    const fetchCustomerEmails = async () => {
+      const contactIds = [...new Set(invoices.map((inv) => inv.contactId))];
+      if (contactIds.length === 0) return;
+
+      const { data, error } = await supabase
+        .from("customers")
+        .select("xero_contact_id, email_recipients")
+        .in("xero_contact_id", contactIds);
+
+      if (!error && data) {
+        const dataMap: Record<string, { email_recipients: string | null }> = {};
+        data.forEach((customer) => {
+          if (customer.xero_contact_id) {
+            dataMap[customer.xero_contact_id] = {
+              email_recipients: customer.email_recipients,
+            };
+          }
+        });
+        setCustomerData(dataMap);
+      }
+    };
+
+    if (open) {
+      fetchCustomerEmails();
+    }
+  }, [open, invoices]);
  
    // Group invoices by customer
    const customerGroups = useMemo(() => {
@@ -69,11 +99,17 @@
      
      invoices.forEach((inv) => {
        if (!groups[inv.contactId]) {
+        const storedRecipients = customerData[inv.contactId]?.email_recipients;
+        const emailList = storedRecipients
+          ? storedRecipients.split(",").map((e) => e.trim()).filter(Boolean)
+          : [];
+
          groups[inv.contactId] = {
            contactId: inv.contactId,
            contactName: inv.contactName,
            invoices: [],
            totalDue: 0,
+          storedEmails: emailList,
          };
        }
        groups[inv.contactId].invoices.push(inv);
@@ -81,7 +117,45 @@
      });
      
      return Object.values(groups).sort((a, b) => b.totalDue - a.totalDue);
-   }, [invoices]);
+  }, [invoices, customerData]);
+
+  // Auto-fill email addresses when customer groups change
+  useEffect(() => {
+    const newEmailAddresses: Record<string, string[]> = {};
+    customerGroups.forEach((group) => {
+      if (!emailAddresses[group.contactId] || emailAddresses[group.contactId].length === 0) {
+        newEmailAddresses[group.contactId] = group.storedEmails.length > 0
+          ? [...group.storedEmails]
+          : [""];
+      } else {
+        newEmailAddresses[group.contactId] = emailAddresses[group.contactId];
+      }
+    });
+    if (Object.keys(newEmailAddresses).length > 0) {
+      setEmailAddresses((prev) => ({ ...prev, ...newEmailAddresses }));
+    }
+  }, [customerGroups]);
+
+  const addEmailField = (contactId: string) => {
+    setEmailAddresses((prev) => ({
+      ...prev,
+      [contactId]: [...(prev[contactId] || []), ""],
+    }));
+  };
+
+  const removeEmailField = (contactId: string, index: number) => {
+    setEmailAddresses((prev) => ({
+      ...prev,
+      [contactId]: prev[contactId].filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateEmailField = (contactId: string, index: number, value: string) => {
+    setEmailAddresses((prev) => ({
+      ...prev,
+      [contactId]: prev[contactId].map((email, i) => (i === index ? value : email)),
+    }));
+  };
  
    const toggleCustomer = (contactId: string) => {
      const newSelected = new Set(selectedCustomers);
@@ -109,10 +183,10 @@
  
      // Check all selected customers have email addresses
      const missingEmails = Array.from(selectedCustomers).filter(
-       (id) => !emailAddresses[id]?.trim()
+      (id) => !emailAddresses[id]?.some((e) => e.trim())
      );
      if (missingEmails.length > 0) {
-       toast.error("Please enter email addresses for all selected customers");
+      toast.error("Please enter at least one email address for all selected customers");
        return;
      }
  
@@ -124,10 +198,13 @@
        const group = customerGroups.find((g) => g.contactId === contactId);
        if (!group) continue;
  
+      const validEmails = emailAddresses[contactId]?.filter((e) => e.trim()) || [];
+      if (validEmails.length === 0) continue;
+
        try {
          const { data, error } = await supabase.functions.invoke("send-statement-email", {
            body: {
-             to: emailAddresses[contactId],
+            to: validEmails.join(", "),
              contactName: group.contactName,
              invoices: group.invoices.map((inv) => ({
                number: inv.invoiceNumber,
@@ -206,46 +283,77 @@
                <ScrollArea className="h-[200px]">
                  <div className="space-y-2">
                    {customerGroups.map((group) => (
-                     <div
-                       key={group.contactId}
-                       className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                         selectedCustomers.has(group.contactId)
-                           ? "border-primary bg-primary/5"
-                           : "border-border"
-                       }`}
-                     >
-                       <Checkbox
-                         checked={selectedCustomers.has(group.contactId)}
-                         onCheckedChange={() => toggleCustomer(group.contactId)}
-                       />
-                       <div className="flex-1 min-w-0">
-                         <div className="font-medium truncate">{group.contactName}</div>
-                         <div className="text-xs text-muted-foreground">
-                           {group.invoices.length} invoice{group.invoices.length > 1 ? "s" : ""}
+                      <div key={group.contactId} className="space-y-2">
+                        <div
+                          className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                            selectedCustomers.has(group.contactId)
+                              ? "border-primary bg-primary/5"
+                              : "border-border"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={selectedCustomers.has(group.contactId)}
+                            onCheckedChange={() => toggleCustomer(group.contactId)}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{group.contactName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {group.invoices.length} invoice{group.invoices.length > 1 ? "s" : ""}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold">
+                              £{group.totalDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </div>
                          </div>
                        </div>
-                       <div className="text-right">
-                         <div className="font-semibold">
-                           £{group.totalDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                         </div>
-                       </div>
-                       {selectedCustomers.has(group.contactId) && (
-                         <Input
-                           type="email"
-                           placeholder="Email address"
-                           className="w-48"
-                           value={emailAddresses[group.contactId] || ""}
-                           onChange={(e) =>
-                             setEmailAddresses((prev) => ({
-                               ...prev,
-                               [group.contactId]: e.target.value,
-                             }))
-                           }
-                           onClick={(e) => e.stopPropagation()}
-                         />
-                       )}
-                     </div>
-                   ))}
+                        {selectedCustomers.has(group.contactId) && (
+                          <div className="ml-8 space-y-2">
+                            {(emailAddresses[group.contactId] || [""]).map((email, index) => (
+                              <div key={index} className="flex items-center gap-2">
+                                <Input
+                                  type="email"
+                                  placeholder="email@company.com"
+                                  className="flex-1"
+                                  value={email}
+                                  onChange={(e) =>
+                                    updateEmailField(group.contactId, index, e.target.value)
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                {(emailAddresses[group.contactId]?.length || 0) > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeEmailField(group.contactId, index);
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addEmailField(group.contactId);
+                              }}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add another email
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                  </div>
                </ScrollArea>
              </CardContent>
