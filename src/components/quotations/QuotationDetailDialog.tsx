@@ -380,6 +380,8 @@ export function QuotationDetailDialog({
         return "secondary";
       case "low":
         return "outline";
+      case "labour":
+        return "secondary";
       default:
         return "secondary";
     }
@@ -459,9 +461,20 @@ export function QuotationDetailDialog({
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 space-y-3">
                             <div className="flex items-center gap-2">
-                              <Badge variant={getPriorityColor(item.priority)}>
-                                {item.priority}
-                              </Badge>
+                              <Select
+                                value={item.priority}
+                                onValueChange={(value) => handleItemChange(index, "priority", value)}
+                              >
+                                <SelectTrigger className="w-[130px] h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-popover z-50">
+                                  <SelectItem value="low">Low</SelectItem>
+                                  <SelectItem value="medium">Medium</SelectItem>
+                                  <SelectItem value="high">High</SelectItem>
+                                  <SelectItem value="labour">Labour Only</SelectItem>
+                                </SelectContent>
+                              </Select>
                               {item.regulation_reference && (
                                 <Badge variant="outline" className="text-xs">
                                   {item.regulation_reference}
