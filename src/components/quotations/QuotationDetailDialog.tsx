@@ -56,6 +56,8 @@ interface QuotationFull {
   created_at: string;
   site_id: string;
   customer_id: string | null;
+  locked_at: string | null;
+  locked_by: string | null;
   sites: { 
     name: string; 
     address?: string | null;
@@ -355,6 +357,26 @@ export function QuotationDetailDialog({
     };
   };
 
+  const lockQuotation = async () => {
+    if (!quotation || quotation.locked_at) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase
+        .from("quotations")
+        .update({ 
+          locked_at: new Date().toISOString(),
+          locked_by: user?.id 
+        })
+        .eq("id", quotationId);
+      
+      // Update local state
+      setQuotation(prev => prev ? { ...prev, locked_at: new Date().toISOString() } : null);
+    } catch (error) {
+      console.error("Error locking quotation:", error);
+    }
+  };
+
   const handleGeneratePDF = async () => {
     if (!quotation) return;
 
@@ -364,7 +386,12 @@ export function QuotationDetailDialog({
       const pdfData = buildPDFData();
 
       await generateQuotationPDF(pdfData, companySettings || undefined, false, columnOptions);
+      
+      // Lock the quotation after download
+      await lockQuotation();
+      
       toast.success("PDF generated successfully");
+      onUpdate?.();
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error("Failed to generate PDF");
@@ -393,6 +420,7 @@ export function QuotationDetailDialog({
   const totalAmount = lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
   const vatAmount = totalAmount * (vatRate / 100);
   const grandTotal = totalAmount + vatAmount;
+  const isLocked = !!quotation?.locked_at;
 
   return (
     <>
@@ -408,11 +436,19 @@ export function QuotationDetailDialog({
                 }}
                 className="w-[160px] font-bold text-lg h-9"
                 placeholder="QUO-00000"
+                disabled={isLocked}
               />
               {quotation && (
-                <Badge variant="outline">
-                  {quotation.status}
-                </Badge>
+                <>
+                  <Badge variant="outline">
+                    {quotation.status}
+                  </Badge>
+                  {isLocked && (
+                    <Badge variant="secondary">
+                      🔒 Locked
+                    </Badge>
+                  )}
+                </>
               )}
             </DialogTitle>
           </DialogHeader>
@@ -446,19 +482,21 @@ export function QuotationDetailDialog({
                   {/* Line Items */}
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">Quotation Items ({lineItems.length})</h3>
-                    <Button 
-                      type="button"
-                      variant="outline" 
-                      size="sm" 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleAddItem();
-                      }}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Item
-                    </Button>
+                    {!isLocked && (
+                      <Button 
+                        type="button"
+                        variant="outline" 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleAddItem();
+                        }}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Item
+                      </Button>
+                    )}
                   </div>
 
                   {lineItems.length === 0 ? (
@@ -474,6 +512,7 @@ export function QuotationDetailDialog({
                               <Select
                                 value={item.priority}
                                 onValueChange={(value) => handleItemChange(index, "priority", value)}
+                                disabled={isLocked}
                               >
                                 <SelectTrigger className="w-[130px] h-8">
                                   <SelectValue />
@@ -499,6 +538,7 @@ export function QuotationDetailDialog({
                               }
                               placeholder="Description of work required..."
                               className="min-h-[60px]"
+                              disabled={isLocked}
                             />
 
                             <div className="grid grid-cols-6 gap-3">
@@ -511,6 +551,7 @@ export function QuotationDetailDialog({
                                   }
                                   placeholder="e.g. Smoke detector"
                                   className="h-9"
+                                  disabled={isLocked}
                                 />
                               </div>
                               <div>
@@ -522,6 +563,7 @@ export function QuotationDetailDialog({
                                   }
                                   placeholder="BS 5839-1"
                                   className="h-9"
+                                  disabled={isLocked}
                                 />
                               </div>
                               <div>
@@ -538,6 +580,7 @@ export function QuotationDetailDialog({
                                     )
                                   }
                                   className="h-9"
+                                  disabled={isLocked}
                                 />
                               </div>
                               <div>
@@ -555,6 +598,7 @@ export function QuotationDetailDialog({
                                     )
                                   }
                                   className="h-9"
+                                  disabled={isLocked}
                                 />
                               </div>
                               <div>
@@ -569,14 +613,16 @@ export function QuotationDetailDialog({
                             </div>
                           </div>
 
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveItem(index)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {!isLocked && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveItem(index)}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -891,10 +937,10 @@ export function QuotationDetailDialog({
             <Button
               variant="outline"
               onClick={() => setEmailDialogOpen(true)}
-              disabled={loading || lineItems.length === 0 || !customerContactEmail}
+              disabled={loading || lineItems.length === 0 || !customerContactEmail || isLocked}
             >
               <Mail className="mr-2 h-4 w-4" />
-              Email
+              {isLocked ? "Sent" : "Email"}
             </Button>
             <Button
               variant="outline"
@@ -913,7 +959,7 @@ export function QuotationDetailDialog({
                 </>
               )}
             </Button>
-            {hasChanges && (
+            {hasChanges && !isLocked && (
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? (
                   <>

@@ -115,12 +115,15 @@ BHO Fire Ltd`);
         created_by: user?.id,
       });
 
-      // Update quotation status to sent if draft
+      // Update quotation status to sent and lock it
       await supabase
         .from("quotations")
-        .update({ status: "sent" })
-        .eq("id", quotation.id)
-        .eq("status", "draft");
+        .update({ 
+          status: "sent",
+          locked_at: new Date().toISOString(),
+          locked_by: user?.id
+        })
+        .eq("id", quotation.id);
 
       toast.success(`Quotation sent to ${recipientList.length} recipient(s)`);
       onSuccess?.();
