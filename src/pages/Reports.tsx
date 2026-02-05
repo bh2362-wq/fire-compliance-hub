@@ -50,11 +50,12 @@ import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { DisabledRefugeReportDialog } from "@/components/reports/DisabledRefugeReportDialog";
 import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 
-interface ASDAsset {
+interface AssetInfo {
   id: string;
   item_name: string;
   manufacturer?: string | null;
@@ -103,7 +104,8 @@ const Reports = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedReport, setSelectedReport] = useState<ReportWithSite | null>(null);
-  const [asdAssets, setAsdAssets] = useState<ASDAsset[]>([]);
+  const [asdAssets, setAsdAssets] = useState<AssetInfo[]>([]);
+  const [disabledRefugeAssets, setDisabledRefugeAssets] = useState<AssetInfo[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<ReportWithSite | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -664,7 +666,19 @@ const Reports = () => {
               }
 
               const handleViewReport = async () => {
-                if (isAsdReport) {
+                // Detect report type from notes
+                let reportType = "bs5839";
+                try {
+                  const notes = JSON.parse(report.notes || "{}");
+                  if (notes.report_type === "asd") reportType = "asd";
+                  else if (notes.report_type === "disabled_refuge") reportType = "disabled_refuge";
+                  else if (notes.jobNumber || notes.jobType || Array.isArray(notes.workDays)) reportType = "job";
+                } catch {
+                  // Not JSON, check report number
+                  if ((report.report_number || "").startsWith("JOB-")) reportType = "job";
+                }
+
+                if (reportType === "asd") {
                   // Load ASD assets for this site
                   const { data: assets } = await supabase
                     .from("site_assets")
@@ -674,6 +688,21 @@ const Reports = () => {
                     .order("created_at", { ascending: true });
                   
                   setAsdAssets(assets || []);
+                  setDisabledRefugeAssets([]);
+                } else if (reportType === "disabled_refuge") {
+                  // Load Disabled Refuge assets for this site
+                  const { data: assets } = await supabase
+                    .from("site_assets")
+                    .select("id, item_name, manufacturer, model, location")
+                    .eq("site_id", report.site_id)
+                    .eq("asset_type", "disabled_refuge")
+                    .order("created_at", { ascending: true });
+                  
+                  setDisabledRefugeAssets(assets || []);
+                  setAsdAssets([]);
+                } else {
+                  setAsdAssets([]);
+                  setDisabledRefugeAssets([]);
                 }
                 setSelectedReport(report);
               };
@@ -833,9 +862,11 @@ const Reports = () => {
       {selectedReport && (() => {
         let isAsdReport = false;
         let isJobReport = false;
+        let isDisabledRefuge = false;
         try {
           const notesData = JSON.parse(selectedReport.notes || "{}");
           isAsdReport = notesData.report_type === "asd";
+          isDisabledRefuge = notesData.report_type === "disabled_refuge";
           // Job sheets store job/work metadata in notes (and typically have JOB-* report numbers)
           isJobReport =
             (selectedReport.report_number || "").startsWith("JOB-") ||
@@ -864,6 +895,29 @@ const Reports = () => {
                 sites: selectedReport.sites,
               }}
               assets={asdAssets}
+              onSuccess={fetchReports}
+            />
+          );
+        }
+
+        if (isDisabledRefuge) {
+          return (
+            <DisabledRefugeReportDialog
+              open={!!selectedReport}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setSelectedReport(null);
+                  setDisabledRefugeAssets([]);
+                }
+              }}
+              visit={{
+                id: selectedReport.visit_id,
+                visit_type: selectedReport.visits?.visit_type || "",
+                visit_date: selectedReport.visits?.visit_date || selectedReport.report_date,
+                site_id: selectedReport.site_id,
+                sites: selectedReport.sites,
+              }}
+              assets={disabledRefugeAssets}
               onSuccess={fetchReports}
             />
           );
