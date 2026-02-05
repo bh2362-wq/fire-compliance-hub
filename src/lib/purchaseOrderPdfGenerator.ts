@@ -14,6 +14,11 @@ interface CompanySettings {
   vat_number?: string | null;
 }
 
+type LoadedImage = {
+  dataUrl: string;
+  width: number;
+  height: number;
+};
 export async function generatePurchaseOrderPDF(
   purchaseOrder: PurchaseOrder,
   companySettings: CompanySettings | null
@@ -28,14 +33,14 @@ export async function generatePurchaseOrderPDF(
   
   let yPos = 20;
 
-  // Header - Company Logo (left side, maintain aspect ratio)
+  // Header - Company Logo (left side, preserve aspect ratio)
   if (companySettings?.company_logo_url) {
     try {
       const img = await loadImage(companySettings.company_logo_url);
-      // Use height-based sizing to prevent stretching
       const logoHeight = 18;
-      const logoWidth = logoHeight * 2; // Approximate aspect ratio
-      doc.addImage(img, "PNG", 15, yPos, logoWidth, logoHeight);
+      const ratio = img.width > 0 && img.height > 0 ? img.width / img.height : 2;
+      const logoWidth = Math.min(70, Math.max(28, logoHeight * ratio));
+      doc.addImage(img.dataUrl, "PNG", 15, yPos, logoWidth, logoHeight);
     } catch (e) {
       console.warn("Could not load company logo");
     }
@@ -45,16 +50,24 @@ export async function generatePurchaseOrderPDF(
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...mutedColor);
-  
+
+  const addressLines = sanitizeAddressLines(
+    companySettings?.address ?? null,
+    companySettings?.company_name ?? null
+  );
+
   let companyInfoY = yPos + 2;
-  if (companySettings?.address) {
-    doc.text(companySettings.address, pageWidth - 15, companyInfoY, { align: "right" });
+  for (const line of addressLines) {
+    doc.text(line, pageWidth - 15, companyInfoY, { align: "right" });
     companyInfoY += 4;
   }
-  if (companySettings?.city || companySettings?.postcode) {
-    doc.text(`${companySettings?.city || ""} ${companySettings?.postcode || ""}`.trim(), pageWidth - 15, companyInfoY, { align: "right" });
+
+  const cityPostLine = `${companySettings?.city || ""} ${companySettings?.postcode || ""}`.trim();
+  if (cityPostLine && !addressLines.some((l) => includesIgnoreCase(l, cityPostLine))) {
+    doc.text(cityPostLine, pageWidth - 15, companyInfoY, { align: "right" });
     companyInfoY += 4;
   }
+
   if (companySettings?.phone) {
     doc.text(`Tel: ${companySettings.phone}`, pageWidth - 15, companyInfoY, { align: "right" });
     companyInfoY += 4;
@@ -254,7 +267,7 @@ export async function generatePurchaseOrderPDF(
   return doc;
 }
 
-async function loadImage(url: string): Promise<string> {
+async function loadImage(url: string): Promise<LoadedImage> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -264,11 +277,50 @@ async function loadImage(url: string): Promise<string> {
       canvas.height = img.height;
       const ctx = canvas.getContext("2d");
       ctx?.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL("image/png"));
+
+      resolve({
+        dataUrl: canvas.toDataURL("image/png"),
+        width: img.width,
+        height: img.height,
+      });
     };
     img.onerror = reject;
     img.src = url;
   });
+}
+
+function normalizeLine(input: string): string {
+  return input.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function includesIgnoreCase(haystack: string, needle: string): boolean {
+  return normalizeLine(haystack).includes(normalizeLine(needle));
+}
+
+function sanitizeAddressLines(address: string | null, companyName: string | null): string[] {
+  if (!address) return [];
+
+  const company = companyName ? normalizeLine(companyName) : null;
+  const lines = address
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((l) => {
+      if (!company) return true;
+      return normalizeLine(l) !== company;
+    });
+
+  // Also strip any leading "Company Name," prefix if the address was stored as one line
+  if (company) {
+    return lines.map((l) => {
+      const nl = normalizeLine(l);
+      if (nl.startsWith(company + ",")) return l.slice(l.indexOf(",") + 1).trim();
+      if (nl.startsWith(company + " -")) return l.slice(l.indexOf("-") + 1).trim();
+      return l;
+    }).filter(Boolean);
+  }
+
+  return lines;
 }
 
 export async function downloadPurchaseOrderPDF(
