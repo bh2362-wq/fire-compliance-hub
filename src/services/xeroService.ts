@@ -250,12 +250,46 @@ export async function deleteXeroInvoice(invoiceId: string): Promise<{ success: b
 }
 
 export async function getNextInvoiceNumber(): Promise<string | null> {
-  const { data, error } = await supabase.functions.invoke("xero-next-invoice-number");
-
-  if (error) {
-    console.error("Error fetching next invoice number:", error);
-    return null;
-  }
-  
-  return data?.nextNumber || null;
+   const { data, error } = await supabase.functions.invoke("xero-next-invoice-number");
+ 
+   if (error) {
+     console.error("Error fetching next invoice number:", error);
+     return null;
+   }
+   
+   return data?.nextNumber || null;
+ }
+ 
+ export async function markInvoicePaid(
+   invoiceId: string,
+   paymentAmount?: number,
+   paymentDate?: string
+ ): Promise<{ success: boolean; message: string; paymentId?: string }> {
+   const { data, error } = await supabase.functions.invoke("xero-update-invoice-status", {
+     body: {
+       invoiceId,
+       action: "mark_paid",
+       paymentAmount,
+       paymentDate,
+     },
+   });
+ 
+   if (error) throw new Error(error.message);
+   if (data.error) throw new Error(data.error);
+   
+   return data;
+ }
+ 
+ export async function voidInvoice(invoiceId: string): Promise<{ success: boolean; message: string }> {
+   const { data, error } = await supabase.functions.invoke("xero-update-invoice-status", {
+     body: {
+       invoiceId,
+       action: "void",
+     },
+   });
+ 
+   if (error) throw new Error(error.message);
+   if (data.error) throw new Error(data.error);
+   
+   return data;
 }
