@@ -12,6 +12,7 @@ interface CompanySettings {
   email?: string | null;
   company_logo_url?: string | null;
   vat_number?: string | null;
+  registration_number?: string | null;
 }
 
 type LoadedImage = {
@@ -19,139 +20,190 @@ type LoadedImage = {
   width: number;
   height: number;
 };
+
+// Professional color palette
+const COLORS = {
+  charcoal: [28, 28, 32] as [number, number, number],
+  darkSlate: [45, 55, 72] as [number, number, number],
+  mediumSlate: [74, 85, 104] as [number, number, number],
+  lightSlate: [113, 128, 150] as [number, number, number],
+  accent: [185, 28, 28] as [number, number, number], // BHO red
+  tableHeader: [248, 250, 252] as [number, number, number],
+  tableStripe: [252, 252, 253] as [number, number, number],
+  border: [226, 232, 240] as [number, number, number],
+  white: [255, 255, 255] as [number, number, number],
+};
+
 export async function generatePurchaseOrderPDF(
   purchaseOrder: PurchaseOrder,
   companySettings: CompanySettings | null
 ): Promise<jsPDF> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
-  
-  // Colors
-  const primaryColor: [number, number, number] = [30, 41, 59]; // slate-800
-  const accentColor: [number, number, number] = [220, 38, 38]; // red-600
-  const mutedColor: [number, number, number] = [100, 116, 139]; // slate-500
-  
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - margin * 2;
+
   let yPos = 20;
 
-  // Header - Company Logo (left side, preserve aspect ratio)
+  // ═══════════════════════════════════════════════════════════════
+  // HEADER SECTION
+  // ═══════════════════════════════════════════════════════════════
+
+  // Company Logo (left side, preserve aspect ratio)
+  let logoEndX = margin;
   if (companySettings?.company_logo_url) {
     try {
       const img = await loadImage(companySettings.company_logo_url);
-      const logoHeight = 18;
+      const logoHeight = 22;
       const ratio = img.width > 0 && img.height > 0 ? img.width / img.height : 2;
-      const logoWidth = Math.min(70, Math.max(28, logoHeight * ratio));
-      doc.addImage(img.dataUrl, "PNG", 15, yPos, logoWidth, logoHeight);
+      const logoWidth = Math.min(75, Math.max(35, logoHeight * ratio));
+      doc.addImage(img.dataUrl, "PNG", margin, yPos, logoWidth, logoHeight);
+      logoEndX = margin + logoWidth + 10;
     } catch (e) {
       console.warn("Could not load company logo");
     }
   }
 
-  // Company address and contact details (right side) - NO company name
-  doc.setFontSize(9);
+  // Company details (right-aligned, professional typography)
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(...mutedColor);
+  doc.setTextColor(...COLORS.mediumSlate);
 
+  const companyLines: string[] = [];
+  
+  // Build address lines
   const addressLines = sanitizeAddressLines(
     companySettings?.address ?? null,
     companySettings?.company_name ?? null
   );
-
-  let companyInfoY = yPos + 2;
-  for (const line of addressLines) {
-    doc.text(line, pageWidth - 15, companyInfoY, { align: "right" });
-    companyInfoY += 4;
-  }
+  companyLines.push(...addressLines);
 
   const cityPostLine = `${companySettings?.city || ""} ${companySettings?.postcode || ""}`.trim();
   if (cityPostLine && !addressLines.some((l) => includesIgnoreCase(l, cityPostLine))) {
-    doc.text(cityPostLine, pageWidth - 15, companyInfoY, { align: "right" });
-    companyInfoY += 4;
+    companyLines.push(cityPostLine);
   }
 
   if (companySettings?.phone) {
-    doc.text(`Tel: ${companySettings.phone}`, pageWidth - 15, companyInfoY, { align: "right" });
-    companyInfoY += 4;
+    companyLines.push(`Tel: ${companySettings.phone}`);
   }
   if (companySettings?.email) {
-    doc.text(companySettings.email, pageWidth - 15, companyInfoY, { align: "right" });
+    companyLines.push(companySettings.email);
   }
 
-  yPos = 50;
+  let companyInfoY = yPos + 2;
+  for (const line of companyLines) {
+    doc.text(line, pageWidth - margin, companyInfoY, { align: "right" });
+    companyInfoY += 4;
+  }
 
-  // PURCHASE ORDER title
-  doc.setFontSize(24);
+  yPos = 52;
+
+  // ═══════════════════════════════════════════════════════════════
+  // DOCUMENT TITLE WITH ACCENT BAR
+  // ═══════════════════════════════════════════════════════════════
+
+  // Accent bar
+  doc.setFillColor(...COLORS.accent);
+  doc.rect(margin, yPos, 4, 16, "F");
+
+  // Title
+  doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(...accentColor);
-  doc.text("PURCHASE ORDER", 15, yPos);
-  
+  doc.setTextColor(...COLORS.charcoal);
+  doc.text("PURCHASE ORDER", margin + 10, yPos + 7);
+
   // PO Number
-  doc.setFontSize(12);
-  doc.setTextColor(...primaryColor);
-  doc.text(purchaseOrder.po_number, 15, yPos + 8);
-
-  yPos = 70;
-
-  // Two column layout - Supplier info and PO details
-  // Left: Supplier
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...mutedColor);
-  doc.text("SUPPLIER", 15, yPos);
-  
-  yPos += 6;
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...primaryColor);
   doc.setFontSize(11);
-  doc.text(purchaseOrder.supplier?.name || "Unknown Supplier", 15, yPos);
-  
-  yPos += 5;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(...mutedColor);
-  
+  doc.setTextColor(...COLORS.mediumSlate);
+  doc.text(purchaseOrder.po_number, margin + 10, yPos + 14);
+
+  yPos += 28;
+
+  // ═══════════════════════════════════════════════════════════════
+  // TWO-COLUMN INFO SECTION
+  // ═══════════════════════════════════════════════════════════════
+
+  // Left column: Supplier details with shaded background
+  const leftColWidth = (contentWidth - 10) / 2;
+  const rightColX = margin + leftColWidth + 10;
+  const infoBoxHeight = 48;
+
+  // Supplier box background
+  doc.setFillColor(...COLORS.tableHeader);
+  doc.roundedRect(margin, yPos, leftColWidth, infoBoxHeight, 2, 2, "F");
+
+  // Supplier header
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COLORS.lightSlate);
+  doc.text("SUPPLIER", margin + 8, yPos + 8);
+
+  // Supplier name
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COLORS.charcoal);
+  doc.text(purchaseOrder.supplier?.name || "Unknown Supplier", margin + 8, yPos + 16);
+
+  // Supplier details
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...COLORS.mediumSlate);
+
+  let supplierY = yPos + 23;
   if (purchaseOrder.supplier?.address) {
-    doc.text(purchaseOrder.supplier.address, 15, yPos);
-    yPos += 4;
+    doc.text(purchaseOrder.supplier.address, margin + 8, supplierY);
+    supplierY += 5;
   }
   if (purchaseOrder.supplier?.city || purchaseOrder.supplier?.postcode) {
-    doc.text(`${purchaseOrder.supplier?.city || ""} ${purchaseOrder.supplier?.postcode || ""}`.trim(), 15, yPos);
-    yPos += 4;
+    doc.text(`${purchaseOrder.supplier?.city || ""} ${purchaseOrder.supplier?.postcode || ""}`.trim(), margin + 8, supplierY);
+    supplierY += 5;
   }
   if (purchaseOrder.supplier?.email) {
-    doc.text(purchaseOrder.supplier.email, 15, yPos);
-    yPos += 4;
+    doc.text(purchaseOrder.supplier.email, margin + 8, supplierY);
+    supplierY += 5;
   }
   if (purchaseOrder.supplier?.phone) {
-    doc.text(`Tel: ${purchaseOrder.supplier.phone}`, 15, yPos);
+    doc.text(`Tel: ${purchaseOrder.supplier.phone}`, margin + 8, supplierY);
   }
 
-  // Right: PO Details
-  const rightColX = 120;
-  let rightY = 70;
-  
-  const poDetails = [
-    { label: "Order Date", value: format(new Date(purchaseOrder.order_date), "dd MMMM yyyy") },
-    { label: "Expected Delivery", value: purchaseOrder.expected_delivery_date ? format(new Date(purchaseOrder.expected_delivery_date), "dd MMMM yyyy") : "TBC" },
+  // Right column: Order details grid
+  const detailRows = [
+    { label: "Order Date", value: format(new Date(purchaseOrder.order_date), "dd MMM yyyy") },
+    { label: "Expected Delivery", value: purchaseOrder.expected_delivery_date ? format(new Date(purchaseOrder.expected_delivery_date), "dd MMM yyyy") : "TBC" },
     { label: "Reference", value: purchaseOrder.reference || "-" },
     { label: "Status", value: purchaseOrder.status.toUpperCase() },
   ];
 
-  poDetails.forEach((detail) => {
+  let detailY = yPos;
+  const rowHeight = 12;
+
+  detailRows.forEach((detail, index) => {
+    // Alternate row shading
+    if (index % 2 === 0) {
+      doc.setFillColor(...COLORS.tableStripe);
+      doc.rect(rightColX, detailY, leftColWidth, rowHeight, "F");
+    }
+
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...mutedColor);
-    doc.text(detail.label, rightColX, rightY);
-    
+    doc.setTextColor(...COLORS.lightSlate);
+    doc.text(detail.label, rightColX + 6, detailY + 8);
+
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(...primaryColor);
-    doc.text(detail.value, rightColX + 45, rightY);
-    
-    rightY += 6;
+    doc.setTextColor(...COLORS.charcoal);
+    doc.text(detail.value, rightColX + leftColWidth - 6, detailY + 8, { align: "right" });
+
+    detailY += rowHeight;
   });
 
-  yPos = Math.max(yPos, rightY) + 15;
+  yPos += infoBoxHeight + 12;
 
-  // Line items table
+  // ═══════════════════════════════════════════════════════════════
+  // LINE ITEMS TABLE
+  // ═══════════════════════════════════════════════════════════════
+
   const tableData = (purchaseOrder.line_items || []).map((item, index) => [
     (index + 1).toString(),
     item.description,
@@ -165,102 +217,162 @@ export async function generatePurchaseOrderPDF(
     head: [["#", "Description", "Qty", "Unit Price", "Total"]],
     body: tableData,
     theme: "plain",
-    headStyles: {
-      fillColor: [241, 245, 249], // slate-100
-      textColor: primaryColor,
-      fontStyle: "bold",
+    styles: {
       fontSize: 9,
+      cellPadding: { top: 4, bottom: 4, left: 6, right: 6 },
+    },
+    headStyles: {
+      fillColor: COLORS.charcoal,
+      textColor: COLORS.white,
+      fontStyle: "bold",
+      fontSize: 8,
     },
     bodyStyles: {
-      textColor: primaryColor,
-      fontSize: 9,
+      textColor: COLORS.darkSlate,
+    },
+    alternateRowStyles: {
+      fillColor: COLORS.tableStripe,
     },
     columnStyles: {
-      0: { cellWidth: 12, halign: "center" },
+      0: { cellWidth: 14, halign: "center" },
       1: { cellWidth: "auto" },
-      2: { cellWidth: 20, halign: "center" },
-      3: { cellWidth: 30, halign: "right" },
-      4: { cellWidth: 30, halign: "right" },
+      2: { cellWidth: 18, halign: "center" },
+      3: { cellWidth: 28, halign: "right" },
+      4: { cellWidth: 28, halign: "right" },
     },
-    margin: { left: 15, right: 15 },
+    margin: { left: margin, right: margin },
+    tableLineColor: COLORS.border,
+    tableLineWidth: 0.1,
   });
 
-  // Totals section
-  yPos = (doc as any).lastAutoTable.finalY + 10;
+  // ═══════════════════════════════════════════════════════════════
+  // TOTALS SECTION
+  // ═══════════════════════════════════════════════════════════════
 
-  const totalsX = pageWidth - 70;
-  
+  yPos = (doc as any).lastAutoTable.finalY + 8;
+
+  const totalsBoxWidth = 85;
+  const totalsX = pageWidth - margin - totalsBoxWidth;
+
+  // Totals background
+  doc.setFillColor(...COLORS.tableHeader);
+  doc.roundedRect(totalsX, yPos, totalsBoxWidth, 38, 2, 2, "F");
+
+  let totalsY = yPos + 10;
+
   // Subtotal
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(...mutedColor);
-  doc.text("Subtotal:", totalsX, yPos);
-  doc.setTextColor(...primaryColor);
-  doc.text(`£${purchaseOrder.subtotal?.toFixed(2) || "0.00"}`, pageWidth - 15, yPos, { align: "right" });
-  
-  yPos += 6;
-  
+  doc.setTextColor(...COLORS.mediumSlate);
+  doc.text("Subtotal", totalsX + 8, totalsY);
+  doc.setTextColor(...COLORS.charcoal);
+  doc.text(`£${purchaseOrder.subtotal?.toFixed(2) || "0.00"}`, totalsX + totalsBoxWidth - 8, totalsY, { align: "right" });
+
+  totalsY += 8;
+
   // VAT
-  doc.setTextColor(...mutedColor);
-  doc.text(`VAT (${purchaseOrder.vat_rate || 20}%):`, totalsX, yPos);
-  doc.setTextColor(...primaryColor);
-  doc.text(`£${purchaseOrder.vat_amount?.toFixed(2) || "0.00"}`, pageWidth - 15, yPos, { align: "right" });
-  
-  yPos += 8;
-  
-  // Total
-  doc.setFillColor(241, 245, 249);
-  doc.rect(totalsX - 5, yPos - 5, pageWidth - totalsX + 5 - 10, 12, "F");
-  
-  doc.setFontSize(11);
+  doc.setTextColor(...COLORS.mediumSlate);
+  doc.text(`VAT (${purchaseOrder.vat_rate || 20}%)`, totalsX + 8, totalsY);
+  doc.setTextColor(...COLORS.charcoal);
+  doc.text(`£${purchaseOrder.vat_amount?.toFixed(2) || "0.00"}`, totalsX + totalsBoxWidth - 8, totalsY, { align: "right" });
+
+  totalsY += 10;
+
+  // Total row with accent
+  doc.setFillColor(...COLORS.accent);
+  doc.roundedRect(totalsX + 4, totalsY - 4, totalsBoxWidth - 8, 12, 1, 1, "F");
+
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(...primaryColor);
-  doc.text("TOTAL:", totalsX, yPos + 3);
-  doc.setTextColor(...accentColor);
-  doc.text(`£${purchaseOrder.total_amount?.toFixed(2) || "0.00"}`, pageWidth - 15, yPos + 3, { align: "right" });
+  doc.setTextColor(...COLORS.white);
+  doc.text("TOTAL", totalsX + 10, totalsY + 4);
+  doc.text(`£${purchaseOrder.total_amount?.toFixed(2) || "0.00"}`, totalsX + totalsBoxWidth - 10, totalsY + 4, { align: "right" });
 
-  // Notes section
+  yPos = yPos + 50;
+
+  // ═══════════════════════════════════════════════════════════════
+  // NOTES SECTION
+  // ═══════════════════════════════════════════════════════════════
+
   if (purchaseOrder.notes) {
-    yPos += 25;
-    doc.setFontSize(10);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(...mutedColor);
-    doc.text("NOTES", 15, yPos);
-    
+    doc.setTextColor(...COLORS.lightSlate);
+    doc.text("NOTES", margin, yPos);
+
     yPos += 6;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.setTextColor(...primaryColor);
-    
-    const splitNotes = doc.splitTextToSize(purchaseOrder.notes, pageWidth - 30);
-    doc.text(splitNotes, 15, yPos);
+    doc.setTextColor(...COLORS.darkSlate);
+
+    const splitNotes = doc.splitTextToSize(purchaseOrder.notes, contentWidth);
+    doc.text(splitNotes, margin, yPos);
+    yPos += splitNotes.length * 4 + 8;
   }
 
-  // Delivery address if different
+  // ═══════════════════════════════════════════════════════════════
+  // DELIVERY ADDRESS
+  // ═══════════════════════════════════════════════════════════════
+
   if (purchaseOrder.delivery_address) {
-    yPos += 20;
-    doc.setFontSize(10);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(...mutedColor);
-    doc.text("DELIVERY ADDRESS", 15, yPos);
-    
+    doc.setTextColor(...COLORS.lightSlate);
+    doc.text("DELIVERY ADDRESS", margin, yPos);
+
     yPos += 6;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.setTextColor(...primaryColor);
-    
-    const splitAddress = doc.splitTextToSize(purchaseOrder.delivery_address, pageWidth - 30);
-    doc.text(splitAddress, 15, yPos);
+    doc.setTextColor(...COLORS.darkSlate);
+
+    const splitAddress = doc.splitTextToSize(purchaseOrder.delivery_address, contentWidth);
+    doc.text(splitAddress, margin, yPos);
   }
 
-  // Footer
-  const pageHeight = doc.internal.pageSize.getHeight();
-  doc.setFontSize(8);
-  doc.setTextColor(...mutedColor);
+  // ═══════════════════════════════════════════════════════════════
+  // PROFESSIONAL FOOTER
+  // ═══════════════════════════════════════════════════════════════
+
+  const footerY = pageHeight - 22;
+
+  // Footer separator line
+  doc.setDrawColor(...COLORS.border);
+  doc.setLineWidth(0.3);
+  doc.line(margin, footerY, pageWidth - margin, footerY);
+
+  // Left: Company registration info
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COLORS.lightSlate);
+
+  const footerLeft: string[] = [];
+  if (companySettings?.company_name) {
+    footerLeft.push(companySettings.company_name);
+  }
+  if (companySettings?.registration_number) {
+    footerLeft.push(`Company Reg: ${companySettings.registration_number}`);
+  }
+  if (companySettings?.vat_number) {
+    footerLeft.push(`VAT: ${companySettings.vat_number}`);
+  }
+
+  if (footerLeft.length > 0) {
+    doc.text(footerLeft.join("  |  "), margin, footerY + 6);
+  }
+
+  // Right: Generation timestamp
   doc.text(
-    `Generated on ${format(new Date(), "dd/MM/yyyy 'at' HH:mm")}`,
+    `Generated ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
+    pageWidth - margin,
+    footerY + 6,
+    { align: "right" }
+  );
+
+  // Page number
+  doc.text(
+    "Page 1 of 1",
     pageWidth / 2,
-    pageHeight - 10,
+    footerY + 12,
     { align: "center" }
   );
 
@@ -310,14 +422,15 @@ function sanitizeAddressLines(address: string | null, companyName: string | null
       return normalizeLine(l) !== company;
     });
 
-  // Also strip any leading "Company Name," prefix if the address was stored as one line
   if (company) {
-    return lines.map((l) => {
-      const nl = normalizeLine(l);
-      if (nl.startsWith(company + ",")) return l.slice(l.indexOf(",") + 1).trim();
-      if (nl.startsWith(company + " -")) return l.slice(l.indexOf("-") + 1).trim();
-      return l;
-    }).filter(Boolean);
+    return lines
+      .map((l) => {
+        const nl = normalizeLine(l);
+        if (nl.startsWith(company + ",")) return l.slice(l.indexOf(",") + 1).trim();
+        if (nl.startsWith(company + " -")) return l.slice(l.indexOf("-") + 1).trim();
+        return l;
+      })
+      .filter(Boolean);
   }
 
   return lines;
