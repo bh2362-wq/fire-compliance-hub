@@ -50,7 +50,7 @@ interface ReportPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   visit: Visit;
-  onEdit?: (reportType?: "bs5839" | "work" | "asd") => void;
+  onEdit?: (reportType?: "bs5839" | "work" | "asd" | "disabled_refuge") => void;
 }
 
 interface SiteDetails {
@@ -126,12 +126,14 @@ function parseReportNotes(notes: string | null): ParsedNotes {
 }
 
 // Helper to detect report type from notes
-function detectReportType(notes: string | null): "bs5839" | "work" | "asd" | undefined {
+function detectReportType(notes: string | null): "bs5839" | "work" | "asd" | "disabled_refuge" | undefined {
   if (!notes) return undefined;
   try {
     const parsed = JSON.parse(notes);
     // ASD reports have report_type: "asd"
     if (parsed.report_type === "asd") return "asd";
+    // Disabled Refuge reports have report_type: "disabled_refuge"
+    if (parsed.report_type === "disabled_refuge") return "disabled_refuge";
     // Work reports have jobNumber or jobType but not asd
     if (typeof parsed.jobNumber !== "undefined" || typeof parsed.jobType !== "undefined") return "work";
     // Default to BS5839

@@ -20,6 +20,7 @@ import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
+import { DisabledRefugeReportDialog } from "@/components/reports/DisabledRefugeReportDialog";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
 import { ReportPreviewDialog } from "@/components/reports/ReportPreviewDialog";
 import { SmokeSprayEstimate } from "./SmokeSprayEstimate";
@@ -28,6 +29,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface ASDAsset {
+  id: string;
+  item_name: string;
+  manufacturer?: string | null;
+  model?: string | null;
+  location?: string | null;
+}
+
+interface DisabledRefugeAsset {
   id: string;
   item_name: string;
   manufacturer?: string | null;
@@ -79,8 +88,9 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [reportVisit, setReportVisit] = useState<Visit | null>(null);
   const [previewVisit, setPreviewVisit] = useState<Visit | null>(null);
   const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
-  const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | null>(null);
+  const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | "disabled_refuge" | null>(null);
   const [selectedAsdAssets, setSelectedAsdAssets] = useState<ASDAsset[]>([]);
+  const [selectedDisabledRefugeAssets, setSelectedDisabledRefugeAssets] = useState<DisabledRefugeAsset[]>([]);
   const [editVisit, setEditVisit] = useState<Visit | null>(null);
   const [deleteVisit, setDeleteVisit] = useState<Visit | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -531,10 +541,58 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 } catch {
                   setSelectedAsdAssets([]);
                 }
+              } else if (existingReportType === "disabled_refuge") {
+                try {
+                  const { data: assets } = await supabase
+                    .from("site_assets")
+                    .select("id, item_name, manufacturer, model, location")
+                    .eq("site_id", previewVisit.site_id)
+                    .eq("asset_type", "disabled_refuge");
+                  setSelectedDisabledRefugeAssets(assets || []);
+                } catch {
+                  setSelectedDisabledRefugeAssets([]);
+                }
               }
-            } else if (previewVisit.visit_type === "remedial" || previewVisit.visit_type === "emergency") {
+            } else if (previewVisit.visit_type === "remedial" || previewVisit.visit_type === "emergency" || previewVisit.visit_type === "supply_only") {
               setReportType("work");
             } else {
+              // Check visit notes for asset_type to auto-route
+              try {
+                const notes = previewVisit.notes ? JSON.parse(previewVisit.notes) : null;
+                const assetType = notes?.asset_type;
+                
+                if (assetType === "disabled_refuge") {
+                  const { data: assets } = await supabase
+                    .from("site_assets")
+                    .select("id, item_name, manufacturer, model, location")
+                    .eq("site_id", previewVisit.site_id)
+                    .eq("asset_type", "disabled_refuge");
+                  
+                  if (assets && assets.length > 0) {
+                    setSelectedDisabledRefugeAssets(assets);
+                    setReportType("disabled_refuge");
+                    return;
+                  }
+                } else if (assetType === "asd") {
+                  const { data: assets } = await supabase
+                    .from("site_assets")
+                    .select("id, item_name, manufacturer, model, location")
+                    .eq("site_id", previewVisit.site_id)
+                    .eq("asset_type", "asd");
+                  
+                  if (assets && assets.length > 0) {
+                    setSelectedAsdAssets(assets);
+                    setReportType("asd");
+                    return;
+                  }
+                } else if (assetType === "fire_panel") {
+                  setReportType("bs5839");
+                  return;
+                }
+              } catch {
+                // If notes parsing fails, fall through to selector
+              }
+              
               setShowReportTypeSelector(true);
             }
           }}
@@ -544,10 +602,13 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       <ReportTypeSelector
         open={showReportTypeSelector}
         onOpenChange={setShowReportTypeSelector}
-        onSelect={(type, asdAssets) => {
+        onSelect={(type, asdAssets, disabledRefugeAssets) => {
           setReportType(type);
           if (asdAssets && asdAssets.length > 0) {
             setSelectedAsdAssets(asdAssets);
+          }
+          if (disabledRefugeAssets && disabledRefugeAssets.length > 0) {
+            setSelectedDisabledRefugeAssets(disabledRefugeAssets);
           }
         }}
         siteId={reportVisit?.site_id}
@@ -593,6 +654,22 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           }}
           visit={{ ...reportVisit, sites: reportVisit.site }}
           assets={selectedAsdAssets}
+          onSuccess={onRefresh}
+        />
+      )}
+
+      {reportVisit && reportType === "disabled_refuge" && selectedDisabledRefugeAssets.length > 0 && (
+        <DisabledRefugeReportDialog
+          open={!!reportVisit && reportType === "disabled_refuge"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setReportVisit(null);
+              setReportType(null);
+              setSelectedDisabledRefugeAssets([]);
+            }
+          }}
+          visit={{ ...reportVisit, sites: reportVisit.site }}
+          assets={selectedDisabledRefugeAssets}
           onSuccess={onRefresh}
         />
       )}
