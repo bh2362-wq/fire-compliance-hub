@@ -5,8 +5,49 @@ import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { BankReconciliation } from "@/components/xero/BankReconciliation";
 import { Building2, ClipboardCheck, AlertTriangle, Percent } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { startOfMonth, endOfMonth, format } from "date-fns";
 
 const Dashboard = () => {
+  const [stats, setStats] = useState({
+    activeSites: 0,
+    visitsThisMonth: 0,
+    pendingVisits: 0,
+    openVisits: 0,
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const now = new Date();
+      const monthStart = format(startOfMonth(now), "yyyy-MM-dd");
+      const monthEnd = format(endOfMonth(now), "yyyy-MM-dd");
+
+      // Fetch all stats in parallel
+      const [sitesResult, visitsThisMonthResult, openVisitsResult] = await Promise.all([
+        supabase.from("sites").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("visits").select("id, status", { count: "exact" })
+          .gte("visit_date", monthStart)
+          .lte("visit_date", monthEnd),
+        supabase.from("visits").select("id", { count: "exact", head: true })
+          .in("status", ["scheduled", "in_progress", "pending_review"]),
+      ]);
+
+      const pendingCount = visitsThisMonthResult.data?.filter(
+        v => v.status === "scheduled" || v.status === "pending_review"
+      ).length || 0;
+
+      setStats({
+        activeSites: sitesResult.count || 0,
+        visitsThisMonth: visitsThisMonthResult.count || 0,
+        pendingVisits: pendingCount,
+        openVisits: openVisitsResult.count || 0,
+      });
+    };
+
+    fetchStats();
+  }, []);
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -20,16 +61,16 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             title="Active Sites"
-            value={24}
-            change="+2 this month"
-            changeType="positive"
+            value={stats.activeSites}
+            change=""
+            changeType="neutral"
             icon={Building2}
             href="/sites"
           />
           <StatsCard
             title="Visits This Month"
-            value={18}
-            change="7 pending"
+            value={stats.visitsThisMonth}
+            change={stats.pendingVisits > 0 ? `${stats.pendingVisits} pending` : ""}
             changeType="neutral"
             icon={ClipboardCheck}
             href="/dashboard/visits"
@@ -42,15 +83,17 @@ const Dashboard = () => {
             icon={Percent}
             href="/dashboard/reports"
           />
-          <StatsCard
-            title="Open Issues"
-            value={12}
-            change="3 critical"
-            changeType="negative"
-            icon={AlertTriangle}
-            iconColor="bg-destructive"
-            href="/sites"
-          />
+          {stats.openVisits > 0 && (
+            <StatsCard
+              title="Open Visits"
+              value={stats.openVisits}
+              change="Awaiting completion"
+              changeType="negative"
+              icon={AlertTriangle}
+              iconColor="bg-destructive"
+              href="/dashboard/visits"
+            />
+          )}
         </div>
 
         {/* Charts, lists, and financials */}
