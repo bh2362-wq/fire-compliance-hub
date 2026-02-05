@@ -459,6 +459,8 @@ export async function generateQuotationPDF(
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
+  // Reserve space so tables/totals never collide with the footer
+  const footerReserve = 18;
 
   // Load logo
   const logoUrl = companySettings?.report_logo_url || companySettings?.company_logo_url;
@@ -547,7 +549,7 @@ export async function generateQuotationPDF(
     startY: yPos,
     head: [headers],
     body: tableData,
-    margin: { left: margin, right: margin },
+    margin: { left: margin, right: margin, bottom: footerReserve + 6 },
     tableWidth: pageWidth - margin * 2,
     styles: {
       fontSize: 8,
@@ -579,13 +581,20 @@ export async function generateQuotationPDF(
   // Premium totals section
   const totalsWidth = 80;
   const totalsX = pageWidth - margin - totalsWidth;
+  const totalsHeight = 32;
+
+  // If there isn't enough room above the footer for totals, move totals to a new page
+  if (yPos + totalsHeight + footerReserve > pageHeight) {
+    doc.addPage();
+    yPos = 20;
+  }
   
   // Totals box
   doc.setFillColor(...COLORS.bgLight);
-  doc.roundedRect(totalsX, yPos, totalsWidth, 32, 2, 2, "F");
+  doc.roundedRect(totalsX, yPos, totalsWidth, totalsHeight, 2, 2, "F");
   doc.setDrawColor(...COLORS.border);
   doc.setLineWidth(0.3);
-  doc.roundedRect(totalsX, yPos, totalsWidth, 32, 2, 2, "S");
+  doc.roundedRect(totalsX, yPos, totalsWidth, totalsHeight, 2, 2, "S");
   
   const vatRate = data.vat_rate ?? 20;
   const subtotal = data.total_amount;
