@@ -150,6 +150,22 @@ const PurchaseOrders = () => {
     }
   };
 
+  const handleAuthoriseInXero = async (po: PurchaseOrder) => {
+    if (!po.xero_purchase_order_id) return;
+    try {
+      setActionLoading(po.id);
+      await updatePurchaseOrderStatusInXero(po.xero_purchase_order_id, "AUTHORISED");
+      await updatePurchaseOrder(po.id, { xero_status: "AUTHORISED" });
+      toast.success(`${po.po_number} authorised in Xero`);
+      loadPurchaseOrders();
+    } catch (error: any) {
+      console.error("Error authorising in Xero:", error);
+      toast.error(error.message || "Failed to authorise in Xero");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleEdit = async (po: PurchaseOrder) => {
     // Fetch full PO with line items for editing
     const fullPO = await fetchPurchaseOrderById(po.id);
@@ -235,6 +251,14 @@ const PurchaseOrders = () => {
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSyncToXero(po); }}>
                           <Send className="w-4 h-4 mr-2" />
                           Sync to Xero
+                        </DropdownMenuItem>
+                      )}
+                      
+                      {/* Authorise in Xero - for synced POs not yet authorised */}
+                      {po.xero_purchase_order_id && po.xero_status !== "AUTHORISED" && po.xero_status !== "BILLED" && po.xero_status !== "DELETED" && (
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleAuthoriseInXero(po); }}>
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Authorise in Xero
                         </DropdownMenuItem>
                       )}
                       
