@@ -15,6 +15,7 @@ import {
 } from "@/services/serviceContractService";
 import { ServiceContractDialog } from "./ServiceContractDialog";
 import { ContractAssetsDialog } from "./ContractAssetsDialog";
+import { getContractAssets } from "@/services/contractAssetService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +38,7 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
   const [editContract, setEditContract] = useState<ServiceContract | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [assetsContract, setAssetsContract] = useState<ServiceContract | null>(null);
+  const [promptAssetCreation, setPromptAssetCreation] = useState(false);
 
   useEffect(() => {
     loadContracts();
@@ -62,6 +64,24 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
   const handleAdd = () => {
     setEditContract(null);
     setDialogOpen(true);
+  };
+
+  const handleContractSaved = async (savedContract: ServiceContract, isNew: boolean) => {
+    await loadContracts();
+    
+    if (isNew) {
+      // Check if any assets exist for this new contract
+      try {
+        const existingAssets = await getContractAssets(savedContract.id);
+        if (existingAssets.length === 0) {
+          // No assets - prompt to create one
+          setAssetsContract(savedContract);
+          setPromptAssetCreation(true);
+        }
+      } catch (error) {
+        console.error("Failed to check assets:", error);
+      }
+    }
   };
 
   const handleDelete = async () => {
@@ -208,14 +228,20 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
         siteId={siteId}
         contract={editContract}
         existingTypes={contracts.map((c) => c.service_type)}
-        onSaved={loadContracts}
+        onSaved={handleContractSaved}
       />
 
       {assetsContract && (
         <ContractAssetsDialog
           open={!!assetsContract}
-          onOpenChange={(open) => !open && setAssetsContract(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setAssetsContract(null);
+              setPromptAssetCreation(false);
+            }
+          }}
           contract={assetsContract}
+          autoShowForm={promptAssetCreation}
         />
       )}
 
