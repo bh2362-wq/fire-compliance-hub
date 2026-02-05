@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Plus, Save, PoundSterling, FileDown, Mail } from "lucide-react";
+import { Loader2, Trash2, Plus, Save, PoundSterling, FileDown, Mail, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -24,8 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
-import { generateQuotationPDF, QuotationData } from "@/lib/quotationPdfGenerator";
+import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
 import { getCompanySettings } from "@/services/companySettingsService";
+import { EmailQuotationDialog } from "./EmailQuotationDialog";
 
 interface LineItem {
   id: string;
@@ -57,6 +59,7 @@ interface QuotationFull {
     address?: string | null;
     city?: string | null;
     postcode?: string | null;
+    customer_id?: string | null;
   } | null;
   customers: { 
     name: string;
@@ -95,6 +98,7 @@ export function QuotationDetailDialog({
   const [quotation, setQuotation] = useState<QuotationFull | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   
   // Editable fields
   const [title, setTitle] = useState("");
@@ -103,6 +107,26 @@ export function QuotationDetailDialog({
   const [terms, setTerms] = useState(DEFAULT_TERMS);
   const [validUntil, setValidUntil] = useState("");
   const [vatRate, setVatRate] = useState(20);
+
+  // Editable customer fields
+  const [customerName, setCustomerName] = useState("");
+  const [customerContactName, setCustomerContactName] = useState("");
+  const [customerContactEmail, setCustomerContactEmail] = useState("");
+  const [customerContactPhone, setCustomerContactPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [customerCity, setCustomerCity] = useState("");
+  const [customerPostcode, setCustomerPostcode] = useState("");
+
+  // PDF column options
+  const [columnOptions, setColumnOptions] = useState<PDFColumnOptions>({
+    showItemNumber: true,
+    showDescription: true,
+    showRegulationRef: true,
+    showPriority: true,
+    showQuantity: true,
+    showUnitPrice: true,
+    showTotal: true,
+  });
 
   useEffect(() => {
     if (open && quotationId) {
@@ -118,14 +142,34 @@ export function QuotationDetailDialog({
         .from("quotations")
         .select(`
           *,
-          sites:site_id(name, address, city, postcode),
+          sites:site_id(name, address, city, postcode, customer_id),
           customers:customer_id(name, contact_name, contact_email, contact_phone, address, city, postcode)
         `)
         .eq("id", quotationId)
         .single();
 
       if (quotationError) throw quotationError;
-      setQuotation(quotationData);
+      
+      // If no customer linked but site has a customer, fetch it
+      let customerData = quotationData.customers;
+      if (!customerData && quotationData.sites?.customer_id) {
+        const { data: siteCustomer } = await supabase
+          .from("customers")
+          .select("name, contact_name, contact_email, contact_phone, address, city, postcode")
+          .eq("id", quotationData.sites.customer_id)
+          .single();
+        
+        if (siteCustomer) {
+          customerData = siteCustomer;
+          // Update quotation with customer_id
+          await supabase
+            .from("quotations")
+            .update({ customer_id: quotationData.sites.customer_id })
+            .eq("id", quotationId);
+        }
+      }
+      
+      setQuotation({ ...quotationData, customers: customerData });
       
       // Set editable fields
       setTitle(quotationData.title || `Remedial Works - ${quotationData.sites?.name || "Site"}`);
@@ -134,6 +178,17 @@ export function QuotationDetailDialog({
       setTerms((quotationData as any).terms || DEFAULT_TERMS);
       setValidUntil(quotationData.valid_until || "");
       setVatRate((quotationData as any).vat_rate ?? 20);
+
+      // Set customer fields
+      if (customerData) {
+        setCustomerName(customerData.name || "");
+        setCustomerContactName(customerData.contact_name || "");
+        setCustomerContactEmail(customerData.contact_email || "");
+        setCustomerContactPhone(customerData.contact_phone || "");
+        setCustomerAddress(customerData.address || "");
+        setCustomerCity(customerData.city || "");
+        setCustomerPostcode(customerData.postcode || "");
+      }
 
       // Fetch line items
       const { data: itemsData, error: itemsError } = await supabase
@@ -251,49 +306,52 @@ export function QuotationDetailDialog({
     }
   };
 
+  const buildPDFData = (): QuotationData => {
+    return {
+      quotation_number: quotation!.quotation_number,
+      title,
+      summary,
+      total_amount: lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0),
+      valid_until: validUntil,
+      notes,
+      terms,
+      created_at: quotation!.created_at,
+      site: {
+        name: quotation!.sites?.name || "Unknown Site",
+        address: quotation!.sites?.address,
+        city: quotation!.sites?.city,
+        postcode: quotation!.sites?.postcode,
+      },
+      customer: customerName ? {
+        name: customerName,
+        contact_name: customerContactName || null,
+        contact_email: customerContactEmail || null,
+        contact_phone: customerContactPhone || null,
+        address: customerAddress || null,
+        city: customerCity || null,
+        postcode: customerPostcode || null,
+      } : null,
+      line_items: lineItems.map(item => ({
+        description: item.description,
+        regulation_reference: item.regulation_reference,
+        priority: item.priority,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+      })),
+      vat_rate: vatRate,
+    };
+  };
+
   const handleGeneratePDF = async () => {
     if (!quotation) return;
 
     setGenerating(true);
     try {
       const companySettings = await getCompanySettings();
-      
-      const pdfData: QuotationData = {
-        quotation_number: quotation.quotation_number,
-        title,
-        summary,
-        total_amount: lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0),
-        valid_until: validUntil,
-        notes,
-        terms,
-        created_at: quotation.created_at,
-        site: {
-          name: quotation.sites?.name || "Unknown Site",
-          address: quotation.sites?.address,
-          city: quotation.sites?.city,
-          postcode: quotation.sites?.postcode,
-        },
-        customer: quotation.customers ? {
-          name: quotation.customers.name,
-          contact_name: quotation.customers.contact_name,
-          contact_email: quotation.customers.contact_email,
-          contact_phone: quotation.customers.contact_phone,
-          address: quotation.customers.address,
-          city: quotation.customers.city,
-          postcode: quotation.customers.postcode,
-        } : null,
-        line_items: lineItems.map(item => ({
-          description: item.description,
-          regulation_reference: item.regulation_reference,
-          priority: item.priority,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-        })),
-        vat_rate: vatRate,
-      };
+      const pdfData = buildPDFData();
 
-      await generateQuotationPDF(pdfData, companySettings || undefined);
+      await generateQuotationPDF(pdfData, companySettings || undefined, false, columnOptions);
       toast.success("PDF generated successfully");
     } catch (error) {
       console.error("Error generating PDF:", error);
@@ -323,356 +381,533 @@ export function QuotationDetailDialog({
   const grandTotal = totalAmount + vatAmount;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {quotation?.quotation_number || "Loading..."}
-            {quotation && (
-              <Badge variant="outline" className="ml-2">
-                {quotation.status}
-              </Badge>
-            )}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {quotation?.quotation_number || "Loading..."}
+              {quotation && (
+                <Badge variant="outline" className="ml-2">
+                  {quotation.status}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : quotation ? (
-          <Tabs defaultValue="items" className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="items">Line Items</TabsTrigger>
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="terms">Terms & Notes</TabsTrigger>
-            </TabsList>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : quotation ? (
+            <Tabs defaultValue="items" className="flex-1 overflow-hidden flex flex-col">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="items">Line Items</TabsTrigger>
+                <TabsTrigger value="customer">Customer</TabsTrigger>
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="terms">Terms & PDF</TabsTrigger>
+              </TabsList>
 
-            <ScrollArea className="flex-1 pr-4">
-              <TabsContent value="items" className="mt-4 space-y-4">
-                {/* Customer/Site Info */}
-                <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div>
+              <ScrollArea className="flex-1 pr-4">
+                <TabsContent value="items" className="mt-4 space-y-4">
+                  {/* Site Info */}
+                  <div className="p-4 bg-muted/50 rounded-lg">
                     <p className="text-sm text-muted-foreground">Site</p>
                     <p className="font-medium">{quotation.sites?.name}</p>
                     {quotation.sites?.address && (
-                      <p className="text-sm text-muted-foreground">{quotation.sites.address}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {[quotation.sites.address, quotation.sites.city, quotation.sites.postcode].filter(Boolean).join(", ")}
+                      </p>
                     )}
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Customer</p>
-                    <p className="font-medium">{quotation.customers?.name || "—"}</p>
-                    {quotation.customers?.contact_name && (
-                      <p className="text-sm text-muted-foreground">{quotation.customers.contact_name}</p>
-                    )}
+
+                  {/* Line Items */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">Quotation Items ({lineItems.length})</h3>
+                    <Button variant="outline" size="sm" onClick={handleAddItem}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Item
+                    </Button>
                   </div>
-                </div>
 
-                {/* Line Items */}
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">Quotation Items ({lineItems.length})</h3>
-                  <Button variant="outline" size="sm" onClick={handleAddItem}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Item
-                  </Button>
-                </div>
-
-                {lineItems.length === 0 ? (
-                  <p className="text-center py-8 text-muted-foreground">
-                    No line items. Click "Add Item" to add one.
-                  </p>
-                ) : (
-                  lineItems.map((item, index) => (
-                    <div key={item.id} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 space-y-3">
-                          <div className="flex items-center gap-2">
-                            <Badge variant={getPriorityColor(item.priority)}>
-                              {item.priority}
-                            </Badge>
-                            {item.regulation_reference && (
-                              <Badge variant="outline" className="text-xs">
-                                {item.regulation_reference}
+                  {lineItems.length === 0 ? (
+                    <p className="text-center py-8 text-muted-foreground">
+                      No line items. Click "Add Item" to add one.
+                    </p>
+                  ) : (
+                    lineItems.map((item, index) => (
+                      <div key={item.id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={getPriorityColor(item.priority)}>
+                                {item.priority}
                               </Badge>
-                            )}
+                              {item.regulation_reference && (
+                                <Badge variant="outline" className="text-xs">
+                                  {item.regulation_reference}
+                                </Badge>
+                              )}
+                            </div>
+
+                            <Textarea
+                              value={item.description}
+                              onChange={(e) =>
+                                handleItemChange(index, "description", e.target.value)
+                              }
+                              placeholder="Description of work required..."
+                              className="min-h-[60px]"
+                            />
+
+                            <div className="grid grid-cols-5 gap-3">
+                              <div>
+                                <Label className="text-xs">Priority</Label>
+                                <Select
+                                  value={item.priority}
+                                  onValueChange={(value) =>
+                                    handleItemChange(index, "priority", value)
+                                  }
+                                >
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="critical">Critical</SelectItem>
+                                    <SelectItem value="high">High</SelectItem>
+                                    <SelectItem value="medium">Medium</SelectItem>
+                                    <SelectItem value="low">Low</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label className="text-xs">Regulation Ref</Label>
+                                <Input
+                                  value={item.regulation_reference || ""}
+                                  onChange={(e) =>
+                                    handleItemChange(index, "regulation_reference", e.target.value || null)
+                                  }
+                                  placeholder="BS 5839-1"
+                                  className="h-9"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Qty</Label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={item.quantity}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "quantity",
+                                      parseInt(e.target.value) || 1
+                                    )
+                                  }
+                                  className="h-9"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Unit Price (£)</Label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={0.01}
+                                  value={item.unit_price}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "unit_price",
+                                      parseFloat(e.target.value) || 0
+                                    )
+                                  }
+                                  className="h-9"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Total (£)</Label>
+                                <Input
+                                  type="number"
+                                  value={item.total_price.toFixed(2)}
+                                  readOnly
+                                  className="h-9 bg-muted"
+                                />
+                              </div>
+                            </div>
                           </div>
 
-                          <Textarea
-                            value={item.description}
-                            onChange={(e) =>
-                              handleItemChange(index, "description", e.target.value)
-                            }
-                            placeholder="Description of work required..."
-                            className="min-h-[60px]"
-                          />
-
-                          <div className="grid grid-cols-5 gap-3">
-                            <div>
-                              <Label className="text-xs">Priority</Label>
-                              <Select
-                                value={item.priority}
-                                onValueChange={(value) =>
-                                  handleItemChange(index, "priority", value)
-                                }
-                              >
-                                <SelectTrigger className="h-9">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="critical">Critical</SelectItem>
-                                  <SelectItem value="high">High</SelectItem>
-                                  <SelectItem value="medium">Medium</SelectItem>
-                                  <SelectItem value="low">Low</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Regulation Ref</Label>
-                              <Input
-                                value={item.regulation_reference || ""}
-                                onChange={(e) =>
-                                  handleItemChange(index, "regulation_reference", e.target.value || null)
-                                }
-                                placeholder="BS 5839-1"
-                                className="h-9"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Qty</Label>
-                              <Input
-                                type="number"
-                                min={1}
-                                value={item.quantity}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    "quantity",
-                                    parseInt(e.target.value) || 1
-                                  )
-                                }
-                                className="h-9"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Unit Price (£)</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                step={0.01}
-                                value={item.unit_price}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    "unit_price",
-                                    parseFloat(e.target.value) || 0
-                                  )
-                                }
-                                className="h-9"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Total (£)</Label>
-                              <Input
-                                type="number"
-                                value={item.total_price.toFixed(2)}
-                                readOnly
-                                className="h-9 bg-muted"
-                              />
-                            </div>
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveItem(index)}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
+                      </div>
+                    ))
+                  )}
 
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveItem(index)}
-                          className="text-muted-foreground hover:text-destructive"
+                  {/* Totals */}
+                  <div className="border-t pt-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal:</span>
+                      <span>£{totalAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">VAT:</span>
+                        <Select
+                          value={vatRate.toString()}
+                          onValueChange={(v) => setVatRate(parseInt(v))}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          <SelectTrigger className="h-7 w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">0%</SelectItem>
+                            <SelectItem value="5">5%</SelectItem>
+                            <SelectItem value="20">20%</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <span>£{vatAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-semibold pt-2 border-t">
+                      <span>Total:</span>
+                      <span className="flex items-center gap-1">
+                        <PoundSterling className="w-4 h-4" />
+                        {grandTotal.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="customer" className="mt-4 space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <User className="h-5 w-5 text-muted-foreground" />
+                    <h3 className="font-medium">Customer Details</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Edit the customer details for this quotation. Changes here only affect this quotation, not the master customer record.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <Label>Company Name</Label>
+                      <Input
+                        value={customerName}
+                        onChange={(e) => {
+                          setCustomerName(e.target.value);
+                          setHasChanges(true);
+                        }}
+                        placeholder="Customer company name"
+                      />
+                    </div>
+                    <div>
+                      <Label>Contact Name</Label>
+                      <Input
+                        value={customerContactName}
+                        onChange={(e) => {
+                          setCustomerContactName(e.target.value);
+                          setHasChanges(true);
+                        }}
+                        placeholder="Contact person"
+                      />
+                    </div>
+                    <div>
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={customerContactEmail}
+                        onChange={(e) => {
+                          setCustomerContactEmail(e.target.value);
+                          setHasChanges(true);
+                        }}
+                        placeholder="email@company.com"
+                      />
+                    </div>
+                    <div>
+                      <Label>Phone</Label>
+                      <Input
+                        value={customerContactPhone}
+                        onChange={(e) => {
+                          setCustomerContactPhone(e.target.value);
+                          setHasChanges(true);
+                        }}
+                        placeholder="Phone number"
+                      />
+                    </div>
+                    <div>
+                      <Label>Address</Label>
+                      <Input
+                        value={customerAddress}
+                        onChange={(e) => {
+                          setCustomerAddress(e.target.value);
+                          setHasChanges(true);
+                        }}
+                        placeholder="Street address"
+                      />
+                    </div>
+                    <div>
+                      <Label>City</Label>
+                      <Input
+                        value={customerCity}
+                        onChange={(e) => {
+                          setCustomerCity(e.target.value);
+                          setHasChanges(true);
+                        }}
+                        placeholder="City"
+                      />
+                    </div>
+                    <div>
+                      <Label>Postcode</Label>
+                      <Input
+                        value={customerPostcode}
+                        onChange={(e) => {
+                          setCustomerPostcode(e.target.value);
+                          setHasChanges(true);
+                        }}
+                        placeholder="Postcode"
+                      />
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="details" className="mt-4 space-y-4">
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Quotation Title</Label>
+                      <Input
+                        value={title}
+                        onChange={(e) => {
+                          setTitle(e.target.value);
+                          setHasChanges(true);
+                        }}
+                        placeholder="e.g., Fire Alarm Remedial Works"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Summary / Introduction</Label>
+                      <Textarea
+                        value={summary}
+                        onChange={(e) => {
+                          setSummary(e.target.value);
+                          setHasChanges(true);
+                        }}
+                        placeholder="Brief description of the quotation scope..."
+                        className="min-h-[80px]"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Valid Until</Label>
+                        <Input
+                          type="date"
+                          value={validUntil}
+                          onChange={(e) => {
+                            setValidUntil(e.target.value);
+                            setHasChanges(true);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label>Created</Label>
+                        <Input
+                          value={format(new Date(quotation.created_at), "dd MMMM yyyy")}
+                          readOnly
+                          className="bg-muted"
+                        />
                       </div>
                     </div>
-                  ))
-                )}
+                  </div>
+                </TabsContent>
 
-                {/* Totals */}
-                <div className="border-t pt-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal:</span>
-                    <span>£{totalAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">VAT:</span>
-                      <Select
-                        value={vatRate.toString()}
-                        onValueChange={(v) => setVatRate(parseInt(v))}
-                      >
-                        <SelectTrigger className="h-7 w-20">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">0%</SelectItem>
-                          <SelectItem value="5">5%</SelectItem>
-                          <SelectItem value="20">20%</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <span>£{vatAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-semibold pt-2 border-t">
-                    <span>Total:</span>
-                    <span className="flex items-center gap-1">
-                      <PoundSterling className="w-4 h-4" />
-                      {grandTotal.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="details" className="mt-4 space-y-4">
-                <div className="space-y-4">
+                <TabsContent value="terms" className="mt-4 space-y-6">
                   <div>
-                    <Label>Quotation Title</Label>
-                    <Input
-                      value={title}
+                    <Label>Terms & Conditions</Label>
+                    <Textarea
+                      value={terms}
                       onChange={(e) => {
-                        setTitle(e.target.value);
+                        setTerms(e.target.value);
                         setHasChanges(true);
                       }}
-                      placeholder="e.g., Fire Alarm Remedial Works"
+                      placeholder="Enter terms and conditions..."
+                      className="min-h-[150px] font-mono text-sm"
                     />
                   </div>
 
                   <div>
-                    <Label>Summary / Introduction</Label>
+                    <Label>Additional Notes</Label>
                     <Textarea
-                      value={summary}
+                      value={notes}
                       onChange={(e) => {
-                        setSummary(e.target.value);
+                        setNotes(e.target.value);
                         setHasChanges(true);
                       }}
-                      placeholder="Brief description of the quotation scope..."
+                      placeholder="Any additional notes for this quotation..."
                       className="min-h-[80px]"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Valid Until</Label>
-                      <Input
-                        type="date"
-                        value={validUntil}
-                        onChange={(e) => {
-                          setValidUntil(e.target.value);
-                          setHasChanges(true);
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <Label>Created</Label>
-                      <Input
-                        value={format(new Date(quotation.created_at), "dd MMMM yyyy")}
-                        readOnly
-                        className="bg-muted"
-                      />
+                  {/* PDF Column Options */}
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <h4 className="font-medium">PDF Column Options</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Select which columns to include in the downloaded PDF.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="col-num"
+                          checked={columnOptions.showItemNumber}
+                          onCheckedChange={(checked) =>
+                            setColumnOptions({ ...columnOptions, showItemNumber: !!checked })
+                          }
+                        />
+                        <label htmlFor="col-num" className="text-sm">#</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="col-desc"
+                          checked={columnOptions.showDescription}
+                          onCheckedChange={(checked) =>
+                            setColumnOptions({ ...columnOptions, showDescription: !!checked })
+                          }
+                        />
+                        <label htmlFor="col-desc" className="text-sm">Description</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="col-ref"
+                          checked={columnOptions.showRegulationRef}
+                          onCheckedChange={(checked) =>
+                            setColumnOptions({ ...columnOptions, showRegulationRef: !!checked })
+                          }
+                        />
+                        <label htmlFor="col-ref" className="text-sm">Regulation Ref</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="col-priority"
+                          checked={columnOptions.showPriority}
+                          onCheckedChange={(checked) =>
+                            setColumnOptions({ ...columnOptions, showPriority: !!checked })
+                          }
+                        />
+                        <label htmlFor="col-priority" className="text-sm">Priority</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="col-qty"
+                          checked={columnOptions.showQuantity}
+                          onCheckedChange={(checked) =>
+                            setColumnOptions({ ...columnOptions, showQuantity: !!checked })
+                          }
+                        />
+                        <label htmlFor="col-qty" className="text-sm">Quantity</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="col-unit"
+                          checked={columnOptions.showUnitPrice}
+                          onCheckedChange={(checked) =>
+                            setColumnOptions({ ...columnOptions, showUnitPrice: !!checked })
+                          }
+                        />
+                        <label htmlFor="col-unit" className="text-sm">Unit Price</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="col-total"
+                          checked={columnOptions.showTotal}
+                          onCheckedChange={(checked) =>
+                            setColumnOptions({ ...columnOptions, showTotal: !!checked })
+                          }
+                        />
+                        <label htmlFor="col-total" className="text-sm">Total</label>
+                      </div>
                     </div>
                   </div>
+                </TabsContent>
+              </ScrollArea>
+            </Tabs>
+          ) : (
+            <p className="text-center py-8 text-muted-foreground">
+              Quotation not found
+            </p>
+          )}
 
-                  <div>
-                    <Label>Customer Contact</Label>
-                    <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
-                      {quotation.customers ? (
-                        <>
-                          <p><span className="text-muted-foreground">Company:</span> {quotation.customers.name}</p>
-                          {quotation.customers.contact_name && (
-                            <p><span className="text-muted-foreground">Contact:</span> {quotation.customers.contact_name}</p>
-                          )}
-                          {quotation.customers.contact_email && (
-                            <p><span className="text-muted-foreground">Email:</span> {quotation.customers.contact_email}</p>
-                          )}
-                          {quotation.customers.contact_phone && (
-                            <p><span className="text-muted-foreground">Phone:</span> {quotation.customers.contact_phone}</p>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-muted-foreground">No customer linked</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="terms" className="mt-4 space-y-4">
-                <div>
-                  <Label>Terms & Conditions</Label>
-                  <Textarea
-                    value={terms}
-                    onChange={(e) => setTerms(e.target.value)}
-                    placeholder="Enter terms and conditions..."
-                    className="min-h-[200px] font-mono text-sm"
-                  />
-                </div>
-
-                <div>
-                  <Label>Additional Notes</Label>
-                  <Textarea
-                    value={notes}
-                    onChange={(e) => {
-                      setNotes(e.target.value);
-                      setHasChanges(true);
-                    }}
-                    placeholder="Any additional notes for this quotation..."
-                    className="min-h-[100px]"
-                  />
-                </div>
-              </TabsContent>
-            </ScrollArea>
-          </Tabs>
-        ) : (
-          <p className="text-center py-8 text-muted-foreground">
-            Quotation not found
-          </p>
-        )}
-
-        <DialogFooter className="flex-shrink-0 gap-2 sm:gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleGeneratePDF}
-            disabled={generating || loading || lineItems.length === 0}
-          >
-            {generating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <FileDown className="mr-2 h-4 w-4" />
-                Download PDF
-              </>
-            )}
-          </Button>
-          {hasChanges && (
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? (
+          <DialogFooter className="flex-shrink-0 gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setEmailDialogOpen(true)}
+              disabled={loading || lineItems.length === 0 || !customerContactEmail}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              Email
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleGeneratePDF}
+              disabled={generating || loading || lineItems.length === 0}
+            >
+              {generating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  Generating...
                 </>
               ) : (
                 <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Download PDF
                 </>
               )}
             </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            {hasChanges && (
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {quotation && (
+        <EmailQuotationDialog
+          open={emailDialogOpen}
+          onOpenChange={setEmailDialogOpen}
+          quotation={{
+            id: quotation.id,
+            quotation_number: quotation.quotation_number,
+            title,
+            site_id: quotation.site_id,
+            customer_id: quotation.customer_id,
+            sites: quotation.sites,
+          }}
+          customerEmail={customerContactEmail}
+          pdfData={buildPDFData()}
+          columnOptions={columnOptions}
+          onSuccess={() => {
+            onUpdate?.();
+          }}
+        />
+      )}
+    </>
   );
 }
