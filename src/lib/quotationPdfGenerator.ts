@@ -201,14 +201,11 @@ function addTitleSection(
   doc.setFont("helvetica", "bold");
   doc.text("QUOTATION", margin, yPos + 8);
   
-  // Quotation number badge - compact design
-  const numWidth = doc.getTextWidth(quotationNumber) + 8;
-  doc.setFillColor(...COLORS.primary);
-  doc.roundedRect(pageWidth - margin - numWidth, yPos - 2, numWidth, 10, 2, 2, "F");
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(10);
+  // Quotation number - clean text style
+  doc.setTextColor(...COLORS.primary);
+  doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text(quotationNumber, pageWidth - margin - 4, yPos + 4, { align: "right" });
+  doc.text(quotationNumber, pageWidth - margin, yPos + 4, { align: "right" });
   
   yPos += 18;
   
