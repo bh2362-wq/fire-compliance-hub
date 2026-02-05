@@ -36,10 +36,11 @@
    Eye,
    Trash2,
    MoreVertical,
-   FileCheck,
-   Send,
-   PoundSterling,
- } from "lucide-react";
+    FileCheck,
+    Send,
+    PoundSterling,
+    Undo2,
+  } from "lucide-react";
  import { toast } from "sonner";
  import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -128,21 +129,63 @@ import { AcceptQuotationDialog } from "@/components/quotations/AcceptQuotationDi
      fetchQuotations();
    }, []);
  
-   const handleStatusChange = async (quotationId: string, newStatus: string) => {
-     try {
-       const { error } = await supabase
-         .from("quotations")
-         .update({ status: newStatus })
-         .eq("id", quotationId);
- 
-       if (error) throw error;
-       toast.success(`Quotation marked as ${newStatus}`);
-       fetchQuotations();
-     } catch (error) {
-       console.error("Error updating status:", error);
-       toast.error("Failed to update status");
-     }
-   };
+    const handleStatusChange = async (quotationId: string, newStatus: string) => {
+      try {
+        const { error } = await supabase
+          .from("quotations")
+          .update({ status: newStatus })
+          .eq("id", quotationId);
+
+        if (error) throw error;
+        toast.success(`Quotation marked as ${newStatus}`);
+        fetchQuotations();
+      } catch (error) {
+        console.error("Error updating status:", error);
+        toast.error("Failed to update status");
+      }
+    };
+
+    const handleRevokeAcceptance = async (quotationId: string) => {
+      try {
+        // 1. Find and delete any linked visit
+        const { data: linkedVisits } = await supabase
+          .from("visits")
+          .select("id")
+          .eq("quotation_id", quotationId);
+
+        if (linkedVisits && linkedVisits.length > 0) {
+          for (const visit of linkedVisits) {
+            // Delete linked appointments first
+            await supabase
+              .from("appointments")
+              .delete()
+              .eq("visit_id", visit.id);
+            
+            // Delete the visit
+            await supabase
+              .from("visits")
+              .delete()
+              .eq("id", visit.id);
+          }
+        }
+
+        // 2. Reset quotation status and clear PO number
+        const { error } = await supabase
+          .from("quotations")
+          .update({ 
+            status: "sent", 
+            po_number: null 
+          })
+          .eq("id", quotationId);
+
+        if (error) throw error;
+        toast.success("Acceptance revoked and visit removed");
+        fetchQuotations();
+      } catch (error) {
+        console.error("Error revoking acceptance:", error);
+        toast.error("Failed to revoke acceptance");
+      }
+    };
  
    const handleDelete = async () => {
      if (!quotationToDelete) return;
@@ -343,7 +386,15 @@ import { AcceptQuotationDialog } from "@/components/quotations/AcceptQuotationDi
                                     Mark as Declined
                                   </DropdownMenuItem>
                                 </>
-                             )}
+                              )}
+                              {quotation.status === "accepted" && (
+                                <DropdownMenuItem
+                                  onClick={() => handleRevokeAcceptance(quotation.id)}
+                                >
+                                  <Undo2 className="w-4 h-4 mr-2" />
+                                  Revoke Acceptance
+                                </DropdownMenuItem>
+                              )}
                              <DropdownMenuItem
                                className="text-destructive focus:text-destructive"
                                onClick={() => {
