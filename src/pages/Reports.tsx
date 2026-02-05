@@ -28,7 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock } from "lucide-react";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import {
@@ -50,6 +50,9 @@ import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
+import { getCompanySettings } from "@/services/companySettingsService";
+import { generateServiceReportPDF } from "@/lib/pdfGenerator";
 
 interface ASDAsset {
   id: string;
@@ -112,6 +115,86 @@ const Reports = () => {
   const [unlockReason, setUnlockReason] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const { user } = useAuth();
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [reportToEmail, setReportToEmail] = useState<ReportWithSite | null>(null);
+  const [emailRecipientInfo, setEmailRecipientInfo] = useState<{
+    email: string;
+    recipients: string;
+    customerName: string;
+    customerId: string;
+  } | null>(null);
+  const [companySettings, setCompanySettings] = useState<{
+    company_name?: string;
+    report_logo_url?: string;
+    company_logo_url?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    getCompanySettings().then(setCompanySettings).catch(console.error);
+  }, []);
+
+  const handleEmailReport = async (report: ReportWithSite) => {
+    // Fetch customer info for this site
+    const { data: siteData } = await supabase
+      .from("sites")
+      .select("customer_id, customers(name, contact_email, email_recipients)")
+      .eq("id", report.site_id)
+      .maybeSingle();
+
+    const customer = siteData?.customers as { name: string; contact_email: string; email_recipients: string } | null;
+    
+    setEmailRecipientInfo({
+      email: customer?.contact_email || "",
+      recipients: customer?.email_recipients || "",
+      customerName: customer?.name || "",
+      customerId: siteData?.customer_id || "",
+    });
+    setReportToEmail(report);
+    setEmailDialogOpen(true);
+  };
+
+  const generateReportPdfBase64 = async (): Promise<string> => {
+    if (!reportToEmail) throw new Error("No report selected");
+
+    // Fetch full report data with site info
+    const { data: fullReport } = await supabase
+      .from("service_reports")
+      .select(`
+        *,
+        sites:site_id(name, address, city, postcode, customers(name, client_signature))
+      `)
+      .eq("id", reportToEmail.id)
+      .single();
+
+    if (!fullReport) throw new Error("Report not found");
+
+    const site = fullReport.sites as any;
+    const customer = site?.customers as any;
+
+    const siteInfo = {
+      name: site?.name || "",
+      address: site?.address,
+      city: site?.city,
+      postcode: site?.postcode,
+    };
+
+    const visitInfo = {
+      visit_type: reportToEmail.visits?.visit_type || "",
+      visit_date: reportToEmail.visits?.visit_date || fullReport.report_date,
+    };
+
+    const base64 = generateServiceReportPDF(
+      fullReport as any,
+      siteInfo,
+      visitInfo,
+      undefined,
+      undefined,
+      true // returnBase64
+    );
+
+    if (!base64) throw new Error("Failed to generate PDF");
+    return base64 as string;
+  };
 
   const fetchReports = async () => {
     setLoading(true);
@@ -495,6 +578,12 @@ const Reports = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
+                            onClick={() => handleEmailReport(report)}
+                          >
+                            <Mail className="w-4 h-4 mr-2" />
+                            Email Report
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={() => handleCreateInvoice(report)}
                           >
                             <Receipt className="w-4 h-4 mr-2" />
@@ -722,6 +811,33 @@ const Reports = () => {
             // Mark report as invoiced after successful invoice creation
             handleInvoicedToggle(reportToInvoice.id, true);
           }}
+        />
+      )}
+
+      {/* Email Report Dialog */}
+      {reportToEmail && emailRecipientInfo && (
+        <EmailReportDialog
+          open={emailDialogOpen}
+          onOpenChange={(open) => {
+            setEmailDialogOpen(open);
+            if (!open) {
+              setReportToEmail(null);
+              setEmailRecipientInfo(null);
+            }
+          }}
+          defaultEmail={emailRecipientInfo.email}
+          defaultRecipients={emailRecipientInfo.recipients}
+          customerName={emailRecipientInfo.customerName}
+          customerId={emailRecipientInfo.customerId}
+          siteId={reportToEmail.site_id}
+          visitId={reportToEmail.visit_id}
+          reportId={reportToEmail.id}
+          siteName={reportToEmail.sites?.name || ""}
+          reportNumber={reportToEmail.report_number || ""}
+          reportDate={reportToEmail.report_date}
+          companyName={companySettings?.company_name}
+          logoUrl={companySettings?.report_logo_url || companySettings?.company_logo_url}
+          generatePdfBase64={generateReportPdfBase64}
         />
       )}
     </DashboardLayout>
