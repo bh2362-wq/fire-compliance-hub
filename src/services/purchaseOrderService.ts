@@ -262,7 +262,27 @@ export async function updatePurchaseOrder(
   return data as PurchaseOrder;
 }
 
-export async function deletePurchaseOrder(id: string): Promise<void> {
+export async function deletePurchaseOrderFromXero(
+  xero_purchase_order_id: string
+): Promise<{ success: boolean; message: string; xero_status: string }> {
+  const { data, error } = await supabase.functions.invoke("xero-delete-purchase-order", {
+    body: {
+      xero_purchase_order_id,
+    },
+  });
+
+  if (error) throw error;
+  if (data.error) throw new Error(data.error);
+
+  return data;
+}
+
+export async function deletePurchaseOrder(id: string, xero_purchase_order_id?: string | null): Promise<void> {
+  // If synced to Xero, delete/void there first
+  if (xero_purchase_order_id) {
+    await deletePurchaseOrderFromXero(xero_purchase_order_id);
+  }
+
   // First delete line items
   await supabase
     .from("purchase_order_line_items")
