@@ -263,12 +263,80 @@ export async function updatePurchaseOrder(
 }
 
 export async function deletePurchaseOrder(id: string): Promise<void> {
+  // First delete line items
+  await supabase
+    .from("purchase_order_line_items")
+    .delete()
+    .eq("purchase_order_id", id);
+
+  // Then delete the PO
   const { error } = await supabase
     .from("purchase_orders")
     .delete()
     .eq("id", id);
 
   if (error) throw error;
+}
+
+export async function copyPurchaseOrder(
+  originalPo: PurchaseOrder,
+  userId: string
+): Promise<PurchaseOrder> {
+  // Get next PO number
+  const poNumber = await getNextPoNumber();
+
+  // Calculate totals from original line items
+  const lineItems = originalPo.line_items || [];
+  const subtotal = lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+  const vatRate = originalPo.vat_rate || 20;
+  const vatAmount = subtotal * (vatRate / 100);
+  const totalAmount = subtotal + vatAmount;
+
+  // Create new purchase order with new number
+  const insertData = {
+    po_number: poNumber,
+    supplier_id: originalPo.supplier_id,
+    order_date: new Date().toISOString().split("T")[0], // Today's date
+    expected_delivery_date: null, // Reset expected delivery
+    delivery_address: originalPo.delivery_address || null,
+    reference: originalPo.reference ? `Copy of ${originalPo.reference}` : null,
+    notes: originalPo.notes || null,
+    subtotal,
+    vat_amount: vatAmount,
+    total_amount: totalAmount,
+    vat_rate: vatRate,
+    status: "draft", // Always start as draft
+    created_by: userId,
+  };
+
+  const { data: poData, error: poError } = await supabase
+    .from("purchase_orders")
+    .insert(insertData)
+    .select()
+    .single();
+
+  if (poError) throw poError;
+
+  // Copy line items
+  if (lineItems.length > 0) {
+    const itemsToInsert = lineItems.map((item, index) => ({
+      description: item.description,
+      quantity: item.quantity || 1,
+      unit_price: item.unit_price || 0,
+      total_price: item.total_price || 0,
+      account_code: item.account_code || null,
+      purchase_order_id: poData.id,
+      sort_order: index,
+    }));
+
+    const { error: itemsError } = await supabase
+      .from("purchase_order_line_items")
+      .insert(itemsToInsert);
+
+    if (itemsError) throw itemsError;
+  }
+
+  return poData as PurchaseOrder;
 }
 
 export async function syncPurchaseOrderToXero(
