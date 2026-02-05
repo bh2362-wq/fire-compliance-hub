@@ -201,14 +201,19 @@ const PurchaseOrderDetailDialog = ({
 
     try {
       setDeleting(true);
-      await deletePurchaseOrder(purchaseOrder.id);
-      toast.success(`${purchaseOrder.po_number} deleted`);
+      await deletePurchaseOrder(purchaseOrder.id, purchaseOrder.xero_purchase_order_id);
+      
+      const message = purchaseOrder.xero_purchase_order_id
+        ? `${purchaseOrder.po_number} deleted and removed from Xero`
+        : `${purchaseOrder.po_number} deleted`;
+      toast.success(message);
+      
       setShowDeleteConfirm(false);
       onOpenChange(false);
       onUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting purchase order:", error);
-      toast.error("Failed to delete purchase order");
+      toast.error(error.message || "Failed to delete purchase order");
     } finally {
       setDeleting(false);
     }
@@ -397,7 +402,7 @@ const PurchaseOrderDetailDialog = ({
               <Button
                 variant="destructive"
                 onClick={() => setShowDeleteConfirm(true)}
-                disabled={deleting || !!purchaseOrder.xero_purchase_order_id}
+                disabled={deleting}
               >
                 {deleting ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -417,7 +422,13 @@ const PurchaseOrderDetailDialog = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Purchase Order</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {purchaseOrder?.po_number}? This action cannot be undone.
+              Are you sure you want to delete {purchaseOrder?.po_number}?
+              {purchaseOrder?.xero_purchase_order_id && (
+                <span className="block mt-2 font-medium text-warning">
+                  This will also void/delete the PO in Xero.
+                </span>
+              )}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
