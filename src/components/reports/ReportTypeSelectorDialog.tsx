@@ -21,6 +21,7 @@ interface VisitForReport {
   visit_date: string;
   site_id: string;
   sites?: { name: string } | null;
+  notes?: string | null;
 }
 
 interface ContractAsset {
@@ -42,6 +43,17 @@ interface ReportTypeSelectorDialogProps {
 
 // Visit types that should go directly to Job Sheet (Work Report)
 const JOB_SHEET_VISIT_TYPES = ["remedial", "emergency", "supply_only"];
+
+// Parse asset_type from visit notes
+const getAssetTypeFromVisit = (visit: VisitForReport): string | null => {
+  if (!visit.notes) return null;
+  try {
+    const notes = typeof visit.notes === 'string' ? JSON.parse(visit.notes) : visit.notes;
+    return notes?.asset_type || null;
+  } catch {
+    return null;
+  }
+};
 
 export function ReportTypeSelectorDialog({
   open,
@@ -68,9 +80,129 @@ export function ReportTypeSelectorDialog({
         onOpenChange(false);
         return;
       }
+      
+      // Check asset_type from visit notes - each discipline has its own report
+      const assetType = getAssetTypeFromVisit(visit);
+      
+      if (assetType === "disabled_refuge") {
+        loadAssetsAndOpenDisabledRefuge();
+        return;
+      }
+      
+      if (assetType === "asd") {
+        loadAssetsAndOpenAsd();
+        return;
+      }
+      
+      if (assetType === "fire_panel") {
+        setShowFireReport(true);
+        onOpenChange(false);
+        return;
+      }
+      
+      // For general/other asset types, load assets and show selector
       loadAssets();
     }
   }, [open, visit.site_id, visit.visit_type]);
+
+  const loadAssetsAndOpenDisabledRefuge = async () => {
+    setLoading(true);
+    try {
+      const { data: contracts } = await supabase
+        .from("site_service_contracts")
+        .select("id, service_type")
+        .eq("site_id", visit.site_id);
+
+      if (contracts && contracts.length > 0) {
+        const contractIds = contracts.map((c) => c.id);
+        const contractTypeMap = new Map(contracts.map((c) => [c.id, c.service_type]));
+
+        const { data: assets } = await supabase
+          .from("contract_assets")
+          .select("id, item_name, item_type, manufacturer, model, location, contract_id")
+          .in("contract_id", contractIds);
+
+        if (assets) {
+          const enrichedAssets = assets.map((a) => ({
+            ...a,
+            service_type: contractTypeMap.get(a.contract_id) || "Unknown",
+          }));
+
+          const disabledRefuge = enrichedAssets.filter(
+            (a) => a.service_type === "Disabled Refuge" ||
+                   a.item_type?.toLowerCase().includes("disabled refuge") ||
+                   a.item_type?.toLowerCase().includes("evc") ||
+                   a.item_type?.toLowerCase().includes("refuge")
+          );
+
+          setDisabledRefugeAssets(disabledRefuge);
+          
+          if (disabledRefuge.length > 0) {
+            setShowDisabledRefugeReport(true);
+            onOpenChange(false);
+            return;
+          }
+        }
+      }
+      setShowJobSheet(true);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Failed to load disabled refuge assets:", error);
+      setShowJobSheet(true);
+      onOpenChange(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAssetsAndOpenAsd = async () => {
+    setLoading(true);
+    try {
+      const { data: contracts } = await supabase
+        .from("site_service_contracts")
+        .select("id, service_type")
+        .eq("site_id", visit.site_id);
+
+      if (contracts && contracts.length > 0) {
+        const contractIds = contracts.map((c) => c.id);
+        const contractTypeMap = new Map(contracts.map((c) => [c.id, c.service_type]));
+
+        const { data: assets } = await supabase
+          .from("contract_assets")
+          .select("id, item_name, item_type, manufacturer, model, location, contract_id")
+          .in("contract_id", contractIds);
+
+        if (assets) {
+          const enrichedAssets = assets.map((a) => ({
+            ...a,
+            service_type: contractTypeMap.get(a.contract_id) || "Unknown",
+          }));
+
+          const asd = enrichedAssets.filter(
+            (a) => a.service_type === "Aspirator" ||
+                   a.item_type?.toLowerCase().includes("asd") ||
+                   a.item_type?.toLowerCase().includes("aspirat")
+          );
+
+          setAsdAssets(asd);
+          
+          if (asd.length > 0) {
+            setShowAsdReport(true);
+            onOpenChange(false);
+            return;
+          }
+        }
+      }
+      setShowJobSheet(true);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Failed to load ASD assets:", error);
+      setShowJobSheet(true);
+      onOpenChange(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadAssets = async () => {
     setLoading(true);
