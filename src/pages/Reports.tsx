@@ -28,7 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail } from "lucide-react";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import {
@@ -54,6 +54,7 @@ import { DisabledRefugeReportDialog } from "@/components/reports/DisabledRefugeR
 import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
+import { GenerateQuotationDialog } from "@/components/quotations/GenerateQuotationDialog";
 
 interface AssetInfo {
   id: string;
@@ -130,6 +131,8 @@ const Reports = () => {
     report_logo_url?: string;
     company_logo_url?: string;
   } | null>(null);
+  const [quotationDialogOpen, setQuotationDialogOpen] = useState(false);
+  const [reportForQuotation, setReportForQuotation] = useState<ReportWithSite | null>(null);
 
   // Helper to detect if a report is a Work Report (has JSON in notes with work report fields)
   function isWorkReport(report: ServiceReport): boolean {
@@ -811,6 +814,15 @@ const Reports = () => {
                             Create Invoice
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            onClick={() => {
+                              setReportForQuotation(report);
+                              setQuotationDialogOpen(true);
+                            }}
+                          >
+                            <ClipboardList className="w-4 h-4 mr-2" />
+                            Generate Quotation
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={(e) => {
                               e.preventDefault();
                               handleInvoicedToggle(report.id, !(report as any).invoiced);
@@ -1084,6 +1096,31 @@ const Reports = () => {
           companyName={companySettings?.company_name}
           logoUrl={companySettings?.report_logo_url || companySettings?.company_logo_url}
           generatePdfBase64={generateReportPdfBase64}
+        />
+      )}
+
+      {/* Generate Quotation Dialog */}
+      {reportForQuotation && (
+        <GenerateQuotationDialog
+          open={quotationDialogOpen}
+          onOpenChange={(open) => {
+            setQuotationDialogOpen(open);
+            if (!open) {
+              setReportForQuotation(null);
+            }
+          }}
+          report={{
+            id: reportForQuotation.id,
+            report_number: reportForQuotation.report_number || "",
+            site_id: reportForQuotation.site_id,
+            visit_id: reportForQuotation.visit_id,
+            notes: reportForQuotation.notes,
+            defects: reportForQuotation.defects_found,
+            recommendations: reportForQuotation.recommendations,
+            sites: reportForQuotation.sites,
+            visits: reportForQuotation.visits,
+          }}
+          onSuccess={fetchReports}
         />
       )}
     </DashboardLayout>
