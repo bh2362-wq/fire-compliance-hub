@@ -1894,10 +1894,12 @@ export type Database = {
           site_id: string
           status: string
           summary: string | null
+          terms: string | null
           title: string | null
           total_amount: number | null
           updated_at: string
           valid_until: string | null
+          vat_rate: number | null
           visit_id: string | null
         }
         Insert: {
@@ -1911,10 +1913,12 @@ export type Database = {
           site_id: string
           status?: string
           summary?: string | null
+          terms?: string | null
           title?: string | null
           total_amount?: number | null
           updated_at?: string
           valid_until?: string | null
+          vat_rate?: number | null
           visit_id?: string | null
         }
         Update: {
@@ -1928,10 +1932,12 @@ export type Database = {
           site_id?: string
           status?: string
           summary?: string | null
+          terms?: string | null
           title?: string | null
           total_amount?: number | null
           updated_at?: string
           valid_until?: string | null
+          vat_rate?: number | null
           visit_id?: string | null
         }
         Relationships: [
