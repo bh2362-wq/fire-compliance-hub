@@ -411,17 +411,16 @@ export function QuotationDetailDialog({
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : quotation ? (
-            <Tabs defaultValue="items" className="flex-1 overflow-hidden flex flex-col">
-              <TabsList className="grid w-full grid-cols-4">
+            <Tabs defaultValue="items" className="flex-1 min-h-0 flex flex-col">
+              <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
                 <TabsTrigger value="items">Line Items</TabsTrigger>
                 <TabsTrigger value="customer">Customer</TabsTrigger>
                 <TabsTrigger value="details">Details</TabsTrigger>
                 <TabsTrigger value="terms">Terms & PDF</TabsTrigger>
               </TabsList>
 
-              <ScrollArea className="flex-1 h-[calc(90vh-200px)]">
-                <div className="pr-4">
-                <TabsContent value="items" className="mt-4 space-y-4 data-[state=inactive]:hidden">
+              <div className="flex-1 min-h-0 overflow-auto mt-4 pr-2">
+                <TabsContent value="items" className="space-y-4 mt-0">
                   {/* Site Info */}
                   <div className="p-4 bg-muted/50 rounded-lg">
                     <p className="text-sm text-muted-foreground">Site</p>
@@ -468,7 +467,7 @@ export function QuotationDetailDialog({
                                 <SelectTrigger className="w-[130px] h-8">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="bg-popover z-50">
+                                <SelectContent className="bg-popover z-[200]">
                                   <SelectItem value="low">Low</SelectItem>
                                   <SelectItem value="medium">Medium</SelectItem>
                                   <SelectItem value="high">High</SelectItem>
@@ -607,7 +606,7 @@ export function QuotationDetailDialog({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="customer" className="mt-4 space-y-4">
+                <TabsContent value="customer" className="space-y-4 mt-0">
                   <div className="flex items-center gap-2 mb-4">
                     <User className="h-5 w-5 text-muted-foreground" />
                     <h3 className="font-medium">Customer Details</h3>
@@ -698,7 +697,7 @@ export function QuotationDetailDialog({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="details" className="mt-4 space-y-4">
+                <TabsContent value="details" className="space-y-4 mt-0">
                   <div className="space-y-4">
                     <div>
                       <Label>Quotation Title</Label>
@@ -749,7 +748,7 @@ export function QuotationDetailDialog({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="terms" className="mt-4 space-y-6">
+                <TabsContent value="terms" className="space-y-6 mt-0">
                   <div>
                     <Label>Terms & Conditions</Label>
                     <Textarea
@@ -866,8 +865,7 @@ export function QuotationDetailDialog({
                     </div>
                   </div>
                 </TabsContent>
-                </div>
-              </ScrollArea>
+              </div>
             </Tabs>
           ) : (
             <p className="text-center py-8 text-muted-foreground">
