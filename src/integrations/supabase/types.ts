@@ -1904,6 +1904,7 @@ export type Database = {
           locked_at: string | null
           locked_by: string | null
           notes: string | null
+          po_number: string | null
           quotation_number: string
           report_id: string | null
           site_id: string
@@ -1925,6 +1926,7 @@ export type Database = {
           locked_at?: string | null
           locked_by?: string | null
           notes?: string | null
+          po_number?: string | null
           quotation_number: string
           report_id?: string | null
           site_id: string
@@ -1946,6 +1948,7 @@ export type Database = {
           locked_at?: string | null
           locked_by?: string | null
           notes?: string | null
+          po_number?: string | null
           quotation_number?: string
           report_id?: string | null
           site_id?: string
@@ -2529,6 +2532,7 @@ export type Database = {
           id: string
           issues_count: number | null
           notes: string | null
+          quotation_id: string | null
           site_id: string
           status: string | null
           total_devices: number | null
@@ -2544,6 +2548,7 @@ export type Database = {
           id?: string
           issues_count?: number | null
           notes?: string | null
+          quotation_id?: string | null
           site_id: string
           status?: string | null
           total_devices?: number | null
@@ -2559,6 +2564,7 @@ export type Database = {
           id?: string
           issues_count?: number | null
           notes?: string | null
+          quotation_id?: string | null
           site_id?: string
           status?: string | null
           total_devices?: number | null
@@ -2567,6 +2573,13 @@ export type Database = {
           visit_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "visits_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "visits_site_id_fkey"
             columns: ["site_id"]
