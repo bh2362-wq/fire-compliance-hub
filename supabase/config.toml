@@ -63,8 +63,20 @@ verify_jwt = false
  [functions.elevenlabs-tts]
  verify_jwt = false
  
- [functions.xero-update-invoice-status]
- verify_jwt = false
- 
- [functions.send-statement-email]
- verify_jwt = false
+[functions.xero-update-invoice-status]
+verify_jwt = false
+
+[functions.send-statement-email]
+verify_jwt = false
+
+[functions.xero-suppliers]
+verify_jwt = false
+
+[functions.xero-create-supplier]
+verify_jwt = false
+
+[functions.xero-create-purchase-order]
+verify_jwt = false
+
+[functions.xero-update-purchase-order-status]
+verify_jwt = false
