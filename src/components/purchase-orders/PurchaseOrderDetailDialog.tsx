@@ -15,16 +15,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, CheckCircle, Download, ExternalLink } from "lucide-react";
+import { Send, Download, ExternalLink, Loader2, Package } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   fetchPurchaseOrderById,
   updatePurchaseOrder,
   syncPurchaseOrderToXero,
+  updatePurchaseOrderStatusInXero,
   PurchaseOrder,
   PO_STATUS_CONFIG,
 } from "@/services/purchaseOrderService";
+import { downloadPurchaseOrderPDF } from "@/lib/purchaseOrderPdfGenerator";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PurchaseOrderDetailDialogProps {
   open: boolean;
@@ -42,6 +45,8 @@ const PurchaseOrderDetailDialog = ({
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [markingReceived, setMarkingReceived] = useState(false);
 
   useEffect(() => {
     if (open && purchaseOrderId) {
@@ -100,6 +105,63 @@ const PurchaseOrderDetailDialog = ({
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!purchaseOrder) return;
+
+    try {
+      setDownloading(true);
+      
+      // Fetch company settings
+      const { data: companySettings } = await supabase
+        .from("company_settings")
+        .select("*")
+        .single();
+
+      await downloadPurchaseOrderPDF(purchaseOrder, companySettings);
+      toast.success("PDF downloaded");
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      toast.error("Failed to download PDF");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleMarkReceived = async () => {
+    if (!purchaseOrder) return;
+
+    try {
+      setMarkingReceived(true);
+
+      // Update local status
+      await updatePurchaseOrder(purchaseOrder.id, { status: "received" });
+
+      // If synced to Xero, update status there too (mark as BILLED)
+      if (purchaseOrder.xero_purchase_order_id) {
+        try {
+          await updatePurchaseOrderStatusInXero(
+            purchaseOrder.xero_purchase_order_id,
+            "BILLED"
+          );
+          toast.success("Marked as received and updated in Xero");
+        } catch (xeroError: any) {
+          console.error("Xero update error:", xeroError);
+          toast.success("Marked as received locally. Xero update failed.");
+        }
+      } else {
+        toast.success("Marked as received");
+      }
+
+      loadPurchaseOrder();
+      onUpdate();
+    } catch (error) {
+      console.error("Error marking as received:", error);
+      toast.error("Failed to mark as received");
+    } finally {
+      setMarkingReceived(false);
+    }
+  };
+
   if (!purchaseOrder) {
     return null;
   }
@@ -133,6 +195,9 @@ const PurchaseOrderDetailDialog = ({
               <div>
                 <span className="text-muted-foreground">Supplier</span>
                 <p className="font-medium">{purchaseOrder.supplier?.name}</p>
+                {purchaseOrder.supplier?.email && (
+                  <p className="text-xs text-muted-foreground">{purchaseOrder.supplier.email}</p>
+                )}
               </div>
               <div>
                 <span className="text-muted-foreground">Order Date</span>
@@ -228,11 +293,41 @@ const PurchaseOrderDetailDialog = ({
 
               <div className="flex-1" />
 
+              {/* Download PDF */}
+              <Button variant="outline" onClick={handleDownloadPDF} disabled={downloading}>
+                {downloading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                Download PDF
+              </Button>
+
+              {/* Mark as Received */}
+              {purchaseOrder.status === "sent" && (
+                <Button
+                  variant="outline"
+                  onClick={handleMarkReceived}
+                  disabled={markingReceived}
+                >
+                  {markingReceived ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Package className="w-4 h-4 mr-2" />
+                  )}
+                  Mark Received
+                </Button>
+              )}
+
               {/* Sync to Xero */}
               {!purchaseOrder.xero_purchase_order_id && purchaseOrder.supplier?.xero_contact_id && (
                 <Button onClick={handleSyncToXero} disabled={syncing}>
-                  <Send className="w-4 h-4 mr-2" />
-                  {syncing ? "Syncing..." : "Send to Xero"}
+                  {syncing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 mr-2" />
+                  )}
+                  Send to Xero
                 </Button>
               )}
             </div>
