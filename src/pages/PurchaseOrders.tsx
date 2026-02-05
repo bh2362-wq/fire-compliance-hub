@@ -230,8 +230,8 @@ const PurchaseOrders = () => {
                         </DropdownMenuItem>
                       )}
                       
-                      {/* Sync to Xero - only for drafts not yet synced */}
-                      {po.status === "draft" && !po.xero_purchase_order_id && po.supplier?.xero_contact_id && (
+                      {/* Sync to Xero - for any not yet synced with Xero-linked supplier */}
+                      {!po.xero_purchase_order_id && po.supplier?.xero_contact_id && (
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSyncToXero(po); }}>
                           <Send className="w-4 h-4 mr-2" />
                           Sync to Xero
@@ -246,7 +246,7 @@ const PurchaseOrders = () => {
                       
                       <DropdownMenuSeparator />
                       
-                      {/* Void - only for synced POs that aren't already voided */}
+                      {/* Void - for synced POs that aren't already voided */}
                       {po.xero_purchase_order_id && po.status !== "cancelled" && (
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
@@ -257,16 +257,14 @@ const PurchaseOrders = () => {
                         </DropdownMenuItem>
                       )}
                       
-                      {/* Delete - for drafts or cancelled */}
-                      {(po.status === "draft" || po.status === "cancelled") && (
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); setPoToDelete(po); }}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      )}
+                      {/* Delete - available for all statuses */}
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); setPoToDelete(po); }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
