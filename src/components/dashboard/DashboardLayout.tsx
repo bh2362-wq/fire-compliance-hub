@@ -25,13 +25,15 @@ import {
   MessageSquare,
   TrendingUp,
   HardHat,
-  Mail
+   Mail,
+   Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+ import VisitFormDialog from "@/components/visits/VisitFormDialog";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -238,9 +240,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <Bell className="w-5 h-5" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
             </button>
-            <Button variant="hero" size="sm">
-              New Visit
-            </Button>
+             <VisitFormDialog
+               trigger={
+                 <Button variant="hero" size="sm">
+                   <Plus className="w-4 h-4 mr-2" />
+                   New Visit
+                 </Button>
+               }
+             />
           </div>
         </header>
 
