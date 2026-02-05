@@ -125,7 +125,7 @@ serve(async (req) => {
           DeliveryDate: body.expected_delivery_date || undefined,
           Reference: body.reference || "",
           LineItems: xeroLineItems,
-          Status: "SUBMITTED",
+          Status: "AUTHORISED", // Create directly as authorised
         },
       ],
     };

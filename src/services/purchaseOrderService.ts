@@ -448,4 +448,5 @@ export const PO_STATUS_CONFIG: Record<string, { label: string; variant: "default
   sent: { label: "Sent", variant: "default" },
   received: { label: "Received", variant: "default" },
   paid: { label: "Paid", variant: "outline" },
+  cancelled: { label: "Voided", variant: "destructive" },
 };

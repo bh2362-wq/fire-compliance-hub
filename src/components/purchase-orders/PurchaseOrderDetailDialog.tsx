@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Download, ExternalLink, Loader2, Package, Copy, Trash2 } from "lucide-react";
+import { Send, Download, ExternalLink, Loader2, Package, Copy, Trash2, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -63,7 +63,9 @@ const PurchaseOrderDetailDialog = ({
   const [markingReceived, setMarkingReceived] = useState(false);
   const [copying, setCopying] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [voiding, setVoiding] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showVoidConfirm, setShowVoidConfirm] = useState(false);
 
   useEffect(() => {
     if (open && purchaseOrderId) {
@@ -216,6 +218,31 @@ const PurchaseOrderDetailDialog = ({
       toast.error(error.message || "Failed to delete purchase order");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleVoid = async () => {
+    if (!purchaseOrder || !purchaseOrder.xero_purchase_order_id) return;
+
+    try {
+      setVoiding(true);
+      await updatePurchaseOrderStatusInXero(purchaseOrder.xero_purchase_order_id, "DELETED");
+      
+      // Update local status
+      await updatePurchaseOrder(purchaseOrder.id, { 
+        status: "cancelled",
+        xero_status: "DELETED" 
+      });
+      
+      toast.success(`${purchaseOrder.po_number} voided in Xero`);
+      setShowVoidConfirm(false);
+      loadPurchaseOrder();
+      onUpdate();
+    } catch (error: any) {
+      console.error("Error voiding purchase order:", error);
+      toast.error(error.message || "Failed to void purchase order");
+    } finally {
+      setVoiding(false);
     }
   };
 
@@ -398,6 +425,23 @@ const PurchaseOrderDetailDialog = ({
                 </Button>
               )}
 
+              {/* Void PO (only for synced POs that aren't already voided) */}
+              {purchaseOrder.xero_purchase_order_id && purchaseOrder.xero_status !== "DELETED" && (
+                <Button
+                  variant="outline"
+                  className="border-destructive text-destructive hover:bg-destructive/10"
+                  onClick={() => setShowVoidConfirm(true)}
+                  disabled={voiding}
+                >
+                  {voiding ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Ban className="w-4 h-4 mr-2" />
+                  )}
+                  Void
+                </Button>
+              )}
+
               {/* Delete PO */}
               <Button
                 variant="destructive"
@@ -442,6 +486,34 @@ const PurchaseOrderDetailDialog = ({
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Void Confirmation Dialog */}
+      <AlertDialog open={showVoidConfirm} onOpenChange={setShowVoidConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Void Purchase Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to void {purchaseOrder?.po_number}?
+              <span className="block mt-2">
+                This will cancel the PO in Xero but keep the local record for reference.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={voiding}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleVoid}
+              disabled={voiding}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {voiding ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              Void
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
