@@ -50,6 +50,8 @@ import { generateServiceReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
+ import { InvoicePromptDialog } from "./InvoicePromptDialog";
+ import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 
 interface VisitForReport {
   id: string;
@@ -80,6 +82,22 @@ export function ServiceReportDialog({
   const [downloading, setDownloading] = useState(false);
   const [report, setReport] = useState<ServiceReport | null>(null);
   const [activeTab, setActiveTab] = useState("details");
+ 
+   // Invoice prompt state
+   const [showInvoicePrompt, setShowInvoicePrompt] = useState(false);
+   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+   const [customerInfo, setCustomerInfo] = useState<{
+     id: string;
+     name: string;
+     xero_contact_id: string | null;
+   } | null>(null);
+   const [siteInfoForInvoice, setSiteInfoForInvoice] = useState<{
+     id: string;
+     name: string;
+     address?: string | null;
+     city?: string | null;
+   } | null>(null);
+   const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
 
   // Determine if report is locked (completed)
   const isLocked = report?.status === "completed";
@@ -126,6 +144,47 @@ export function ServiceReportDialog({
     setLoading(true);
 
     try {
+       // Fetch site info with customer details for invoice
+       const { data: site } = await supabase
+         .from("sites")
+         .select("id, name, address, city, customer_id, customers(id, name, xero_contact_id)")
+         .eq("id", visit.site_id)
+         .maybeSingle();
+ 
+       if (site) {
+         setSiteInfoForInvoice({
+           id: site.id,
+           name: site.name,
+           address: site.address,
+           city: site.city,
+         });
+         
+         const customerData = site.customers as { id: string; name: string; xero_contact_id: string | null } | null;
+         if (customerData) {
+           setCustomerInfo({
+             id: customerData.id,
+             name: customerData.name,
+             xero_contact_id: customerData.xero_contact_id,
+           });
+         }
+       }
+ 
+       // Fetch service contracts to get PO number
+       try {
+         const { data: contracts } = await supabase
+           .from("site_service_contracts")
+           .select("po_number")
+           .eq("site_id", visit.site_id)
+           .not("po_number", "is", null)
+           .limit(1);
+         
+         if (contracts && contracts.length > 0) {
+           setContractPoNumber(contracts[0].po_number);
+         }
+       } catch (error) {
+         console.error("Failed to load service contracts:", error);
+       }
+ 
       // Load fire panels from site_assets table (always get latest from DB)
       const { data: assets } = await supabase
         .from("site_assets")
@@ -292,8 +351,13 @@ export function ServiceReportDialog({
 
       toast.success(complete ? `Service report ${finalReportNumber || ""} completed` : "Service report saved");
       if (complete) {
-        onOpenChange(false);
-        onSuccess?.();
+         // Show invoice prompt if customer has Xero connection
+         if (customerInfo?.xero_contact_id) {
+           setShowInvoicePrompt(true);
+         } else {
+           onOpenChange(false);
+           onSuccess?.();
+         }
       }
     } catch (error) {
       console.error("Failed to save report:", error);
@@ -367,8 +431,13 @@ export function ServiceReportDialog({
       if (visitError) throw visitError;
 
       toast.success(`Visit ${finalReportNumber || ""} completed successfully`);
-      onOpenChange(false);
-      onSuccess?.();
+       // Show invoice prompt if customer has Xero connection
+       if (customerInfo?.xero_contact_id) {
+         setShowInvoicePrompt(true);
+       } else {
+         onOpenChange(false);
+         onSuccess?.();
+       }
     } catch (error) {
       console.error("Failed to complete visit:", error);
       toast.error("Failed to complete visit");
@@ -377,6 +446,23 @@ export function ServiceReportDialog({
     }
   };
 
+   const handleInvoicePromptConfirm = () => {
+     setShowInvoicePrompt(false);
+     setShowInvoiceDialog(true);
+   };
+ 
+   const handleInvoicePromptDecline = () => {
+     setShowInvoicePrompt(false);
+     onOpenChange(false);
+     onSuccess?.();
+   };
+ 
+   const handleInvoiceDialogClose = () => {
+     setShowInvoiceDialog(false);
+     onOpenChange(false);
+     onSuccess?.();
+   };
+ 
   const handleDownloadPDF = async () => {
     if (!report) return;
 
@@ -964,6 +1050,42 @@ export function ServiceReportDialog({
           )}
         </div>
       </ResponsiveDialogFooter>
-    </ResponsiveDialog>
+     
+       {/* Invoice Prompt Dialog */}
+       <InvoicePromptDialog
+         open={showInvoicePrompt}
+         onOpenChange={setShowInvoicePrompt}
+         onConfirm={handleInvoicePromptConfirm}
+         onDecline={handleInvoicePromptDecline}
+         siteName={siteInfoForInvoice?.name || visit.sites?.name || ""}
+       />
+ 
+       {/* Invoice Creation Dialog */}
+       {customerInfo && siteInfoForInvoice && (
+         <CustomerCreateInvoiceDialog
+           open={showInvoiceDialog}
+           onOpenChange={(open) => {
+             if (!open) handleInvoiceDialogClose();
+           }}
+           customerId={customerInfo.id}
+           customerName={customerInfo.name}
+           xeroContactId={customerInfo.xero_contact_id}
+           sites={[{
+             id: siteInfoForInvoice.id,
+             name: siteInfoForInvoice.name,
+             address: siteInfoForInvoice.address || null,
+             city: siteInfoForInvoice.city || null,
+           }]}
+           onSuccess={handleInvoiceDialogClose}
+           jobReportData={{
+             jobType: visit.visit_type,
+             reportDate: visit.visit_date,
+             reportNumber: reportNumber,
+             poNumber: contractPoNumber || undefined,
+             siteName: siteInfoForInvoice.name,
+           }}
+         />
+       )}
+     </ResponsiveDialog>
   );
 }
