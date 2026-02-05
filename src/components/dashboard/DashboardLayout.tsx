@@ -26,7 +26,8 @@ import {
   TrendingUp,
   HardHat,
    Mail,
-   Plus
+   Plus,
+   CreditCard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -50,6 +51,7 @@ const mainNavigation = [
   { name: "Reconciliation", href: "/dashboard/reconciliation", icon: GitCompare },
   { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
   { name: "Email Logs", href: "/dashboard/email-logs", icon: Mail },
+  { name: "Credit Control", href: "/dashboard/credit-control", icon: CreditCard },
 ];
 
 const qmsNavigation = [

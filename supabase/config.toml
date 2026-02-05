@@ -50,3 +50,12 @@ verify_jwt = false
 
 [functions.send-report-email]
 verify_jwt = false
+
+[functions.send-sms-reminder]
+verify_jwt = false
+
+[functions.send-voice-reminder]
+verify_jwt = false
+
+[functions.send-chase-email]
+verify_jwt = false
