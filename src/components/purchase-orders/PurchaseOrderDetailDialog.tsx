@@ -5,6 +5,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -15,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Download, ExternalLink, Loader2, Package } from "lucide-react";
+import { Send, Download, ExternalLink, Loader2, Package, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -23,11 +33,14 @@ import {
   updatePurchaseOrder,
   syncPurchaseOrderToXero,
   updatePurchaseOrderStatusInXero,
+  deletePurchaseOrder,
+  copyPurchaseOrder,
   PurchaseOrder,
   PO_STATUS_CONFIG,
 } from "@/services/purchaseOrderService";
 import { downloadPurchaseOrderPDF } from "@/lib/purchaseOrderPdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PurchaseOrderDetailDialogProps {
   open: boolean;
@@ -42,11 +55,15 @@ const PurchaseOrderDetailDialog = ({
   purchaseOrderId,
   onUpdate,
 }: PurchaseOrderDetailDialogProps) => {
+  const { user } = useAuth();
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [markingReceived, setMarkingReceived] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (open && purchaseOrderId) {
@@ -159,6 +176,41 @@ const PurchaseOrderDetailDialog = ({
       toast.error("Failed to mark as received");
     } finally {
       setMarkingReceived(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!purchaseOrder || !user) return;
+
+    try {
+      setCopying(true);
+      const newPo = await copyPurchaseOrder(purchaseOrder, user.id);
+      toast.success(`Created ${newPo.po_number} as a copy`);
+      onOpenChange(false);
+      onUpdate();
+    } catch (error) {
+      console.error("Error copying purchase order:", error);
+      toast.error("Failed to copy purchase order");
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!purchaseOrder) return;
+
+    try {
+      setDeleting(true);
+      await deletePurchaseOrder(purchaseOrder.id);
+      toast.success(`${purchaseOrder.po_number} deleted`);
+      setShowDeleteConfirm(false);
+      onOpenChange(false);
+      onUpdate();
+    } catch (error) {
+      console.error("Error deleting purchase order:", error);
+      toast.error("Failed to delete purchase order");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -293,6 +345,16 @@ const PurchaseOrderDetailDialog = ({
 
               <div className="flex-1" />
 
+              {/* Copy PO */}
+              <Button variant="outline" onClick={handleCopy} disabled={copying}>
+                {copying ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Copy className="w-4 h-4 mr-2" />
+                )}
+                Copy
+              </Button>
+
               {/* Download PDF */}
               <Button variant="outline" onClick={handleDownloadPDF} disabled={downloading}>
                 {downloading ? (
@@ -330,10 +392,49 @@ const PurchaseOrderDetailDialog = ({
                   Send to Xero
                 </Button>
               )}
+
+              {/* Delete PO */}
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={deleting || !!purchaseOrder.xero_purchase_order_id}
+              >
+                {deleting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                Delete
+              </Button>
             </div>
           </div>
         )}
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Purchase Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {purchaseOrder?.po_number}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
