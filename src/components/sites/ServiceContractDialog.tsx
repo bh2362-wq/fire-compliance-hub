@@ -21,7 +21,7 @@ interface ServiceContractDialogProps {
   siteId: string;
   contract?: ServiceContract | null;
   existingTypes?: string[];
-  onSaved: () => void;
+  onSaved: (contract: ServiceContract, isNew: boolean) => void;
 }
 
 export function ServiceContractDialog({
@@ -86,10 +86,10 @@ export function ServiceContractDialog({
         frequency: frequency || "3m",
       };
 
-      await upsertServiceContract(data);
+      const savedContract = await upsertServiceContract(data);
       toast.success(contract ? "Contract updated" : "Contract added");
       onOpenChange(false);
-      onSaved();
+      onSaved(savedContract, !contract);
     } catch (error) {
       console.error("Failed to save contract:", error);
       toast.error("Failed to save contract");

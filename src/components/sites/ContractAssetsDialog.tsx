@@ -33,9 +33,10 @@ interface ContractAssetsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contract: ServiceContract;
+  autoShowForm?: boolean;
 }
 
-export function ContractAssetsDialog({ open, onOpenChange, contract }: ContractAssetsDialogProps) {
+export function ContractAssetsDialog({ open, onOpenChange, contract, autoShowForm = false }: ContractAssetsDialogProps) {
   const [assets, setAssets] = useState<ContractAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -59,8 +60,11 @@ export function ContractAssetsDialog({ open, onOpenChange, contract }: ContractA
   useEffect(() => {
     if (open) {
       loadAssets();
+      if (autoShowForm) {
+        setShowForm(true);
+      }
     }
-  }, [open, contract.id]);
+  }, [open, contract.id, autoShowForm]);
 
   const loadAssets = async () => {
     setLoading(true);
