@@ -38,6 +38,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getDefaultDisabledRefugeChecklist } from "@/services/disabledRefugeChecklistService";
 import { MultiDisabledRefugeChecklist, DisabledRefugeChecklistData, initializeDisabledRefugeChecklists } from "./MultiDisabledRefugeChecklist";
 import { generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 interface DisabledRefugeAsset {
   id: string;
@@ -588,7 +589,7 @@ export function DisabledRefugeReportDialog({
                   <SelectTrigger>
                     <SelectValue placeholder="Select overall condition" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[200]">
                     <SelectItem value="satisfactory">Satisfactory</SelectItem>
                     <SelectItem value="requires_attention">Requires Attention</SelectItem>
                     <SelectItem value="unsatisfactory">Unsatisfactory</SelectItem>
@@ -597,7 +598,16 @@ export function DisabledRefugeReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Defects Found</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Defects Found</Label>
+                  {!isLocked && (
+                    <AIRewriteButton
+                      text={defectsFound}
+                      type="defects"
+                      onRewrite={setDefectsFound}
+                    />
+                  )}
+                </div>
                 <Textarea
                   value={defectsFound}
                   onChange={(e) => setDefectsFound(e.target.value)}
@@ -608,7 +618,16 @@ export function DisabledRefugeReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Recommendations</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Recommendations</Label>
+                  {!isLocked && (
+                    <AIRewriteButton
+                      text={recommendations}
+                      type="recommendations"
+                      onRewrite={setRecommendations}
+                    />
+                  )}
+                </div>
                 <Textarea
                   value={recommendations}
                   onChange={(e) => setRecommendations(e.target.value)}
