@@ -103,6 +103,7 @@ export function QuotationDetailDialog({
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   
   // Editable fields
+  const [quotationNumber, setQuotationNumber] = useState("");
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [notes, setNotes] = useState("");
@@ -175,6 +176,7 @@ export function QuotationDetailDialog({
       setQuotation({ ...quotationData, customers: customerData });
       
       // Set editable fields
+      setQuotationNumber(quotationData.quotation_number || "");
       setTitle(quotationData.title || `Remedial Works - ${quotationData.sites?.name || "Site"}`);
       setSummary(quotationData.summary || "");
       setNotes(quotationData.notes || "");
@@ -257,6 +259,7 @@ export function QuotationDetailDialog({
       const { error: quotationError } = await supabase
         .from("quotations")
         .update({ 
+          quotation_number: quotationNumber.trim(),
           total_amount: totalAmount,
           title,
           summary,
@@ -396,10 +399,18 @@ export function QuotationDetailDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {quotation?.quotation_number || "Loading..."}
+            <DialogTitle className="flex items-center gap-3">
+              <Input
+                value={quotationNumber}
+                onChange={(e) => {
+                  setQuotationNumber(e.target.value);
+                  setHasChanges(true);
+                }}
+                className="w-[160px] font-bold text-lg h-9"
+                placeholder="QUO-00000"
+              />
               {quotation && (
-                <Badge variant="outline" className="ml-2">
+                <Badge variant="outline">
                   {quotation.status}
                 </Badge>
               )}
