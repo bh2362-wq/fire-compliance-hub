@@ -59,20 +59,21 @@
  
      console.log(`Making voice call to ${cleanPhone} for invoice ${invoice_number}`);
  
-     // Create TwiML for the voice message
+      // Create TwiML for the voice message using Amazon Polly Amy (natural British female voice)
+      // Other options: Polly.Emma (British), Polly.Brian (British male), Polly.Joanna (US female)
      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
  <Response>
-   <Say voice="alice" language="en-GB">
+  <Say voice="Polly.Amy" language="en-GB">
      ${message}
    </Say>
    <Pause length="1"/>
-   <Say voice="alice" language="en-GB">
+  <Say voice="Polly.Amy" language="en-GB">
      To speak to someone about this invoice, please press 1. Otherwise, please make payment at your earliest convenience. Thank you.
    </Say>
    <Gather numDigits="1" timeout="10">
-     <Say voice="alice" language="en-GB">Press 1 to speak to someone.</Say>
+    <Say voice="Polly.Amy" language="en-GB">Press 1 to speak to someone.</Say>
    </Gather>
-   <Say voice="alice" language="en-GB">Goodbye.</Say>
+  <Say voice="Polly.Amy" language="en-GB">Goodbye.</Say>
  </Response>`;
  
      // Make call via Twilio
