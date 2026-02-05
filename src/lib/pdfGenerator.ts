@@ -154,8 +154,9 @@ export function generateServiceReportPDF(
   site: SiteInfo,
   visit: VisitInfo,
   panels?: PanelChecklistData[],
-  signatures?: ServiceReportSignatures
-): void {
+  signatures?: ServiceReportSignatures,
+  returnBase64?: boolean
+): string | void {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -722,6 +723,12 @@ export function generateServiceReportPDF(
   addCompactFooter(doc, pageWidth, margin);
 
   const fileName = `BHO_Service_Report_${site.name.replace(/\s+/g, "_")}_${format(new Date(report.report_date), "yyyy-MM-dd")}.pdf`;
+  
+  if (returnBase64) {
+    // Return base64 string (without data URI prefix)
+    return doc.output("datauristring").split(",")[1];
+  }
+  
   doc.save(fileName);
 }
 
