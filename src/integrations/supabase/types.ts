@@ -1823,6 +1823,148 @@ export type Database = {
         }
         Relationships: []
       }
+      quotation_line_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          notes: string | null
+          priority: string | null
+          quantity: number | null
+          quotation_id: string
+          regulation_reference: string | null
+          sort_order: number | null
+          source_section: string | null
+          source_type: string | null
+          total_price: number | null
+          unit_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          notes?: string | null
+          priority?: string | null
+          quantity?: number | null
+          quotation_id: string
+          regulation_reference?: string | null
+          sort_order?: number | null
+          source_section?: string | null
+          source_type?: string | null
+          total_price?: number | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          notes?: string | null
+          priority?: string | null
+          quantity?: number | null
+          quotation_id?: string
+          regulation_reference?: string | null
+          sort_order?: number | null
+          source_section?: string | null
+          source_type?: string | null
+          total_price?: number | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_line_items_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotations: {
+        Row: {
+          created_at: string
+          created_by: string
+          customer_id: string | null
+          id: string
+          notes: string | null
+          quotation_number: string
+          report_id: string | null
+          site_id: string
+          status: string
+          summary: string | null
+          title: string | null
+          total_amount: number | null
+          updated_at: string
+          valid_until: string | null
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          customer_id?: string | null
+          id?: string
+          notes?: string | null
+          quotation_number: string
+          report_id?: string | null
+          site_id: string
+          status?: string
+          summary?: string | null
+          title?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          valid_until?: string | null
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          customer_id?: string | null
+          id?: string
+          notes?: string | null
+          quotation_number?: string
+          report_id?: string | null
+          site_id?: string
+          status?: string
+          summary?: string | null
+          title?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          valid_until?: string | null
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "service_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rams_documents: {
         Row: {
           approved_at: string | null
@@ -2498,6 +2640,7 @@ export type Database = {
     }
     Functions: {
       get_next_qms_number: { Args: { prefix: string }; Returns: string }
+      get_next_quotation_number: { Args: never; Returns: string }
       get_next_report_number: {
         Args: { report_type?: string }
         Returns: string
