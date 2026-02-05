@@ -290,11 +290,21 @@ export async function generatePurchaseOrderPDF(
 
   yPos = yPos + 50;
 
+  // Footer reserve - ensure content doesn't overlap
+  const footerReserve = 28;
+  const maxContentY = pageHeight - footerReserve;
+
   // ═══════════════════════════════════════════════════════════════
   // NOTES SECTION
   // ═══════════════════════════════════════════════════════════════
 
   if (purchaseOrder.notes) {
+    // Check if we need a new page
+    if (yPos > maxContentY - 20) {
+      doc.addPage();
+      yPos = 20;
+    }
+
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...COLORS.lightSlate);
@@ -306,8 +316,24 @@ export async function generatePurchaseOrderPDF(
     doc.setTextColor(...COLORS.darkSlate);
 
     const splitNotes = doc.splitTextToSize(purchaseOrder.notes, contentWidth);
+    
+    // Check if notes will overflow
+    const notesHeight = splitNotes.length * 4;
+    if (yPos + notesHeight > maxContentY) {
+      doc.addPage();
+      yPos = 20;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...COLORS.lightSlate);
+      doc.text("NOTES (continued)", margin, yPos);
+      yPos += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...COLORS.darkSlate);
+    }
+    
     doc.text(splitNotes, margin, yPos);
-    yPos += splitNotes.length * 4 + 8;
+    yPos += notesHeight + 10;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -315,6 +341,12 @@ export async function generatePurchaseOrderPDF(
   // ═══════════════════════════════════════════════════════════════
 
   if (purchaseOrder.delivery_address) {
+    // Check if we need a new page
+    if (yPos > maxContentY - 20) {
+      doc.addPage();
+      yPos = 20;
+    }
+
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...COLORS.lightSlate);
@@ -326,55 +358,77 @@ export async function generatePurchaseOrderPDF(
     doc.setTextColor(...COLORS.darkSlate);
 
     const splitAddress = doc.splitTextToSize(purchaseOrder.delivery_address, contentWidth);
+    
+    // Check if address will overflow
+    const addressHeight = splitAddress.length * 4;
+    if (yPos + addressHeight > maxContentY) {
+      doc.addPage();
+      yPos = 20;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...COLORS.lightSlate);
+      doc.text("DELIVERY ADDRESS", margin, yPos);
+      yPos += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...COLORS.darkSlate);
+    }
+    
     doc.text(splitAddress, margin, yPos);
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // PROFESSIONAL FOOTER
+  // PROFESSIONAL FOOTER (on all pages)
   // ═══════════════════════════════════════════════════════════════
 
-  const footerY = pageHeight - 22;
+  const totalPages = doc.getNumberOfPages();
+  
+  for (let page = 1; page <= totalPages; page++) {
+    doc.setPage(page);
+    
+    const footerY = pageHeight - 18;
 
-  // Footer separator line
-  doc.setDrawColor(...COLORS.border);
-  doc.setLineWidth(0.3);
-  doc.line(margin, footerY, pageWidth - margin, footerY);
+    // Footer separator line
+    doc.setDrawColor(...COLORS.border);
+    doc.setLineWidth(0.3);
+    doc.line(margin, footerY, pageWidth - margin, footerY);
 
-  // Left: Company registration info
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COLORS.lightSlate);
+    // Left: Company registration info
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.lightSlate);
 
-  const footerLeft: string[] = [];
-  if (companySettings?.company_name) {
-    footerLeft.push(companySettings.company_name);
+    const footerLeft: string[] = [];
+    if (companySettings?.company_name) {
+      footerLeft.push(companySettings.company_name);
+    }
+    if (companySettings?.registration_number) {
+      footerLeft.push(`Reg: ${companySettings.registration_number}`);
+    }
+    if (companySettings?.vat_number) {
+      footerLeft.push(`VAT: ${companySettings.vat_number}`);
+    }
+
+    if (footerLeft.length > 0) {
+      doc.text(footerLeft.join("  |  "), margin, footerY + 5);
+    }
+
+    // Right: Generation timestamp
+    doc.text(
+      `Generated ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
+      pageWidth - margin,
+      footerY + 5,
+      { align: "right" }
+    );
+
+    // Page number (centered, below the line)
+    doc.text(
+      `Page ${page} of ${totalPages}`,
+      pageWidth / 2,
+      footerY + 10,
+      { align: "center" }
+    );
   }
-  if (companySettings?.registration_number) {
-    footerLeft.push(`Company Reg: ${companySettings.registration_number}`);
-  }
-  if (companySettings?.vat_number) {
-    footerLeft.push(`VAT: ${companySettings.vat_number}`);
-  }
-
-  if (footerLeft.length > 0) {
-    doc.text(footerLeft.join("  |  "), margin, footerY + 6);
-  }
-
-  // Right: Generation timestamp
-  doc.text(
-    `Generated ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
-    pageWidth - margin,
-    footerY + 6,
-    { align: "right" }
-  );
-
-  // Page number
-  doc.text(
-    "Page 1 of 1",
-    pageWidth / 2,
-    footerY + 12,
-    { align: "center" }
-  );
 
   return doc;
 }
