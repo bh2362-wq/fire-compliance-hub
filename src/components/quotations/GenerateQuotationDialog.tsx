@@ -36,28 +36,28 @@
    notes?: string;
  }
  
- interface GenerateQuotationDialogProps {
-   open: boolean;
-   onOpenChange: (open: boolean) => void;
-   report: {
-     id: string;
-     report_number: string;
-     site_id: string;
-     visit_id: string;
-     notes?: string | null;
-     defects?: string | null;
-     recommendations?: string | null;
-     sites?: {
-       name: string;
-       address?: string | null;
-       customer_id?: string | null;
+interface GenerateQuotationDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  report: {
+    id: string;
+    report_number: string;
+    site_id: string;
+    visit_id: string;
+    notes?: string | null;
+    defects?: string | null;
+    recommendations?: string | null;
+    sites?: {
+      name: string;
+      address?: string | null;
+      customer_id?: string | null;
     } | null;
-     visits?: {
-       visit_type?: string;
+    visits?: {
+      visit_type?: string;
     } | null;
-   };
-   onSuccess?: () => void;
- }
+  };
+  onSuccess?: () => void;
+}
  
  export function GenerateQuotationDialog({
    open,

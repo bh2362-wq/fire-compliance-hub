@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 
 // Company Branding Constants
 const COMPANY = {
@@ -24,6 +24,16 @@ const COLORS = {
   white: [255, 255, 255] as [number, number, number],
   black: [0, 0, 0] as [number, number, number],
 };
+
+export interface PDFColumnOptions {
+  showItemNumber: boolean;
+  showDescription: boolean;
+  showRegulationRef: boolean;
+  showPriority: boolean;
+  showQuantity: boolean;
+  showUnitPrice: boolean;
+  showTotal: boolean;
+}
 
 export interface QuotationLineItem {
   description: string;
@@ -125,7 +135,7 @@ function addHeader(
   // Company details on right
   const rightX = pageWidth - margin;
   doc.setTextColor(...COLORS.darkGrey);
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   
   doc.text(settings?.company_name || COMPANY.name, rightX, yPos + 4, { align: "right" });
@@ -133,22 +143,19 @@ function addHeader(
   if (settings?.city || settings?.postcode) {
     doc.text(`${settings?.city || ""} ${settings?.postcode || ""}`.trim(), rightX, yPos + 14, { align: "right" });
   }
-  doc.text(`T: ${settings?.phone || COMPANY.phone}`, rightX, yPos + 19, { align: "right" });
-  doc.text(`E: ${settings?.email || COMPANY.email}`, rightX, yPos + 24, { align: "right" });
-  if (settings?.vat_number) {
-    doc.text(`VAT: ${settings.vat_number}`, rightX, yPos + 29, { align: "right" });
-  }
+  doc.text(`Tel: ${settings?.phone || COMPANY.phone}`, rightX, yPos + 19, { align: "right" });
+  doc.text(`Email: ${settings?.email || COMPANY.email}`, rightX, yPos + 24, { align: "right" });
 
   // Separator line
   doc.setDrawColor(...COLORS.borderGrey);
   doc.setLineWidth(0.5);
-  doc.line(margin, 40, pageWidth - margin, 40);
+  doc.line(margin, 38, pageWidth - margin, 38);
 
-  return 46;
+  return 44;
 }
 
 // Footer with page numbers and generation date
-function addFooter(doc: jsPDF, pageWidth: number, margin: number, settings?: CompanySettings) {
+function addFooter(doc: jsPDF, pageWidth: number, margin: number) {
   const pageCount = doc.getNumberOfPages();
   const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -171,12 +178,12 @@ function addFooter(doc: jsPDF, pageWidth: number, margin: number, settings?: Com
 // Section header styling
 function addSectionHeader(doc: jsPDF, title: string, yPos: number, margin: number, pageWidth: number): number {
   doc.setFillColor(...COLORS.charcoal);
-  doc.rect(margin, yPos, pageWidth - margin * 2, 7, "F");
+  doc.rect(margin, yPos, pageWidth - margin * 2, 6, "F");
   doc.setTextColor(...COLORS.white);
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text(title, margin + 3, yPos + 5);
-  return yPos + 10;
+  doc.text(title, margin + 3, yPos + 4);
+  return yPos + 9;
 }
 
 // Info grid row
@@ -186,22 +193,33 @@ function addInfoRow(
   value: string,
   x: number,
   y: number,
-  labelWidth: number = 35
+  labelWidth: number = 30
 ): number {
   doc.setTextColor(...COLORS.darkGrey);
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.text(`${label}:`, x, y);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...COLORS.charcoal);
   doc.text(value || "-", x + labelWidth, y);
-  return y + 5;
+  return y + 4;
 }
+
+const defaultColumnOptions: PDFColumnOptions = {
+  showItemNumber: true,
+  showDescription: true,
+  showRegulationRef: true,
+  showPriority: true,
+  showQuantity: true,
+  showUnitPrice: true,
+  showTotal: true,
+};
 
 export async function generateQuotationPDF(
   data: QuotationData,
   companySettings?: CompanySettings,
-  returnBase64: boolean = false
+  returnBase64: boolean = false,
+  columnOptions: PDFColumnOptions = defaultColumnOptions
 ): Promise<string | void> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -214,44 +232,60 @@ export async function generateQuotationPDF(
   // Header
   let yPos = addHeader(doc, pageWidth, margin, logoImg, companySettings);
 
-  // QUOTATION title
+  // QUOTATION title with number
   doc.setFillColor(...COLORS.lightGrey);
-  doc.rect(margin, yPos, pageWidth - margin * 2, 12, "F");
+  doc.rect(margin, yPos, pageWidth - margin * 2, 10, "F");
   doc.setTextColor(...COLORS.red);
-  doc.setFontSize(18);
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("QUOTATION", pageWidth / 2, yPos + 8, { align: "center" });
-  yPos += 16;
-
-  // Quotation details grid
-  const colWidth = (pageWidth - margin * 2) / 2;
-  const leftCol = margin;
-  const rightCol = margin + colWidth + 5;
-
-  // Left column - Quotation info
+  doc.text("QUOTATION", margin + 3, yPos + 7);
   doc.setTextColor(...COLORS.charcoal);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text("Quotation Details", leftCol, yPos);
-  yPos += 6;
+  doc.setFontSize(11);
+  doc.text(data.quotation_number, pageWidth - margin - 3, yPos + 7, { align: "right" });
+  yPos += 14;
 
-  yPos = addInfoRow(doc, "Quote No", data.quotation_number, leftCol, yPos);
-  yPos = addInfoRow(doc, "Date", format(new Date(data.created_at), "dd MMMM yyyy"), leftCol, yPos);
+  // Two-column layout for quote info and customer
+  const colWidth = (pageWidth - margin * 2 - 10) / 2;
+  const leftCol = margin;
+  const rightCol = margin + colWidth + 10;
+
+  // Left column - Quote details
+  doc.setTextColor(...COLORS.charcoal);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Quote Details", leftCol, yPos);
+  yPos += 5;
+
+  doc.setFontSize(8);
+  yPos = addInfoRow(doc, "Date", format(new Date(data.created_at), "dd MMM yyyy"), leftCol, yPos);
   if (data.valid_until) {
-    yPos = addInfoRow(doc, "Valid Until", format(new Date(data.valid_until), "dd MMMM yyyy"), leftCol, yPos);
+    yPos = addInfoRow(doc, "Valid Until", format(new Date(data.valid_until), "dd MMM yyyy"), leftCol, yPos);
   }
 
-  // Right column - Customer/Site info
-  let rightY = yPos - 16;
-  doc.setTextColor(...COLORS.charcoal);
-  doc.setFontSize(10);
+  // Site info
+  yPos += 2;
+  doc.setFont("helvetica", "bold");
+  doc.text("Site:", leftCol, yPos);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.site.name, leftCol + 30, yPos);
+  yPos += 4;
+  if (data.site.address) {
+    const siteAddr = [data.site.address, data.site.city, data.site.postcode].filter(Boolean).join(", ");
+    const siteLines = doc.splitTextToSize(siteAddr, colWidth - 5);
+    doc.text(siteLines, leftCol, yPos);
+    yPos += siteLines.length * 3.5;
+  }
+
+  // Right column - Customer info
+  let rightY = yPos - (data.valid_until ? 13 : 9) - (data.site.address ? 4 : 0);
+  doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.text("Quote For", rightCol, rightY);
-  rightY += 6;
+  rightY += 5;
 
   if (data.customer) {
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(...COLORS.charcoal);
     doc.text(data.customer.name, rightCol, rightY);
     rightY += 4;
@@ -267,50 +301,88 @@ export async function generateQuotationPDF(
       doc.text(`${data.customer.city || ""} ${data.customer.postcode || ""}`.trim(), rightCol, rightY);
       rightY += 4;
     }
+    if (data.customer.contact_email) {
+      doc.text(data.customer.contact_email, rightCol, rightY);
+      rightY += 4;
+    }
+    if (data.customer.contact_phone) {
+      doc.text(`Tel: ${data.customer.contact_phone}`, rightCol, rightY);
+      rightY += 4;
+    }
   }
 
-  yPos = Math.max(yPos, rightY) + 6;
+  yPos = Math.max(yPos, rightY) + 4;
 
-  // Site details (if different from customer)
-  doc.setFillColor(...COLORS.lightGrey);
-  doc.rect(margin, yPos, pageWidth - margin * 2, 6, "F");
-  doc.setTextColor(...COLORS.charcoal);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text(`Site: ${data.site.name}`, margin + 3, yPos + 4);
-  if (data.site.address) {
-    const siteAddr = [data.site.address, data.site.city, data.site.postcode].filter(Boolean).join(", ");
-    doc.setFont("helvetica", "normal");
-    doc.text(` - ${siteAddr}`, margin + 3 + doc.getTextWidth(`Site: ${data.site.name}`), yPos + 4);
-  }
-  yPos += 10;
-
-  // Summary/Introduction
+  // Summary
   if (data.summary) {
     doc.setTextColor(...COLORS.darkGrey);
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "italic");
     const summaryLines = doc.splitTextToSize(data.summary, pageWidth - margin * 2);
     doc.text(summaryLines, margin, yPos);
-    yPos += summaryLines.length * 4 + 4;
+    yPos += summaryLines.length * 3.5 + 3;
   }
+
+  // Build dynamic table columns
+  const headers: string[] = [];
+  const colStyles: Record<number, any> = {};
+  let colIndex = 0;
+
+  if (columnOptions.showItemNumber) {
+    headers.push("#");
+    colStyles[colIndex] = { cellWidth: 8, halign: "center" };
+    colIndex++;
+  }
+  if (columnOptions.showDescription) {
+    headers.push("Description");
+    colStyles[colIndex] = { cellWidth: "auto" };
+    colIndex++;
+  }
+  if (columnOptions.showRegulationRef) {
+    headers.push("Ref");
+    colStyles[colIndex] = { cellWidth: 22 };
+    colIndex++;
+  }
+  if (columnOptions.showPriority) {
+    headers.push("Priority");
+    colStyles[colIndex] = { cellWidth: 16, halign: "center" };
+    colIndex++;
+  }
+  if (columnOptions.showQuantity) {
+    headers.push("Qty");
+    colStyles[colIndex] = { cellWidth: 12, halign: "center" };
+    colIndex++;
+  }
+  if (columnOptions.showUnitPrice) {
+    headers.push("Unit");
+    colStyles[colIndex] = { cellWidth: 18, halign: "right" };
+    colIndex++;
+  }
+  if (columnOptions.showTotal) {
+    headers.push("Total");
+    colStyles[colIndex] = { cellWidth: 20, halign: "right" };
+    colIndex++;
+  }
+
+  // Build table data
+  const tableData = data.line_items.map((item, index) => {
+    const row: string[] = [];
+    if (columnOptions.showItemNumber) row.push((index + 1).toString());
+    if (columnOptions.showDescription) row.push(item.description);
+    if (columnOptions.showRegulationRef) row.push(item.regulation_reference || "-");
+    if (columnOptions.showPriority) row.push(item.priority.charAt(0).toUpperCase() + item.priority.slice(1));
+    if (columnOptions.showQuantity) row.push(item.quantity.toString());
+    if (columnOptions.showUnitPrice) row.push(`£${item.unit_price.toFixed(2)}`);
+    if (columnOptions.showTotal) row.push(`£${item.total_price.toFixed(2)}`);
+    return row;
+  });
 
   // Line items table
   yPos = addSectionHeader(doc, "QUOTATION ITEMS", yPos, margin, pageWidth);
 
-  const tableData = data.line_items.map((item, index) => [
-    (index + 1).toString(),
-    item.description,
-    item.regulation_reference || "-",
-    item.priority.charAt(0).toUpperCase() + item.priority.slice(1),
-    item.quantity.toString(),
-    `£${item.unit_price.toFixed(2)}`,
-    `£${item.total_price.toFixed(2)}`,
-  ]);
-
   autoTable(doc, {
     startY: yPos,
-    head: [["#", "Description", "Ref", "Priority", "Qty", "Unit", "Total"]],
+    head: [headers],
     body: tableData,
     margin: { left: margin, right: margin },
     styles: {
@@ -326,96 +398,87 @@ export async function generateQuotationPDF(
       fontStyle: "bold",
       fontSize: 8,
     },
-    columnStyles: {
-      0: { cellWidth: 8, halign: "center" },
-      1: { cellWidth: "auto" },
-      2: { cellWidth: 25 },
-      3: { cellWidth: 18, halign: "center" },
-      4: { cellWidth: 12, halign: "center" },
-      5: { cellWidth: 18, halign: "right" },
-      6: { cellWidth: 20, halign: "right" },
-    },
+    columnStyles: colStyles,
     alternateRowStyles: {
       fillColor: COLORS.lightGrey,
     },
   });
 
-  yPos = (doc as any).lastAutoTable.finalY + 5;
+  yPos = (doc as any).lastAutoTable.finalY + 4;
 
   // Totals section
-  const totalsX = pageWidth - margin - 60;
+  const totalsX = pageWidth - margin - 55;
   const vatRate = data.vat_rate ?? 20;
   const subtotal = data.total_amount;
   const vatAmount = subtotal * (vatRate / 100);
   const grandTotal = subtotal + vatAmount;
 
   doc.setDrawColor(...COLORS.borderGrey);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.2);
   doc.line(totalsX - 5, yPos, pageWidth - margin, yPos);
-  yPos += 5;
+  yPos += 4;
 
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...COLORS.darkGrey);
   doc.text("Subtotal:", totalsX, yPos);
   doc.text(`£${subtotal.toFixed(2)}`, pageWidth - margin, yPos, { align: "right" });
-  yPos += 5;
+  yPos += 4;
 
   doc.text(`VAT (${vatRate}%):`, totalsX, yPos);
   doc.text(`£${vatAmount.toFixed(2)}`, pageWidth - margin, yPos, { align: "right" });
-  yPos += 5;
+  yPos += 4;
 
   doc.setFillColor(...COLORS.charcoal);
-  doc.rect(totalsX - 5, yPos - 3, pageWidth - margin - totalsX + 10, 8, "F");
+  doc.rect(totalsX - 5, yPos - 2, pageWidth - margin - totalsX + 10, 7, "F");
   doc.setTextColor(...COLORS.white);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.text("TOTAL:", totalsX, yPos + 2);
   doc.text(`£${grandTotal.toFixed(2)}`, pageWidth - margin - 2, yPos + 2, { align: "right" });
-  yPos += 12;
+  yPos += 10;
 
   // Terms and conditions
   if (data.terms) {
-    // Check if we need a new page
-    if (yPos > doc.internal.pageSize.getHeight() - 60) {
+    if (yPos > doc.internal.pageSize.getHeight() - 55) {
       doc.addPage();
       yPos = 20;
     }
 
     yPos = addSectionHeader(doc, "TERMS & CONDITIONS", yPos, margin, pageWidth);
     doc.setTextColor(...COLORS.darkGrey);
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     const termsLines = doc.splitTextToSize(data.terms, pageWidth - margin * 2);
     doc.text(termsLines, margin, yPos);
-    yPos += termsLines.length * 3.5 + 6;
+    yPos += termsLines.length * 3 + 4;
   }
 
   // Notes
   if (data.notes) {
-    if (yPos > doc.internal.pageSize.getHeight() - 40) {
+    if (yPos > doc.internal.pageSize.getHeight() - 35) {
       doc.addPage();
       yPos = 20;
     }
 
     yPos = addSectionHeader(doc, "ADDITIONAL NOTES", yPos, margin, pageWidth);
     doc.setTextColor(...COLORS.darkGrey);
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     const notesLines = doc.splitTextToSize(data.notes, pageWidth - margin * 2);
     doc.text(notesLines, margin, yPos);
-    yPos += notesLines.length * 3.5 + 6;
+    yPos += notesLines.length * 3 + 4;
   }
 
-  // Bank details (if available)
+  // Bank details
   if (companySettings?.bank_name || companySettings?.bank_account_number) {
-    if (yPos > doc.internal.pageSize.getHeight() - 35) {
+    if (yPos > doc.internal.pageSize.getHeight() - 30) {
       doc.addPage();
       yPos = 20;
     }
 
     yPos = addSectionHeader(doc, "PAYMENT DETAILS", yPos, margin, pageWidth);
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(...COLORS.charcoal);
     
     if (companySettings.bank_name) {
@@ -433,46 +496,46 @@ export async function generateQuotationPDF(
   }
 
   // Acceptance section
-  if (yPos > doc.internal.pageSize.getHeight() - 50) {
+  if (yPos > doc.internal.pageSize.getHeight() - 40) {
     doc.addPage();
     yPos = 20;
   }
 
-  yPos += 5;
+  yPos += 3;
   doc.setDrawColor(...COLORS.borderGrey);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.2);
   doc.line(margin, yPos, pageWidth - margin, yPos);
-  yPos += 8;
-
-  doc.setTextColor(...COLORS.charcoal);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text("ACCEPTANCE", margin, yPos);
   yPos += 6;
 
-  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COLORS.charcoal);
   doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("ACCEPTANCE", margin, yPos);
+  yPos += 5;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
   doc.setTextColor(...COLORS.darkGrey);
   doc.text("I accept this quotation and authorise the work to proceed:", margin, yPos);
-  yPos += 10;
+  yPos += 8;
 
   // Signature lines
   doc.setDrawColor(...COLORS.charcoal);
   doc.setLineWidth(0.2);
-  doc.line(margin, yPos + 8, margin + 70, yPos + 8);
-  doc.line(margin + 90, yPos + 8, margin + 130, yPos + 8);
+  doc.line(margin, yPos + 6, margin + 60, yPos + 6);
+  doc.line(margin + 80, yPos + 6, margin + 120, yPos + 6);
 
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   doc.setTextColor(...COLORS.mediumGrey);
-  doc.text("Signature", margin, yPos + 12);
-  doc.text("Date", margin + 90, yPos + 12);
+  doc.text("Signature", margin, yPos + 10);
+  doc.text("Date", margin + 80, yPos + 10);
 
-  yPos += 18;
-  doc.line(margin, yPos, margin + 70, yPos);
+  yPos += 14;
+  doc.line(margin, yPos, margin + 60, yPos);
   doc.text("Print Name", margin, yPos + 4);
 
   // Footer
-  addFooter(doc, pageWidth, margin, companySettings);
+  addFooter(doc, pageWidth, margin);
 
   // Output
   if (returnBase64) {

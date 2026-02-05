@@ -42,9 +42,8 @@
  } from "lucide-react";
  import { toast } from "sonner";
  import { format } from "date-fns";
- import { cn } from "@/lib/utils";
- import { supabase } from "@/integrations/supabase/client";
- import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDialog";
  
  interface QuotationWithDetails {
    id: string;
