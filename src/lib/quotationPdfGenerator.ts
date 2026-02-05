@@ -40,6 +40,7 @@ export interface PDFColumnOptions {
   showDescription: boolean;
   showRegulationRef: boolean;
   showPriority: boolean;
+  showItem: boolean;
   showQuantity: boolean;
   showUnitPrice: boolean;
   showTotal: boolean;
@@ -49,6 +50,8 @@ export interface QuotationLineItem {
   description: string;
   regulation_reference?: string | null;
   priority: string;
+  item_name?: string | null;
+  parent_id?: string | null;
   quantity: number;
   unit_price: number;
   total_price: number;
@@ -439,7 +442,8 @@ const defaultColumnOptions: PDFColumnOptions = {
   showItemNumber: true,
   showDescription: true,
   showRegulationRef: true,
-  showPriority: true,
+  showPriority: false,
+  showItem: true,
   showQuantity: true,
   showUnitPrice: true,
   showTotal: true,
@@ -487,7 +491,7 @@ export async function generateQuotationPDF(
   }
   if (columnOptions.showDescription) {
     headers.push("Description");
-    colStyles[colIndex] = { cellWidth: 55 }; // Fixed width for description
+    colStyles[colIndex] = { cellWidth: 50 }; // Adjusted width with Item column
     colIndex++;
   }
   if (columnOptions.showRegulationRef) {
@@ -498,6 +502,11 @@ export async function generateQuotationPDF(
   if (columnOptions.showPriority) {
     headers.push("Priority");
     colStyles[colIndex] = { cellWidth: 18, halign: "center", fontSize: 7 };
+    colIndex++;
+  }
+  if (columnOptions.showItem) {
+    headers.push("Item");
+    colStyles[colIndex] = { cellWidth: 30, fontSize: 7 };
     colIndex++;
   }
   if (columnOptions.showQuantity) {
@@ -516,13 +525,15 @@ export async function generateQuotationPDF(
     colIndex++;
   }
 
-  // Build table data
-  const tableData = data.line_items.map((item, index) => {
+  // Build table data (only parent items, sub-items shown beneath)
+  const parentItems = data.line_items.filter(item => !item.parent_id);
+  const tableData = parentItems.map((item, index) => {
     const row: string[] = [];
     if (columnOptions.showItemNumber) row.push((index + 1).toString());
     if (columnOptions.showDescription) row.push(item.description);
     if (columnOptions.showRegulationRef) row.push(item.regulation_reference || "-");
     if (columnOptions.showPriority) row.push(item.priority.charAt(0).toUpperCase() + item.priority.slice(1));
+    if (columnOptions.showItem) row.push(item.item_name || "-");
     if (columnOptions.showQuantity) row.push(item.quantity.toString());
     if (columnOptions.showUnitPrice) row.push(`£${item.unit_price.toFixed(2)}`);
     if (columnOptions.showTotal) row.push(`£${item.total_price.toFixed(2)}`);
