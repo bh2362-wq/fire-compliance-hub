@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Calendar, Flame, Wind, Wrench, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Calendar, Flame, Wind, Wrench, AlertTriangle, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -167,10 +167,10 @@ const VisitFormDialog = ({
   // Group assets by type
   const fireAssets = siteAssets.filter(a => a.asset_type === "fire_panel");
   const asdAssets = siteAssets.filter(a => a.asset_type === "asd");
+  const disabledRefugeAssets = siteAssets.filter(a => a.asset_type === "disabled_refuge");
 
   // Fire panel visits cover ALL panels - report will have separate checklists per panel
   // ASD visits also cover ALL units at the site - same approach
-  const isAsdVisit = selectedAssetType === "asd";
 
   // Clear visit_type when asset_type changes
   useEffect(() => {
@@ -190,6 +190,12 @@ const VisitFormDialog = ({
       label: `ASD${asdAssets.length > 1 ? ` (${asdAssets.length} units)` : ""}`, 
       icon: Wind, 
       count: asdAssets.length 
+    }] : []),
+    ...(disabledRefugeAssets.length > 0 ? [{ 
+      value: "disabled_refuge", 
+      label: `Disabled Refuge${disabledRefugeAssets.length > 1 ? ` (${disabledRefugeAssets.length} units)` : ""}`, 
+      icon: Phone, 
+      count: disabledRefugeAssets.length 
     }] : []),
     { value: "general", label: "General / Other", icon: Wrench, count: 0 },
   ];
@@ -472,6 +478,23 @@ const VisitFormDialog = ({
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {asdAssets.map((asset) => (
+                    <Badge key={asset.id} variant="secondary" className="text-xs">
+                      {asset.item_name}
+                      {asset.location && ` (${asset.location})`}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedAssetType === "disabled_refuge" && disabledRefugeAssets.length > 0 && (
+              <div className="bg-muted/50 border rounded-lg p-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                  <Phone className="w-4 h-4" />
+                  <span className="font-medium">Disabled Refuge units included in this visit:</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {disabledRefugeAssets.map((asset) => (
                     <Badge key={asset.id} variant="secondary" className="text-xs">
                       {asset.item_name}
                       {asset.location && ` (${asset.location})`}
