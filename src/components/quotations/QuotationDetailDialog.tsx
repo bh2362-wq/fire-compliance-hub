@@ -433,7 +433,16 @@ export function QuotationDetailDialog({
                   {/* Line Items */}
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">Quotation Items ({lineItems.length})</h3>
-                    <Button variant="outline" size="sm" onClick={handleAddItem}>
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="sm" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleAddItem();
+                      }}
+                    >
                       <Plus className="mr-2 h-4 w-4" />
                       Add Item
                     </Button>
