@@ -86,7 +86,11 @@ interface InvoiceFilters {
   search: string;
 }
 
-export function OutstandingInvoices() {
+interface OutstandingInvoicesProps {
+  searchQuery?: string;
+}
+
+export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesProps) {
   const [loading, setLoading] = useState(false);
   const [invoices, setInvoices] = useState<XeroInvoice[]>([]);
   const [contactBalances, setContactBalances] = useState<ContactBalance[]>([]);
@@ -216,13 +220,16 @@ export function OutstandingInvoices() {
     return Array.from(customers).sort();
   }, [invoices]);
 
+  // Combine external search query with internal filters
+  const combinedSearch = searchQuery || filters.search;
+
   // Filter invoices based on current filters
   const filteredInvoices = useMemo(() => {
     return invoices.filter((invoice) => {
-      const matchesSearch = !filters.search || 
-        invoice.invoiceNumber.toLowerCase().includes(filters.search.toLowerCase()) ||
-        invoice.contactName.toLowerCase().includes(filters.search.toLowerCase()) ||
-        invoice.reference?.toLowerCase().includes(filters.search.toLowerCase());
+      const matchesSearch = !combinedSearch || 
+        invoice.invoiceNumber.toLowerCase().includes(combinedSearch.toLowerCase()) ||
+        invoice.contactName.toLowerCase().includes(combinedSearch.toLowerCase()) ||
+        invoice.reference?.toLowerCase().includes(combinedSearch.toLowerCase());
       
       const matchesCustomer = !filters.customer || invoice.contactName === filters.customer;
       
@@ -233,7 +240,7 @@ export function OutstandingInvoices() {
 
       return matchesSearch && matchesCustomer && matchesStatus;
     });
-  }, [invoices, filters]);
+  }, [invoices, filters, combinedSearch]);
 
   const activeFilterCount = [filters.customer, filters.status, filters.search].filter(Boolean).length;
 
