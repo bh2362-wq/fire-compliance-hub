@@ -25,6 +25,7 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
  import { CreditControlTestDialog } from "@/components/credit-control/CreditControlTestDialog";
  import { CreditControlScheduleSetup } from "@/components/credit-control/CreditControlScheduleSetup";
  import { InvoiceActionsDialog } from "@/components/credit-control/InvoiceActionsDialog";
+ import { ReminderTemplatesTab } from "@/components/credit-control/ReminderTemplatesTab";
  
  const CreditControl = () => {
    const [loading, setLoading] = useState(true);
@@ -230,6 +231,10 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
                <Settings className="mr-2 h-4 w-4" />
                Schedule Setup
              </TabsTrigger>
+             <TabsTrigger value="templates">
+               <FileText className="mr-2 h-4 w-4" />
+               Templates
+             </TabsTrigger>
              <TabsTrigger value="exclusions">Exclusions</TabsTrigger>
            </TabsList>
 
@@ -381,6 +386,10 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
                }}
                onRefresh={loadData}
              />
+           </TabsContent>
+ 
+           <TabsContent value="templates" className="mt-4">
+             <ReminderTemplatesTab />
            </TabsContent>
  
            <TabsContent value="exclusions" className="mt-4">
