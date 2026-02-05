@@ -1,9 +1,15 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Copy, Phone } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -120,12 +126,20 @@ export function MultiDisabledRefugeChecklist({
         <div className="space-y-4 border-t pt-4">
           <div className="space-y-2">
             <Label>System Condition</Label>
-            <Input
-              value={unit.systemCondition}
-              onChange={(e) => updateUnit(unit.assetId, { systemCondition: e.target.value })}
-              placeholder="e.g., Satisfactory, Requires Attention"
+            <Select 
+              value={unit.systemCondition} 
+              onValueChange={(value) => updateUnit(unit.assetId, { systemCondition: value })}
               disabled={readonly}
-            />
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select condition" />
+              </SelectTrigger>
+              <SelectContent className="z-[200]">
+                <SelectItem value="satisfactory">Satisfactory</SelectItem>
+                <SelectItem value="requires_attention">Requires Attention</SelectItem>
+                <SelectItem value="unsatisfactory">Unsatisfactory</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Defects Found</Label>
@@ -213,12 +227,20 @@ export function MultiDisabledRefugeChecklist({
             <div className="space-y-4 border-t pt-4 mt-4">
               <div className="space-y-2">
                 <Label>System Condition</Label>
-                <Input
-                  value={unit.systemCondition}
-                  onChange={(e) => updateUnit(unit.assetId, { systemCondition: e.target.value })}
-                  placeholder="e.g., Satisfactory, Requires Attention"
+                <Select 
+                  value={unit.systemCondition} 
+                  onValueChange={(value) => updateUnit(unit.assetId, { systemCondition: value })}
                   disabled={readonly}
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select condition" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[200]">
+                    <SelectItem value="satisfactory">Satisfactory</SelectItem>
+                    <SelectItem value="requires_attention">Requires Attention</SelectItem>
+                    <SelectItem value="unsatisfactory">Unsatisfactory</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Defects Found</Label>
