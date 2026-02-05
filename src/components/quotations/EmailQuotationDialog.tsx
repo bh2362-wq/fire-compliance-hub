@@ -90,12 +90,13 @@ BHO Fire Ltd`);
       // Send email via edge function
       const { data, error } = await supabase.functions.invoke("send-report-email", {
         body: {
-          recipients: recipientList,
+          to: recipientList,
           subject,
-          body,
+          emailBody: body,
           pdfBase64,
-          fileName: `${quotation.quotation_number}.pdf`,
-          reportType: "quotation",
+          siteName: quotation.sites?.name || "Site",
+          reportNumber: quotation.quotation_number,
+          reportDate: new Date().toISOString().split("T")[0],
         },
       });
 
