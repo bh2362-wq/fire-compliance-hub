@@ -26,6 +26,7 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
  import { CreditControlScheduleSetup } from "@/components/credit-control/CreditControlScheduleSetup";
  import { InvoiceActionsDialog } from "@/components/credit-control/InvoiceActionsDialog";
  import { ReminderTemplatesTab } from "@/components/credit-control/ReminderTemplatesTab";
+ import { GroupEmailDialog } from "@/components/credit-control/GroupEmailDialog";
  
  const CreditControl = () => {
    const [loading, setLoading] = useState(true);
@@ -40,6 +41,7 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
   const [overdueInvoices, setOverdueInvoices] = useState<XeroOutstandingInvoice[]>([]);
   const [invoiceSummary, setInvoiceSummary] = useState<XeroInvoiceSummary | null>(null);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [groupEmailDialogOpen, setGroupEmailDialogOpen] = useState(false);
  
    useEffect(() => {
      loadData();
@@ -247,10 +249,18 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
                       Invoices past their due date from Xero
                     </CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" onClick={loadOverdueInvoices} disabled={loadingInvoices}>
-                    <RefreshCw className={`h-4 w-4 mr-2 ${loadingInvoices ? "animate-spin" : ""}`} />
-                    Refresh
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={loadOverdueInvoices} disabled={loadingInvoices}>
+                      <RefreshCw className={`h-4 w-4 mr-2 ${loadingInvoices ? "animate-spin" : ""}`} />
+                      Refresh
+                    </Button>
+                    {overdueInvoices.length > 0 && (
+                      <Button size="sm" onClick={() => setGroupEmailDialogOpen(true)}>
+                        <Mail className="h-4 w-4 mr-2" />
+                        Send Group Statement
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {loadingInvoices ? (
@@ -454,6 +464,13 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
          onOpenChange={setInvoiceDialogOpen} 
          invoice={selectedInvoice}
          onReminderSent={loadData}
+         onInvoiceUpdated={loadOverdueInvoices}
+       />
+       <GroupEmailDialog
+         open={groupEmailDialogOpen}
+         onOpenChange={setGroupEmailDialogOpen}
+         invoices={overdueInvoices}
+         onEmailSent={loadData}
        />
      </DashboardLayout>
    );
