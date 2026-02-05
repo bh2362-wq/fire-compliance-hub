@@ -392,7 +392,7 @@ export function QuotationDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {quotation?.quotation_number || "Loading..."}
@@ -417,8 +417,9 @@ export function QuotationDetailDialog({
                 <TabsTrigger value="terms">Terms & PDF</TabsTrigger>
               </TabsList>
 
-              <ScrollArea className="flex-1 pr-4">
-                <TabsContent value="items" className="mt-4 space-y-4">
+              <ScrollArea className="flex-1 h-[calc(90vh-200px)]">
+                <div className="pr-4">
+                <TabsContent value="items" className="mt-4 space-y-4 data-[state=inactive]:hidden">
                   {/* Site Info */}
                   <div className="p-4 bg-muted/50 rounded-lg">
                     <p className="text-sm text-muted-foreground">Site</p>
@@ -852,6 +853,7 @@ export function QuotationDetailDialog({
                     </div>
                   </div>
                 </TabsContent>
+                </div>
               </ScrollArea>
             </Tabs>
           ) : (
