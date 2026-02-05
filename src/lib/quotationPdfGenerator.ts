@@ -201,14 +201,14 @@ function addTitleSection(
   doc.setFont("helvetica", "bold");
   doc.text("QUOTATION", margin, yPos + 8);
   
-  // Quotation number badge
-  const numWidth = doc.getTextWidth(quotationNumber) + 12;
+  // Quotation number badge - compact design
+  const numWidth = doc.getTextWidth(quotationNumber) + 8;
   doc.setFillColor(...COLORS.primary);
-  doc.roundedRect(pageWidth - margin - numWidth, yPos - 4, numWidth, 14, 2, 2, "F");
+  doc.roundedRect(pageWidth - margin - numWidth, yPos - 2, numWidth, 10, 2, 2, "F");
   doc.setTextColor(...COLORS.white);
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text(quotationNumber, pageWidth - margin - 6, yPos + 5, { align: "right" });
+  doc.text(quotationNumber, pageWidth - margin - 4, yPos + 4, { align: "right" });
   
   yPos += 18;
   
@@ -490,27 +490,27 @@ export async function generateQuotationPDF(
   }
   if (columnOptions.showDescription) {
     headers.push("Description");
-    colStyles[colIndex] = { cellWidth: "auto" };
+    colStyles[colIndex] = { cellWidth: 55 }; // Fixed width for description
     colIndex++;
   }
   if (columnOptions.showRegulationRef) {
-    headers.push("Reference");
-    colStyles[colIndex] = { cellWidth: 24 };
+    headers.push("Ref");
+    colStyles[colIndex] = { cellWidth: 28, fontSize: 7 };
     colIndex++;
   }
   if (columnOptions.showPriority) {
     headers.push("Priority");
-    colStyles[colIndex] = { cellWidth: 18, halign: "center" };
+    colStyles[colIndex] = { cellWidth: 18, halign: "center", fontSize: 7 };
     colIndex++;
   }
   if (columnOptions.showQuantity) {
     headers.push("Qty");
-    colStyles[colIndex] = { cellWidth: 14, halign: "center" };
+    colStyles[colIndex] = { cellWidth: 12, halign: "center" };
     colIndex++;
   }
   if (columnOptions.showUnitPrice) {
-    headers.push("Unit Price");
-    colStyles[colIndex] = { cellWidth: 22, halign: "right" };
+    headers.push("Unit");
+    colStyles[colIndex] = { cellWidth: 20, halign: "right" };
     colIndex++;
   }
   if (columnOptions.showTotal) {
@@ -540,9 +540,10 @@ export async function generateQuotationPDF(
     head: [headers],
     body: tableData,
     margin: { left: margin, right: margin },
+    tableWidth: pageWidth - margin * 2,
     styles: {
       fontSize: 8,
-      cellPadding: 4,
+      cellPadding: 3,
       textColor: COLORS.textSecondary,
       lineColor: COLORS.border,
       lineWidth: 0.1,
@@ -552,15 +553,16 @@ export async function generateQuotationPDF(
       fillColor: COLORS.primary,
       textColor: COLORS.white,
       fontStyle: "bold",
-      fontSize: 8,
-      cellPadding: 5,
+      fontSize: 7,
+      cellPadding: 3,
+      halign: "center",
     },
     columnStyles: colStyles,
     alternateRowStyles: {
       fillColor: COLORS.bgLight,
     },
     bodyStyles: {
-      minCellHeight: 10,
+      minCellHeight: 8,
     },
   });
 
