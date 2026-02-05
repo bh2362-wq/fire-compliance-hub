@@ -1026,6 +1026,127 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_order_line_items: {
+        Row: {
+          account_code: string | null
+          created_at: string
+          description: string
+          id: string
+          purchase_order_id: string
+          quantity: number
+          sort_order: number | null
+          total_price: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          account_code?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          purchase_order_id: string
+          quantity?: number
+          sort_order?: number | null
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Update: {
+          account_code?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          purchase_order_id?: string
+          quantity?: number
+          sort_order?: number | null
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_line_items_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          created_at: string
+          created_by: string
+          delivery_address: string | null
+          expected_delivery_date: string | null
+          id: string
+          notes: string | null
+          order_date: string
+          po_number: string
+          reference: string | null
+          status: string
+          subtotal: number | null
+          supplier_id: string
+          synced_at: string | null
+          total_amount: number | null
+          updated_at: string
+          vat_amount: number | null
+          vat_rate: number | null
+          xero_purchase_order_id: string | null
+          xero_status: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          delivery_address?: string | null
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          po_number: string
+          reference?: string | null
+          status?: string
+          subtotal?: number | null
+          supplier_id: string
+          synced_at?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          vat_amount?: number | null
+          vat_rate?: number | null
+          xero_purchase_order_id?: string | null
+          xero_status?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          delivery_address?: string | null
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          po_number?: string
+          reference?: string | null
+          status?: string
+          subtotal?: number | null
+          supplier_id?: string
+          synced_at?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          vat_amount?: number | null
+          vat_rate?: number | null
+          xero_purchase_order_id?: string | null
+          xero_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qms_attachments: {
         Row: {
           created_at: string
@@ -2502,6 +2623,57 @@ export type Database = {
           },
         ]
       }
+      suppliers: {
+        Row: {
+          address: string | null
+          city: string | null
+          contact_name: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          postcode: string | null
+          status: string
+          updated_at: string
+          xero_contact_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          postcode?: string | null
+          status?: string
+          updated_at?: string
+          xero_contact_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          postcode?: string | null
+          status?: string
+          updated_at?: string
+          xero_contact_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2677,6 +2849,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_next_po_number: { Args: never; Returns: string }
       get_next_qms_number: { Args: { prefix: string }; Returns: string }
       get_next_quotation_number: { Args: never; Returns: string }
       get_next_report_number: {
