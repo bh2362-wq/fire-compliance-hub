@@ -1412,8 +1412,9 @@ export function generateASDReportPDF(
   data: ASDReportData,
   site: SiteInfo,
   visitDate: string,
-  visitType?: string
-): void {
+  visitType?: string,
+  returnBase64?: boolean
+): string | void {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -1932,6 +1933,10 @@ export function generateASDReportPDF(
 
   addCompactFooter(doc, pageWidth, margin);
 
+  if (returnBase64) {
+    return doc.output("datauristring").split(",")[1];
+  }
+
   const fileName = `BHO_ASD_Report_${site.name.replace(/\s+/g, "_")}_${format(new Date(visitDate), "yyyy-MM-dd")}.pdf`;
   doc.save(fileName);
 }
@@ -1980,8 +1985,9 @@ export async function generateDisabledRefugeReportPDF(
   data: DisabledRefugeReportData,
   site: SiteInfo,
   visitDate: string,
-  visitType: string
-) {
+  visitType: string,
+  returnBase64?: boolean
+): Promise<string | void> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -2489,6 +2495,10 @@ export async function generateDisabledRefugeReportPDF(
   }
 
   addCompactFooter(doc, pageWidth, margin);
+
+  if (returnBase64) {
+    return doc.output("datauristring").split(",")[1];
+  }
 
   const fileName = `BHO_DisabledRefuge_Report_${site.name.replace(/\s+/g, "_")}_${format(new Date(visitDate), "yyyy-MM-dd")}.pdf`;
   doc.save(fileName);

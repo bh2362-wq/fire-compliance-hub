@@ -52,7 +52,7 @@ import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
-import { generateServiceReportPDF } from "@/lib/pdfGenerator";
+import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 
 interface ASDAsset {
   id: string;
@@ -129,6 +129,41 @@ const Reports = () => {
     company_logo_url?: string;
   } | null>(null);
 
+  // Helper to detect if a report is a Work Report (has JSON in notes with work report fields)
+  function isWorkReport(report: ServiceReport): boolean {
+    if (!report.notes) return false;
+    try {
+      const parsed = JSON.parse(report.notes);
+      // Work reports have these specific fields (but NOT asd or disabled_refuge)
+      return (typeof parsed.jobNumber !== "undefined" || typeof parsed.jobType !== "undefined") 
+        && parsed.report_type !== "asd" && parsed.report_type !== "disabled_refuge";
+    } catch {
+      return false;
+    }
+  }
+
+  // Helper to detect if a report is an ASD Report
+  function isASDReport(report: ServiceReport): boolean {
+    if (!report.notes) return false;
+    try {
+      const parsed = JSON.parse(report.notes);
+      return parsed.report_type === "asd";
+    } catch {
+      return false;
+    }
+  }
+
+  // Helper to detect if a report is a Disabled Refuge Report
+  function isDisabledRefugeReport(report: ServiceReport): boolean {
+    if (!report.notes) return false;
+    try {
+      const parsed = JSON.parse(report.notes);
+      return parsed.report_type === "disabled_refuge";
+    } catch {
+      return false;
+    }
+  }
+
   useEffect(() => {
     getCompanySettings().then(setCompanySettings).catch(console.error);
   }, []);
@@ -153,7 +188,7 @@ const Reports = () => {
     setEmailDialogOpen(true);
   };
 
-  const generateReportPdfBase64 = async (): Promise<string> => {
+  const generateReportPdfBase64 = async (): Promise<string | null> => {
     if (!reportToEmail) throw new Error("No report selected");
 
     // Fetch full report data with site info
@@ -161,7 +196,7 @@ const Reports = () => {
       .from("service_reports")
       .select(`
         *,
-        sites:site_id(name, address, city, postcode, customers(name, client_signature))
+        sites:site_id(name, address, city, postcode, contact_name, contact_phone, contact_email, customers(name, client_signature))
       `)
       .eq("id", reportToEmail.id)
       .single();
@@ -176,6 +211,9 @@ const Reports = () => {
       address: site?.address,
       city: site?.city,
       postcode: site?.postcode,
+      contact_name: site?.contact_name,
+      contact_phone: site?.contact_phone,
+      contact_email: site?.contact_email,
     };
 
     const visitInfo = {
@@ -183,17 +221,171 @@ const Reports = () => {
       visit_date: reportToEmail.visits?.visit_date || fullReport.report_date,
     };
 
-    const base64 = generateServiceReportPDF(
-      fullReport as any,
-      siteInfo,
-      visitInfo,
-      undefined,
-      undefined,
-      true // returnBase64
-    );
+    // Determine report type and use appropriate PDF generator
+    if (isDisabledRefugeReport(fullReport as any)) {
+      // Disabled Refuge Report
+      const parsed = JSON.parse(fullReport.notes || "{}");
+      const units = parsed.units || [];
+      
+      const base64 = await generateDisabledRefugeReportPDF(
+        {
+          reportNumber: fullReport.report_number || "",
+          reportDate: fullReport.report_date,
+          engineerName: fullReport.engineer_name || "",
+          clientName: fullReport.client_name || "",
+          units: units.map((u: any) => ({
+            assetId: u.assetId,
+            assetName: u.assetName,
+            manufacturer: u.manufacturer,
+            model: u.model,
+            location: u.location,
+            checklist: u.checklist,
+            defects: u.defects,
+            recommendations: u.recommendations,
+            systemCondition: u.systemCondition,
+          })),
+          systemCondition: fullReport.system_condition || "",
+          defectsFound: fullReport.defects_found || "",
+          recommendations: fullReport.recommendations || "",
+          workCarriedOut: fullReport.work_carried_out || "",
+          partsUsed: fullReport.parts_used || "",
+          notes: parsed.additional_notes || "",
+          engineerSignature: fullReport.engineer_signature || parsed.engineerSignature || "",
+          engineerSignDate: parsed.engineerSignDate || "",
+          engineerSignTime: parsed.engineerSignTime || "",
+          customerNotPresent: parsed.customerNotPresent || false,
+          customerSignature: fullReport.client_signature || parsed.customerSignature || "",
+          customerSignDate: parsed.customerSignDate || "",
+          customerSignTime: parsed.customerSignTime || "",
+        },
+        siteInfo,
+        visitInfo.visit_date,
+        visitInfo.visit_type || "EVC Service",
+        true // returnBase64
+      );
+      
+      if (!base64) throw new Error("Failed to generate PDF");
+      return base64 as string;
+    } else if (isASDReport(fullReport as any)) {
+      // ASD Report
+      const parsed = JSON.parse(fullReport.notes || "{}");
+      
+      const base64 = generateASDReportPDF(
+        {
+          reportNumber: fullReport.report_number || "",
+          reportDate: fullReport.report_date,
+          engineerName: fullReport.engineer_name || "",
+          clientName: fullReport.client_name || "",
+          units: parsed.units || [],
+          systemCondition: fullReport.system_condition || "",
+          defectsFound: fullReport.defects_found || "",
+          recommendations: fullReport.recommendations || "",
+          workCarriedOut: fullReport.work_carried_out || "",
+          partsUsed: fullReport.parts_used || "",
+          notes: parsed.additional_notes || "",
+          engineerSignature: fullReport.engineer_signature || parsed.engineerSignature || "",
+          engineerSignDate: parsed.engineerSignDate || "",
+          engineerSignTime: parsed.engineerSignTime || "",
+          customerNotPresent: parsed.customerNotPresent || false,
+          customerSignature: fullReport.client_signature || parsed.customerSignature || "",
+          customerSignDate: parsed.customerSignDate || "",
+          customerSignTime: parsed.customerSignTime || "",
+        },
+        siteInfo,
+        visitInfo.visit_date,
+        visitInfo.visit_type,
+        true // returnBase64
+      );
+      
+      if (!base64) throw new Error("Failed to generate PDF");
+      return base64 as string;
+    } else if (isWorkReport(fullReport as any)) {
+      // Work Report / Job Sheet
+      const parsed = JSON.parse(fullReport.notes || "{}");
+      
+      const base64 = generateWorkReportPDF(
+        {
+          certificateNo: fullReport.report_number || "",
+          jobNumber: parsed.jobNumber || "",
+          jobType: parsed.jobType || "",
+          appointmentDate: parsed.appointmentDate || "",
+          systemStatusArrival: parsed.systemStatusArrival || "",
+          systemStatusDeparture: parsed.systemStatusDeparture || "",
+          workCompleted: parsed.workCompleted || false,
+          returnRequired: parsed.returnRequired || false,
+          surveyRequired: parsed.surveyRequired || false,
+          quotationRequired: parsed.quotationRequired || false,
+          ramsCompleted: parsed.ramsCompleted || false,
+          logBookEntry: parsed.logBookEntry || false,
+          worksReport: fullReport.work_carried_out || "",
+          furtherAction: fullReport.recommendations || "",
+          numEngineers: parsed.numEngineers || 1,
+          workDays: parsed.workDays || [],
+          totalHours: parsed.totalHours || "",
+          startTime: parsed.startTime || "",
+          finishTime: parsed.finishTime || "",
+          travelTime: parsed.travelTime || "",
+          duration: parsed.duration || "",
+          materials: parsed.materials || [],
+          engineerName: fullReport.engineer_name || "",
+          engineerSignature: fullReport.engineer_signature || parsed.engineerSignature || "",
+          engineerSignDate: parsed.engineerSignDate || "",
+          engineerSignTime: parsed.engineerSignTime || "",
+          customerNotPresent: parsed.customerNotPresent || false,
+          customerName: fullReport.client_name || "",
+          customerSignature: fullReport.client_signature || parsed.customerSignature || "",
+          customerSignDate: parsed.customerSignDate || "",
+          customerSignTime: parsed.customerSignTime || "",
+          customerPosition: parsed.customerPosition || "",
+          systemType: parsed.systemType || "",
+          panelManufacturer: parsed.panelManufacturer || "",
+          panelModel: parsed.panelModel || "",
+          panelLocation: parsed.panelLocation || "",
+          zonesCount: parsed.zonesCount,
+          devicesCount: parsed.devicesCount,
+        },
+        siteInfo,
+        visitInfo.visit_date,
+        visitInfo.visit_type,
+        true // returnBase64
+      );
+      
+      if (!base64) throw new Error("Failed to generate PDF");
+      return base64 as string;
+    } else {
+      // BS5839 / Service Report
+      let signatures = {};
+      let panels = undefined;
+      try {
+        const parsed = JSON.parse(fullReport.notes || "{}");
+        signatures = {
+          engineerSignature: fullReport.engineer_signature || parsed.engineerSignature || "",
+          engineerSignDate: parsed.engineerSignDate || "",
+          engineerSignTime: parsed.engineerSignTime || "",
+          customerNotPresent: parsed.customerNotPresent || false,
+          customerSignature: fullReport.client_signature || parsed.customerSignature || "",
+          customerSignDate: parsed.customerSignDate || "",
+          customerSignTime: parsed.customerSignTime || "",
+        };
+        if (parsed.multi_panel && Array.isArray(parsed.panel_checklists)) {
+          panels = parsed.panel_checklists;
+        }
+      } catch {
+        // Notes parsing failed, use empty signatures
+      }
 
-    if (!base64) throw new Error("Failed to generate PDF");
-    return base64 as string;
+      const base64 = generateServiceReportPDF(
+        fullReport as any,
+        siteInfo,
+        visitInfo,
+        panels,
+        signatures,
+        true // returnBase64
+      );
+
+      if (!base64) throw new Error("Failed to generate PDF");
+      return base64 as string;
+    }
   };
 
   const fetchReports = async () => {
