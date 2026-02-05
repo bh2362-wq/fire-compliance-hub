@@ -338,6 +338,23 @@ export async function importSupplierFromXero(
   return createSupplier(xeroSupplier, userId);
 }
 
+export async function updatePurchaseOrderStatusInXero(
+  xero_purchase_order_id: string,
+  status: "DRAFT" | "SUBMITTED" | "AUTHORISED" | "BILLED" | "DELETED"
+): Promise<{ xero_status: string }> {
+  const { data, error } = await supabase.functions.invoke("xero-update-purchase-order-status", {
+    body: {
+      xero_purchase_order_id,
+      status,
+    },
+  });
+
+  if (error) throw error;
+  if (data.error) throw new Error(data.error);
+
+  return data;
+}
+
 export const PO_STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "Draft", variant: "secondary" },
   sent: { label: "Sent", variant: "default" },
