@@ -7,8 +7,8 @@
  import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
  import { Skeleton } from "@/components/ui/skeleton";
  import { toast } from "sonner";
- import { format } from "date-fns";
- import { Mail, MessageSquare, Phone, Play, Settings, Shield, Clock, AlertTriangle, CheckCircle } from "lucide-react";
+import { format, differenceInDays } from "date-fns";
+import { Mail, MessageSquare, Phone, Play, Settings, Shield, Clock, AlertTriangle, CheckCircle, RefreshCw, FileText, Banknote } from "lucide-react";
  import {
    getSchedules,
    getSteps,
@@ -21,6 +21,7 @@
    CHANNEL_LABELS,
    STATUS_LABELS,
  } from "@/services/creditControlService";
+import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } from "@/services/xeroService";
  import { CreditControlTestDialog } from "@/components/credit-control/CreditControlTestDialog";
  import { CreditControlScheduleSetup } from "@/components/credit-control/CreditControlScheduleSetup";
  
@@ -32,10 +33,30 @@
    const [exclusions, setExclusions] = useState<CreditControlExclusion[]>([]);
    const [selectedSchedule, setSelectedSchedule] = useState<CreditControlSchedule | null>(null);
    const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [overdueInvoices, setOverdueInvoices] = useState<XeroOutstandingInvoice[]>([]);
+  const [invoiceSummary, setInvoiceSummary] = useState<XeroInvoiceSummary | null>(null);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
  
    useEffect(() => {
      loadData();
+    loadOverdueInvoices();
    }, []);
+
+  const loadOverdueInvoices = async () => {
+    setLoadingInvoices(true);
+    try {
+      const { invoices, summary } = await fetchOutstandingInvoices();
+      // Filter to only overdue invoices
+      const overdue = invoices.filter((inv) => inv.isOverdue);
+      setOverdueInvoices(overdue);
+      setInvoiceSummary(summary);
+    } catch (error) {
+      console.error("Failed to load overdue invoices:", error);
+      // Don't show error - Xero may not be connected
+    } finally {
+      setLoadingInvoices(false);
+    }
+  };
  
    const loadData = async () => {
      setLoading(true);
@@ -126,7 +147,21 @@
          </div>
  
          {/* Stats Cards */}
-         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Banknote className="h-4 w-4" />
+                  Overdue
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-destructive">
+                  £{invoiceSummary?.totalOverdue.toLocaleString() || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">{overdueInvoices.length} invoices</p>
+              </CardContent>
+            </Card>
            <Card>
              <CardHeader className="pb-2">
                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -178,8 +213,15 @@
          </div>
  
          {/* Tabs */}
-         <Tabs defaultValue="reminders">
+          <Tabs defaultValue="overdue">
            <TabsList>
+              <TabsTrigger value="overdue">
+                <FileText className="mr-2 h-4 w-4" />
+                Overdue Invoices
+                {overdueInvoices.length > 0 && (
+                  <Badge variant="destructive" className="ml-2">{overdueInvoices.length}</Badge>
+                )}
+              </TabsTrigger>
              <TabsTrigger value="reminders">Reminders</TabsTrigger>
              <TabsTrigger value="schedule">
                <Settings className="mr-2 h-4 w-4" />
@@ -187,6 +229,70 @@
              </TabsTrigger>
              <TabsTrigger value="exclusions">Exclusions</TabsTrigger>
            </TabsList>
+
+            <TabsContent value="overdue" className="mt-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Overdue Invoices</CardTitle>
+                    <CardDescription>
+                      Invoices past their due date from Xero
+                    </CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={loadOverdueInvoices} disabled={loadingInvoices}>
+                    <RefreshCw className={`h-4 w-4 mr-2 ${loadingInvoices ? "animate-spin" : ""}`} />
+                    Refresh
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {loadingInvoices ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                    </div>
+                  ) : overdueInvoices.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No overdue invoices found. Connect to Xero to see outstanding invoices.
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Invoice #</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Reference</TableHead>
+                          <TableHead>Due Date</TableHead>
+                          <TableHead>Days Overdue</TableHead>
+                          <TableHead className="text-right">Amount Due</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {overdueInvoices.map((invoice) => {
+                          const daysOverdue = differenceInDays(new Date(), new Date(invoice.dueDate));
+                          return (
+                            <TableRow key={invoice.invoiceId}>
+                              <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                              <TableCell>{invoice.contactName}</TableCell>
+                              <TableCell className="text-muted-foreground">{invoice.reference || "—"}</TableCell>
+                              <TableCell>{format(new Date(invoice.dueDate), "dd MMM yyyy")}</TableCell>
+                              <TableCell>
+                                <Badge variant={daysOverdue > 30 ? "destructive" : daysOverdue > 14 ? "secondary" : "outline"}>
+                                  {daysOverdue} days
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right font-semibold">
+                                £{invoice.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
  
            <TabsContent value="reminders" className="mt-4">
              <Card>
