@@ -1901,6 +1901,8 @@ export type Database = {
           created_by: string
           customer_id: string | null
           id: string
+          locked_at: string | null
+          locked_by: string | null
           notes: string | null
           quotation_number: string
           report_id: string | null
@@ -1920,6 +1922,8 @@ export type Database = {
           created_by: string
           customer_id?: string | null
           id?: string
+          locked_at?: string | null
+          locked_by?: string | null
           notes?: string | null
           quotation_number: string
           report_id?: string | null
@@ -1939,6 +1943,8 @@ export type Database = {
           created_by?: string
           customer_id?: string | null
           id?: string
+          locked_at?: string | null
+          locked_by?: string | null
           notes?: string | null
           quotation_number?: string
           report_id?: string | null
