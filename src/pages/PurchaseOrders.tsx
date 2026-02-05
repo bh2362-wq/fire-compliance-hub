@@ -14,18 +14,25 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, MoreVertical, Eye, Trash2, Send, Users, Download } from "lucide-react";
+import { Plus, MoreVertical, Eye, Trash2, Send, Users, Download, Ban, Copy, Pencil, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   fetchPurchaseOrders,
+  fetchPurchaseOrderById,
   deletePurchaseOrder,
+  syncPurchaseOrderToXero,
+  updatePurchaseOrderStatusInXero,
+  updatePurchaseOrder,
+  copyPurchaseOrder,
   PurchaseOrder,
   PO_STATUS_CONFIG,
 } from "@/services/purchaseOrderService";
+import { useAuth } from "@/contexts/AuthContext";
 import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderFormDialog";
 import PurchaseOrderDetailDialog from "@/components/purchase-orders/PurchaseOrderDetailDialog";
 import SuppliersDialog from "@/components/purchase-orders/SuppliersDialog";
@@ -41,13 +48,17 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const PurchaseOrders = () => {
+  const { user } = useAuth();
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editPO, setEditPO] = useState<PurchaseOrder | null>(null);
   const [showSuppliers, setShowSuppliers] = useState(false);
-  const [poToDelete, setPoToDelete] = useState<string | null>(null);
+  const [poToDelete, setPoToDelete] = useState<PurchaseOrder | null>(null);
+  const [poToVoid, setPoToVoid] = useState<PurchaseOrder | null>(null);
 
   const loadPurchaseOrders = async () => {
     try {
@@ -69,14 +80,82 @@ const PurchaseOrders = () => {
   const handleDelete = async () => {
     if (!poToDelete) return;
     try {
-      await deletePurchaseOrder(poToDelete);
+      setActionLoading(poToDelete.id);
+      await deletePurchaseOrder(poToDelete.id, poToDelete.xero_purchase_order_id);
       toast.success("Purchase order deleted");
       loadPurchaseOrders();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting purchase order:", error);
-      toast.error("Failed to delete purchase order");
+      toast.error(error.message || "Failed to delete purchase order");
     } finally {
       setPoToDelete(null);
+      setActionLoading(null);
+    }
+  };
+
+  const handleVoid = async () => {
+    if (!poToVoid || !poToVoid.xero_purchase_order_id) return;
+    try {
+      setActionLoading(poToVoid.id);
+      await updatePurchaseOrderStatusInXero(poToVoid.xero_purchase_order_id, "DELETED");
+      await updatePurchaseOrder(poToVoid.id, { 
+        status: "cancelled",
+        xero_status: "DELETED" 
+      });
+      toast.success(`${poToVoid.po_number} voided`);
+      loadPurchaseOrders();
+    } catch (error: any) {
+      console.error("Error voiding purchase order:", error);
+      toast.error(error.message || "Failed to void purchase order");
+    } finally {
+      setPoToVoid(null);
+      setActionLoading(null);
+    }
+  };
+
+  const handleSyncToXero = async (po: PurchaseOrder) => {
+    try {
+      setActionLoading(po.id);
+      // Fetch full PO with line items
+      const fullPO = await fetchPurchaseOrderById(po.id);
+      if (!fullPO) throw new Error("Purchase order not found");
+      
+      await syncPurchaseOrderToXero(fullPO);
+      toast.success(`${po.po_number} synced to Xero`);
+      loadPurchaseOrders();
+    } catch (error: any) {
+      console.error("Error syncing to Xero:", error);
+      toast.error(error.message || "Failed to sync to Xero");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCopyToDraft = async (po: PurchaseOrder) => {
+    if (!user?.id) return;
+    try {
+      setActionLoading(po.id);
+      // Fetch full PO with line items
+      const fullPO = await fetchPurchaseOrderById(po.id);
+      if (!fullPO) throw new Error("Purchase order not found");
+      
+      const newPO = await copyPurchaseOrder(fullPO, user.id);
+      toast.success(`Created ${newPO.po_number} as draft`);
+      loadPurchaseOrders();
+    } catch (error: any) {
+      console.error("Error copying purchase order:", error);
+      toast.error(error.message || "Failed to copy purchase order");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleEdit = async (po: PurchaseOrder) => {
+    // Fetch full PO with line items for editing
+    const fullPO = await fetchPurchaseOrderById(po.id);
+    if (fullPO) {
+      setEditPO(fullPO);
+      setShowForm(true);
     }
   };
 
@@ -89,6 +168,7 @@ const PurchaseOrders = () => {
   const sentOrders = purchaseOrders.filter((po) => po.status === "sent");
   const receivedOrders = purchaseOrders.filter((po) => po.status === "received");
   const paidOrders = purchaseOrders.filter((po) => po.status === "paid");
+  const cancelledOrders = purchaseOrders.filter((po) => po.status === "cancelled");
 
   const renderTable = (orders: PurchaseOrder[]) => (
     <Table>
@@ -132,22 +212,56 @@ const PurchaseOrders = () => {
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="icon" disabled={actionLoading === po.id}>
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleViewDetail(po)}>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewDetail(po); }}>
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
+                      
+                      {/* Edit - only for drafts */}
                       {po.status === "draft" && (
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(po); }}>
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                      )}
+                      
+                      {/* Sync to Xero - only for drafts not yet synced */}
+                      {po.status === "draft" && !po.xero_purchase_order_id && po.supplier?.xero_contact_id && (
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSyncToXero(po); }}>
+                          <Send className="w-4 h-4 mr-2" />
+                          Sync to Xero
+                        </DropdownMenuItem>
+                      )}
+                      
+                      {/* Copy to Draft - available for all */}
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCopyToDraft(po); }}>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy to Draft
+                      </DropdownMenuItem>
+                      
+                      <DropdownMenuSeparator />
+                      
+                      {/* Void - only for synced POs that aren't already voided */}
+                      {po.xero_purchase_order_id && po.status !== "cancelled" && (
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPoToDelete(po.id);
-                          }}
+                          onClick={(e) => { e.stopPropagation(); setPoToVoid(po); }}
+                        >
+                          <Ban className="w-4 h-4 mr-2" />
+                          Void
+                        </DropdownMenuItem>
+                      )}
+                      
+                      {/* Delete - for drafts or cancelled */}
+                      {(po.status === "draft" || po.status === "cancelled") && (
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={(e) => { e.stopPropagation(); setPoToDelete(po); }}
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete
@@ -200,6 +314,11 @@ const PurchaseOrders = () => {
             <TabsTrigger value="paid">
               Paid ({paidOrders.length})
             </TabsTrigger>
+            {cancelledOrders.length > 0 && (
+              <TabsTrigger value="voided">
+                Voided ({cancelledOrders.length})
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="draft" className="bg-card rounded-xl border border-border mt-4">
@@ -214,16 +333,24 @@ const PurchaseOrders = () => {
           <TabsContent value="paid" className="bg-card rounded-xl border border-border mt-4">
             {renderTable(paidOrders)}
           </TabsContent>
+          <TabsContent value="voided" className="bg-card rounded-xl border border-border mt-4">
+            {renderTable(cancelledOrders)}
+          </TabsContent>
         </Tabs>
       </div>
 
       {/* Dialogs */}
       <PurchaseOrderFormDialog
         open={showForm}
-        onOpenChange={setShowForm}
+        onOpenChange={(open) => {
+          setShowForm(open);
+          if (!open) setEditPO(null);
+        }}
+        editPurchaseOrder={editPO}
         onSuccess={() => {
           loadPurchaseOrders();
           setShowForm(false);
+          setEditPO(null);
         }}
       />
 
@@ -239,18 +366,45 @@ const PurchaseOrders = () => {
         onOpenChange={setShowSuppliers}
       />
 
+      {/* Delete Confirmation */}
       <AlertDialog open={!!poToDelete} onOpenChange={() => setPoToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Purchase Order?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the purchase order.
+              This action cannot be undone. This will permanently delete {poToDelete?.po_number}.
+              {poToDelete?.xero_purchase_order_id && (
+                <span className="block mt-2">
+                  This will also remove it from Xero.
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Void Confirmation */}
+      <AlertDialog open={!!poToVoid} onOpenChange={() => setPoToVoid(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Void Purchase Order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to void {poToVoid?.po_number}?
+              <span className="block mt-2">
+                This will cancel the PO in Xero but keep the local record for reference.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleVoid} className="bg-destructive text-destructive-foreground">
+              Void
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
