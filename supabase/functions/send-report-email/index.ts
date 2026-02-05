@@ -45,17 +45,25 @@ serve(async (req) => {
        emailBody,
     }: SendReportRequest = await req.json();
 
-    // Normalize to array of recipients
-    const recipients = Array.isArray(to) ? to : [to];
+    // Normalize to array of recipients and filter out empty/whitespace strings
+    const recipients = (Array.isArray(to) ? to : [to])
+      .map((email) => (email || "").trim())
+      .filter((email) => email.length > 0);
 
     // Validate required fields
-    if (!recipients.length || !pdfBase64) {
+    if (!recipients.length) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: to and pdfBase64" }),
+        JSON.stringify({ error: "No valid email recipients provided" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    if (!pdfBase64) {
+      return new Response(
+        JSON.stringify({ error: "Missing required field: pdfBase64" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     // Validate email formats
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const invalidEmails = recipients.filter((email) => !emailRegex.test(email));
