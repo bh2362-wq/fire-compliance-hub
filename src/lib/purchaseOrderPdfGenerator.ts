@@ -28,27 +28,25 @@ export async function generatePurchaseOrderPDF(
   
   let yPos = 20;
 
-  // Header - Company Logo and Info
+  // Header - Company Logo (left side, maintain aspect ratio)
   if (companySettings?.company_logo_url) {
     try {
       const img = await loadImage(companySettings.company_logo_url);
-      doc.addImage(img, "PNG", 15, yPos, 40, 20);
+      // Use height-based sizing to prevent stretching
+      const logoHeight = 18;
+      const logoWidth = logoHeight * 2; // Approximate aspect ratio
+      doc.addImage(img, "PNG", 15, yPos, logoWidth, logoHeight);
     } catch (e) {
       console.warn("Could not load company logo");
     }
   }
 
-  // Company name and details (right side)
-  doc.setFontSize(18);
-  doc.setTextColor(...primaryColor);
-  doc.setFont("helvetica", "bold");
-  doc.text(companySettings?.company_name || "Company Name", pageWidth - 15, yPos + 5, { align: "right" });
-  
+  // Company address and contact details (right side) - NO company name
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...mutedColor);
   
-  let companyInfoY = yPos + 12;
+  let companyInfoY = yPos + 2;
   if (companySettings?.address) {
     doc.text(companySettings.address, pageWidth - 15, companyInfoY, { align: "right" });
     companyInfoY += 4;
