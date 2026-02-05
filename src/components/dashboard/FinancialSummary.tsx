@@ -16,8 +16,11 @@ import {
   fetchOutstandingInvoices, 
   getXeroConnection,
   XeroOutstandingInvoice,
-  XeroInvoiceSummary 
+   XeroInvoiceSummary,
+   XeroContactBalance
 } from "@/services/xeroService";
+ import { getCustomers, CustomerWithSiteCount } from "@/services/customerService";
+ import { CustomerFinancialDashboard } from "@/components/customers/CustomerFinancialDashboard";
 import { format, differenceInDays, isValid, parseISO } from "date-fns";
 
 export function FinancialSummary() {
@@ -26,7 +29,14 @@ export function FinancialSummary() {
   const [hasXero, setHasXero] = useState(false);
   const [summary, setSummary] = useState<XeroInvoiceSummary | null>(null);
   const [invoices, setInvoices] = useState<XeroOutstandingInvoice[]>([]);
+   const [contactBalances, setContactBalances] = useState<XeroContactBalance[]>([]);
+   const [customers, setCustomers] = useState<CustomerWithSiteCount[]>([]);
   const [error, setError] = useState<string | null>(null);
+   const [selectedCustomer, setSelectedCustomer] = useState<{
+     id: string;
+     name: string;
+     xeroContactId: string;
+   } | null>(null);
 
   const loadFinancials = async () => {
     if (!user) return;
@@ -35,12 +45,17 @@ export function FinancialSummary() {
     setError(null);
     
     try {
-      const conn = await getXeroConnection(user.id);
+       const [conn, customersResult] = await Promise.all([
+         getXeroConnection(user.id),
+         getCustomers(),
+       ]);
       setHasXero(!!conn);
+       setCustomers(customersResult.customers || []);
       
       if (conn) {
         const data = await fetchOutstandingInvoices();
         setSummary(data.summary);
+         setContactBalances(data.contactBalances || []);
         // Get top 5 overdue or most recent invoices
         const sortedInvoices = data.invoices
           .sort((a, b) => {
@@ -164,8 +179,38 @@ export function FinancialSummary() {
     }
   };
 
+   // Find customer by Xero contact ID
+   const findCustomerByContactId = (contactId: string) => {
+     return customers.find((c) => c.xero_contact_id === contactId);
+   };
+ 
+   // Get top customers by outstanding balance
+   const topCustomerBalances = contactBalances
+     .filter((cb) => cb.outstanding > 0)
+     .sort((a, b) => b.outstanding - a.outstanding)
+     .slice(0, 5);
+ 
+   const handleCustomerClick = (contactId: string, contactName: string) => {
+     const customer = findCustomerByContactId(contactId);
+     if (customer) {
+       setSelectedCustomer({
+         id: customer.id,
+         name: customer.name,
+         xeroContactId: contactId,
+       });
+     } else {
+       // If no local customer match, still open dashboard with contact info
+       setSelectedCustomer({
+         id: "",
+         name: contactName,
+         xeroContactId: contactId,
+       });
+     }
+   };
+ 
   return (
-    <Card>
+     <>
+     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="flex items-center gap-2">
           <PoundSterling className="w-5 h-5" />
@@ -204,39 +249,42 @@ export function FinancialSummary() {
           </div>
         </div>
 
-        {/* Recent/Overdue invoices */}
-        {invoices.length > 0 ? (
+         {/* Top Customers by Balance */}
+         {topCustomerBalances.length > 0 ? (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-muted-foreground mb-3">
-              {invoices.some((i) => i.isOverdue) ? "Overdue & Outstanding" : "Outstanding Invoices"}
+             <h4 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+               Top Customers by Balance
+               <span className="text-xs font-normal">(click for details)</span>
             </h4>
-            {invoices.map((invoice) => {
-              const daysOverdue = invoice.isOverdue 
-                ? calculateDaysOverdue(invoice.dueDate)
-                : 0;
+             {topCustomerBalances.map((contact) => {
+               const hasOverdue = contact.overdue > 0;
 
               return (
                 <div
-                  key={invoice.invoiceId}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+                   key={contact.contactId}
+                   onClick={() => handleCustomerClick(contact.contactId, contact.name)}
+                   className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{invoice.contactName}</span>
-                      {invoice.isOverdue && (
+                       <span className="font-medium text-sm">{contact.name}</span>
+                       {hasOverdue && (
                         <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs">
-                          {daysOverdue}d overdue
+                           Overdue
                         </Badge>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {invoice.invoiceNumber} • Due {formatDueDate(invoice.dueDate)}
-                    </div>
+                     {hasOverdue && (
+                       <div className="text-xs text-destructive">
+                         {formatCurrency(contact.overdue)} overdue
+                       </div>
+                     )}
                   </div>
                   <div className="text-right">
-                    <div className={`font-semibold ${invoice.isOverdue ? "text-destructive" : ""}`}>
-                      {formatCurrency(invoice.amountDue)}
+                     <div className="font-semibold">
+                       {formatCurrency(contact.outstanding)}
                     </div>
+                     <div className="text-xs text-muted-foreground">outstanding</div>
                   </div>
                 </div>
               );
@@ -249,5 +297,14 @@ export function FinancialSummary() {
         )}
       </CardContent>
     </Card>
+     
+     <CustomerFinancialDashboard
+       open={!!selectedCustomer}
+       onOpenChange={(open) => !open && setSelectedCustomer(null)}
+       customerId={selectedCustomer?.id || ""}
+       customerName={selectedCustomer?.name || ""}
+       xeroContactId={selectedCustomer?.xeroContactId || null}
+     />
+     </>
   );
 }
