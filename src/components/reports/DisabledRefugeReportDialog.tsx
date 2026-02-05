@@ -39,6 +39,8 @@ import { getDefaultDisabledRefugeChecklist } from "@/services/disabledRefugeChec
 import { MultiDisabledRefugeChecklist, DisabledRefugeChecklistData, initializeDisabledRefugeChecklists } from "./MultiDisabledRefugeChecklist";
 import { generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
+ import { InvoicePromptDialog } from "./InvoicePromptDialog";
+ import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 
 interface DisabledRefugeAsset {
   id: string;
@@ -81,6 +83,22 @@ export function DisabledRefugeReportDialog({
 
   // Determine if report is locked (completed)
   const [isLocked, setIsLocked] = useState(false);
+ 
+   // Invoice prompt state
+   const [showInvoicePrompt, setShowInvoicePrompt] = useState(false);
+   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+   const [customerInfoForInvoice, setCustomerInfoForInvoice] = useState<{
+     id: string;
+     name: string;
+     xero_contact_id: string | null;
+   } | null>(null);
+   const [siteInfoForInvoice, setSiteInfoForInvoice] = useState<{
+     id: string;
+     name: string;
+     address?: string | null;
+     city?: string | null;
+   } | null>(null);
+   const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
 
   // Multi-unit state
   const [units, setUnits] = useState<DisabledRefugeChecklistData[]>([]);
@@ -123,12 +141,12 @@ export function DisabledRefugeReportDialog({
       // Load site with customer info including stored signature
       const { data: siteData } = await supabase
         .from("sites")
-        .select("customer_id, customers(id, client_signature, contact_name)")
+         .select("id, name, address, city, customer_id, customers(id, name, client_signature, contact_name, xero_contact_id)")
         .eq("id", visit.site_id)
         .maybeSingle();
 
       if (siteData?.customers) {
-        const customer = siteData.customers as { id: string; client_signature: string | null; contact_name: string | null };
+         const customer = siteData.customers as { id: string; name: string; client_signature: string | null; contact_name: string | null; xero_contact_id: string | null };
         setCustomerId(customer.id);
         if (customer.client_signature) {
           setCustomerSignature(customer.client_signature);
@@ -136,7 +154,37 @@ export function DisabledRefugeReportDialog({
         if (customer.contact_name && !clientName) {
           setClientName(customer.contact_name);
         }
+         
+         // Set customer info for invoice
+         setCustomerInfoForInvoice({
+           id: customer.id,
+           name: customer.name,
+           xero_contact_id: customer.xero_contact_id,
+         });
+         
+         setSiteInfoForInvoice({
+           id: siteData.id,
+           name: siteData.name,
+           address: siteData.address,
+           city: siteData.city,
+         });
       }
+ 
+       // Fetch service contracts to get PO number
+       try {
+         const { data: contracts } = await supabase
+           .from("site_service_contracts")
+           .select("po_number")
+           .eq("site_id", visit.site_id)
+           .not("po_number", "is", null)
+           .limit(1);
+         
+         if (contracts && contracts.length > 0) {
+           setContractPoNumber(contracts[0].po_number);
+         }
+       } catch (error) {
+         console.error("Failed to load service contracts:", error);
+       }
 
       // Build asset IDs for query
       const assetIds = assets.map(a => a.id);
@@ -294,8 +342,13 @@ export function DisabledRefugeReportDialog({
 
       toast.success(complete ? "Disabled refuge report completed" : "Disabled refuge report saved");
       if (complete) {
-        onOpenChange(false);
-        onSuccess?.();
+         // Show invoice prompt if customer has Xero connection
+         if (customerInfoForInvoice?.xero_contact_id) {
+           setShowInvoicePrompt(true);
+         } else {
+           onOpenChange(false);
+           onSuccess?.();
+         }
       }
     } catch (error) {
       console.error("Failed to save disabled refuge report:", error);
@@ -358,8 +411,13 @@ export function DisabledRefugeReportDialog({
       }
 
       toast.success("Visit completed successfully");
-      onOpenChange(false);
-      onSuccess?.();
+       // Show invoice prompt if customer has Xero connection
+       if (customerInfoForInvoice?.xero_contact_id) {
+         setShowInvoicePrompt(true);
+       } else {
+         onOpenChange(false);
+         onSuccess?.();
+       }
     } catch (error) {
       console.error("Failed to complete visit:", error);
       toast.error("Failed to complete visit");
@@ -368,6 +426,23 @@ export function DisabledRefugeReportDialog({
     }
   };
 
+   const handleInvoicePromptConfirm = () => {
+     setShowInvoicePrompt(false);
+     setShowInvoiceDialog(true);
+   };
+ 
+   const handleInvoicePromptDecline = () => {
+     setShowInvoicePrompt(false);
+     onOpenChange(false);
+     onSuccess?.();
+   };
+ 
+   const handleInvoiceDialogClose = () => {
+     setShowInvoiceDialog(false);
+     onOpenChange(false);
+     onSuccess?.();
+   };
+ 
   const handleDownloadPDF = async () => {
     try {
       // Fetch site info for PDF
@@ -445,7 +520,8 @@ export function DisabledRefugeReportDialog({
   const primaryAsset = assets[0];
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+     <>
+     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle className="flex items-center gap-2 flex-wrap">
           <Phone className="h-5 w-5" />
@@ -872,5 +948,42 @@ export function DisabledRefugeReportDialog({
         </div>
       </ResponsiveDialogFooter>
     </ResponsiveDialog>
+     
+     {/* Invoice Prompt Dialog */}
+     <InvoicePromptDialog
+       open={showInvoicePrompt}
+       onOpenChange={setShowInvoicePrompt}
+       onConfirm={handleInvoicePromptConfirm}
+       onDecline={handleInvoicePromptDecline}
+       siteName={siteInfoForInvoice?.name || visit.sites?.name || ""}
+     />
+ 
+     {/* Invoice Creation Dialog */}
+     {customerInfoForInvoice && siteInfoForInvoice && (
+       <CustomerCreateInvoiceDialog
+         open={showInvoiceDialog}
+         onOpenChange={(open) => {
+           if (!open) handleInvoiceDialogClose();
+         }}
+         customerId={customerInfoForInvoice.id}
+         customerName={customerInfoForInvoice.name}
+         xeroContactId={customerInfoForInvoice.xero_contact_id}
+         sites={[{
+           id: siteInfoForInvoice.id,
+           name: siteInfoForInvoice.name,
+           address: siteInfoForInvoice.address || null,
+           city: siteInfoForInvoice.city || null,
+         }]}
+         onSuccess={handleInvoiceDialogClose}
+         jobReportData={{
+           jobType: visit.visit_type,
+           reportDate: visit.visit_date,
+           reportNumber: reportNumber,
+           poNumber: contractPoNumber || undefined,
+           siteName: siteInfoForInvoice.name,
+         }}
+       />
+     )}
+   </>
   );
 }
