@@ -1828,7 +1828,9 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          item_name: string | null
           notes: string | null
+          parent_id: string | null
           priority: string | null
           quantity: number | null
           quotation_id: string
@@ -1844,7 +1846,9 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          item_name?: string | null
           notes?: string | null
+          parent_id?: string | null
           priority?: string | null
           quantity?: number | null
           quotation_id: string
@@ -1860,7 +1864,9 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          item_name?: string | null
           notes?: string | null
+          parent_id?: string | null
           priority?: string | null
           quantity?: number | null
           quotation_id?: string
@@ -1873,6 +1879,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "quotation_line_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_line_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quotation_line_items_quotation_id_fkey"
             columns: ["quotation_id"]

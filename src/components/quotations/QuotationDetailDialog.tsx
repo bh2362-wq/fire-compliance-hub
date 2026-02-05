@@ -34,6 +34,8 @@ interface LineItem {
   description: string;
   regulation_reference: string | null;
   priority: string;
+  item_name: string | null;
+  parent_id: string | null;
   source_section: string | null;
   quantity: number;
   unit_price: number;
@@ -122,7 +124,8 @@ export function QuotationDetailDialog({
     showItemNumber: true,
     showDescription: true,
     showRegulationRef: true,
-    showPriority: true,
+    showPriority: false,
+    showItem: true,
     showQuantity: true,
     showUnitPrice: true,
     showTotal: true,
@@ -225,6 +228,8 @@ export function QuotationDetailDialog({
       description: "",
       regulation_reference: null,
       priority: "medium",
+      item_name: null,
+      parent_id: null,
       source_section: null,
       quantity: 1,
       unit_price: 0,
@@ -279,6 +284,8 @@ export function QuotationDetailDialog({
           description: item.description,
           regulation_reference: item.regulation_reference,
           priority: item.priority,
+          item_name: item.item_name,
+          parent_id: null, // For now, we don't persist parent relationships
           source_section: item.source_section,
           quantity: item.quantity,
           unit_price: item.unit_price,
@@ -335,6 +342,8 @@ export function QuotationDetailDialog({
         description: item.description,
         regulation_reference: item.regulation_reference,
         priority: item.priority,
+        item_name: item.item_name,
+        parent_id: item.parent_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
@@ -459,25 +468,17 @@ export function QuotationDetailDialog({
                               className="min-h-[60px]"
                             />
 
-                            <div className="grid grid-cols-5 gap-3">
+                            <div className="grid grid-cols-6 gap-3">
                               <div>
-                                <Label className="text-xs">Priority</Label>
-                                <Select
-                                  value={item.priority}
-                                  onValueChange={(value) =>
-                                    handleItemChange(index, "priority", value)
+                                <Label className="text-xs">Item/Part</Label>
+                                <Input
+                                  value={item.item_name || ""}
+                                  onChange={(e) =>
+                                    handleItemChange(index, "item_name", e.target.value || null)
                                   }
-                                >
-                                  <SelectTrigger className="h-9">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="critical">Critical</SelectItem>
-                                    <SelectItem value="high">High</SelectItem>
-                                    <SelectItem value="medium">Medium</SelectItem>
-                                    <SelectItem value="low">Low</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  placeholder="e.g. Smoke detector"
+                                  className="h-9"
+                                />
                               </div>
                               <div>
                                 <Label className="text-xs">Regulation Ref</Label>
@@ -788,6 +789,16 @@ export function QuotationDetailDialog({
                           }
                         />
                         <label htmlFor="col-ref" className="text-sm">Regulation Ref</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="col-item"
+                          checked={columnOptions.showItem}
+                          onCheckedChange={(checked) =>
+                            setColumnOptions({ ...columnOptions, showItem: !!checked })
+                          }
+                        />
+                        <label htmlFor="col-item" className="text-sm">Item</label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
