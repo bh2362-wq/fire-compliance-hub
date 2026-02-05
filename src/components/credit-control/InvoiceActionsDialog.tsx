@@ -13,11 +13,10 @@
  import { Textarea } from "@/components/ui/textarea";
  import { Input } from "@/components/ui/input";
  import { Label } from "@/components/ui/label";
- import { Separator } from "@/components/ui/separator";
  import { toast } from "sonner";
  import { format, differenceInDays } from "date-fns";
- import { Mail, MessageSquare, Phone, Send, Clock, CheckCircle, AlertTriangle, Eye, Loader2 } from "lucide-react";
- import { XeroOutstandingInvoice } from "@/services/xeroService";
+ import { Mail, MessageSquare, Phone, Send, Clock, CheckCircle, AlertTriangle, Eye, Loader2, Ban, CreditCard } from "lucide-react";
+ import { XeroOutstandingInvoice, markInvoicePaid, voidInvoice } from "@/services/xeroService";
  import {
    createReminder,
    sendChaseEmail,
@@ -27,12 +26,23 @@
    CreditControlReminder,
  } from "@/services/creditControlService";
  import { supabase } from "@/integrations/supabase/client";
+ import {
+   AlertDialog,
+   AlertDialogAction,
+   AlertDialogCancel,
+   AlertDialogContent,
+   AlertDialogDescription,
+   AlertDialogFooter,
+   AlertDialogHeader,
+   AlertDialogTitle,
+ } from "@/components/ui/alert-dialog";
  
  interface InvoiceActionsDialogProps {
    open: boolean;
    onOpenChange: (open: boolean) => void;
    invoice: XeroOutstandingInvoice | null;
    onReminderSent?: () => void;
+   onInvoiceUpdated?: () => void;
  }
  
  export function InvoiceActionsDialog({
@@ -40,10 +50,15 @@
    onOpenChange,
    invoice,
    onReminderSent,
+   onInvoiceUpdated,
  }: InvoiceActionsDialogProps) {
    const [sending, setSending] = useState<string | null>(null);
    const [invoiceReminders, setInvoiceReminders] = useState<CreditControlReminder[]>([]);
    const [loadingReminders, setLoadingReminders] = useState(false);
+   const [processingAction, setProcessingAction] = useState<string | null>(null);
+   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
+   const [showPaidConfirm, setShowPaidConfirm] = useState(false);
+   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
    
    // Form states
    const [emailTo, setEmailTo] = useState("");
@@ -101,6 +116,7 @@
      setPhoneMessage(defaultPhoneMessage);
      
      loadInvoiceReminders();
+           setPaymentDate(new Date().toISOString().split("T")[0]);
    };
  
    // Reset when dialog opens
@@ -242,6 +258,38 @@
      }
    };
  
+   const handleMarkPaid = async () => {
+     if (!invoice) return;
+     setProcessingAction("paid");
+     try {
+       const result = await markInvoicePaid(invoice.invoiceId, invoice.amountDue, paymentDate);
+       toast.success(result.message);
+       onInvoiceUpdated?.();
+       onOpenChange(false);
+     } catch (error: any) {
+       toast.error(error.message || "Failed to mark invoice as paid");
+     } finally {
+       setProcessingAction(null);
+       setShowPaidConfirm(false);
+     }
+   };
+ 
+   const handleVoidInvoice = async () => {
+     if (!invoice) return;
+     setProcessingAction("void");
+     try {
+       const result = await voidInvoice(invoice.invoiceId);
+       toast.success(result.message);
+       onInvoiceUpdated?.();
+       onOpenChange(false);
+     } catch (error: any) {
+       toast.error(error.message || "Failed to void invoice");
+     } finally {
+       setProcessingAction(null);
+       setShowVoidConfirm(false);
+     }
+   };
+ 
    const getStatusIcon = (status: string) => {
      switch (status) {
        case "delivered":
@@ -295,6 +343,7 @@
    if (!invoice) return null;
  
    return (
+     <>
      <Dialog open={open} onOpenChange={(isOpen) => {
        if (!isOpen) {
          // Reset fields when closing
@@ -323,7 +372,8 @@
          </DialogHeader>
  
          <Tabs defaultValue="send" className="mt-4">
-           <TabsList className="grid w-full grid-cols-2">
+             <TabsList className="grid w-full grid-cols-3">
+               <TabsTrigger value="actions">Actions</TabsTrigger>
              <TabsTrigger value="send">Send Reminder</TabsTrigger>
              <TabsTrigger value="history">
                History
@@ -332,6 +382,78 @@
                )}
              </TabsTrigger>
            </TabsList>
+ 
+             <TabsContent value="actions" className="space-y-4 mt-4">
+               <Card>
+                 <CardHeader className="pb-3">
+                   <CardTitle className="text-base flex items-center gap-2">
+                     <CreditCard className="h-4 w-4" />
+                     Mark as Paid
+                   </CardTitle>
+                   <CardDescription>
+                     Record payment for this invoice in Xero
+                   </CardDescription>
+                 </CardHeader>
+                 <CardContent className="space-y-3">
+                   <div className="p-3 rounded-lg bg-muted/50">
+                     <div className="text-sm text-muted-foreground">Amount to record</div>
+                     <div className="text-2xl font-bold">£{invoice.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                   </div>
+                   <div className="space-y-2">
+                     <Label htmlFor="payment-date">Payment Date</Label>
+                     <Input
+                       id="payment-date"
+                       type="date"
+                       value={paymentDate}
+                       onChange={(e) => setPaymentDate(e.target.value)}
+                     />
+                   </div>
+                   <Button
+                     onClick={() => setShowPaidConfirm(true)}
+                     disabled={processingAction !== null}
+                     className="w-full"
+                   >
+                     {processingAction === "paid" ? (
+                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                     ) : (
+                       <CheckCircle className="mr-2 h-4 w-4" />
+                     )}
+                     Mark Complete
+                   </Button>
+                 </CardContent>
+               </Card>
+ 
+               <Card className="border-destructive/50">
+                 <CardHeader className="pb-3">
+                   <CardTitle className="text-base flex items-center gap-2 text-destructive">
+                     <Ban className="h-4 w-4" />
+                     Void Invoice
+                   </CardTitle>
+                   <CardDescription>
+                     Cancel this invoice - this action syncs with Xero
+                   </CardDescription>
+                 </CardHeader>
+                 <CardContent>
+                   <p className="text-sm text-muted-foreground mb-3">
+                     Voiding an invoice will mark it as cancelled in Xero. This cannot be undone.
+                     Only invoices without payments can be voided.
+                   </p>
+                   <Button
+                     variant="destructive"
+                     onClick={() => setShowVoidConfirm(true)}
+                     disabled={processingAction !== null}
+                     className="w-full"
+                   >
+                     {processingAction === "void" ? (
+                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                     ) : (
+                       <Ban className="mr-2 h-4 w-4" />
+                     )}
+                     Void Invoice
+                   </Button>
+                 </CardContent>
+               </Card>
+             </TabsContent>
  
            <TabsContent value="send" className="space-y-4 mt-4">
              {/* Email Card */}
@@ -526,5 +648,49 @@
          </Tabs>
        </DialogContent>
      </Dialog>
+ 
+     <AlertDialog open={showPaidConfirm} onOpenChange={setShowPaidConfirm}>
+       <AlertDialogContent>
+         <AlertDialogHeader>
+           <AlertDialogTitle>Mark Invoice as Paid?</AlertDialogTitle>
+           <AlertDialogDescription>
+             This will record a payment of £{invoice?.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })} for invoice {invoice?.invoiceNumber} on {format(new Date(paymentDate), "dd MMMM yyyy")}. This will update Xero.
+           </AlertDialogDescription>
+         </AlertDialogHeader>
+         <AlertDialogFooter>
+           <AlertDialogCancel disabled={processingAction !== null}>Cancel</AlertDialogCancel>
+           <AlertDialogAction
+             onClick={handleMarkPaid}
+             disabled={processingAction !== null}
+           >
+             {processingAction === "paid" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+             Confirm Payment
+           </AlertDialogAction>
+         </AlertDialogFooter>
+       </AlertDialogContent>
+     </AlertDialog>
+ 
+     <AlertDialog open={showVoidConfirm} onOpenChange={setShowVoidConfirm}>
+       <AlertDialogContent>
+         <AlertDialogHeader>
+           <AlertDialogTitle>Void Invoice?</AlertDialogTitle>
+           <AlertDialogDescription>
+             This will permanently void invoice {invoice?.invoiceNumber} for £{invoice?.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })} in Xero. This action cannot be undone.
+           </AlertDialogDescription>
+         </AlertDialogHeader>
+         <AlertDialogFooter>
+           <AlertDialogCancel disabled={processingAction !== null}>Cancel</AlertDialogCancel>
+           <AlertDialogAction
+             onClick={handleVoidInvoice}
+             disabled={processingAction !== null}
+             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+           >
+             {processingAction === "void" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+             Void Invoice
+           </AlertDialogAction>
+         </AlertDialogFooter>
+       </AlertDialogContent>
+     </AlertDialog>
+   </>
    );
  }
