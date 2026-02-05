@@ -22,7 +22,9 @@ import { format } from "date-fns";
 import {
   fetchSuppliers,
   createPurchaseOrder,
+  updatePurchaseOrder,
   Supplier,
+  PurchaseOrder,
   PurchaseOrderLineItem,
 } from "@/services/purchaseOrderService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +33,7 @@ interface PurchaseOrderFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  editPurchaseOrder?: PurchaseOrder | null;
 }
 
 interface LineItemInput {
@@ -43,6 +46,7 @@ const PurchaseOrderFormDialog = ({
   open,
   onOpenChange,
   onSuccess,
+  editPurchaseOrder,
 }: PurchaseOrderFormDialogProps) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -57,19 +61,44 @@ const PurchaseOrderFormDialog = ({
     { description: "", quantity: 1, unit_price: 0 },
   ]);
 
+  const isEditing = !!editPurchaseOrder;
+
   useEffect(() => {
     if (open) {
       loadSuppliers();
-      // Reset form
-      setSupplierId("");
-      setOrderDate(format(new Date(), "yyyy-MM-dd"));
-      setExpectedDeliveryDate("");
-      setReference("");
-      setNotes("");
-      setVatRate(20);
-      setLineItems([{ description: "", quantity: 1, unit_price: 0 }]);
+      
+      if (editPurchaseOrder) {
+        // Populate form with existing data
+        setSupplierId(editPurchaseOrder.supplier_id);
+        setOrderDate(editPurchaseOrder.order_date);
+        setExpectedDeliveryDate(editPurchaseOrder.expected_delivery_date || "");
+        setReference(editPurchaseOrder.reference || "");
+        setNotes(editPurchaseOrder.notes || "");
+        setVatRate(editPurchaseOrder.vat_rate || 20);
+        
+        if (editPurchaseOrder.line_items && editPurchaseOrder.line_items.length > 0) {
+          setLineItems(
+            editPurchaseOrder.line_items.map((item) => ({
+              description: item.description,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+            }))
+          );
+        } else {
+          setLineItems([{ description: "", quantity: 1, unit_price: 0 }]);
+        }
+      } else {
+        // Reset form for new PO
+        setSupplierId("");
+        setOrderDate(format(new Date(), "yyyy-MM-dd"));
+        setExpectedDeliveryDate("");
+        setReference("");
+        setNotes("");
+        setVatRate(20);
+        setLineItems([{ description: "", quantity: 1, unit_price: 0 }]);
+      }
     }
-  }, [open]);
+  }, [open, editPurchaseOrder]);
 
   const loadSuppliers = async () => {
     try {
@@ -136,24 +165,39 @@ const PurchaseOrderFormDialog = ({
           total_price: item.quantity * item.unit_price,
         }));
 
-      await createPurchaseOrder(
-        {
-          supplier_id: supplierId,
-          order_date: orderDate,
-          expected_delivery_date: expectedDeliveryDate || null,
-          reference: reference || null,
-          notes: notes || null,
-          vat_rate: vatRate,
-        },
-        formattedLineItems,
-        user.id
-      );
+      if (isEditing && editPurchaseOrder) {
+        await updatePurchaseOrder(
+          editPurchaseOrder.id,
+          {
+            order_date: orderDate,
+            expected_delivery_date: expectedDeliveryDate || null,
+            reference: reference || null,
+            notes: notes || null,
+            vat_rate: vatRate,
+          },
+          formattedLineItems
+        );
+        toast.success("Purchase order updated");
+      } else {
+        await createPurchaseOrder(
+          {
+            supplier_id: supplierId,
+            order_date: orderDate,
+            expected_delivery_date: expectedDeliveryDate || null,
+            reference: reference || null,
+            notes: notes || null,
+            vat_rate: vatRate,
+          },
+          formattedLineItems,
+          user.id
+        );
+        toast.success("Purchase order created");
+      }
 
-      toast.success("Purchase order created");
       onSuccess();
     } catch (error) {
-      console.error("Error creating purchase order:", error);
-      toast.error("Failed to create purchase order");
+      console.error("Error saving purchase order:", error);
+      toast.error(isEditing ? "Failed to update purchase order" : "Failed to create purchase order");
     } finally {
       setLoading(false);
     }
@@ -163,7 +207,7 @@ const PurchaseOrderFormDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New Purchase Order</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Purchase Order" : "New Purchase Order"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -171,7 +215,7 @@ const PurchaseOrderFormDialog = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Supplier *</Label>
-              <Select value={supplierId} onValueChange={setSupplierId}>
+              <Select value={supplierId} onValueChange={setSupplierId} disabled={isEditing}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select supplier" />
                 </SelectTrigger>
@@ -308,7 +352,7 @@ const PurchaseOrderFormDialog = ({
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={loading}>
-              {loading ? "Creating..." : "Create Purchase Order"}
+              {loading ? (isEditing ? "Updating..." : "Creating...") : (isEditing ? "Update Purchase Order" : "Create Purchase Order")}
             </Button>
           </div>
         </div>
