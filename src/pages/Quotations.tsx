@@ -44,6 +44,7 @@
  import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDialog";
+import { AcceptQuotationDialog } from "@/components/quotations/AcceptQuotationDialog";
  
  interface QuotationWithDetails {
    id: string;
@@ -95,9 +96,11 @@ import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDi
    const [searchTerm, setSearchTerm] = useState("");
    const [statusFilter, setStatusFilter] = useState<string>("all");
    const [selectedQuotation, setSelectedQuotation] = useState<QuotationWithDetails | null>(null);
-   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-   const [quotationToDelete, setQuotationToDelete] = useState<QuotationWithDetails | null>(null);
-   const [deleting, setDeleting] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [quotationToDelete, setQuotationToDelete] = useState<QuotationWithDetails | null>(null);
+    const [deleting, setDeleting] = useState(false);
+    const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
+    const [quotationToAccept, setQuotationToAccept] = useState<QuotationWithDetails | null>(null);
  
    const fetchQuotations = async () => {
      try {
@@ -322,21 +325,24 @@ import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDi
                                  Mark as Sent
                                </DropdownMenuItem>
                              )}
-                             {quotation.status === "sent" && (
-                               <>
-                                 <DropdownMenuItem
-                                   onClick={() => handleStatusChange(quotation.id, "accepted")}
-                                 >
-                                   <FileCheck className="w-4 h-4 mr-2" />
-                                   Mark as Accepted
-                                 </DropdownMenuItem>
-                                 <DropdownMenuItem
-                                   onClick={() => handleStatusChange(quotation.id, "declined")}
-                                 >
-                                   <FileCheck className="w-4 h-4 mr-2" />
-                                   Mark as Declined
-                                 </DropdownMenuItem>
-                               </>
+                              {quotation.status === "sent" && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setQuotationToAccept(quotation);
+                                      setAcceptDialogOpen(true);
+                                    }}
+                                  >
+                                    <FileCheck className="w-4 h-4 mr-2" />
+                                    Accept with PO
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleStatusChange(quotation.id, "declined")}
+                                  >
+                                    <FileCheck className="w-4 h-4 mr-2" />
+                                    Mark as Declined
+                                  </DropdownMenuItem>
+                                </>
                              )}
                              <DropdownMenuItem
                                className="text-destructive focus:text-destructive"
@@ -391,11 +397,24 @@ import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDi
              >
                {deleting ? "Deleting..." : "Delete"}
              </AlertDialogAction>
-           </AlertDialogFooter>
-         </AlertDialogContent>
-       </AlertDialog>
-     </DashboardLayout>
-   );
- };
- 
- export default Quotations;
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Accept Quotation Dialog */}
+        {quotationToAccept && (
+          <AcceptQuotationDialog
+            open={acceptDialogOpen}
+            onOpenChange={(open) => {
+              setAcceptDialogOpen(open);
+              if (!open) setQuotationToAccept(null);
+            }}
+            quotation={quotationToAccept}
+            onAccepted={fetchQuotations}
+          />
+        )}
+      </DashboardLayout>
+    );
+  };
+  
+  export default Quotations;
