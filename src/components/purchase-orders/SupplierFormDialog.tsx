@@ -110,25 +110,39 @@ const SupplierFormDialog = ({
     try {
       setLoading(true);
       let xeroContactId: string | null = null;
+      let xeroSyncFailed = false;
 
       // Sync to Xero first if enabled
       if (syncToXero) {
-        const { data: xeroResult, error: xeroError } = await supabase.functions.invoke(
-          "xero-create-supplier",
-          {
-            body: formData,
-          }
-        );
+        try {
+          const { data: xeroResult, error: xeroError } = await supabase.functions.invoke(
+            "xero-create-supplier",
+            {
+              body: formData,
+            }
+          );
 
-        if (xeroError) {
-          console.error("Xero sync error:", xeroError);
-          toast.error("Failed to create supplier in Xero. Creating locally only.");
-        } else if (xeroResult.error) {
-          console.error("Xero API error:", xeroResult.error);
-          toast.error(`Xero error: ${xeroResult.error}. Creating locally only.`);
-        } else {
-          xeroContactId = xeroResult.xero_contact_id;
-          toast.success("Supplier created in Xero");
+          if (xeroError) {
+            console.error("Xero sync error:", xeroError);
+            xeroSyncFailed = true;
+            // Check for specific error types
+            const errorMessage = xeroError.message || "";
+            if (errorMessage.includes("Load failed") || errorMessage.includes("timeout") || errorMessage.includes("Failed to fetch")) {
+              toast.warning("Xero sync unavailable. Creating supplier locally only.");
+            } else {
+              toast.warning("Failed to sync to Xero. Creating locally only.");
+            }
+          } else if (xeroResult?.error) {
+            console.error("Xero API error:", xeroResult.error);
+            xeroSyncFailed = true;
+            toast.warning(`Xero: ${xeroResult.error}. Creating locally only.`);
+          } else if (xeroResult?.xero_contact_id) {
+            xeroContactId = xeroResult.xero_contact_id;
+          }
+        } catch (xeroErr: any) {
+          console.error("Xero sync exception:", xeroErr);
+          xeroSyncFailed = true;
+          toast.warning("Xero sync failed. Creating supplier locally only.");
         }
       }
 
@@ -148,7 +162,14 @@ const SupplierFormDialog = ({
         user.id
       );
 
-      toast.success("Supplier added successfully");
+      if (xeroContactId) {
+        toast.success("Supplier created and synced to Xero");
+      } else if (syncToXero && xeroSyncFailed) {
+        toast.success("Supplier created locally (Xero sync can be retried later)");
+      } else {
+        toast.success("Supplier added successfully");
+      }
+      
       resetForm();
       onOpenChange(false);
       onSuccess(supplier);
