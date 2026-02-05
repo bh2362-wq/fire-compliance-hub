@@ -24,6 +24,7 @@ import { Mail, MessageSquare, Phone, Play, Settings, Shield, Clock, AlertTriangl
 import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } from "@/services/xeroService";
  import { CreditControlTestDialog } from "@/components/credit-control/CreditControlTestDialog";
  import { CreditControlScheduleSetup } from "@/components/credit-control/CreditControlScheduleSetup";
+ import { InvoiceActionsDialog } from "@/components/credit-control/InvoiceActionsDialog";
  
  const CreditControl = () => {
    const [loading, setLoading] = useState(true);
@@ -33,6 +34,8 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
    const [exclusions, setExclusions] = useState<CreditControlExclusion[]>([]);
    const [selectedSchedule, setSelectedSchedule] = useState<CreditControlSchedule | null>(null);
    const [testDialogOpen, setTestDialogOpen] = useState(false);
+   const [selectedInvoice, setSelectedInvoice] = useState<XeroOutstandingInvoice | null>(null);
+   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [overdueInvoices, setOverdueInvoices] = useState<XeroOutstandingInvoice[]>([]);
   const [invoiceSummary, setInvoiceSummary] = useState<XeroInvoiceSummary | null>(null);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
@@ -271,7 +274,14 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
                         {overdueInvoices.map((invoice) => {
                           const daysOverdue = differenceInDays(new Date(), new Date(invoice.dueDate));
                           return (
-                            <TableRow key={invoice.invoiceId}>
+                            <TableRow 
+                              key={invoice.invoiceId}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => {
+                                setSelectedInvoice(invoice);
+                                setInvoiceDialogOpen(true);
+                              }}
+                            >
                               <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                               <TableCell>{invoice.contactName}</TableCell>
                               <TableCell className="text-muted-foreground">{invoice.reference || "—"}</TableCell>
@@ -429,6 +439,12 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
        <CreditControlTestDialog
          open={testDialogOpen}
          onOpenChange={setTestDialogOpen}
+       />
+       <InvoiceActionsDialog 
+         open={invoiceDialogOpen} 
+         onOpenChange={setInvoiceDialogOpen} 
+         invoice={selectedInvoice}
+         onReminderSent={loadData}
        />
      </DashboardLayout>
    );
