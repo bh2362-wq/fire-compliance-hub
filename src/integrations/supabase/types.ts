@@ -258,6 +258,217 @@ export type Database = {
           },
         ]
       }
+      credit_control_exclusions: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          excluded_by: string
+          excluded_until: string | null
+          id: string
+          is_permanent: boolean | null
+          reason: string | null
+          updated_at: string
+          xero_invoice_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          excluded_by: string
+          excluded_until?: string | null
+          id?: string
+          is_permanent?: boolean | null
+          reason?: string | null
+          updated_at?: string
+          xero_invoice_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          excluded_by?: string
+          excluded_until?: string | null
+          id?: string
+          is_permanent?: boolean | null
+          reason?: string | null
+          updated_at?: string
+          xero_invoice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_control_exclusions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_control_reminders: {
+        Row: {
+          amount_due: number | null
+          channel: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          customer_id: string | null
+          days_overdue: number | null
+          error_message: string | null
+          external_id: string | null
+          id: string
+          response_notes: string | null
+          response_received_at: string | null
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          step_id: string | null
+          updated_at: string
+          xero_invoice_id: string
+          xero_invoice_number: string | null
+        }
+        Insert: {
+          amount_due?: number | null
+          channel: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          customer_id?: string | null
+          days_overdue?: number | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          response_notes?: string | null
+          response_received_at?: string | null
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+          step_id?: string | null
+          updated_at?: string
+          xero_invoice_id: string
+          xero_invoice_number?: string | null
+        }
+        Update: {
+          amount_due?: number | null
+          channel?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          customer_id?: string | null
+          days_overdue?: number | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          response_notes?: string | null
+          response_received_at?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          step_id?: string | null
+          updated_at?: string
+          xero_invoice_id?: string
+          xero_invoice_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_control_reminders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_control_reminders_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "credit_control_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_control_schedules: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      credit_control_steps: {
+        Row: {
+          channel: string
+          created_at: string
+          days_overdue: number
+          id: string
+          is_active: boolean | null
+          message_template: string
+          schedule_id: string
+          sort_order: number
+          subject_template: string | null
+          template_type: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          days_overdue: number
+          id?: string
+          is_active?: boolean | null
+          message_template: string
+          schedule_id: string
+          sort_order?: number
+          subject_template?: string | null
+          template_type: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          days_overdue?: number
+          id?: string
+          is_active?: boolean | null
+          message_template?: string
+          schedule_id?: string
+          sort_order?: number
+          subject_template?: string | null
+          template_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_control_steps_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "credit_control_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -677,6 +888,65 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_history: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          days_overdue: number | null
+          days_to_pay: number | null
+          due_date: string | null
+          id: string
+          invoice_amount: number
+          invoice_date: string | null
+          payment_amount: number
+          payment_date: string | null
+          was_overdue: boolean | null
+          xero_contact_id: string | null
+          xero_invoice_id: string
+          xero_invoice_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          days_overdue?: number | null
+          days_to_pay?: number | null
+          due_date?: string | null
+          id?: string
+          invoice_amount: number
+          invoice_date?: string | null
+          payment_amount: number
+          payment_date?: string | null
+          was_overdue?: boolean | null
+          xero_contact_id?: string | null
+          xero_invoice_id: string
+          xero_invoice_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          days_overdue?: number | null
+          days_to_pay?: number | null
+          due_date?: string | null
+          id?: string
+          invoice_amount?: number
+          invoice_date?: string | null
+          payment_amount?: number
+          payment_date?: string | null
+          was_overdue?: boolean | null
+          xero_contact_id?: string | null
+          xero_invoice_id?: string
+          xero_invoice_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_history_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
         ]
