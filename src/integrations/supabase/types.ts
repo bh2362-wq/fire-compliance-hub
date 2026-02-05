@@ -698,6 +698,51 @@ export type Database = {
           },
         ]
       }
+      email_templates: {
+        Row: {
+          body_template: string
+          created_at: string
+          created_by: string
+          greeting_template: string
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          signoff_template: string
+          subject_template: string
+          template_type: string
+          updated_at: string
+        }
+        Insert: {
+          body_template: string
+          created_at?: string
+          created_by: string
+          greeting_template?: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          signoff_template?: string
+          subject_template: string
+          template_type?: string
+          updated_at?: string
+        }
+        Update: {
+          body_template?: string
+          created_at?: string
+          created_by?: string
+          greeting_template?: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          signoff_template?: string
+          subject_template?: string
+          template_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       file_uploads: {
         Row: {
           created_at: string

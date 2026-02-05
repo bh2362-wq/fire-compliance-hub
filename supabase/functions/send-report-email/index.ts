@@ -19,6 +19,7 @@ interface SendReportRequest {
   customerName?: string;
   companyName?: string;
   logoUrl?: string;
+   emailBody?: string; // Custom email body from template
 }
 
 // Helper to delay execution
@@ -41,6 +42,7 @@ serve(async (req) => {
       customerName,
       companyName,
       logoUrl,
+       emailBody,
     }: SendReportRequest = await req.json();
 
     // Normalize to array of recipients
@@ -67,7 +69,34 @@ serve(async (req) => {
     const fileName = `${reportNumber || "Report"}-${reportDate || "report"}.pdf`;
     const fromName = companyName || "Service Reports";
 
-    const emailHtml = `
+     // Convert plain text email body to HTML paragraphs if provided
+     const bodyHtml = emailBody
+       ? emailBody
+           .split("\n\n")
+           .map((paragraph) => `<p style="color: #374151; margin: 16px 0;">${paragraph.replace(/\n/g, "<br/>")}</p>`)
+           .join("")
+       : `
+         ${customerName ? `<p style="color: #374151;">Dear ${customerName},</p>` : '<p style="color: #374151;">Dear Customer,</p>'}
+         <p style="color: #374151;">Please find attached the service report for your records.</p>
+         <table style="border-collapse: collapse; margin: 20px 0; width: 100%;">
+           <tr style="background-color: #f9fafb;">
+             <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Report Number:</td>
+             <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${reportNumber || "—"}</td>
+           </tr>
+           <tr>
+             <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Site:</td>
+             <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${siteName || "—"}</td>
+           </tr>
+           <tr style="background-color: #f9fafb;">
+             <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Date:</td>
+             <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${reportDate || "—"}</td>
+           </tr>
+         </table>
+         <p style="color: #374151;">If you have any questions regarding this report, please don't hesitate to contact us.</p>
+         <p style="margin-top: 30px; color: #374151;">Kind regards,<br/><strong>${companyName || "The Service Team"}</strong></p>
+       `;
+ 
+     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         ${logoUrl ? `
         <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #dc2626;">
@@ -76,24 +105,7 @@ serve(async (req) => {
         ` : ''}
         <div style="padding: 30px 20px;">
           <h2 style="color: #1f2937; margin-top: 0;">Service Report</h2>
-          ${customerName ? `<p style="color: #374151;">Dear ${customerName},</p>` : '<p style="color: #374151;">Dear Customer,</p>'}
-          <p style="color: #374151;">Please find attached the service report for your records.</p>
-          <table style="border-collapse: collapse; margin: 20px 0; width: 100%;">
-            <tr style="background-color: #f9fafb;">
-              <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Report Number:</td>
-              <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${reportNumber || "—"}</td>
-            </tr>
-            <tr>
-              <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Site:</td>
-              <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${siteName || "—"}</td>
-            </tr>
-            <tr style="background-color: #f9fafb;">
-              <td style="padding: 12px 16px; color: #6b7280; border: 1px solid #e5e7eb;">Date:</td>
-              <td style="padding: 12px 16px; font-weight: bold; color: #1f2937; border: 1px solid #e5e7eb;">${reportDate || "—"}</td>
-            </tr>
-          </table>
-          <p style="color: #374151;">If you have any questions regarding this report, please don't hesitate to contact us.</p>
-          <p style="margin-top: 30px; color: #374151;">Kind regards,<br/><strong>${companyName || "The Service Team"}</strong></p>
+           ${bodyHtml}
         </div>
         <div style="background-color: #1f2937; color: #9ca3af; padding: 20px; text-align: center; font-size: 12px;">
           <p style="margin: 0;">${companyName || "BHO Fire"}</p>

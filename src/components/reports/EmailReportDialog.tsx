@@ -11,11 +11,26 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mail, Send, X, Plus } from "lucide-react";
+ import { Textarea } from "@/components/ui/textarea";
+ import {
+   Select,
+   SelectContent,
+   SelectItem,
+   SelectTrigger,
+   SelectValue,
+ } from "@/components/ui/select";
+ import { Loader2, Mail, Send, X, Plus, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { createEmailLog } from "@/services/emailLogService";
 import { useAuth } from "@/contexts/AuthContext";
+ import {
+   EmailTemplate,
+   getEmailTemplates,
+   getDefaultTemplate,
+   applyTemplate,
+ } from "@/services/emailTemplateService";
+ import { getCompanySettings } from "@/services/companySettingsService";
 
 interface EmailReportDialogProps {
   open: boolean;
@@ -56,9 +71,12 @@ export function EmailReportDialog({
   const [sending, setSending] = useState(false);
   const [recipients, setRecipients] = useState<string[]>([]);
   const [newEmail, setNewEmail] = useState("");
-  const [subject, setSubject] = useState(
-    `Service Report ${reportNumber} - ${siteName}`
-  );
+   const [subject, setSubject] = useState("");
+   const [emailBody, setEmailBody] = useState("");
+   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+   const [loadingTemplates, setLoadingTemplates] = useState(false);
+   const [companyNameVal, setCompanyNameVal] = useState(companyName || "");
 
   // Parse recipients from defaultRecipients and defaultEmail
   const parseRecipients = () => {
@@ -85,10 +103,72 @@ export function EmailReportDialog({
   useEffect(() => {
     if (open) {
       setRecipients(parseRecipients());
-      setSubject(`Service Report ${reportNumber} - ${siteName}`);
       setNewEmail("");
+       loadTemplatesAndDefaults();
     }
   }, [open, defaultEmail, defaultRecipients, reportNumber, siteName]);
+ 
+   const loadTemplatesAndDefaults = async () => {
+     setLoadingTemplates(true);
+     try {
+       const [templatesList, defaultTemplate, settings] = await Promise.all([
+         getEmailTemplates(),
+         getDefaultTemplate(),
+         getCompanySettings().catch(() => null),
+       ]);
+       
+       setTemplates(templatesList);
+       const compName = settings?.company_name || companyName || "The Service Team";
+       if (settings?.company_name) {
+         setCompanyNameVal(settings.company_name);
+       }
+ 
+       // Apply default template if available, otherwise use fallback
+       if (defaultTemplate) {
+         setSelectedTemplateId(defaultTemplate.id);
+         applySelectedTemplate(defaultTemplate, compName);
+       } else if (templatesList.length > 0) {
+         setSelectedTemplateId(templatesList[0].id);
+         applySelectedTemplate(templatesList[0], compName);
+       } else {
+         // Fallback to hardcoded values
+         setSubject(`Service Report ${reportNumber} - ${siteName}`);
+         setEmailBody(
+           `Dear ${customerName || "Customer"},\n\nPlease find attached the service report for your records.\n\nIf you have any questions regarding this report, please don't hesitate to contact us.\n\nKind regards,\n${compName}`
+         );
+       }
+     } catch (error) {
+       console.error("Failed to load templates:", error);
+       setSubject(`Service Report ${reportNumber} - ${siteName}`);
+       setEmailBody(
+         `Dear ${customerName || "Customer"},\n\nPlease find attached the service report for your records.\n\nIf you have any questions regarding this report, please don't hesitate to contact us.\n\nKind regards,\n${companyName || "The Service Team"}`
+       );
+     } finally {
+       setLoadingTemplates(false);
+     }
+   };
+ 
+   const applySelectedTemplate = (template: EmailTemplate, compNameOverride?: string) => {
+     const variables = {
+       customer_name: customerName || "Customer",
+       site_name: siteName,
+       report_number: reportNumber,
+       report_date: reportDate,
+       company_name: compNameOverride || companyNameVal || companyName || "The Service Team",
+     };
+ 
+     const applied = applyTemplate(template, variables);
+     setSubject(applied.subject);
+     setEmailBody(`${applied.greeting}\n\n${applied.body}\n\n${applied.signoff}`);
+   };
+ 
+   const handleTemplateChange = (templateId: string) => {
+     setSelectedTemplateId(templateId);
+     const template = templates.find((t) => t.id === templateId);
+     if (template) {
+       applySelectedTemplate(template);
+     }
+   };
 
   const handleOpenChange = (newOpen: boolean) => {
     onOpenChange(newOpen);
@@ -162,8 +242,9 @@ export function EmailReportDialog({
           reportDate,
           pdfBase64,
           customerName,
-          companyName,
+           companyName: companyNameVal || companyName,
           logoUrl,
+           emailBody: emailBody.trim(),
         },
       });
 
@@ -241,6 +322,28 @@ export function EmailReportDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+           {/* Template Selection */}
+           {templates.length > 0 && (
+             <div className="space-y-2">
+               <Label className="flex items-center gap-2">
+                 <FileText className="h-4 w-4" />
+                 Email Template
+               </Label>
+               <Select value={selectedTemplateId} onValueChange={handleTemplateChange}>
+                 <SelectTrigger>
+                   <SelectValue placeholder="Select a template" />
+                 </SelectTrigger>
+                 <SelectContent className="z-[200]">
+                   {templates.map((template) => (
+                     <SelectItem key={template.id} value={template.id}>
+                       {template.name}
+                     </SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+             </div>
+           )}
+ 
           {/* Recipients List */}
           <div className="space-y-2">
             <Label>Recipients</Label>
@@ -301,6 +404,18 @@ export function EmailReportDialog({
             />
           </div>
 
+           <div className="space-y-2">
+             <Label htmlFor="emailBody">Email Message</Label>
+             <Textarea
+               id="emailBody"
+               value={emailBody}
+               onChange={(e) => setEmailBody(e.target.value)}
+               placeholder="Email message..."
+               rows={6}
+               disabled={sending}
+             />
+           </div>
+ 
           <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
             <p className="font-medium text-foreground mb-1">Attachment:</p>
             <p>{reportNumber}-{reportDate}.pdf</p>

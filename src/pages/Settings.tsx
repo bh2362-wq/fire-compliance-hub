@@ -10,7 +10,8 @@ import { CompanyProfileTab } from "@/components/settings/CompanyProfileTab";
 import { ReportBrandingTab } from "@/components/settings/ReportBrandingTab";
 import { TeamManagementTab } from "@/components/settings/TeamManagementTab";
 import { DefaultSettingsTab } from "@/components/settings/DefaultSettingsTab";
-import { Building2, FileText, Users, Settings2, Link } from "lucide-react";
+ import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
+ import { Building2, FileText, Users, Settings2, Link, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -84,7 +85,7 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="company" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="company" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Company</span>
@@ -93,6 +94,10 @@ const Settings = () => {
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Branding</span>
             </TabsTrigger>
+             <TabsTrigger value="emails" className="flex items-center gap-2">
+               <Mail className="h-4 w-4" />
+               <span className="hidden sm:inline">Emails</span>
+             </TabsTrigger>
             <TabsTrigger value="team" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Team</span>
@@ -123,6 +128,10 @@ const Settings = () => {
             />
           </TabsContent>
 
+           <TabsContent value="emails">
+             <EmailTemplatesTab />
+           </TabsContent>
+ 
           <TabsContent value="team">
             <TeamManagementTab />
           </TabsContent>
