@@ -23,6 +23,7 @@ import Schedule from "./pages/Schedule";
 import NotFound from "./pages/NotFound";
 import EmailLogs from "./pages/EmailLogs";
 import CreditControl from "./pages/CreditControl";
+import Quotations from "./pages/Quotations";
 
 // QMS Pages
 import QMSDashboard from "./pages/qms/QMSDashboard";
@@ -65,6 +66,7 @@ const App = () => (
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/dashboard/email-logs" element={<ProtectedRoute><EmailLogs /></ProtectedRoute>} />
             <Route path="/dashboard/credit-control" element={<ProtectedRoute><CreditControl /></ProtectedRoute>} />
+            <Route path="/dashboard/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
             
             {/* QMS Routes */}
             <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
