@@ -1,5 +1,6 @@
- import { useState, useEffect } from "react";
- import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { useState, useEffect, useMemo } from "react";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { supabase } from "@/integrations/supabase/client";
  import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
  import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
  import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@
  import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import { Mail, MessageSquare, Phone, Play, Settings, Shield, Clock, AlertTriangle, CheckCircle, RefreshCw, FileText, Banknote } from "lucide-react";
+import { CreditRatingBadge } from "@/components/credit-control/CreditRatingBadge";
+import { getCreditChecksForCustomers, CreditCheck } from "@/services/creditCheckService";
  import {
    getSchedules,
    getSteps,
@@ -46,7 +49,8 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
   const [groupEmailDialogOpen, setGroupEmailDialogOpen] = useState(false);
   const [selectedCustomerContactId, setSelectedCustomerContactId] = useState<string | null>(null);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
- 
+  const [creditChecks, setCreditChecks] = useState<Record<string, CreditCheck>>({});
+  const [contactCustomerMap, setContactCustomerMap] = useState<Record<string, string>>({});
    useEffect(() => {
      loadData();
     loadOverdueInvoices();
@@ -61,6 +65,29 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
        const overdue = invoices.filter((inv) => inv.isOverdue);
        setOverdueInvoices(overdue);
       setInvoiceSummary(summary);
+
+      // Load credit checks for customers with overdue invoices
+      try {
+        const { data: customers } = await supabase
+          .from("customers")
+          .select("id, xero_contact_id")
+          .not("xero_contact_id", "is", null);
+
+        if (customers && customers.length > 0) {
+          const customerIds = customers.map((c) => c.id);
+          const checks = await getCreditChecksForCustomers(customerIds);
+          setCreditChecks(checks);
+          // Store the contact-to-customer mapping
+          setContactCustomerMap(
+            customers.reduce((acc, c) => {
+              if (c.xero_contact_id) acc[c.xero_contact_id] = c.id;
+              return acc;
+            }, {} as Record<string, string>)
+          );
+        }
+      } catch (e) {
+        console.error("Failed to load credit checks:", e);
+      }
     } catch (error) {
       console.error("Failed to load overdue invoices:", error);
       // Don't show error - Xero may not be connected
@@ -281,51 +308,61 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
                   ) : (
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead>Invoice #</TableHead>
-                          <TableHead>Customer</TableHead>
-                          <TableHead>Reference</TableHead>
-                          <TableHead>Due Date</TableHead>
-                          <TableHead>Days Overdue</TableHead>
-                          <TableHead className="text-right">Amount Due</TableHead>
-                        </TableRow>
+                         <TableRow>
+                           <TableHead>Invoice #</TableHead>
+                           <TableHead>Customer</TableHead>
+                           <TableHead>Credit Rating</TableHead>
+                           <TableHead>Reference</TableHead>
+                           <TableHead>Due Date</TableHead>
+                           <TableHead>Days Overdue</TableHead>
+                           <TableHead className="text-right">Amount Due</TableHead>
+                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {overdueInvoices.map((invoice) => {
-                          const daysOverdue = differenceInDays(new Date(), new Date(invoice.dueDate));
-                          return (
-                            <TableRow 
-                              key={invoice.invoiceId}
-                              className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => {
-                                setSelectedInvoice(invoice);
-                                setInvoiceDialogOpen(true);
-                              }}
-                            >
-                              <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                              <TableCell>
-                                <button
-                                  className="text-primary hover:underline font-medium text-left"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedCustomerContactId(invoice.contactId);
-                                    setCustomerDialogOpen(true);
-                                  }}
-                                >
-                                  {invoice.contactName}
-                                </button>
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">{invoice.reference || "—"}</TableCell>
-                              <TableCell>{format(new Date(invoice.dueDate), "dd MMM yyyy")}</TableCell>
-                              <TableCell>
-                                <Badge variant={daysOverdue > 30 ? "destructive" : daysOverdue > 14 ? "secondary" : "outline"}>
-                                  {daysOverdue} days
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right font-semibold">
-                                £{invoice.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </TableCell>
-                            </TableRow>
+                         {overdueInvoices.map((invoice) => {
+                           const daysOverdue = differenceInDays(new Date(), new Date(invoice.dueDate));
+                           const customerId = contactCustomerMap[invoice.contactId];
+                           const creditCheck = customerId ? creditChecks[customerId] : null;
+                           return (
+                             <TableRow 
+                               key={invoice.invoiceId}
+                               className="cursor-pointer hover:bg-muted/50"
+                               onClick={() => {
+                                 setSelectedInvoice(invoice);
+                                 setInvoiceDialogOpen(true);
+                               }}
+                             >
+                               <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                               <TableCell>
+                                 <button
+                                   className="text-primary hover:underline font-medium text-left"
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     setSelectedCustomerContactId(invoice.contactId);
+                                     setCustomerDialogOpen(true);
+                                   }}
+                                 >
+                                   {invoice.contactName}
+                                 </button>
+                               </TableCell>
+                               <TableCell>
+                                 <CreditRatingBadge
+                                   riskLevel={creditCheck?.risk_level}
+                                   companyName={creditCheck?.company_name}
+                                   compact
+                                 />
+                               </TableCell>
+                               <TableCell className="text-muted-foreground">{invoice.reference || "—"}</TableCell>
+                               <TableCell>{format(new Date(invoice.dueDate), "dd MMM yyyy")}</TableCell>
+                               <TableCell>
+                                 <Badge variant={daysOverdue > 30 ? "destructive" : daysOverdue > 14 ? "secondary" : "outline"}>
+                                   {daysOverdue} days
+                                 </Badge>
+                               </TableCell>
+                               <TableCell className="text-right font-semibold">
+                                 £{invoice.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                               </TableCell>
+                             </TableRow>
                           );
                         })}
                       </TableBody>

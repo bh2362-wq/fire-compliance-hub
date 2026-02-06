@@ -24,6 +24,7 @@ import { CustomerReports } from "@/components/customers/CustomerReports";
 import { CustomerEmailLogs } from "@/components/customers/CustomerEmailLogs";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
+import { CreditCheckCard } from "@/components/credit-control/CreditCheckCard";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -265,6 +266,13 @@ const CustomerDetail = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Credit Check */}
+        <CreditCheckCard
+          customerId={customer.id}
+          customerName={customer.name}
+          companyNumber={(customer as any).company_number}
+        />
 
         {/* Open Visits */}
         <OpenVisitsCard customerId={customer.id} />
