@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.xero-delete-purchase-order]
 verify_jwt = false
+
+[functions.companies-house]
+verify_jwt = false

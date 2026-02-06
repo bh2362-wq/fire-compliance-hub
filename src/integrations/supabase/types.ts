@@ -258,6 +258,98 @@ export type Database = {
           },
         ]
       }
+      credit_checks: {
+        Row: {
+          accounts_last_made_up: string | null
+          accounts_next_due: string | null
+          accounts_overdue: boolean | null
+          checked_at: string
+          checked_by: string
+          company_name: string | null
+          company_number: string
+          company_status: string | null
+          company_type: string | null
+          confirmation_statement_next_due: string | null
+          confirmation_statement_overdue: boolean | null
+          created_at: string
+          customer_id: string
+          date_of_creation: string | null
+          filing_history: Json | null
+          has_charges: boolean | null
+          has_insolvency_history: boolean | null
+          id: string
+          officers: Json | null
+          raw_data: Json | null
+          registered_address: Json | null
+          risk_factors: Json | null
+          risk_level: string | null
+          sic_codes: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          accounts_last_made_up?: string | null
+          accounts_next_due?: string | null
+          accounts_overdue?: boolean | null
+          checked_at?: string
+          checked_by: string
+          company_name?: string | null
+          company_number: string
+          company_status?: string | null
+          company_type?: string | null
+          confirmation_statement_next_due?: string | null
+          confirmation_statement_overdue?: boolean | null
+          created_at?: string
+          customer_id: string
+          date_of_creation?: string | null
+          filing_history?: Json | null
+          has_charges?: boolean | null
+          has_insolvency_history?: boolean | null
+          id?: string
+          officers?: Json | null
+          raw_data?: Json | null
+          registered_address?: Json | null
+          risk_factors?: Json | null
+          risk_level?: string | null
+          sic_codes?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          accounts_last_made_up?: string | null
+          accounts_next_due?: string | null
+          accounts_overdue?: boolean | null
+          checked_at?: string
+          checked_by?: string
+          company_name?: string | null
+          company_number?: string
+          company_status?: string | null
+          company_type?: string | null
+          confirmation_statement_next_due?: string | null
+          confirmation_statement_overdue?: boolean | null
+          created_at?: string
+          customer_id?: string
+          date_of_creation?: string | null
+          filing_history?: Json | null
+          has_charges?: boolean | null
+          has_insolvency_history?: boolean | null
+          id?: string
+          officers?: Json | null
+          raw_data?: Json | null
+          registered_address?: Json | null
+          risk_factors?: Json | null
+          risk_level?: string | null
+          sic_codes?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_checks_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_control_exclusions: {
         Row: {
           created_at: string
@@ -474,6 +566,7 @@ export type Database = {
           address: string | null
           city: string | null
           client_signature: string | null
+          company_number: string | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
@@ -491,6 +584,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           client_signature?: string | null
+          company_number?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -508,6 +602,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           client_signature?: string | null
+          company_number?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
