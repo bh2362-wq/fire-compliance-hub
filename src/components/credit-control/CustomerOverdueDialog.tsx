@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -150,145 +149,143 @@ export function CustomerOverdueDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
             {customerName}
           </DialogTitle>
           <DialogDescription className="flex items-center gap-3">
-             <span>{invoices.length} outstanding invoice{invoices.length !== 1 ? "s" : ""}</span>
-             <Badge variant="destructive" className="text-sm">
-               Total: £{totalDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-             </Badge>
-           </DialogDescription>
+            <span>{invoices.length} outstanding invoice{invoices.length !== 1 ? "s" : ""}</span>
+            <Badge variant="destructive" className="text-sm">
+              Total: £{totalDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </Badge>
+          </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 -mx-6 px-6">
-          <div className="space-y-4">
-            {/* Invoices Table */}
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Reference</TableHead>
-                   <TableHead>Due Date</TableHead>
-                   <TableHead>Status</TableHead>
-                   <TableHead className="text-right">Amount Due</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoices.map((invoice) => {
-                   const daysOverdue = invoice.isOverdue
-                     ? differenceInDays(new Date(), new Date(invoice.dueDate))
-                     : 0;
-                   return (
-                     <TableRow
-                       key={invoice.invoiceId}
-                       className={onInvoiceClick ? "cursor-pointer hover:bg-muted/50" : ""}
-                       onClick={() => onInvoiceClick?.(invoice)}
-                     >
-                       <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                       <TableCell className="text-muted-foreground">
-                         {invoice.reference || "—"}
-                       </TableCell>
-                       <TableCell>{format(new Date(invoice.dueDate), "dd MMM yyyy")}</TableCell>
-                       <TableCell>
-                         {invoice.isOverdue ? (
-                           <Badge
-                             variant={
-                               daysOverdue > 30
-                                 ? "destructive"
-                                 : daysOverdue > 14
-                                 ? "secondary"
-                                 : "outline"
-                             }
-                           >
-                             {daysOverdue} days overdue
-                           </Badge>
-                         ) : (
-                           <Badge variant="default">Current</Badge>
-                         )}
-                       </TableCell>
-                       <TableCell className="text-right font-semibold">
-                         £{invoice.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                       </TableCell>
-                     </TableRow>
-                   );
-                 })}
-              </TableBody>
-            </Table>
-
-            {/* Email Form */}
-            {showEmailForm && (
-              <div className="space-y-4 border rounded-lg p-4">
-                <div className="space-y-2">
-                  <Label>Recipients</Label>
-                  {emailAddresses.map((email, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        type="email"
-                        placeholder="email@company.com"
-                        className="flex-1"
-                        value={email}
-                        onChange={(e) => updateEmailField(index, e.target.value)}
-                      />
-                      {emailAddresses.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => removeEmailField(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs"
-                    onClick={addEmailField}
+        {/* Scrollable Invoices Table */}
+        <div className="flex-1 min-h-0 overflow-y-auto border rounded-md max-h-[40vh]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="sticky top-0 bg-background z-10">Invoice #</TableHead>
+                <TableHead className="sticky top-0 bg-background z-10">Reference</TableHead>
+                <TableHead className="sticky top-0 bg-background z-10">Due Date</TableHead>
+                <TableHead className="sticky top-0 bg-background z-10">Status</TableHead>
+                <TableHead className="sticky top-0 bg-background z-10 text-right">Amount Due</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {invoices.map((invoice) => {
+                const daysOverdue = invoice.isOverdue
+                  ? differenceInDays(new Date(), new Date(invoice.dueDate))
+                  : 0;
+                return (
+                  <TableRow
+                    key={invoice.invoiceId}
+                    className={onInvoiceClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                    onClick={() => onInvoiceClick?.(invoice)}
                   >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add another email
-                  </Button>
-                </div>
+                    <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {invoice.reference || "—"}
+                    </TableCell>
+                    <TableCell>{format(new Date(invoice.dueDate), "dd MMM yyyy")}</TableCell>
+                    <TableCell>
+                      {invoice.isOverdue ? (
+                        <Badge
+                          variant={
+                            daysOverdue > 30
+                              ? "destructive"
+                              : daysOverdue > 14
+                              ? "secondary"
+                              : "outline"
+                          }
+                        >
+                          {daysOverdue} days overdue
+                        </Badge>
+                      ) : (
+                        <Badge variant="default">Current</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      £{invoice.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
 
-                <div className="space-y-2">
-                  <Label>Message (appears below invoice table)</Label>
-                  <Textarea
-                    rows={8}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    className="font-mono text-sm"
+        {/* Email Form - outside scroll area */}
+        {showEmailForm && (
+          <div className="space-y-4 border rounded-lg p-4 shrink-0">
+            <div className="space-y-2">
+              <Label>Recipients</Label>
+              {emailAddresses.map((email, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    type="email"
+                    placeholder="email@company.com"
+                    className="flex-1"
+                    value={email}
+                    onChange={(e) => updateEmailField(index, e.target.value)}
                   />
+                  {emailAddresses.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => removeEmailField(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
+              ))}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+                onClick={addEmailField}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add another email
+              </Button>
+            </div>
 
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowEmailForm(false)}>
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={handleSendStatement} disabled={sending}>
-                    {sending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="mr-2 h-4 w-4" />
-                    )}
-                    Send Statement
-                  </Button>
-                </div>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>Message (appears below invoice table)</Label>
+              <Textarea
+                rows={6}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowEmailForm(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleSendStatement} disabled={sending}>
+                {sending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                Send Statement
+              </Button>
+            </div>
           </div>
-        </ScrollArea>
+        )}
 
         {/* Footer Actions */}
         {!showEmailForm && (
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
