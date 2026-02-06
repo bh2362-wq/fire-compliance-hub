@@ -36,8 +36,7 @@ const RecentVisits = () => {
             id,
             visit_date,
             status,
-            sites (name),
-            profiles:engineer_id (full_name)
+            sites (name)
           `)
           .order("visit_date", { ascending: false })
           .limit(5);
@@ -48,7 +47,7 @@ const RecentVisits = () => {
           id: visit.id,
           site_name: visit.sites?.name || "Unknown Site",
           visit_date: visit.visit_date,
-          engineer_name: visit.profiles?.full_name || null,
+          engineer_name: null,
           status: visit.status || "scheduled",
         }));
 
