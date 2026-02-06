@@ -9,9 +9,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   Legend,
 } from "recharts";
 import { XeroOutstandingInvoice } from "@/services/xeroService";
@@ -33,8 +30,6 @@ export interface PaymentInsightsSummary {
   agingBuckets: { name: string; value: number; count: number }[];
   monthlyBreakdown: { month: string; amount: number; overdue: number }[];
 }
-
-const AGING_COLORS = ["hsl(142, 71%, 45%)", "hsl(48, 96%, 53%)", "hsl(25, 95%, 53%)", "hsl(0, 84%, 60%)"];
 
 function computeInsights(invoices: XeroOutstandingInvoice[]): PaymentInsightsSummary {
   const now = new Date();
@@ -80,7 +75,7 @@ function computeInsights(invoices: XeroOutstandingInvoice[]): PaymentInsightsSum
     { name: "1-30 days", value: Math.round(buckets["1-30"] * 100) / 100, count: bucketCounts["1-30"] },
     { name: "31-60 days", value: Math.round(buckets["31-60"] * 100) / 100, count: bucketCounts["31-60"] },
     { name: "60+ days", value: Math.round(buckets["60+"] * 100) / 100, count: bucketCounts["60+"] },
-  ].filter((b) => b.value > 0);
+  ];
 
   // Monthly breakdown by due date
   const monthlyMap = new Map<string, { amount: number; overdue: number }>();
@@ -122,9 +117,42 @@ const RISK_CONFIG = {
   critical: { label: "Critical Risk", variant: "destructive" as const, color: "text-red-600" },
 };
 
+const AGING_COLORS = ["hsl(142, 71%, 45%)", "hsl(48, 96%, 53%)", "hsl(25, 95%, 53%)", "hsl(0, 84%, 60%)"];
+
+function AgingBar({ bucket, maxValue }: { bucket: { name: string; value: number; count: number }; maxValue: number }) {
+  const colorIndex = ["Current", "1-30 days", "31-60 days", "60+ days"].indexOf(bucket.name);
+  const pct = maxValue > 0 ? Math.max((bucket.value / maxValue) * 100, 4) : 0;
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">
+          {bucket.name}
+          <span className="text-xs ml-1">
+            ({bucket.count} invoice{bucket.count !== 1 ? "s" : ""})
+          </span>
+        </span>
+        <span className="font-semibold">
+          £{bucket.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        </span>
+      </div>
+      <div className="h-3 bg-muted rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            backgroundColor: AGING_COLORS[colorIndex] || AGING_COLORS[0],
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function CustomerPaymentInsights({ invoices, customerName }: CustomerPaymentInsightsProps) {
   const insights = useMemo(() => computeInsights(invoices), [invoices]);
   const riskConfig = RISK_CONFIG[insights.riskLevel];
+  const maxBucketValue = Math.max(...insights.agingBuckets.map((b) => b.value), 1);
 
   if (invoices.length === 0) return null;
 
@@ -170,49 +198,25 @@ export function CustomerPaymentInsights({ invoices, customerName }: CustomerPaym
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Aging Breakdown Pie Chart */}
+        {/* Aging Breakdown - Custom bar visualization */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Aging Breakdown</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Invoice Aging Breakdown</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={insights.agingBuckets}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={70}
-                    innerRadius={40}
-                    label={({ name, percent }) =>
-                      `${name} (${(percent * 100).toFixed(0)}%)`
-                    }
-                    labelLine={false}
-                  >
-                    {insights.agingBuckets.map((_, index) => (
-                      <Cell key={index} fill={AGING_COLORS[index % AGING_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => `£${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <CardContent className="space-y-3">
+            {insights.agingBuckets.map((bucket) => (
+              <AgingBar key={bucket.name} bucket={bucket} maxValue={maxBucketValue} />
+            ))}
           </CardContent>
         </Card>
 
         {/* Monthly Due Amounts Bar Chart */}
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Outstanding by Due Month</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[200px]">
+            <div className="h-[180px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={insights.monthlyBreakdown}>
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} />
@@ -220,8 +224,8 @@ export function CustomerPaymentInsights({ invoices, customerName }: CustomerPaym
                   <Tooltip
                     formatter={(value: number) => `£${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                   />
-                  <Bar dataKey="overdue" name="Overdue" fill="hsl(0, 84%, 60%)" stackId="a" />
-                  <Bar dataKey="amount" name="Current" fill="hsl(142, 71%, 45%)" stackId="b" />
+                  <Bar dataKey="overdue" name="Overdue" fill="hsl(0, 84%, 60%)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="amount" name="Current" fill="hsl(142, 71%, 45%)" radius={[4, 4, 0, 0]} />
                   <Legend />
                 </BarChart>
               </ResponsiveContainer>
@@ -254,5 +258,4 @@ export function CustomerPaymentInsights({ invoices, customerName }: CustomerPaym
   );
 }
 
-// Export the compute function so it can be reused for email data
 export { computeInsights };
