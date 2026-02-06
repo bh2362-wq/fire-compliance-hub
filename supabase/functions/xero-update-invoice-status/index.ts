@@ -170,8 +170,8 @@
        
        if (!accountCode) {
          // Fetch accounts to find a bank account
-         const accountsResponse = await fetch(
-           "https://api.xero.com/api.xro/2.0/Accounts?where=Type%3D%22BANK%22",
+          const accountsResponse = await fetch(
+            "https://api.xero.com/api.xro/2.0/Accounts?where=Type%3D%3D%22BANK%22",
            {
              headers: {
                "Authorization": `Bearer ${accessToken}`,
