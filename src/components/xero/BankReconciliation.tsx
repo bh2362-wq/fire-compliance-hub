@@ -41,10 +41,9 @@ export function BankReconciliation() {
   const [toDate, setToDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   const loadTransactions = async () => {
-    // Don't fetch if user is not authenticated
+    // Don't fetch if user is not authenticated or session isn't ready
     if (!user) {
       setLoading(false);
-      setError("Please log in to view bank reconciliation");
       return;
     }
 
