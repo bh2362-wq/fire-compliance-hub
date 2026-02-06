@@ -29,7 +29,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { deleteXeroInvoice } from "@/services/xeroService";
+import { deleteXeroInvoice, XeroOutstandingInvoice } from "@/services/xeroService";
+import { CustomerOverdueDialog } from "@/components/credit-control/CustomerOverdueDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -103,6 +104,7 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
   const [paymentDate, setPaymentDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [paymentAmount, setPaymentAmount] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<{ name: string; contactId: string } | null>(null);
   const [filters, setFilters] = useState<InvoiceFilters>({
     customer: "",
     status: "",
@@ -535,7 +537,14 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                             <TableCell className="font-medium">
                               {invoice.invoiceNumber}
                             </TableCell>
-                            <TableCell>{invoice.contactName}</TableCell>
+                            <TableCell>
+                              <button
+                                className="text-left font-medium text-primary hover:underline cursor-pointer"
+                                onClick={() => setSelectedCustomer({ name: invoice.contactName, contactId: invoice.contactId })}
+                              >
+                                {invoice.contactName}
+                              </button>
+                            </TableCell>
                             <TableCell className="text-muted-foreground">
                               {invoice.reference || "-"}
                             </TableCell>
@@ -609,7 +618,14 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                       <TableBody>
                         {contactBalances.map((contact) => (
                           <TableRow key={contact.contactId}>
-                            <TableCell className="font-medium">{contact.name}</TableCell>
+                            <TableCell>
+                              <button
+                                className="text-left font-medium text-primary hover:underline cursor-pointer"
+                                onClick={() => setSelectedCustomer({ name: contact.name, contactId: contact.contactId })}
+                              >
+                                {contact.name}
+                              </button>
+                            </TableCell>
                             <TableCell className="text-muted-foreground">
                               {contact.email || "-"}
                             </TableCell>
@@ -670,6 +686,18 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Customer Outstanding Invoices Dialog */}
+      {selectedCustomer && (
+        <CustomerOverdueDialog
+          open={!!selectedCustomer}
+          onOpenChange={(open) => !open && setSelectedCustomer(null)}
+          customerName={selectedCustomer.name}
+          contactId={selectedCustomer.contactId}
+          invoices={invoices.filter((inv) => inv.contactId === selectedCustomer.contactId) as XeroOutstandingInvoice[]}
+          onEmailSent={() => fetchOutstandingInvoices()}
+        />
+      )}
 
       {/* Mark as Paid Dialog */}
       <Dialog open={!!payingInvoice} onOpenChange={(open) => !open && setPayingInvoice(null)}>
