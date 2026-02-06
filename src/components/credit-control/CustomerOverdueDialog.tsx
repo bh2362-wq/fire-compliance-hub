@@ -83,7 +83,7 @@ export function CustomerOverdueDialog({
 
       const { data } = await supabase
         .from("customers")
-        .select("email_recipients")
+        .select("email_recipients, contact_email")
         .eq("xero_contact_id", contactId)
         .maybeSingle();
 
@@ -94,7 +94,12 @@ export function CustomerOverdueDialog({
           .filter(Boolean);
         if (emails.length > 0) {
           setEmailAddresses(emails);
+          return;
         }
+      }
+      // Fallback to contact_email if no email_recipients set
+      if (data?.contact_email) {
+        setEmailAddresses([data.contact_email.trim()]);
       }
     };
     fetchEmails();
