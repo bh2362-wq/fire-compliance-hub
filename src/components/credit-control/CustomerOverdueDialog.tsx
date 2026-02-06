@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -21,9 +22,10 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
-import { Mail, Send, Loader2, FileText, Plus, X } from "lucide-react";
+import { Mail, Send, Loader2, FileText, Plus, X, BarChart3 } from "lucide-react";
 import { XeroOutstandingInvoice } from "@/services/xeroService";
 import { supabase } from "@/integrations/supabase/client";
+import { CustomerPaymentInsights, computeInsights } from "./CustomerPaymentInsights";
 
 interface CustomerOverdueDialogProps {
   open: boolean;
@@ -71,6 +73,8 @@ export function CustomerOverdueDialog({
     () => invoices.reduce((sum, inv) => sum + inv.amountDue, 0),
     [invoices]
   );
+
+  const insights = useMemo(() => computeInsights(invoices), [invoices]);
 
   // Fetch stored email recipients
   useEffect(() => {
@@ -130,6 +134,16 @@ export function CustomerOverdueDialog({
           })),
           totalDue,
           message,
+          insights: {
+            totalOutstanding: insights.totalOutstanding,
+            totalOverdue: insights.totalOverdue,
+            overdueCount: insights.overdueCount,
+            currentCount: insights.currentCount,
+            avgDaysOverdue: insights.avgDaysOverdue,
+            maxDaysOverdue: insights.maxDaysOverdue,
+            riskLevel: insights.riskLevel,
+            agingBuckets: insights.agingBuckets,
+          },
         },
       });
 
@@ -149,7 +163,7 @@ export function CustomerOverdueDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -163,62 +177,80 @@ export function CustomerOverdueDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Scrollable Invoices Table */}
-        <div className="flex-1 min-h-0 overflow-y-auto border rounded-md max-h-[40vh]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="sticky top-0 bg-background z-10">Invoice #</TableHead>
-                <TableHead className="sticky top-0 bg-background z-10">Reference</TableHead>
-                <TableHead className="sticky top-0 bg-background z-10">Due Date</TableHead>
-                <TableHead className="sticky top-0 bg-background z-10">Status</TableHead>
-                <TableHead className="sticky top-0 bg-background z-10 text-right">Amount Due</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invoices.map((invoice) => {
-                const daysOverdue = invoice.isOverdue
-                  ? differenceInDays(new Date(), new Date(invoice.dueDate))
-                  : 0;
-                return (
-                  <TableRow
-                    key={invoice.invoiceId}
-                    className={onInvoiceClick ? "cursor-pointer hover:bg-muted/50" : ""}
-                    onClick={() => onInvoiceClick?.(invoice)}
-                  >
-                    <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {invoice.reference || "—"}
-                    </TableCell>
-                    <TableCell>{format(new Date(invoice.dueDate), "dd MMM yyyy")}</TableCell>
-                    <TableCell>
-                      {invoice.isOverdue ? (
-                        <Badge
-                          variant={
-                            daysOverdue > 30
-                              ? "destructive"
-                              : daysOverdue > 14
-                              ? "secondary"
-                              : "outline"
-                          }
-                        >
-                          {daysOverdue} days overdue
-                        </Badge>
-                      ) : (
-                        <Badge variant="default">Current</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      £{invoice.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <Tabs defaultValue="invoices" className="flex-1 min-h-0 flex flex-col">
+          <TabsList className="shrink-0">
+            <TabsTrigger value="invoices">
+              <FileText className="mr-2 h-4 w-4" />
+              Invoices
+            </TabsTrigger>
+            <TabsTrigger value="insights">
+              <BarChart3 className="mr-2 h-4 w-4" />
+              Payment Insights
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Email Form - outside scroll area */}
+          <TabsContent value="invoices" className="flex-1 min-h-0 overflow-y-auto mt-4">
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky top-0 bg-background z-10">Invoice #</TableHead>
+                    <TableHead className="sticky top-0 bg-background z-10">Reference</TableHead>
+                    <TableHead className="sticky top-0 bg-background z-10">Due Date</TableHead>
+                    <TableHead className="sticky top-0 bg-background z-10">Status</TableHead>
+                    <TableHead className="sticky top-0 bg-background z-10 text-right">Amount Due</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map((invoice) => {
+                    const daysOverdue = invoice.isOverdue
+                      ? differenceInDays(new Date(), new Date(invoice.dueDate))
+                      : 0;
+                    return (
+                      <TableRow
+                        key={invoice.invoiceId}
+                        className={onInvoiceClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                        onClick={() => onInvoiceClick?.(invoice)}
+                      >
+                        <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {invoice.reference || "—"}
+                        </TableCell>
+                        <TableCell>{format(new Date(invoice.dueDate), "dd MMM yyyy")}</TableCell>
+                        <TableCell>
+                          {invoice.isOverdue ? (
+                            <Badge
+                              variant={
+                                daysOverdue > 30
+                                  ? "destructive"
+                                  : daysOverdue > 14
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                            >
+                              {daysOverdue} days overdue
+                            </Badge>
+                          ) : (
+                            <Badge variant="default">Current</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          £{invoice.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="insights" className="flex-1 min-h-0 overflow-y-auto mt-4">
+            <CustomerPaymentInsights invoices={invoices} customerName={customerName} />
+          </TabsContent>
+        </Tabs>
+
+        {/* Email Form */}
         {showEmailForm && (
           <div className="space-y-4 border rounded-lg p-4 shrink-0">
             <div className="space-y-2">
