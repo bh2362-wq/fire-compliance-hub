@@ -157,11 +157,11 @@ export function CustomerOverdueDialog({
             {customerName}
           </DialogTitle>
           <DialogDescription className="flex items-center gap-3">
-            <span>{invoices.length} overdue invoice{invoices.length !== 1 ? "s" : ""}</span>
-            <Badge variant="destructive" className="text-sm">
-              Total: £{totalDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </Badge>
-          </DialogDescription>
+             <span>{invoices.length} outstanding invoice{invoices.length !== 1 ? "s" : ""}</span>
+             <Badge variant="destructive" className="text-sm">
+               Total: £{totalDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+             </Badge>
+           </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="flex-1 -mx-6 px-6">
@@ -172,44 +172,50 @@ export function CustomerOverdueDialog({
                 <TableRow>
                   <TableHead>Invoice #</TableHead>
                   <TableHead>Reference</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Days Overdue</TableHead>
-                  <TableHead className="text-right">Amount Due</TableHead>
+                   <TableHead>Due Date</TableHead>
+                   <TableHead>Status</TableHead>
+                   <TableHead className="text-right">Amount Due</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {invoices.map((invoice) => {
-                  const daysOverdue = differenceInDays(new Date(), new Date(invoice.dueDate));
-                  return (
-                    <TableRow
-                      key={invoice.invoiceId}
-                      className={onInvoiceClick ? "cursor-pointer hover:bg-muted/50" : ""}
-                      onClick={() => onInvoiceClick?.(invoice)}
-                    >
-                      <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {invoice.reference || "—"}
-                      </TableCell>
-                      <TableCell>{format(new Date(invoice.dueDate), "dd MMM yyyy")}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            daysOverdue > 30
-                              ? "destructive"
-                              : daysOverdue > 14
-                              ? "secondary"
-                              : "outline"
-                          }
-                        >
-                          {daysOverdue} days
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        £{invoice.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                   const daysOverdue = invoice.isOverdue
+                     ? differenceInDays(new Date(), new Date(invoice.dueDate))
+                     : 0;
+                   return (
+                     <TableRow
+                       key={invoice.invoiceId}
+                       className={onInvoiceClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                       onClick={() => onInvoiceClick?.(invoice)}
+                     >
+                       <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                       <TableCell className="text-muted-foreground">
+                         {invoice.reference || "—"}
+                       </TableCell>
+                       <TableCell>{format(new Date(invoice.dueDate), "dd MMM yyyy")}</TableCell>
+                       <TableCell>
+                         {invoice.isOverdue ? (
+                           <Badge
+                             variant={
+                               daysOverdue > 30
+                                 ? "destructive"
+                                 : daysOverdue > 14
+                                 ? "secondary"
+                                 : "outline"
+                             }
+                           >
+                             {daysOverdue} days overdue
+                           </Badge>
+                         ) : (
+                           <Badge variant="default">Current</Badge>
+                         )}
+                       </TableCell>
+                       <TableCell className="text-right font-semibold">
+                         £{invoice.amountDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                       </TableCell>
+                     </TableRow>
+                   );
+                 })}
               </TableBody>
             </Table>
 

@@ -39,8 +39,9 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
    const [testDialogOpen, setTestDialogOpen] = useState(false);
    const [selectedInvoice, setSelectedInvoice] = useState<XeroOutstandingInvoice | null>(null);
    const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
-  const [overdueInvoices, setOverdueInvoices] = useState<XeroOutstandingInvoice[]>([]);
-  const [invoiceSummary, setInvoiceSummary] = useState<XeroInvoiceSummary | null>(null);
+   const [allInvoices, setAllInvoices] = useState<XeroOutstandingInvoice[]>([]);
+   const [overdueInvoices, setOverdueInvoices] = useState<XeroOutstandingInvoice[]>([]);
+   const [invoiceSummary, setInvoiceSummary] = useState<XeroInvoiceSummary | null>(null);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [groupEmailDialogOpen, setGroupEmailDialogOpen] = useState(false);
   const [selectedCustomerContactId, setSelectedCustomerContactId] = useState<string | null>(null);
@@ -55,9 +56,10 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
     setLoadingInvoices(true);
     try {
       const { invoices, summary } = await fetchOutstandingInvoices();
-      // Filter to only overdue invoices
-      const overdue = invoices.filter((inv) => inv.isOverdue);
-      setOverdueInvoices(overdue);
+       setAllInvoices(invoices);
+       // Filter to only overdue invoices for the main table
+       const overdue = invoices.filter((inv) => inv.isOverdue);
+       setOverdueInvoices(overdue);
       setInvoiceSummary(summary);
     } catch (error) {
       console.error("Failed to load overdue invoices:", error);
@@ -493,11 +495,11 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
               setCustomerDialogOpen(isOpen);
               if (!isOpen) setSelectedCustomerContactId(null);
             }}
-            customerName={
-              overdueInvoices.find((inv) => inv.contactId === selectedCustomerContactId)?.contactName || ""
-            }
+             customerName={
+               allInvoices.find((inv) => inv.contactId === selectedCustomerContactId)?.contactName || ""
+             }
             contactId={selectedCustomerContactId}
-            invoices={overdueInvoices.filter((inv) => inv.contactId === selectedCustomerContactId)}
+            invoices={allInvoices.filter((inv) => inv.contactId === selectedCustomerContactId)}
             onInvoiceClick={(invoice) => {
               setCustomerDialogOpen(false);
               setSelectedCustomerContactId(null);
