@@ -93,7 +93,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
 
   return (
-    <div className="min-h-screen flex w-full bg-background">
+    <div className="h-screen flex w-full bg-background overflow-hidden">
       {/* Sidebar */}
       <aside className={cn(
         "fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 z-40 overflow-y-auto",
@@ -234,11 +234,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       {/* Main content */}
       <main className={cn(
-        "flex-1 transition-all duration-300",
+        "flex-1 flex flex-col transition-all duration-300 h-screen overflow-hidden",
         collapsed ? "ml-16" : "ml-64"
       )}>
         {/* Top bar */}
-        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6 sticky top-0 z-30">
+        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6 shrink-0 z-30">
           <div>
             <h1 className="text-lg font-semibold text-foreground">Welcome back, {userName.split(' ')[0]}</h1>
           </div>
@@ -258,8 +258,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
         </header>
 
-        {/* Page content */}
-        <div className="p-6">
+        {/* Page content - scrollable */}
+        <div className="flex-1 overflow-y-auto p-6">
           {children}
         </div>
       </main>
