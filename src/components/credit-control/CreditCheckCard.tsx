@@ -65,7 +65,7 @@ export function CreditCheckCard({ customerId, customerName, companyNumber }: Cre
     setRunning(true);
     try {
       const result = await runCreditCheck(compNum, customerId);
-      setCreditCheck(result);
+      setCreditCheck({ ...result, checked_at: result.checked_at || new Date().toISOString() });
       setSearchOpen(false);
       toast.success("Credit check completed");
     } catch (error: any) {
@@ -165,8 +165,9 @@ export function CreditCheckCard({ customerId, customerName, companyNumber }: Cre
                   </Badge>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  Checked{" "}
-                  {formatDistanceToNow(new Date(creditCheck.checked_at), { addSuffix: true })}
+                  {creditCheck.checked_at && !isNaN(new Date(creditCheck.checked_at).getTime())
+                    ? `Checked ${formatDistanceToNow(new Date(creditCheck.checked_at), { addSuffix: true })}`
+                    : "Just checked"}
                 </span>
               </div>
 
