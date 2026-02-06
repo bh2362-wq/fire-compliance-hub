@@ -16,6 +16,7 @@ import {
   Loader2,
   FileText,
   ClipboardList,
+  BarChart3,
 } from "lucide-react";
 import { Customer, getCustomer, getCustomerSites } from "@/services/customerService";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
@@ -25,6 +26,7 @@ import { CustomerEmailLogs } from "@/components/customers/CustomerEmailLogs";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import { CreditCheckCard } from "@/components/credit-control/CreditCheckCard";
+import { CustomerIntelligenceDashboard } from "@/components/customers/CustomerIntelligenceDashboard";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +52,7 @@ const CustomerDetail = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showSiteDialog, setShowSiteDialog] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [showIntelligence, setShowIntelligence] = useState(false);
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
 
   const loadData = async () => {
@@ -148,6 +151,10 @@ const CustomerDetail = () => {
             <Button variant="outline" onClick={() => setShowInvoiceDialog(true)}>
               <FileText className="w-4 h-4 mr-2" />
               Add Invoice
+            </Button>
+            <Button variant="outline" onClick={() => setShowIntelligence(true)}>
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Intelligence
             </Button>
             <Button variant="outline" onClick={() => setShowEditDialog(true)}>
               <Pencil className="w-4 h-4 mr-2" />
@@ -333,6 +340,15 @@ const CustomerDetail = () => {
           loadData();
           setInvoiceRefreshKey((prev) => prev + 1);
         }}
+      />
+
+      <CustomerIntelligenceDashboard
+        open={showIntelligence}
+        onOpenChange={setShowIntelligence}
+        customerId={customer.id}
+        customerName={customer.name}
+        companyNumber={(customer as any).company_number}
+        xeroContactId={customer.xero_contact_id}
       />
     </DashboardLayout>
   );

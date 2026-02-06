@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.companies-house]
 verify_jwt = false
+
+[functions.analyze-customer-intelligence]
+verify_jwt = false

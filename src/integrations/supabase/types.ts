@@ -561,6 +561,53 @@ export type Database = {
           },
         ]
       }
+      customer_intelligence_reports: {
+        Row: {
+          created_at: string
+          customer_id: string
+          expires_at: string | null
+          generated_at: string
+          generated_by: string
+          id: string
+          is_active: boolean
+          report_data: Json
+          share_token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          expires_at?: string | null
+          generated_at?: string
+          generated_by: string
+          id?: string
+          is_active?: boolean
+          report_data?: Json
+          share_token?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          expires_at?: string | null
+          generated_at?: string
+          generated_by?: string
+          id?: string
+          is_active?: boolean
+          report_data?: Json
+          share_token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_intelligence_reports_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
