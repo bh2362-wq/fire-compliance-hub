@@ -181,13 +181,14 @@
            }
          );
  
-         if (accountsResponse.ok) {
-           const accountsData = await accountsResponse.json();
-           if (accountsData.Accounts?.length > 0) {
-             accountCode = accountsData.Accounts[0].Code;
-             console.log("Using default bank account:", accountCode);
-           }
-         }
+          if (accountsResponse.ok) {
+            const accountsData = await accountsResponse.json();
+            console.log("Found bank accounts:", accountsData.Accounts?.length, accountsData.Accounts?.map((a: any) => `${a.Name} (${a.AccountID})`));
+            if (accountsData.Accounts?.length > 0) {
+              accountCode = accountsData.Accounts[0].AccountID;
+              console.log("Using default bank account:", accountCode);
+            }
+          }
        }
  
        if (!accountCode) {
@@ -214,9 +215,9 @@
                Invoice: {
                  InvoiceID: invoiceId,
                },
-               Account: {
-                 Code: accountCode,
-               },
+                Account: {
+                  AccountID: accountCode,
+                },
                Amount: amountToPay,
                Date: paymentDateStr,
              }],
