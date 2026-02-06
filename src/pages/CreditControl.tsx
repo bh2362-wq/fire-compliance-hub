@@ -26,7 +26,8 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
  import { CreditControlScheduleSetup } from "@/components/credit-control/CreditControlScheduleSetup";
  import { InvoiceActionsDialog } from "@/components/credit-control/InvoiceActionsDialog";
  import { ReminderTemplatesTab } from "@/components/credit-control/ReminderTemplatesTab";
- import { GroupEmailDialog } from "@/components/credit-control/GroupEmailDialog";
+  import { GroupEmailDialog } from "@/components/credit-control/GroupEmailDialog";
+  import { CustomerOverdueDialog } from "@/components/credit-control/CustomerOverdueDialog";
  
  const CreditControl = () => {
    const [loading, setLoading] = useState(true);
@@ -42,6 +43,8 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
   const [invoiceSummary, setInvoiceSummary] = useState<XeroInvoiceSummary | null>(null);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [groupEmailDialogOpen, setGroupEmailDialogOpen] = useState(false);
+  const [selectedCustomerContactId, setSelectedCustomerContactId] = useState<string | null>(null);
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
  
    useEffect(() => {
      loadData();
@@ -298,7 +301,18 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
                               }}
                             >
                               <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                              <TableCell>{invoice.contactName}</TableCell>
+                              <TableCell>
+                                <button
+                                  className="text-primary hover:underline font-medium text-left"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedCustomerContactId(invoice.contactId);
+                                    setCustomerDialogOpen(true);
+                                  }}
+                                >
+                                  {invoice.contactName}
+                                </button>
+                              </TableCell>
                               <TableCell className="text-muted-foreground">{invoice.reference || "—"}</TableCell>
                               <TableCell>{format(new Date(invoice.dueDate), "dd MMM yyyy")}</TableCell>
                               <TableCell>
@@ -466,12 +480,33 @@ import { fetchOutstandingInvoices, XeroOutstandingInvoice, XeroInvoiceSummary } 
          onReminderSent={loadData}
          onInvoiceUpdated={loadOverdueInvoices}
        />
-       <GroupEmailDialog
-         open={groupEmailDialogOpen}
-         onOpenChange={setGroupEmailDialogOpen}
-         invoices={overdueInvoices}
-         onEmailSent={loadData}
-       />
+        <GroupEmailDialog
+          open={groupEmailDialogOpen}
+          onOpenChange={setGroupEmailDialogOpen}
+          invoices={overdueInvoices}
+          onEmailSent={loadData}
+        />
+        {selectedCustomerContactId && (
+          <CustomerOverdueDialog
+            open={customerDialogOpen}
+            onOpenChange={(isOpen) => {
+              setCustomerDialogOpen(isOpen);
+              if (!isOpen) setSelectedCustomerContactId(null);
+            }}
+            customerName={
+              overdueInvoices.find((inv) => inv.contactId === selectedCustomerContactId)?.contactName || ""
+            }
+            contactId={selectedCustomerContactId}
+            invoices={overdueInvoices.filter((inv) => inv.contactId === selectedCustomerContactId)}
+            onInvoiceClick={(invoice) => {
+              setCustomerDialogOpen(false);
+              setSelectedCustomerContactId(null);
+              setSelectedInvoice(invoice);
+              setInvoiceDialogOpen(true);
+            }}
+            onEmailSent={loadData}
+          />
+        )}
      </DashboardLayout>
    );
  };
