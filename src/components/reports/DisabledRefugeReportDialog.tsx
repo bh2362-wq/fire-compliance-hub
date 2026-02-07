@@ -31,7 +31,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { toast } from "sonner";
-import { Loader2, Phone, ClipboardCheck, Settings, FileCheck, FileText, Download, PenTool, CalendarIcon, Lock } from "lucide-react";
+import { Loader2, Phone, ClipboardCheck, Settings, FileCheck, FileText, Download, PenTool, CalendarIcon, Lock, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +41,8 @@ import { generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
  import { InvoicePromptDialog } from "./InvoicePromptDialog";
  import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
+ import { EmailReportDialog } from "./EmailReportDialog";
+ import { getCompanySettings } from "@/services/companySettingsService";
 
 interface DisabledRefugeAsset {
   id: string;
@@ -97,9 +99,16 @@ export function DisabledRefugeReportDialog({
      name: string;
      address?: string | null;
      city?: string | null;
+     contact_email?: string | null;
    } | null>(null);
    const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
    const [contractUnitPrice, setContractUnitPrice] = useState<number | null>(null);
+   const [customerEmailRecipients, setCustomerEmailRecipients] = useState<string>("");
+
+   // Email state
+   const [showEmailDialog, setShowEmailDialog] = useState(false);
+   const [companyName, setCompanyName] = useState("BHO Fire Ltd");
+   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
 
   // Multi-unit state
   const [units, setUnits] = useState<DisabledRefugeChecklistData[]>([]);
@@ -142,18 +151,21 @@ export function DisabledRefugeReportDialog({
       // Load site with customer info including stored signature
       const { data: siteData } = await supabase
         .from("sites")
-         .select("id, name, address, city, customer_id, customers(id, name, client_signature, contact_name, xero_contact_id)")
+         .select("id, name, address, city, contact_email, customer_id, customers(id, name, client_signature, contact_name, contact_email, email_recipients, xero_contact_id)")
         .eq("id", visit.site_id)
         .maybeSingle();
 
       if (siteData?.customers) {
-         const customer = siteData.customers as { id: string; name: string; client_signature: string | null; contact_name: string | null; xero_contact_id: string | null };
+         const customer = siteData.customers as { id: string; name: string; client_signature: string | null; contact_name: string | null; contact_email: string | null; email_recipients: string | null; xero_contact_id: string | null };
         setCustomerId(customer.id);
         if (customer.client_signature) {
           setCustomerSignature(customer.client_signature);
         }
         if (customer.contact_name && !clientName) {
           setClientName(customer.contact_name);
+        }
+        if (customer.email_recipients) {
+          setCustomerEmailRecipients(customer.email_recipients);
         }
          
          // Set customer info for invoice
@@ -168,8 +180,18 @@ export function DisabledRefugeReportDialog({
            name: siteData.name,
            address: siteData.address,
            city: siteData.city,
+           contact_email: siteData.contact_email || customer.contact_email,
          });
       }
+
+      // Load company settings for email
+      try {
+        const settings = await getCompanySettings();
+        if (settings) {
+          setCompanyName(settings.company_name || "BHO Fire Ltd");
+          setLogoUrl(settings.report_logo_url || settings.company_logo_url || undefined);
+        }
+      } catch { /* ignore */ }
  
        // Fetch service contracts to get PO number and unit price (match by disabled_refuge service type)
        try {

@@ -31,7 +31,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download, AlertCircle, PenTool, CalendarIcon, Lock } from "lucide-react";
+import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download, AlertCircle, PenTool, CalendarIcon, Lock, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -52,6 +52,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
  import { InvoicePromptDialog } from "./InvoicePromptDialog";
  import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
+ import { EmailReportDialog } from "./EmailReportDialog";
+ import { getCompanySettings } from "@/services/companySettingsService";
 
 interface VisitForReport {
   id: string;
@@ -96,10 +98,16 @@ export function ServiceReportDialog({
      name: string;
      address?: string | null;
      city?: string | null;
+     contact_email?: string | null;
    } | null>(null);
    const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
    const [contractUnitPrice, setContractUnitPrice] = useState<number | null>(null);
+   const [customerEmailRecipients, setCustomerEmailRecipients] = useState<string>("");
 
+   // Email state
+   const [showEmailDialog, setShowEmailDialog] = useState(false);
+   const [companyName, setCompanyName] = useState("BHO Fire Ltd");
+   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
   // Determine if report is locked (completed)
   const isLocked = report?.status === "completed";
 
@@ -148,27 +156,41 @@ export function ServiceReportDialog({
        // Fetch site info with customer details for invoice
        const { data: site } = await supabase
          .from("sites")
-         .select("id, name, address, city, customer_id, customers(id, name, xero_contact_id)")
+         .select("id, name, address, city, contact_email, customer_id, customers(id, name, contact_email, email_recipients, xero_contact_id)")
          .eq("id", visit.site_id)
          .maybeSingle();
  
        if (site) {
+         const customerData = site.customers as { id: string; name: string; contact_email: string | null; email_recipients: string | null; xero_contact_id: string | null } | null;
+         
          setSiteInfoForInvoice({
            id: site.id,
            name: site.name,
            address: site.address,
            city: site.city,
+           contact_email: site.contact_email || customerData?.contact_email || null,
          });
          
-         const customerData = site.customers as { id: string; name: string; xero_contact_id: string | null } | null;
          if (customerData) {
            setCustomerInfo({
              id: customerData.id,
              name: customerData.name,
              xero_contact_id: customerData.xero_contact_id,
            });
+           if (customerData.email_recipients) {
+             setCustomerEmailRecipients(customerData.email_recipients);
+           }
          }
        }
+
+       // Load company settings for email
+       try {
+         const settings = await getCompanySettings();
+         if (settings) {
+           setCompanyName(settings.company_name || "BHO Fire Ltd");
+           setLogoUrl(settings.report_logo_url || settings.company_logo_url || undefined);
+         }
+       } catch { /* ignore */ }
  
        // Fetch service contracts to get PO number and unit price (match by fire service type)
        try {
@@ -535,6 +557,29 @@ export function ServiceReportDialog({
     } finally {
       setDownloading(false);
     }
+  };
+
+  // Generate PDF as base64 for email attachment
+  const generatePdfBase64 = async (): Promise<string> => {
+    if (!report) throw new Error("No report loaded");
+    const { data: siteData } = await supabase
+      .from("sites")
+      .select("name, address, city, postcode, contact_name, contact_phone, contact_email")
+      .eq("id", visit.site_id)
+      .maybeSingle();
+    const siteInfo = siteData || { name: visit.sites?.name || "Unknown Site" };
+    const signatureData = {
+      engineerSignature, engineerSignDate: engineerSignDate ? format(engineerSignDate, "dd/MM/yyyy") : "",
+      engineerSignTime, customerNotPresent, customerSignature,
+      customerSignDate: customerSignDate ? format(customerSignDate, "dd/MM/yyyy") : "", customerSignTime,
+    };
+    const base64 = generateServiceReportPDF(
+      { ...report, engineer_name: engineerName, client_name: clientName, panel_manufacturer: panelManufacturer, panel_model: panelModel, panel_location: panelLocation, system_type: systemType, zones_count: zonesCount === "" ? null : zonesCount, devices_count: devicesCount === "" ? null : devicesCount, checklist: hasMultiplePanels ? panels[0]?.checklist || getDefaultChecklist() : checklist, system_condition: systemCondition, defects_found: defectsFound, recommendations, work_carried_out: workCarriedOut, parts_used: partsUsed, notes },
+      siteInfo, { visit_type: visit.visit_type, visit_date: visit.visit_date },
+      hasMultiplePanels ? panels : undefined, signatureData, true
+    );
+    if (!base64) throw new Error("Failed to generate PDF");
+    return base64 as string;
   };
 
   if (loading) {
@@ -1041,7 +1086,19 @@ export function ServiceReportDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
             Close
           </Button>
-          {!isLocked && (
+          {isLocked ? (
+            <>
+              <Button variant="outline" onClick={() => setShowEmailDialog(true)} className="flex-1 sm:flex-none">
+                <Mail className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Email Report</span>
+                <span className="sm:hidden">Email</span>
+              </Button>
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
+                <Lock className="h-4 w-4" />
+                <span className="hidden sm:inline">Report Locked</span>
+              </div>
+            </>
+          ) : (
             <>
               <Button variant="outline" onClick={() => handleSave(false)} disabled={saving} className="flex-1 sm:flex-none">
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1072,6 +1129,10 @@ export function ServiceReportDialog({
          onOpenChange={setShowInvoicePrompt}
          onConfirm={handleInvoicePromptConfirm}
          onDecline={handleInvoicePromptDecline}
+         onEmailReport={() => {
+           setShowInvoicePrompt(false);
+           setShowEmailDialog(true);
+         }}
          siteName={siteInfoForInvoice?.name || visit.sites?.name || ""}
        />
  

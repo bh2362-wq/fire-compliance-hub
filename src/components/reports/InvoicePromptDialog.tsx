@@ -1,6 +1,5 @@
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -8,13 +7,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Receipt, FileCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Receipt, FileCheck, Mail } from "lucide-react";
 
 interface InvoicePromptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   onDecline: () => void;
+  onEmailReport?: () => void;
   siteName: string;
 }
 
@@ -23,6 +24,7 @@ export function InvoicePromptDialog({
   onOpenChange,
   onConfirm,
   onDecline,
+  onEmailReport,
   siteName,
 }: InvoicePromptDialogProps) {
   return (
@@ -39,17 +41,36 @@ export function InvoicePromptDialog({
             </div>
           </div>
           <AlertDialogDescription className="text-left">
-            This report has been completed and locked. Would you like to create an invoice for this job now?
+            This report has been completed and locked. What would you like to do next?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col sm:flex-row gap-2">
           <AlertDialogCancel onClick={onDecline} className="sm:flex-1">
             Not Now
           </AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} className="sm:flex-1 bg-primary hover:bg-primary/90">
+          {onEmailReport && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                onOpenChange(false);
+                onEmailReport();
+              }}
+              className="sm:flex-1"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Email Report
+            </Button>
+          )}
+          <Button
+            onClick={() => {
+              onOpenChange(false);
+              onConfirm();
+            }}
+            className="sm:flex-1"
+          >
             <Receipt className="w-4 h-4 mr-2" />
             Create Invoice
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
