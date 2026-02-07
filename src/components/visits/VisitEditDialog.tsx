@@ -27,12 +27,37 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, Pencil, Upload, FileText, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Pencil, Upload, FileText, X, Server, Wind, Flame, Box, PanelTop, Accessibility, Lightbulb, ShieldAlert, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Visit } from "@/hooks/useVisits";
 import { sendAppointmentUpdatedNotification } from "@/services/notificationService";
+import { SERVICE_TYPES } from "@/services/serviceContractService";
+
+interface SiteAsset {
+  id: string;
+  asset_type: string;
+  item_name: string;
+  manufacturer: string | null;
+  model: string | null;
+  location: string | null;
+  zones_count: number | null;
+  loops_count: number | null;
+}
+
+const ASSET_TYPE_ICONS: Record<string, typeof Server> = {
+  fire: Server,
+  aspirator: Wind,
+  gas_suppression: Flame,
+  room_integrity: Box,
+  fire_curtain: PanelTop,
+  disabled_refuge: Accessibility,
+  emergency_lighting: Lightbulb,
+  intruder_alarm: ShieldAlert,
+  nurse_call: Phone,
+};
 
 const visitEditSchema = z.object({
   visit_date: z.string().min(1, "Visit date is required"),
@@ -83,6 +108,8 @@ const VisitEditDialog = ({
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [siteAssets, setSiteAssets] = useState<SiteAsset[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<VisitEditFormData>({
@@ -95,7 +122,7 @@ const VisitEditDialog = ({
     },
   });
 
-  // Reset form when visit changes
+  // Reset form and fetch assets when visit changes
   useEffect(() => {
     if (open && visit) {
       form.reset({
@@ -105,8 +132,38 @@ const VisitEditDialog = ({
         notes: visit.notes || "",
       });
       fetchUploadedFiles();
+      fetchSiteAssets();
     }
   }, [open, visit, form]);
+
+  const fetchSiteAssets = async () => {
+    setLoadingAssets(true);
+    try {
+      const { data, error } = await supabase
+        .from("site_assets")
+        .select("id, asset_type, item_name, manufacturer, model, location, zones_count, loops_count")
+        .eq("site_id", visit.site_id)
+        .order("asset_type", { ascending: true })
+        .order("item_name", { ascending: true });
+
+      if (error) throw error;
+      setSiteAssets(data || []);
+    } catch (error) {
+      console.error("Error fetching site assets:", error);
+    } finally {
+      setLoadingAssets(false);
+    }
+  };
+
+  const groupedAssets = siteAssets.reduce((acc, asset) => {
+    if (!acc[asset.asset_type]) acc[asset.asset_type] = [];
+    acc[asset.asset_type].push(asset);
+    return acc;
+  }, {} as Record<string, SiteAsset[]>);
+
+  const getAssetTypeLabel = (type: string) => {
+    return SERVICE_TYPES.find((t) => t.value === type)?.label || type;
+  };
 
   const fetchUploadedFiles = async () => {
     setLoadingFiles(true);
@@ -349,6 +406,59 @@ const VisitEditDialog = ({
                 </FormItem>
               )}
             />
+
+            {/* Site Assets Section */}
+            <div className="space-y-3 pt-2 border-t">
+              <FormLabel className="text-base">Site Assets</FormLabel>
+              {loadingAssets ? (
+                <div className="flex items-center gap-2 py-4 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading assets...
+                </div>
+              ) : siteAssets.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">
+                  No assets registered for this site
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {Object.entries(groupedAssets).map(([type, assets]) => {
+                    const Icon = ASSET_TYPE_ICONS[type] || Server;
+                    return (
+                      <div key={type}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            {getAssetTypeLabel(type)}
+                          </span>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                            {assets.length}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1">
+                          {assets.map((asset) => (
+                            <div
+                              key={asset.id}
+                              className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 border text-sm"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-foreground truncate">{asset.item_name}</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  {asset.manufacturer && <span>{asset.manufacturer}</span>}
+                                  {asset.model && <span>{asset.model}</span>}
+                                  {asset.location && <span>📍 {asset.location}</span>}
+                                  {asset.zones_count && <span>{asset.zones_count} zones</span>}
+                                  {asset.loops_count && <span>{asset.loops_count} loops</span>}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* File Uploads Section */}
             <div className="space-y-3 pt-2 border-t">
