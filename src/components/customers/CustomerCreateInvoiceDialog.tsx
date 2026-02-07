@@ -50,6 +50,7 @@ interface JobReportData {
   reportDate?: string;
   reportNumber?: string;
   poNumber?: string;
+  unitPrice?: number;
   siteName?: string;
 }
 
@@ -223,19 +224,27 @@ export function CustomerCreateInvoiceDialog({
       if (jobReportData.jobType === "emergency") {
         // Emergency callout line items
         setLineItems([
-          { description: `Callout - ${description}`, quantity: 1, unitAmount: 195 },
+          { description: `Callout - ${description}`, quantity: 1, unitAmount: jobReportData.unitPrice || 195 },
         ]);
       } else {
-        // Default service line items with job info
-        const baseItems = SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.quarterly_service;
-        // Update first item description to include job info
-        const updatedItems = baseItems.map((item, index) => {
-          if (index === 0) {
-            return { ...item, description: description || item.description };
-          }
-          return item;
-        });
-        setLineItems(updatedItems);
+        // Use contract unit price if available, otherwise use template defaults
+        const contractPrice = jobReportData.unitPrice;
+        if (contractPrice) {
+          // Single line item with contract price and job info
+          setLineItems([
+            { description: description || "Service", quantity: 1, unitAmount: contractPrice },
+          ]);
+        } else {
+          // Default service line items with job info
+          const baseItems = SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.quarterly_service;
+          const updatedItems = baseItems.map((item, index) => {
+            if (index === 0) {
+              return { ...item, description: description || item.description };
+            }
+            return item;
+          });
+          setLineItems(updatedItems);
+        }
       }
     } else if (!jobReportData) {
       // Update line items when service type changes (no job report data)

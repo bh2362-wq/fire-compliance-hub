@@ -98,6 +98,7 @@ export function ServiceReportDialog({
      city?: string | null;
    } | null>(null);
    const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
+   const [contractUnitPrice, setContractUnitPrice] = useState<number | null>(null);
 
   // Determine if report is locked (completed)
   const isLocked = report?.status === "completed";
@@ -169,29 +170,30 @@ export function ServiceReportDialog({
          }
        }
  
-       // Fetch service contracts to get PO number (match by Fire service type)
+       // Fetch service contracts to get PO number and unit price (match by fire service type)
        try {
          const { data: contracts } = await supabase
            .from("site_service_contracts")
-           .select("po_number")
+           .select("po_number, unit_price")
            .eq("site_id", visit.site_id)
-           .eq("service_type", "Fire")
-           .not("po_number", "is", null)
+           .eq("service_type", "fire")
            .limit(1);
          
          if (contracts && contracts.length > 0) {
            setContractPoNumber(contracts[0].po_number);
+           setContractUnitPrice(contracts[0].unit_price);
          } else {
            // Fallback: get any contract with a PO number
            const { data: fallbackContracts } = await supabase
              .from("site_service_contracts")
-             .select("po_number")
+             .select("po_number, unit_price")
              .eq("site_id", visit.site_id)
              .not("po_number", "is", null)
              .limit(1);
            
            if (fallbackContracts && fallbackContracts.length > 0) {
              setContractPoNumber(fallbackContracts[0].po_number);
+             setContractUnitPrice(fallbackContracts[0].unit_price);
            }
          }
        } catch (error) {
@@ -1091,12 +1093,13 @@ export function ServiceReportDialog({
            }]}
            onSuccess={handleInvoiceDialogClose}
            jobReportData={{
-             jobType: visit.visit_type,
-             reportDate: visit.visit_date,
-             reportNumber: reportNumber,
-             poNumber: contractPoNumber || undefined,
-             siteName: siteInfoForInvoice.name,
-           }}
+              jobType: visit.visit_type,
+              reportDate: visit.visit_date,
+              reportNumber: reportNumber,
+              poNumber: contractPoNumber || undefined,
+              unitPrice: contractUnitPrice || undefined,
+              siteName: siteInfoForInvoice.name,
+            }}
          />
        )}
      </ResponsiveDialog>

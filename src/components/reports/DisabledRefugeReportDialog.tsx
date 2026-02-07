@@ -99,6 +99,7 @@ export function DisabledRefugeReportDialog({
      city?: string | null;
    } | null>(null);
    const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
+   const [contractUnitPrice, setContractUnitPrice] = useState<number | null>(null);
 
   // Multi-unit state
   const [units, setUnits] = useState<DisabledRefugeChecklistData[]>([]);
@@ -170,29 +171,30 @@ export function DisabledRefugeReportDialog({
          });
       }
  
-       // Fetch service contracts to get PO number (match by Disabled Refuge service type)
+       // Fetch service contracts to get PO number and unit price (match by disabled_refuge service type)
        try {
          const { data: contracts } = await supabase
            .from("site_service_contracts")
-           .select("po_number")
+           .select("po_number, unit_price")
            .eq("site_id", visit.site_id)
-           .eq("service_type", "Disabled Refuge")
-           .not("po_number", "is", null)
+           .eq("service_type", "disabled_refuge")
            .limit(1);
          
          if (contracts && contracts.length > 0) {
            setContractPoNumber(contracts[0].po_number);
+           setContractUnitPrice(contracts[0].unit_price);
          } else {
            // Fallback: get any contract with a PO number
            const { data: fallbackContracts } = await supabase
              .from("site_service_contracts")
-             .select("po_number")
+             .select("po_number, unit_price")
              .eq("site_id", visit.site_id)
              .not("po_number", "is", null)
              .limit(1);
            
            if (fallbackContracts && fallbackContracts.length > 0) {
              setContractPoNumber(fallbackContracts[0].po_number);
+             setContractUnitPrice(fallbackContracts[0].unit_price);
            }
          }
        } catch (error) {
@@ -988,13 +990,14 @@ export function DisabledRefugeReportDialog({
            city: siteInfoForInvoice.city || null,
          }]}
          onSuccess={handleInvoiceDialogClose}
-         jobReportData={{
-           jobType: visit.visit_type,
-           reportDate: visit.visit_date,
-           reportNumber: reportNumber,
-           poNumber: contractPoNumber || undefined,
-           siteName: siteInfoForInvoice.name,
-         }}
+          jobReportData={{
+            jobType: visit.visit_type,
+            reportDate: visit.visit_date,
+            reportNumber: reportNumber,
+            poNumber: contractPoNumber || undefined,
+            unitPrice: contractUnitPrice || undefined,
+            siteName: siteInfoForInvoice.name,
+          }}
        />
      )}
    </>

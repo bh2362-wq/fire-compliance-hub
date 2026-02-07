@@ -121,6 +121,7 @@ export function WorkReportDialog({
     contact_email?: string | null;
   } | null>(null);
   const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
+  const [contractUnitPrice, setContractUnitPrice] = useState<number | null>(null);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [companyName, setCompanyName] = useState<string>("BHO Fire Ltd");
   const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
@@ -367,16 +368,8 @@ export function WorkReportDialog({
           assetType = visitNotes.asset_type || null;
         } catch { /* ignore */ }
         
-        // Map asset types to service contract types
-        const typeMap: Record<string, string> = {
-          fire: "Fire",
-          aspirator: "Aspirator",
-          disabled_refuge: "Disabled Refuge",
-          gas_suppression: "Gas Suppression",
-          emergency_lighting: "Emergency Lighting",
-        };
-        
-        const matchedServiceType = assetType ? typeMap[assetType] : null;
+        // Asset types match service contract types directly (lowercase)
+        const matchedServiceType = assetType || null;
         
         // Try matching by service type first
         let contractWithPo = matchedServiceType
@@ -390,6 +383,7 @@ export function WorkReportDialog({
         
         if (contractWithPo) {
           setContractPoNumber(contractWithPo.po_number);
+          setContractUnitPrice(contractWithPo.unit_price);
         }
       } catch (error) {
         console.error("Failed to load service contracts:", error);
@@ -1976,6 +1970,7 @@ export function WorkReportDialog({
             reportDate: format(reportDate, "yyyy-MM-dd"),
             reportNumber: certificateNo,
             poNumber: contractPoNumber || undefined,
+            unitPrice: contractUnitPrice || undefined,
             siteName: siteInfo.name,
           }}
         />
