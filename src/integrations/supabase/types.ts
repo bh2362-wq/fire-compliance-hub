@@ -2518,6 +2518,7 @@ export type Database = {
           updated_at: string
           visit_id: string
           work_carried_out: string | null
+          xero_invoice_number: string | null
           zones_count: number | null
         }
         Insert: {
@@ -2548,6 +2549,7 @@ export type Database = {
           updated_at?: string
           visit_id: string
           work_carried_out?: string | null
+          xero_invoice_number?: string | null
           zones_count?: number | null
         }
         Update: {
@@ -2578,6 +2580,7 @@ export type Database = {
           updated_at?: string
           visit_id?: string
           work_carried_out?: string | null
+          xero_invoice_number?: string | null
           zones_count?: number | null
         }
         Relationships: [

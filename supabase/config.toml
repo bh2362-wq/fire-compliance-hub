@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.analyze-customer-intelligence]
 verify_jwt = false
+
+[functions.sync-invoice-status]
+verify_jwt = false
