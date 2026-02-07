@@ -157,8 +157,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       if (reportsResult.data) {
         const map: Record<string, ReportInfo> = {};
         reportsResult.data.forEach((rep) => {
-          // Only set if report_number exists (avoid overwriting with null)
-          if (rep.report_number) {
+          // Include all reports; prefer ones with report_number if multiple exist
+          if (!map[rep.visit_id] || rep.report_number) {
             map[rep.visit_id] = {
               id: rep.id,
               report_number: rep.report_number,
