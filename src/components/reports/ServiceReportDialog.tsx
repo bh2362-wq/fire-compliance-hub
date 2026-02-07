@@ -190,7 +190,7 @@ export function ServiceReportDialog({
         .from("site_assets")
         .select("id, item_name, manufacturer, model, location")
         .eq("site_id", visit.site_id)
-        .eq("asset_type", "fire_panel")
+        .eq("asset_type", "fire")
         .order("created_at", { ascending: true }); // Ensure consistent ordering
 
       let existingReport = await getServiceReport(visit.id);
