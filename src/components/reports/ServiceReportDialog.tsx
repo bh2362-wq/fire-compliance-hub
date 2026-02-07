@@ -169,17 +169,30 @@ export function ServiceReportDialog({
          }
        }
  
-       // Fetch service contracts to get PO number
+       // Fetch service contracts to get PO number (match by Fire service type)
        try {
          const { data: contracts } = await supabase
            .from("site_service_contracts")
            .select("po_number")
            .eq("site_id", visit.site_id)
+           .eq("service_type", "Fire")
            .not("po_number", "is", null)
            .limit(1);
          
          if (contracts && contracts.length > 0) {
            setContractPoNumber(contracts[0].po_number);
+         } else {
+           // Fallback: get any contract with a PO number
+           const { data: fallbackContracts } = await supabase
+             .from("site_service_contracts")
+             .select("po_number")
+             .eq("site_id", visit.site_id)
+             .not("po_number", "is", null)
+             .limit(1);
+           
+           if (fallbackContracts && fallbackContracts.length > 0) {
+             setContractPoNumber(fallbackContracts[0].po_number);
+           }
          }
        } catch (error) {
          console.error("Failed to load service contracts:", error);

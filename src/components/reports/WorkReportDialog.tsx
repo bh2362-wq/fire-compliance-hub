@@ -57,6 +57,7 @@ interface VisitForReport {
   visit_type: string;
   visit_date: string;
   site_id: string;
+  notes?: string | null;
   sites?: { name: string; address?: string | null; city?: string | null; postcode?: string | null; contact_name?: string | null; contact_phone?: string | null; contact_email?: string | null } | null;
 }
 
@@ -159,6 +160,7 @@ export function WorkReportDialog({
   const [systemStatusArrival, setSystemStatusArrival] = useState("");
   const [systemStatusDeparture, setSystemStatusDeparture] = useState("");
   const [appointmentDate, setAppointmentDate] = useState<Date | undefined>(undefined);
+  const [reportDate, setReportDate] = useState<Date>(new Date(visit.visit_date));
   
   // Custom system fields
   const [panelInfo, setPanelInfo] = useState("");
@@ -354,11 +356,38 @@ export function WorkReportDialog({
         console.error("Failed to load company settings:", e);
       }
 
-      // Fetch service contracts to get PO number
+      // Fetch service contracts to get PO number (try to match by visit type first)
       try {
         const contracts = await getServiceContracts(visit.site_id);
-        // Find the first contract with a PO number (prioritize fire-related contracts)
-        const contractWithPo = contracts.find(c => c.po_number);
+        
+        // Parse asset_type from visit notes to match the right contract
+        let assetType: string | null = null;
+        try {
+          const visitNotes = typeof visit.notes === 'string' ? JSON.parse(visit.notes || '{}') : (visit.notes || {});
+          assetType = visitNotes.asset_type || null;
+        } catch { /* ignore */ }
+        
+        // Map asset types to service contract types
+        const typeMap: Record<string, string> = {
+          fire: "Fire",
+          aspirator: "Aspirator",
+          disabled_refuge: "Disabled Refuge",
+          gas_suppression: "Gas Suppression",
+          emergency_lighting: "Emergency Lighting",
+        };
+        
+        const matchedServiceType = assetType ? typeMap[assetType] : null;
+        
+        // Try matching by service type first
+        let contractWithPo = matchedServiceType
+          ? contracts.find(c => c.po_number && c.service_type === matchedServiceType)
+          : null;
+        
+        // Fallback to any contract with a PO number
+        if (!contractWithPo) {
+          contractWithPo = contracts.find(c => c.po_number) || null;
+        }
+        
         if (contractWithPo) {
           setContractPoNumber(contractWithPo.po_number);
         }
@@ -454,6 +483,10 @@ export function WorkReportDialog({
           setCustomerSignDate(new Date(parsedNotes.customerSignDate));
         }
         setCustomerSignTime(parsedNotes.customerSignTime || "");
+        // Report date
+        if (parsedNotes.reportDate) {
+          setReportDate(new Date(parsedNotes.reportDate));
+        }
       }
     } catch {
       // Notes not JSON, use as-is
@@ -471,6 +504,7 @@ export function WorkReportDialog({
       quotationRequired,
       ramsCompleted,
       logBookEntry,
+      reportDate: reportDate.toISOString(),
       systemStatusArrival,
       systemStatusDeparture,
       appointmentDate: appointmentDate?.toISOString(),
@@ -510,6 +544,7 @@ export function WorkReportDialog({
         engineer_name: engineerName,
         client_name: customerName,
         report_number: certificateNo,
+        report_date: format(reportDate, "yyyy-MM-dd"),
         work_carried_out: worksReport,
         recommendations: furtherAction,
         notes: notesData,
@@ -578,7 +613,7 @@ export function WorkReportDialog({
     }
   }, [
     jobNumber, jobType, workCompleted, returnRequired, surveyRequired, quotationRequired,
-    ramsCompleted, logBookEntry, systemStatusArrival, systemStatusDeparture, appointmentDate,
+    ramsCompleted, logBookEntry, systemStatusArrival, systemStatusDeparture, appointmentDate, reportDate,
     panelInfo, locationInfo, typeInfo, zonesInfo, contactPhone,
     numEngineers, workDays, travelTime, materials, photos, worksReport, furtherAction,
     engineerName, engineerSignature, engineerSignDate, engineerSignTime,
@@ -613,6 +648,7 @@ export function WorkReportDialog({
         engineer_name: engineerName,
         client_name: customerName,
         report_number: finalReportNumber || null,
+        report_date: format(reportDate, "yyyy-MM-dd"),
         work_carried_out: worksReport,
         recommendations: furtherAction,
         notes: notesData,
@@ -715,6 +751,7 @@ export function WorkReportDialog({
         engineer_name: engineerName,
         client_name: customerName,
         report_number: finalReportNumber || null,
+        report_date: format(reportDate, "yyyy-MM-dd"),
         work_carried_out: worksReport,
         recommendations: furtherAction,
         notes: notesData,
@@ -818,7 +855,7 @@ export function WorkReportDialog({
       generateWorkReportPDF(
         buildPdfData(),
         siteInfo,
-        visit.visit_date
+        format(reportDate, "yyyy-MM-dd")
       );
 
       toast.success("PDF downloaded successfully");
@@ -881,7 +918,7 @@ export function WorkReportDialog({
     const base64 = generateWorkReportPDF(
       buildPdfData(),
       siteInfo,
-      visit.visit_date,
+      format(reportDate, "yyyy-MM-dd"),
       undefined,
       true // return base64
     );
@@ -996,7 +1033,7 @@ export function WorkReportDialog({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Job Type</Label>
                   <Select value={jobType} onValueChange={setJobType}>
@@ -1011,6 +1048,32 @@ export function WorkReportDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Report Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                        )}
+                        disabled={isLocked}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(reportDate, "PPP")}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={reportDate}
+                        onSelect={(d) => d && setReportDate(d)}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="space-y-2">
                   <Label>Appointment Date</Label>
@@ -1910,7 +1973,7 @@ export function WorkReportDialog({
           onSuccess={handleInvoiceDialogClose}
           jobReportData={{
             jobType,
-            reportDate: visit.visit_date,
+            reportDate: format(reportDate, "yyyy-MM-dd"),
             reportNumber: certificateNo,
             poNumber: contractPoNumber || undefined,
             siteName: siteInfo.name,
