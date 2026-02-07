@@ -31,7 +31,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { toast } from "sonner";
-import { Loader2, Wind, ClipboardCheck, Settings, FileCheck, FileText, Download, PenTool, CalendarIcon, Lock } from "lucide-react";
+import { Loader2, Wind, ClipboardCheck, Settings, FileCheck, FileText, Download, PenTool, CalendarIcon, Lock, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +40,8 @@ import { MultiASDChecklist, ASDChecklistData, initializeASDChecklists } from "./
 import { generateASDReportPDF } from "@/lib/pdfGenerator";
 import { InvoicePromptDialog } from "./InvoicePromptDialog";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
+import { EmailReportDialog } from "./EmailReportDialog";
+import { getCompanySettings } from "@/services/companySettingsService";
 
 interface ASDAsset {
   id: string;
@@ -96,9 +98,16 @@ export function ASDReportDialog({
     name: string;
     address?: string | null;
     city?: string | null;
+    contact_email?: string | null;
   } | null>(null);
   const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
   const [contractUnitPrice, setContractUnitPrice] = useState<number | null>(null);
+  const [customerEmailRecipients, setCustomerEmailRecipients] = useState<string>("");
+
+  // Email state
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [companyName, setCompanyName] = useState("BHO Fire Ltd");
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
 
   // Multi-unit state
   const [units, setUnits] = useState<ASDChecklistData[]>([]);
@@ -141,18 +150,21 @@ export function ASDReportDialog({
       // Load site with customer info including stored signature
       const { data: siteData } = await supabase
         .from("sites")
-        .select("id, name, address, city, customer_id, customers(id, name, client_signature, contact_name, xero_contact_id)")
+        .select("id, name, address, city, contact_email, customer_id, customers(id, name, client_signature, contact_name, contact_email, email_recipients, xero_contact_id)")
         .eq("id", visit.site_id)
         .maybeSingle();
 
       if (siteData?.customers) {
-        const customer = siteData.customers as { id: string; name: string; client_signature: string | null; contact_name: string | null; xero_contact_id: string | null };
+        const customer = siteData.customers as { id: string; name: string; client_signature: string | null; contact_name: string | null; contact_email: string | null; email_recipients: string | null; xero_contact_id: string | null };
         setCustomerId(customer.id);
         if (customer.client_signature) {
           setCustomerSignature(customer.client_signature);
         }
         if (customer.contact_name && !clientName) {
           setClientName(customer.contact_name);
+        }
+        if (customer.email_recipients) {
+          setCustomerEmailRecipients(customer.email_recipients);
         }
         
         // Set customer info for invoice
@@ -167,8 +179,18 @@ export function ASDReportDialog({
           name: siteData.name,
           address: siteData.address,
           city: siteData.city,
+          contact_email: siteData.contact_email || customer.contact_email,
         });
       }
+
+      // Load company settings for email
+      try {
+        const settings = await getCompanySettings();
+        if (settings) {
+          setCompanyName(settings.company_name || "BHO Fire Ltd");
+          setLogoUrl(settings.report_logo_url || settings.company_logo_url || undefined);
+        }
+      } catch { /* ignore */ }
 
       // Fetch service contracts to get PO number and unit price (match by aspirator service type)
       try {
@@ -509,6 +531,59 @@ export function ASDReportDialog({
       console.error("Failed to generate PDF:", error);
       toast.error("Failed to generate PDF");
     }
+  };
+
+  // Generate PDF as base64 for email attachment
+  const generatePdfBase64 = async (): Promise<string> => {
+    const { data: siteData } = await supabase
+      .from("sites")
+      .select("name, address, city, postcode, contact_name, contact_phone, contact_email")
+      .eq("id", visit.site_id)
+      .maybeSingle();
+
+    if (!siteData) throw new Error("Could not load site information");
+
+    const pdfUnits = units.map((u) => ({
+      assetId: u.assetId,
+      assetName: u.assetName,
+      manufacturer: u.manufacturer,
+      model: u.model,
+      location: u.location,
+      checklist: u.checklist,
+      defects: u.defects,
+      recommendations: u.recommendations,
+      systemCondition: u.systemCondition,
+    }));
+
+    const base64 = generateASDReportPDF(
+      {
+        reportNumber,
+        reportDate: visit.visit_date,
+        engineerName,
+        clientName,
+        units: pdfUnits,
+        systemCondition,
+        defectsFound,
+        recommendations,
+        workCarriedOut,
+        partsUsed,
+        notes,
+        engineerSignature,
+        engineerSignDate: engineerSignDate?.toISOString(),
+        engineerSignTime,
+        customerNotPresent,
+        customerSignature,
+        customerSignDate: customerSignDate?.toISOString(),
+        customerSignTime,
+      },
+      siteData,
+      visit.visit_date,
+      visit.visit_type,
+      true // return base64
+    );
+
+    if (!base64) throw new Error("Failed to generate PDF");
+    return base64 as string;
   };
 
   if (loading) {
@@ -913,7 +988,23 @@ export function ASDReportDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
             Close
           </Button>
-          {!isLocked && (
+          {isLocked ? (
+            <>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowEmailDialog(true)}
+                className="flex-1 sm:flex-none"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Email Report</span>
+                <span className="sm:hidden">Email</span>
+              </Button>
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
+                <Lock className="h-4 w-4" />
+                <span className="hidden sm:inline">Report Locked</span>
+              </div>
+            </>
+          ) : (
             <>
               <Button variant="outline" onClick={() => handleSave(false)} disabled={saving} className="flex-1 sm:flex-none">
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -951,6 +1042,10 @@ export function ASDReportDialog({
         setShowInvoicePrompt(false);
         onOpenChange(false);
         onSuccess?.();
+      }}
+      onEmailReport={() => {
+        setShowInvoicePrompt(false);
+        setShowEmailDialog(true);
       }}
       siteName={siteInfoForInvoice?.name || visit.sites?.name || ""}
     />
@@ -990,6 +1085,25 @@ export function ASDReportDialog({
         }}
       />
     )}
+
+    {/* Email Report Dialog */}
+    <EmailReportDialog
+      open={showEmailDialog}
+      onOpenChange={setShowEmailDialog}
+      defaultEmail={siteInfoForInvoice?.contact_email || ""}
+      defaultRecipients={customerEmailRecipients}
+      customerName={customerInfoForInvoice?.name || ""}
+      customerId={customerInfoForInvoice?.id}
+      siteId={siteInfoForInvoice?.id}
+      visitId={visit.id}
+      reportId={reportId || undefined}
+      siteName={siteInfoForInvoice?.name || visit.sites?.name || ""}
+      reportNumber={reportNumber}
+      reportDate={format(new Date(visit.visit_date), "dd-MM-yyyy")}
+      companyName={companyName}
+      logoUrl={logoUrl}
+      generatePdfBase64={generatePdfBase64}
+    />
     </>
   );
 }
