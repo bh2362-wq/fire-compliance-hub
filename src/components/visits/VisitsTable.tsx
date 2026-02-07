@@ -270,7 +270,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       const [siteResult, settingsResult, reportResult] = await Promise.all([
         supabase
           .from("sites")
-          .select("id, name, address, city, postcode, contact_name, contact_email, customer_id, customers(id, name, contact_email, email_recipients)")
+          .select("id, name, address, city, postcode, contact_name, contact_email, contact_phone, customer_id, customers(id, name, contact_email, email_recipients)")
           .eq("id", visit.site_id)
           .maybeSingle(),
         getCompanySettings().catch(() => null),
@@ -294,8 +294,19 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       const logo = settingsResult?.report_logo_url || settingsResult?.company_logo_url || undefined;
       const reportDate = report.report_date || visit.visit_date;
 
+      // Detect report type from notes
+      let detectedType: "work" | "asd" | "disabled_refuge" | "bs5839" = "bs5839";
+      try {
+        const parsed = JSON.parse(report.notes || "{}");
+        if (parsed.report_type === "asd") detectedType = "asd";
+        else if (parsed.report_type === "disabled_refuge") detectedType = "disabled_refuge";
+        else if (typeof parsed.jobNumber !== "undefined" || typeof parsed.jobType !== "undefined") detectedType = "work";
+      } catch {
+        if ((report.report_number || "").startsWith("JOB-")) detectedType = "work";
+      }
+
       const generatePdfBase64 = async (): Promise<string> => {
-        const { generateWorkReportPDF } = await import("@/lib/pdfGenerator");
+        const { generateWorkReportPDF, generateASDReportPDF, generateServiceReportPDF, generateDisabledRefugeReportPDF } = await import("@/lib/pdfGenerator");
         
         // Re-fetch full report
         const { data: fullReport } = await supabase
@@ -306,53 +317,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         
         if (!fullReport) throw new Error("Report not found");
 
-        // Reconstruct WorkReportData from the stored report
         let parsedNotes: Record<string, unknown> = {};
         try {
           if (fullReport.notes) parsedNotes = JSON.parse(fullReport.notes);
         } catch { /* ignore */ }
-
-        const workDays = (parsedNotes.workDays as Array<{ date: string; startTime: string; finishTime: string; duration: string }>) || [];
-
-        const pdfData = {
-          certificateNo: fullReport.report_number || "",
-          jobNumber: (parsedNotes.jobNumber as string) || "",
-          jobType: (parsedNotes.jobType as string) || "",
-          appointmentDate: (parsedNotes.appointmentDate as string) || undefined,
-          systemStatusArrival: (parsedNotes.systemStatusArrival as string) || "",
-          systemStatusDeparture: (parsedNotes.systemStatusDeparture as string) || "",
-          workCompleted: (parsedNotes.workCompleted as boolean) || false,
-          returnRequired: (parsedNotes.returnRequired as boolean) || false,
-          surveyRequired: (parsedNotes.surveyRequired as boolean) || false,
-          quotationRequired: (parsedNotes.quotationRequired as boolean) || false,
-          ramsCompleted: (parsedNotes.ramsCompleted as boolean) || false,
-          logBookEntry: (parsedNotes.logBookEntry as boolean) || false,
-          worksReport: fullReport.work_carried_out || "",
-          furtherAction: fullReport.recommendations || "",
-          numEngineers: (parsedNotes.numEngineers as number) || 1,
-          workDays: workDays.length > 0 ? workDays : undefined,
-          totalHours: (parsedNotes.totalHours as string) || undefined,
-          startTime: (parsedNotes.startTime as string) || "",
-          finishTime: (parsedNotes.finishTime as string) || "",
-          travelTime: (parsedNotes.travelTime as string) || "",
-          duration: (parsedNotes.duration as string) || "",
-          materials: (parsedNotes.materials as Array<{ name: string; qty: string; cost: string }>) || [],
-          photos: (parsedNotes.photos as Array<{ url: string; caption: string }>) || [],
-          engineerName: fullReport.engineer_name || "",
-          engineerSignature: fullReport.engineer_signature || undefined,
-          engineerSignDate: (parsedNotes.engineerSignDate as string) || undefined,
-          engineerSignTime: (parsedNotes.engineerSignTime as string) || undefined,
-          customerNotPresent: (parsedNotes.customerNotPresent as boolean) || false,
-          customerName: fullReport.client_name || "",
-          customerSignature: fullReport.client_signature || undefined,
-          customerSignDate: (parsedNotes.customerSignDate as string) || undefined,
-          customerSignTime: (parsedNotes.customerSignTime as string) || undefined,
-          panelInfo: (parsedNotes.panelInfo as string) || "",
-          locationInfo: (parsedNotes.locationInfo as string) || "",
-          typeInfo: (parsedNotes.typeInfo as string) || "",
-          zonesInfo: (parsedNotes.zonesInfo as string) || "",
-          contactPhone: (parsedNotes.contactPhone as string) || "",
-        };
 
         const siteData = {
           name: site.name,
@@ -360,12 +328,152 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           city: site.city || "",
           postcode: site.postcode || "",
           contact_name: site.contact_name || "",
-          contact_phone: "",
+          contact_phone: site.contact_phone || "",
         };
 
-        const result = generateWorkReportPDF(pdfData, siteData, reportDate, visit.visit_type, true);
-        if (typeof result === "string") return result;
-        throw new Error("Failed to generate PDF");
+        if (detectedType === "asd") {
+          const units = (parsedNotes.units as unknown[]) || [];
+          const base64 = generateASDReportPDF(
+            {
+              reportNumber: fullReport.report_number || "",
+              reportDate: fullReport.report_date,
+              engineerName: fullReport.engineer_name || "",
+              clientName: fullReport.client_name || "",
+              units: units as any[],
+              systemCondition: fullReport.system_condition || "",
+              defectsFound: fullReport.defects_found || "",
+              recommendations: fullReport.recommendations || "",
+              workCarriedOut: fullReport.work_carried_out || "",
+              partsUsed: fullReport.parts_used || "",
+              notes: (parsedNotes.additional_notes as string) || "",
+              engineerSignature: fullReport.engineer_signature || (parsedNotes.engineerSignature as string) || "",
+              engineerSignDate: (parsedNotes.engineerSignDate as string) || "",
+              engineerSignTime: (parsedNotes.engineerSignTime as string) || "",
+              customerNotPresent: (parsedNotes.customerNotPresent as boolean) || false,
+              customerSignature: fullReport.client_signature || (parsedNotes.customerSignature as string) || "",
+              customerSignDate: (parsedNotes.customerSignDate as string) || "",
+              customerSignTime: (parsedNotes.customerSignTime as string) || "",
+            },
+            siteData,
+            reportDate,
+            visit.visit_type,
+            true
+          );
+          if (typeof base64 === "string") return base64;
+          throw new Error("Failed to generate ASD PDF");
+        }
+
+        if (detectedType === "disabled_refuge") {
+          const units = (parsedNotes.units as unknown[]) || [];
+          const base64 = await generateDisabledRefugeReportPDF(
+            {
+              reportNumber: fullReport.report_number || "",
+              reportDate: fullReport.report_date,
+              engineerName: fullReport.engineer_name || "",
+              clientName: fullReport.client_name || "",
+              units: units.map((u: any) => ({
+                assetId: u.assetId,
+                assetName: u.assetName,
+                manufacturer: u.manufacturer,
+                model: u.model,
+                location: u.location,
+                checklist: u.checklist,
+                defects: u.defects,
+                recommendations: u.recommendations,
+                systemCondition: u.systemCondition,
+              })),
+              systemCondition: fullReport.system_condition || "",
+              defectsFound: fullReport.defects_found || "",
+              recommendations: fullReport.recommendations || "",
+              workCarriedOut: fullReport.work_carried_out || "",
+              partsUsed: fullReport.parts_used || "",
+              notes: (parsedNotes.additional_notes as string) || "",
+              engineerSignature: fullReport.engineer_signature || (parsedNotes.engineerSignature as string) || "",
+              engineerSignDate: (parsedNotes.engineerSignDate as string) || "",
+              engineerSignTime: (parsedNotes.engineerSignTime as string) || "",
+              customerNotPresent: (parsedNotes.customerNotPresent as boolean) || false,
+              customerSignature: fullReport.client_signature || (parsedNotes.customerSignature as string) || "",
+              customerSignDate: (parsedNotes.customerSignDate as string) || "",
+              customerSignTime: (parsedNotes.customerSignTime as string) || "",
+            },
+            siteData,
+            reportDate,
+            visit.visit_type || "EVC Service",
+            true
+          );
+          if (typeof base64 === "string") return base64;
+          throw new Error("Failed to generate Disabled Refuge PDF");
+        }
+
+        if (detectedType === "work") {
+          const workDays = (parsedNotes.workDays as Array<{ date: string; startTime: string; finishTime: string; duration: string }>) || [];
+          const pdfData = {
+            certificateNo: fullReport.report_number || "",
+            jobNumber: (parsedNotes.jobNumber as string) || "",
+            jobType: (parsedNotes.jobType as string) || "",
+            appointmentDate: (parsedNotes.appointmentDate as string) || undefined,
+            systemStatusArrival: (parsedNotes.systemStatusArrival as string) || "",
+            systemStatusDeparture: (parsedNotes.systemStatusDeparture as string) || "",
+            workCompleted: (parsedNotes.workCompleted as boolean) || false,
+            returnRequired: (parsedNotes.returnRequired as boolean) || false,
+            surveyRequired: (parsedNotes.surveyRequired as boolean) || false,
+            quotationRequired: (parsedNotes.quotationRequired as boolean) || false,
+            ramsCompleted: (parsedNotes.ramsCompleted as boolean) || false,
+            logBookEntry: (parsedNotes.logBookEntry as boolean) || false,
+            worksReport: fullReport.work_carried_out || "",
+            furtherAction: fullReport.recommendations || "",
+            numEngineers: (parsedNotes.numEngineers as number) || 1,
+            workDays: workDays.length > 0 ? workDays : undefined,
+            totalHours: (parsedNotes.totalHours as string) || undefined,
+            startTime: (parsedNotes.startTime as string) || "",
+            finishTime: (parsedNotes.finishTime as string) || "",
+            travelTime: (parsedNotes.travelTime as string) || "",
+            duration: (parsedNotes.duration as string) || "",
+            materials: (parsedNotes.materials as Array<{ name: string; qty: string; cost: string }>) || [],
+            photos: (parsedNotes.photos as Array<{ url: string; caption: string }>) || [],
+            engineerName: fullReport.engineer_name || "",
+            engineerSignature: fullReport.engineer_signature || (parsedNotes.engineerSignature as string) || undefined,
+            engineerSignDate: (parsedNotes.engineerSignDate as string) || undefined,
+            engineerSignTime: (parsedNotes.engineerSignTime as string) || undefined,
+            customerNotPresent: (parsedNotes.customerNotPresent as boolean) || false,
+            customerName: fullReport.client_name || "",
+            customerSignature: fullReport.client_signature || (parsedNotes.customerSignature as string) || undefined,
+            customerSignDate: (parsedNotes.customerSignDate as string) || undefined,
+            customerSignTime: (parsedNotes.customerSignTime as string) || undefined,
+          };
+          const result = generateWorkReportPDF(pdfData, siteData, reportDate, visit.visit_type, true);
+          if (typeof result === "string") return result;
+          throw new Error("Failed to generate Work Report PDF");
+        }
+
+        // BS5839 Service Report
+        let signatures = {};
+        let panels = undefined;
+        try {
+          signatures = {
+            engineerSignature: fullReport.engineer_signature || (parsedNotes.engineerSignature as string) || "",
+            engineerSignDate: (parsedNotes.engineerSignDate as string) || "",
+            engineerSignTime: (parsedNotes.engineerSignTime as string) || "",
+            customerNotPresent: (parsedNotes.customerNotPresent as boolean) || false,
+            customerSignature: fullReport.client_signature || (parsedNotes.customerSignature as string) || "",
+            customerSignDate: (parsedNotes.customerSignDate as string) || "",
+            customerSignTime: (parsedNotes.customerSignTime as string) || "",
+          };
+          if ((parsedNotes.multi_panel as boolean) && Array.isArray(parsedNotes.panel_checklists)) {
+            panels = parsedNotes.panel_checklists as any[];
+          }
+        } catch { /* ignore */ }
+
+        const base64 = generateServiceReportPDF(
+          fullReport as any,
+          siteData,
+          { visit_type: visit.visit_type, visit_date: visit.visit_date },
+          panels,
+          signatures,
+          true
+        );
+        if (typeof base64 === "string") return base64;
+        throw new Error("Failed to generate Service Report PDF");
       };
 
       setEmailVisitData({

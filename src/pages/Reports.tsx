@@ -687,7 +687,7 @@ const Reports = () => {
                     .from("site_assets")
                     .select("id, item_name, manufacturer, model, location")
                     .eq("site_id", report.site_id)
-                    .eq("asset_type", "asd_unit")
+                    .eq("asset_type", "asd")
                     .order("created_at", { ascending: true });
                   
                   setAsdAssets(assets || []);
