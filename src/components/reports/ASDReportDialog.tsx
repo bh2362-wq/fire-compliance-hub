@@ -38,6 +38,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ASDChecklist, getDefaultASDChecklist } from "@/services/asdChecklistService";
 import { MultiASDChecklist, ASDChecklistData, initializeASDChecklists } from "./MultiASDChecklist";
 import { generateASDReportPDF } from "@/lib/pdfGenerator";
+import { InvoicePromptDialog } from "./InvoicePromptDialog";
+import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 
 interface ASDAsset {
   id: string;
@@ -81,6 +83,22 @@ export function ASDReportDialog({
   // Determine if report is locked (completed)
   const [isLocked, setIsLocked] = useState(false);
 
+  // Invoice prompt state
+  const [showInvoicePrompt, setShowInvoicePrompt] = useState(false);
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
+  const [customerInfoForInvoice, setCustomerInfoForInvoice] = useState<{
+    id: string;
+    name: string;
+    xero_contact_id: string | null;
+  } | null>(null);
+  const [siteInfoForInvoice, setSiteInfoForInvoice] = useState<{
+    id: string;
+    name: string;
+    address?: string | null;
+    city?: string | null;
+  } | null>(null);
+  const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
+
   // Multi-unit state
   const [units, setUnits] = useState<ASDChecklistData[]>([]);
   const hasMultipleUnits = assets.length > 1;
@@ -122,12 +140,12 @@ export function ASDReportDialog({
       // Load site with customer info including stored signature
       const { data: siteData } = await supabase
         .from("sites")
-        .select("customer_id, customers(id, client_signature, contact_name)")
+        .select("id, name, address, city, customer_id, customers(id, name, client_signature, contact_name, xero_contact_id)")
         .eq("id", visit.site_id)
         .maybeSingle();
 
       if (siteData?.customers) {
-        const customer = siteData.customers as { id: string; client_signature: string | null; contact_name: string | null };
+        const customer = siteData.customers as { id: string; name: string; client_signature: string | null; contact_name: string | null; xero_contact_id: string | null };
         setCustomerId(customer.id);
         if (customer.client_signature) {
           setCustomerSignature(customer.client_signature);
@@ -135,6 +153,37 @@ export function ASDReportDialog({
         if (customer.contact_name && !clientName) {
           setClientName(customer.contact_name);
         }
+        
+        // Set customer info for invoice
+        setCustomerInfoForInvoice({
+          id: customer.id,
+          name: customer.name,
+          xero_contact_id: customer.xero_contact_id,
+        });
+        
+        setSiteInfoForInvoice({
+          id: siteData.id,
+          name: siteData.name,
+          address: siteData.address,
+          city: siteData.city,
+        });
+      }
+
+      // Fetch service contracts to get PO number (match by aspirator service type)
+      try {
+        const { data: contracts } = await supabase
+          .from("site_service_contracts")
+          .select("po_number")
+          .eq("site_id", visit.site_id)
+          .eq("service_type", "Aspirator")
+          .not("po_number", "is", null)
+          .limit(1);
+        
+        if (contracts && contracts.length > 0) {
+          setContractPoNumber(contracts[0].po_number);
+        }
+      } catch (error) {
+        console.error("Failed to load service contracts:", error);
       }
 
       // Build asset IDs for query
@@ -315,8 +364,13 @@ export function ASDReportDialog({
 
       toast.success(complete ? "ASD report completed" : "ASD report saved");
       if (complete) {
-        onOpenChange(false);
-        onSuccess?.();
+        // Show invoice prompt if customer has Xero connection
+        if (customerInfoForInvoice?.xero_contact_id) {
+          setShowInvoicePrompt(true);
+        } else {
+          onOpenChange(false);
+          onSuccess?.();
+        }
       }
     } catch (error) {
       console.error("Failed to save ASD report:", error);
@@ -379,8 +433,13 @@ export function ASDReportDialog({
       }
 
       toast.success("Visit completed successfully");
-      onOpenChange(false);
-      onSuccess?.();
+      // Show invoice prompt if customer has Xero connection
+      if (customerInfoForInvoice?.xero_contact_id) {
+        setShowInvoicePrompt(true);
+      } else {
+        onOpenChange(false);
+        onSuccess?.();
+      }
     } catch (error) {
       console.error("Failed to complete visit:", error);
       toast.error("Failed to complete visit");
@@ -466,6 +525,7 @@ export function ASDReportDialog({
   const primaryAsset = assets[0];
 
   return (
+    <>
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle className="flex items-center gap-2 flex-wrap">
@@ -877,5 +937,57 @@ export function ASDReportDialog({
         </div>
       </ResponsiveDialogFooter>
     </ResponsiveDialog>
+
+    {/* Invoice Prompt Dialog */}
+    <InvoicePromptDialog
+      open={showInvoicePrompt}
+      onOpenChange={setShowInvoicePrompt}
+      onConfirm={() => {
+        setShowInvoicePrompt(false);
+        setShowInvoiceDialog(true);
+      }}
+      onDecline={() => {
+        setShowInvoicePrompt(false);
+        onOpenChange(false);
+        onSuccess?.();
+      }}
+      siteName={siteInfoForInvoice?.name || visit.sites?.name || ""}
+    />
+
+    {/* Invoice Creation Dialog */}
+    {customerInfoForInvoice && siteInfoForInvoice && (
+      <CustomerCreateInvoiceDialog
+        open={showInvoiceDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowInvoiceDialog(false);
+            onOpenChange(false);
+            onSuccess?.();
+          }
+        }}
+        customerId={customerInfoForInvoice.id}
+        customerName={customerInfoForInvoice.name}
+        xeroContactId={customerInfoForInvoice.xero_contact_id}
+        sites={[{
+          id: siteInfoForInvoice.id,
+          name: siteInfoForInvoice.name,
+          address: siteInfoForInvoice.address || null,
+          city: siteInfoForInvoice.city || null,
+        }]}
+        onSuccess={() => {
+          setShowInvoiceDialog(false);
+          onOpenChange(false);
+          onSuccess?.();
+        }}
+        jobReportData={{
+          jobType: visit.visit_type,
+          reportDate: visit.visit_date,
+          reportNumber: reportNumber,
+          poNumber: contractPoNumber || undefined,
+          siteName: siteInfoForInvoice.name,
+        }}
+      />
+    )}
+    </>
   );
 }
