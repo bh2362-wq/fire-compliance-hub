@@ -117,10 +117,12 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
       });
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
-      const { matched, total } = data;
+      const { matched, total, unmatchedInvoices } = data;
       if (matched > 0) {
         toast.success(`Matched ${matched} of ${total} reports to Xero invoices`);
         fetchReports();
+      } else if (unmatchedInvoices?.length > 0) {
+        toast.info(`No auto-matches found. ${unmatchedInvoices.length} Xero invoices available — use "Link Invoice Number" on each report to manually link.`);
       } else {
         toast.info("No new invoice matches found in Xero");
       }

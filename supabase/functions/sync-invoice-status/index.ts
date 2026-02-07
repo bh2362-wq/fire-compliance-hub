@@ -48,16 +48,6 @@ async function refreshTokenIfNeeded(supabase: any, connection: any) {
   return connection.access_token;
 }
 
-function parseXeroDate(dateStr: string): string {
-  if (!dateStr) return "";
-  const match = dateStr.match(/\/Date\((\d+)([+-]\d{4})?\)\//);
-  if (match) {
-    const timestamp = parseInt(match[1], 10);
-    return new Date(timestamp).toISOString();
-  }
-  return dateStr;
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -89,8 +79,6 @@ Deno.serve(async (req) => {
     }
 
     const userId = claims.claims.sub;
-
-    // Parse request body
     const body = await req.json().catch(() => ({}));
     const { siteIds, customerId } = body;
 
@@ -133,14 +121,14 @@ Deno.serve(async (req) => {
     if (!reports || reports.length === 0) {
       console.log("No uninvoiced reports found");
       return new Response(
-        JSON.stringify({ matched: 0, total: 0 }),
+        JSON.stringify({ matched: 0, total: 0, unmatchedInvoices: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     console.log(`Found ${reports.length} uninvoiced reports to check`);
 
-    // Get visit IDs and look up which visits already have local xero_invoices records
+    // Get visit IDs and look up local xero_invoices records
     const visitIds = [...new Set(reports.map((r) => r.visit_id))];
 
     const { data: existingInvoices } = await supabase
@@ -169,7 +157,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Apply local matches
     for (const update of updatesFromLocal) {
       const { error } = await supabase
         .from("service_reports")
@@ -185,13 +172,16 @@ Deno.serve(async (req) => {
       (r) => !updatesFromLocal.find((u) => u.id === r.id)
     );
 
+    // Collect all Xero invoices for unmatched reports to return to frontend
+    const allUnmatchedXeroInvoices: any[] = [];
+
     if (remainingReports.length > 0) {
-      // Get site IDs to look up customer xero_contact_ids
       const remainingSiteIds = [...new Set(remainingReports.map((r) => r.site_id))];
 
+      // Get site info including names for broader matching
       const { data: sites } = await supabase
         .from("sites")
-        .select("id, customer_id")
+        .select("id, customer_id, name")
         .in("id", remainingSiteIds);
 
       const customerIds = [...new Set((sites || []).map((s) => s.customer_id).filter(Boolean))];
@@ -207,8 +197,31 @@ Deno.serve(async (req) => {
       });
 
       const siteCustomerMap = new Map<string, string>();
+      const siteNameMap = new Map<string, string>();
       (sites || []).forEach((s) => {
         if (s.customer_id) siteCustomerMap.set(s.id, s.customer_id);
+        if (s.name) siteNameMap.set(s.id, s.name.toLowerCase().trim());
+      });
+
+      // Get service contract PO numbers for broader matching
+      const { data: contracts } = await supabase
+        .from("site_service_contracts")
+        .select("site_id, po_number, service_type, unit_price")
+        .in("site_id", remainingSiteIds);
+
+      const sitePONumbers = new Map<string, string[]>();
+      const siteContractPrices = new Map<string, number[]>();
+      (contracts || []).forEach((c) => {
+        if (c.po_number) {
+          const existing = sitePONumbers.get(c.site_id) || [];
+          existing.push(c.po_number.toLowerCase().trim());
+          sitePONumbers.set(c.site_id, existing);
+        }
+        if (c.unit_price) {
+          const existing = siteContractPrices.get(c.site_id) || [];
+          existing.push(Number(c.unit_price));
+          siteContractPrices.set(c.site_id, existing);
+        }
       });
 
       // Fetch invoices from Xero for each unique contact
@@ -216,7 +229,6 @@ Deno.serve(async (req) => {
 
       for (const contactId of uniqueContactIds) {
         try {
-          // Fetch AUTHORISED and PAID invoices for this contact
           const whereClause = `Type=="ACCREC"&&(Status=="AUTHORISED"||Status=="PAID")&&Contact.ContactID==Guid("${contactId}")`;
           const xeroUrl = `https://api.xero.com/api.xro/2.0/Invoices?where=${encodeURIComponent(whereClause)}&order=DueDate`;
 
@@ -240,7 +252,7 @@ Deno.serve(async (req) => {
 
           console.log(`Found ${xeroInvoices.length} Xero invoices for contact ${contactId}`);
 
-          // Build a set of Xero invoice references for matching
+          // Build lookup maps for matching
           const xeroInvoiceByRef = new Map<string, any>();
           for (const inv of xeroInvoices) {
             if (inv.Reference) {
@@ -252,30 +264,89 @@ Deno.serve(async (req) => {
           }
 
           // Try to match remaining reports for this contact
+          const matchedReportIds = new Set<string>();
+
           for (const report of remainingReports) {
             const custId = siteCustomerMap.get(report.site_id);
             if (!custId) continue;
             const repContactId = customerContactMap.get(custId);
             if (repContactId !== contactId) continue;
 
-            // Try matching by report number
+            let matchedInvoice: any = null;
+
+            // Strategy 1: Match by report number against Reference/InvoiceNumber
             if (report.report_number) {
               const matchKey = report.report_number.toLowerCase().trim();
-              const matchedInvoice = xeroInvoiceByRef.get(matchKey);
-              if (matchedInvoice) {
-                const { error } = await supabase
-                  .from("service_reports")
-                  .update({
-                    invoiced: true,
-                    xero_invoice_number: matchedInvoice.InvoiceNumber || null,
-                  })
-                  .eq("id", report.id);
-                if (!error) {
-                  matched++;
-                  console.log(`Matched report ${report.report_number} to Xero invoice ${matchedInvoice.InvoiceNumber}`);
+              matchedInvoice = xeroInvoiceByRef.get(matchKey);
+            }
+
+            // Strategy 2: Match by PO number from service contracts against Reference
+            if (!matchedInvoice) {
+              const poNumbers = sitePONumbers.get(report.site_id) || [];
+              for (const po of poNumbers) {
+                for (const inv of xeroInvoices) {
+                  if (inv.Reference && inv.Reference.toLowerCase().trim().includes(po)) {
+                    // Additional validation: check if amount matches a contract price
+                    const prices = siteContractPrices.get(report.site_id) || [];
+                    const invTotal = Number(inv.Total);
+                    if (prices.some(p => Math.abs(p - invTotal) < 0.01)) {
+                      matchedInvoice = inv;
+                      console.log(`Matched report ${report.report_number} via PO ${po} + amount ${invTotal}`);
+                      break;
+                    }
+                  }
+                }
+                if (matchedInvoice) break;
+              }
+            }
+
+            // Strategy 3: Match by site name in Xero Reference + amount match
+            if (!matchedInvoice) {
+              const siteName = siteNameMap.get(report.site_id);
+              if (siteName) {
+                const prices = siteContractPrices.get(report.site_id) || [];
+                for (const inv of xeroInvoices) {
+                  const ref = (inv.Reference || "").toLowerCase().trim();
+                  const invTotal = Number(inv.Total);
+                  if (ref.includes(siteName) && prices.some(p => Math.abs(p - invTotal) < 0.01)) {
+                    matchedInvoice = inv;
+                    console.log(`Matched report ${report.report_number} via site name "${siteName}" + amount ${invTotal}`);
+                    break;
+                  }
                 }
               }
             }
+
+            if (matchedInvoice) {
+              const { error } = await supabase
+                .from("service_reports")
+                .update({
+                  invoiced: true,
+                  xero_invoice_number: matchedInvoice.InvoiceNumber || null,
+                })
+                .eq("id", report.id);
+              if (!error) {
+                matched++;
+                matchedReportIds.add(report.id);
+                console.log(`Matched report ${report.report_number} to Xero invoice ${matchedInvoice.InvoiceNumber}`);
+              }
+            }
+          }
+
+          // Collect unmatched Xero invoices for this contact to return to frontend
+          // Only include invoices that weren't matched to any report
+          const matchedXeroIds = new Set<string>();
+          // We need to track which Xero invoices were used
+          for (const inv of xeroInvoices) {
+            allUnmatchedXeroInvoices.push({
+              invoiceId: inv.InvoiceID,
+              invoiceNumber: inv.InvoiceNumber || "",
+              reference: inv.Reference || "",
+              total: Number(inv.Total) || 0,
+              status: inv.Status,
+              date: inv.DateString || "",
+              contactId,
+            });
           }
         } catch (err) {
           console.error(`Error checking Xero for contact ${contactId}:`, err);
@@ -285,10 +356,21 @@ Deno.serve(async (req) => {
 
     console.log(`Total matched: ${matched} out of ${reports.length} reports`);
 
+    // Return unmatched reports info and available Xero invoices for manual linking
+    const unmatchedReports = remainingReports
+      .filter((r) => !reports.find((rr) => rr.id === r.id && matched > 0))
+      .map((r) => ({
+        id: r.id,
+        reportNumber: r.report_number,
+        siteId: r.site_id,
+        visitId: r.visit_id,
+      }));
+
     return new Response(
       JSON.stringify({
         matched,
         total: reports.length,
+        unmatchedInvoices: allUnmatchedXeroInvoices,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
