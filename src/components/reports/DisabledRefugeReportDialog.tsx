@@ -542,6 +542,59 @@ export function DisabledRefugeReportDialog({
     }
   };
 
+  // Generate PDF as base64 for email attachment
+  const generatePdfBase64 = async (): Promise<string> => {
+    const { data: siteData } = await supabase
+      .from("sites")
+      .select("name, address, city, postcode, contact_name, contact_phone, contact_email")
+      .eq("id", visit.site_id)
+      .maybeSingle();
+
+    if (!siteData) throw new Error("Could not load site information");
+
+    const pdfUnits = units.map((u) => ({
+      assetId: u.assetId,
+      assetName: u.assetName,
+      manufacturer: u.manufacturer,
+      model: u.model,
+      location: u.location,
+      checklist: u.checklist,
+      defects: u.defects,
+      recommendations: u.recommendations,
+      systemCondition: u.systemCondition,
+    }));
+
+    const base64 = await generateDisabledRefugeReportPDF(
+      {
+        reportNumber,
+        reportDate: visit.visit_date,
+        engineerName,
+        clientName,
+        units: pdfUnits,
+        systemCondition,
+        defectsFound,
+        recommendations,
+        workCarriedOut,
+        partsUsed,
+        notes,
+        engineerSignature,
+        engineerSignDate: engineerSignDate?.toISOString(),
+        engineerSignTime,
+        customerNotPresent,
+        customerSignature,
+        customerSignDate: customerSignDate?.toISOString(),
+        customerSignTime,
+      },
+      siteData,
+      visit.visit_date,
+      visit.visit_type,
+      true // returnBase64
+    );
+
+    if (typeof base64 === 'string') return base64;
+    throw new Error("Failed to generate PDF for email");
+  };
+
   if (loading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -960,6 +1013,17 @@ export function DisabledRefugeReportDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
             Close
           </Button>
+          {isLocked && (
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEmailDialog(true)}
+              className="flex-1 sm:flex-none"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Email Report</span>
+              <span className="sm:hidden">Email</span>
+            </Button>
+          )}
           {!isLocked && (
             <>
               <Button variant="outline" onClick={() => handleSave(false)} disabled={saving} className="flex-1 sm:flex-none">
@@ -992,6 +1056,10 @@ export function DisabledRefugeReportDialog({
        onOpenChange={setShowInvoicePrompt}
        onConfirm={handleInvoicePromptConfirm}
        onDecline={handleInvoicePromptDecline}
+       onEmailReport={() => {
+         setShowInvoicePrompt(false);
+         setShowEmailDialog(true);
+       }}
        siteName={siteInfoForInvoice?.name || visit.sites?.name || ""}
      />
  
@@ -1022,6 +1090,25 @@ export function DisabledRefugeReportDialog({
           }}
        />
      )}
+
+     {/* Email Report Dialog */}
+     <EmailReportDialog
+       open={showEmailDialog}
+       onOpenChange={setShowEmailDialog}
+       defaultEmail={siteInfoForInvoice?.contact_email || ""}
+       defaultRecipients={customerEmailRecipients}
+       customerName={customerInfoForInvoice?.name || ""}
+       customerId={customerInfoForInvoice?.id}
+       siteId={siteInfoForInvoice?.id}
+       visitId={visit.id}
+       reportId={reportId || undefined}
+       siteName={siteInfoForInvoice?.name || visit.sites?.name || ""}
+       reportNumber={reportNumber}
+       reportDate={format(new Date(visit.visit_date), "dd-MM-yyyy")}
+       companyName={companyName}
+       logoUrl={logoUrl}
+       generatePdfBase64={generatePdfBase64}
+     />
    </>
   );
 }
