@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardCheck, Calendar, MapPin, FileText, Download, Eye, Receipt, Wind, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ClipboardCheck, Calendar, MapPin, FileText, Download, Eye, Wind, AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { InvoiceStatusBadge } from "@/components/reports/InvoiceStatusBadge";
 import { format, parseISO, isValid } from "date-fns";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
@@ -28,6 +29,8 @@ interface ServiceReport {
   notes: string | null;
   site_id: string;
   visit_id: string;
+  invoiced: boolean;
+  xero_invoice_number: string | null;
   site?: {
     name: string;
     address?: string | null;
@@ -94,70 +97,94 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
   const [visitMap, setVisitMap] = useState<Record<string, VisitInfo>>({});
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncInvoiceStatus = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-invoice-status", {
+        body: { siteIds, customerId },
+      });
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+      const { matched, total } = data;
+      if (matched > 0) {
+        toast.success(`Matched ${matched} of ${total} reports to Xero invoices`);
+        loadReports();
+      } else {
+        toast.info("No new invoice matches found in Xero");
+      }
+    } catch (err) {
+      console.error("Sync failed:", err);
+      toast.error("Failed to sync with Xero");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const loadReports = async () => {
+    if (siteIds.length === 0) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("service_reports")
+        .select(`
+          id, report_date, status, report_number, system_type, system_condition,
+          engineer_name, defects_found, recommendations, work_carried_out,
+          parts_used, engineer_signature, client_name, client_signature,
+          checklist, notes, site_id, visit_id, invoiced, xero_invoice_number,
+          site:sites(name, address, city, postcode, contact_name, contact_phone)
+        `)
+        .in("site_id", siteIds)
+        .eq("status", "completed")
+        .order("report_date", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const transformedData = (data || []).map((report: any) => ({
+        ...report,
+        site: report.site ? report.site : undefined,
+      }));
+
+      setReports(transformedData);
+
+      // Fetch visit info
+      if (transformedData.length > 0) {
+        const visitIds = transformedData.map((r: any) => r.visit_id);
+        const [visitsResult, invoicesResult] = await Promise.all([
+          supabase.from("visits").select("id, visit_type, visit_date").in("id", visitIds),
+          supabase.from("xero_invoices").select("visit_id, xero_invoice_number, status").in("visit_id", visitIds),
+        ]);
+
+        if (visitsResult.data) {
+          const map: Record<string, VisitInfo> = {};
+          visitsResult.data.forEach((v) => {
+            map[v.id] = { visit_type: v.visit_type, visit_date: v.visit_date };
+          });
+          setVisitMap(map);
+        }
+
+        if (invoicesResult.data) {
+          const invMap: Record<string, InvoiceInfo> = {};
+          invoicesResult.data.forEach((inv) => {
+            invMap[inv.visit_id] = { xero_invoice_number: inv.xero_invoice_number, status: inv.status };
+          });
+          setInvoiceMap(invMap);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading reports:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadReports = async () => {
-      if (siteIds.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from("service_reports")
-          .select(`
-            id, report_date, status, report_number, system_type, system_condition,
-            engineer_name, defects_found, recommendations, work_carried_out,
-            parts_used, engineer_signature, client_name, client_signature,
-            checklist, notes, site_id, visit_id,
-            site:sites(name, address, city, postcode, contact_name, contact_phone)
-          `)
-          .in("site_id", siteIds)
-          .eq("status", "completed")
-          .order("report_date", { ascending: false })
-          .limit(50);
-
-        if (error) throw error;
-
-        const transformedData = (data || []).map((report: any) => ({
-          ...report,
-          site: report.site ? report.site : undefined,
-        }));
-
-        setReports(transformedData);
-
-        // Fetch visit info
-        if (transformedData.length > 0) {
-          const visitIds = transformedData.map((r: any) => r.visit_id);
-          const [visitsResult, invoicesResult] = await Promise.all([
-            supabase.from("visits").select("id, visit_type, visit_date").in("id", visitIds),
-            supabase.from("xero_invoices").select("visit_id, xero_invoice_number, status").in("visit_id", visitIds),
-          ]);
-
-          if (visitsResult.data) {
-            const map: Record<string, VisitInfo> = {};
-            visitsResult.data.forEach((v) => {
-              map[v.id] = { visit_type: v.visit_type, visit_date: v.visit_date };
-            });
-            setVisitMap(map);
-          }
-
-          if (invoicesResult.data) {
-            const invMap: Record<string, InvoiceInfo> = {};
-            invoicesResult.data.forEach((inv) => {
-              invMap[inv.visit_id] = { xero_invoice_number: inv.xero_invoice_number, status: inv.status };
-            });
-            setInvoiceMap(invMap);
-          }
-        }
-      } catch (err) {
-        console.error("Error loading reports:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadReports();
   }, [siteIds]);
 
@@ -338,12 +365,22 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base flex items-center gap-2">
           <ClipboardCheck className="w-4 h-4" />
           Completed Reports
           <Badge variant="secondary" className="ml-1">{reports.length}</Badge>
         </CardTitle>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSyncInvoiceStatus}
+          disabled={syncing || reports.length === 0}
+          className="gap-1.5"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? "Syncing..." : "Sync Xero"}
+        </Button>
       </CardHeader>
       <CardContent>
         {reports.length === 0 ? (
@@ -376,25 +413,13 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
                         {isAsd && <Wind className="w-3 h-3" />}
                         {getReportTypeLabel(report)}
                       </Badge>
-                      {invoice ? (
-                        <Badge
-                          variant="outline"
-                          className={
-                            invoice.status === "PAID"
-                              ? "bg-success/10 text-success border-success/20"
-                              : invoice.status === "AUTHORISED"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
-                          }
-                        >
-                          <Receipt className="w-3 h-3 mr-1" />
-                          {invoice.status === "PAID" ? "Paid" : invoice.status === "AUTHORISED" ? "Invoiced" : "Draft"}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-xs">
-                          Not Invoiced
-                        </Badge>
-                      )}
+                      <InvoiceStatusBadge
+                        reportId={report.id}
+                        xeroInvoice={invoice || undefined}
+                        manuallyInvoiced={report.invoiced || false}
+                        manualInvoiceNumber={report.xero_invoice_number}
+                        onStatusChanged={loadReports}
+                      />
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">

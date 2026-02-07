@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, AlertTriangle, CheckCircle2, Eye, Download, Receipt, Wind } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle2, Eye, Download, Wind, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportService";
+import { InvoiceStatusBadge } from "@/components/reports/InvoiceStatusBadge";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
@@ -103,9 +104,33 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
   const [siteInfo, setSiteInfo] = useState<SiteInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ServiceReport | null>(null);
   const [dialogType, setDialogType] = useState<"work" | "bs5839" | "asd" | null>(null);
   const [asdAssets, setAsdAssets] = useState<ASDAsset[]>([]);
+
+  const handleSyncInvoiceStatus = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-invoice-status", {
+        body: { siteIds: [siteId] },
+      });
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+      const { matched, total } = data;
+      if (matched > 0) {
+        toast.success(`Matched ${matched} of ${total} reports to Xero invoices`);
+        fetchReports();
+      } else {
+        toast.info("No new invoice matches found in Xero");
+      }
+    } catch (err) {
+      console.error("Sync failed:", err);
+      toast.error("Failed to sync with Xero");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const fetchReports = async () => {
     setLoading(true);
@@ -347,6 +372,16 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
           <h3 className="font-semibold text-foreground">Service Reports</h3>
           <Badge variant="secondary">{reports.length}</Badge>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSyncInvoiceStatus}
+          disabled={syncing || reports.length === 0}
+          className="gap-1.5"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? "Syncing..." : "Sync Xero"}
+        </Button>
       </div>
 
       {reports.length === 0 ? (
@@ -404,25 +439,13 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
                           {condition.label}
                         </span>
                       )}
-                      {invoice ? (
-                        <Badge 
-                          variant="outline" 
-                          className={
-                            invoice.status === "PAID" 
-                              ? "bg-success/10 text-success border-success/20" 
-                              : invoice.status === "AUTHORISED"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
-                          }
-                        >
-                          <Receipt className="w-3 h-3 mr-1" />
-                          {invoice.status === "PAID" ? "Paid" : invoice.status === "AUTHORISED" ? "Invoiced" : "Draft"}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
-                          Not Invoiced
-                        </Badge>
-                      )}
+                      <InvoiceStatusBadge
+                        reportId={report.id}
+                        xeroInvoice={invoice || undefined}
+                        manuallyInvoiced={(report as any).invoiced || false}
+                        manualInvoiceNumber={(report as any).xero_invoice_number}
+                        onStatusChanged={fetchReports}
+                      />
                     </div>
                     {report.defects_found && (
                       <p className="text-xs text-destructive flex items-center gap-1">
