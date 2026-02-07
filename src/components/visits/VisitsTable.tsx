@@ -12,7 +12,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
@@ -27,6 +32,8 @@ import { SmokeSprayEstimate } from "./SmokeSprayEstimate";
 import VisitEditDialog from "./VisitEditDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
+import { getCompanySettings } from "@/services/companySettingsService";
 
 interface ASDAsset {
   id: string;
@@ -50,7 +57,10 @@ interface InvoiceInfo {
 }
 
 interface ReportInfo {
+  id: string | null;
   report_number: string | null;
+  status: string | null;
+  report_date: string | null;
 }
 
 interface VisitsTableProps {
@@ -98,6 +108,22 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
   const [reportMap, setReportMap] = useState<Record<string, ReportInfo>>({});
 
+  const [emailVisit, setEmailVisit] = useState<Visit | null>(null);
+  const [emailVisitData, setEmailVisitData] = useState<{
+    defaultEmail: string;
+    defaultRecipients: string;
+    customerName: string;
+    customerId?: string;
+    siteId?: string;
+    reportId?: string;
+    siteName: string;
+    reportNumber: string;
+    reportDate: string;
+    companyName: string;
+    logoUrl?: string;
+    generatePdfBase64: () => Promise<string>;
+  } | null>(null);
+
   // Fetch invoice status and report numbers for all visits
   useEffect(() => {
     const fetchVisitInfo = async () => {
@@ -113,7 +139,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           .in("visit_id", visitIds),
         supabase
           .from("service_reports")
-          .select("visit_id, report_number")
+          .select("visit_id, report_number, id, status, report_date")
           .in("visit_id", visitIds)
       ]);
 
@@ -134,7 +160,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           // Only set if report_number exists (avoid overwriting with null)
           if (rep.report_number) {
             map[rep.visit_id] = {
+              id: rep.id,
               report_number: rep.report_number,
+              status: rep.status,
+              report_date: rep.report_date,
             };
           }
         });
@@ -229,6 +258,134 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleEmailReport = async (visit: Visit) => {
+    try {
+      const reportInfo = reportMap[visit.id];
+      if (!reportInfo?.id) return;
+
+      // Fetch site + customer + company info in parallel
+      const [siteResult, settingsResult, reportResult] = await Promise.all([
+        supabase
+          .from("sites")
+          .select("id, name, address, city, postcode, contact_name, contact_email, customer_id, customers(id, name, contact_email, email_recipients)")
+          .eq("id", visit.site_id)
+          .maybeSingle(),
+        getCompanySettings().catch(() => null),
+        supabase
+          .from("service_reports")
+          .select("id, report_number, report_date, notes")
+          .eq("id", reportInfo.id)
+          .maybeSingle(),
+      ]);
+
+      const site = siteResult.data;
+      const customer = site?.customers as { id: string; name: string; contact_email: string | null; email_recipients: string | null } | null;
+      const report = reportResult.data;
+
+      if (!site || !report) {
+        toast({ title: "Error", description: "Could not load report data", variant: "destructive" });
+        return;
+      }
+
+      const compName = settingsResult?.company_name || "BHO Fire Ltd";
+      const logo = settingsResult?.report_logo_url || settingsResult?.company_logo_url || undefined;
+      const reportDate = report.report_date || visit.visit_date;
+
+      const generatePdfBase64 = async (): Promise<string> => {
+        const { generateWorkReportPDF } = await import("@/lib/pdfGenerator");
+        
+        // Re-fetch full report
+        const { data: fullReport } = await supabase
+          .from("service_reports")
+          .select("*")
+          .eq("id", reportInfo.id!)
+          .single();
+        
+        if (!fullReport) throw new Error("Report not found");
+
+        // Reconstruct WorkReportData from the stored report
+        let parsedNotes: Record<string, unknown> = {};
+        try {
+          if (fullReport.notes) parsedNotes = JSON.parse(fullReport.notes);
+        } catch { /* ignore */ }
+
+        const workDays = (parsedNotes.workDays as Array<{ date: string; startTime: string; finishTime: string; duration: string }>) || [];
+
+        const pdfData = {
+          certificateNo: fullReport.report_number || "",
+          jobNumber: (parsedNotes.jobNumber as string) || "",
+          jobType: (parsedNotes.jobType as string) || "",
+          appointmentDate: (parsedNotes.appointmentDate as string) || undefined,
+          systemStatusArrival: (parsedNotes.systemStatusArrival as string) || "",
+          systemStatusDeparture: (parsedNotes.systemStatusDeparture as string) || "",
+          workCompleted: (parsedNotes.workCompleted as boolean) || false,
+          returnRequired: (parsedNotes.returnRequired as boolean) || false,
+          surveyRequired: (parsedNotes.surveyRequired as boolean) || false,
+          quotationRequired: (parsedNotes.quotationRequired as boolean) || false,
+          ramsCompleted: (parsedNotes.ramsCompleted as boolean) || false,
+          logBookEntry: (parsedNotes.logBookEntry as boolean) || false,
+          worksReport: fullReport.work_carried_out || "",
+          furtherAction: fullReport.recommendations || "",
+          numEngineers: (parsedNotes.numEngineers as number) || 1,
+          workDays: workDays.length > 0 ? workDays : undefined,
+          totalHours: (parsedNotes.totalHours as string) || undefined,
+          startTime: (parsedNotes.startTime as string) || "",
+          finishTime: (parsedNotes.finishTime as string) || "",
+          travelTime: (parsedNotes.travelTime as string) || "",
+          duration: (parsedNotes.duration as string) || "",
+          materials: (parsedNotes.materials as Array<{ name: string; qty: string; cost: string }>) || [],
+          photos: (parsedNotes.photos as Array<{ url: string; caption: string }>) || [],
+          engineerName: fullReport.engineer_name || "",
+          engineerSignature: fullReport.engineer_signature || undefined,
+          engineerSignDate: (parsedNotes.engineerSignDate as string) || undefined,
+          engineerSignTime: (parsedNotes.engineerSignTime as string) || undefined,
+          customerNotPresent: (parsedNotes.customerNotPresent as boolean) || false,
+          customerName: fullReport.client_name || "",
+          customerSignature: fullReport.client_signature || undefined,
+          customerSignDate: (parsedNotes.customerSignDate as string) || undefined,
+          customerSignTime: (parsedNotes.customerSignTime as string) || undefined,
+          panelInfo: (parsedNotes.panelInfo as string) || "",
+          locationInfo: (parsedNotes.locationInfo as string) || "",
+          typeInfo: (parsedNotes.typeInfo as string) || "",
+          zonesInfo: (parsedNotes.zonesInfo as string) || "",
+          contactPhone: (parsedNotes.contactPhone as string) || "",
+        };
+
+        const siteData = {
+          name: site.name,
+          address: site.address || "",
+          city: site.city || "",
+          postcode: site.postcode || "",
+          contact_name: site.contact_name || "",
+          contact_phone: "",
+        };
+
+        const result = generateWorkReportPDF(pdfData, siteData, reportDate, visit.visit_type, true);
+        if (typeof result === "string") return result;
+        throw new Error("Failed to generate PDF");
+      };
+
+      setEmailVisitData({
+        defaultEmail: site.contact_email || customer?.contact_email || "",
+        defaultRecipients: customer?.email_recipients || "",
+        customerName: customer?.name || "",
+        customerId: customer?.id,
+        siteId: site.id,
+        reportId: report.id,
+        siteName: site.name,
+        reportNumber: report.report_number || "",
+        reportDate: format(new Date(reportDate), "dd-MM-yyyy"),
+        companyName: compName,
+        logoUrl: logo,
+        generatePdfBase64,
+      });
+      setEmailVisit(visit);
+    } catch (error) {
+      console.error("Failed to prepare email:", error);
+      toast({ title: "Error", description: "Failed to prepare email", variant: "destructive" });
     }
   };
 
@@ -355,6 +512,21 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             <Eye className="w-4 h-4 mr-1" />
             Site
           </Button>
+          {reportInfo?.status === "completed" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleEmailReport(visit)}
+                >
+                  <Mail className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Email Report</TooltipContent>
+            </Tooltip>
+          )}
           {!isInvoiced && (
             <>
               <Button
@@ -719,6 +891,32 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Email Report Dialog */}
+      {emailVisit && emailVisitData && (
+        <EmailReportDialog
+          open={!!emailVisit}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEmailVisit(null);
+              setEmailVisitData(null);
+            }
+          }}
+          defaultEmail={emailVisitData.defaultEmail}
+          defaultRecipients={emailVisitData.defaultRecipients}
+          customerName={emailVisitData.customerName}
+          customerId={emailVisitData.customerId}
+          siteId={emailVisitData.siteId}
+          visitId={emailVisit.id}
+          reportId={emailVisitData.reportId}
+          siteName={emailVisitData.siteName}
+          reportNumber={emailVisitData.reportNumber}
+          reportDate={emailVisitData.reportDate}
+          companyName={emailVisitData.companyName}
+          logoUrl={emailVisitData.logoUrl}
+          generatePdfBase64={emailVisitData.generatePdfBase64}
+        />
+      )}
     </div>
   );
 };
