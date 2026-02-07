@@ -1945,6 +1945,10 @@ export function WorkReportDialog({
         onOpenChange={setShowInvoicePrompt}
         onConfirm={handleInvoicePromptConfirm}
         onDecline={handleInvoicePromptDecline}
+        onEmailReport={() => {
+          setShowInvoicePrompt(false);
+          setShowEmailDialog(true);
+        }}
         siteName={siteInfo?.name || ""}
       />
 
