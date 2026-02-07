@@ -59,7 +59,7 @@ export function ReportTypeSelector({
           .from("site_assets")
           .select("id, item_name, manufacturer, model, location")
           .eq("site_id", siteId)
-          .eq("asset_type", "asd"),
+          .eq("asset_type", "aspirator"),
         supabase
           .from("site_assets")
           .select("id, item_name, manufacturer, model, location")

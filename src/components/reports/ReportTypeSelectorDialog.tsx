@@ -89,12 +89,12 @@ export function ReportTypeSelectorDialog({
         return;
       }
       
-      if (assetType === "asd") {
+      if (assetType === "aspirator" || assetType === "asd") {
         loadAssetsAndOpenAsd();
         return;
       }
       
-      if (assetType === "fire_panel") {
+      if (assetType === "fire" || assetType === "fire_panel") {
         setShowFireReport(true);
         onOpenChange(false);
         return;
@@ -108,6 +108,27 @@ export function ReportTypeSelectorDialog({
   const loadAssetsAndOpenDisabledRefuge = async () => {
     setLoading(true);
     try {
+      // First try site_assets table (primary source)
+      const { data: siteAssetsData } = await supabase
+        .from("site_assets")
+        .select("id, item_name, manufacturer, model, location")
+        .eq("site_id", visit.site_id)
+        .eq("asset_type", "disabled_refuge")
+        .order("item_name");
+
+      if (siteAssetsData && siteAssetsData.length > 0) {
+        setDisabledRefugeAssets(siteAssetsData.map(a => ({
+          ...a,
+          item_type: null,
+          service_type: "Disabled Refuge",
+        })));
+        setShowDisabledRefugeReport(true);
+        onOpenChange(false);
+        setLoading(false);
+        return;
+      }
+
+      // Fallback to contract_assets
       const { data: contracts } = await supabase
         .from("site_service_contracts")
         .select("id, service_type")
@@ -158,6 +179,27 @@ export function ReportTypeSelectorDialog({
   const loadAssetsAndOpenAsd = async () => {
     setLoading(true);
     try {
+      // First try site_assets table (primary source)
+      const { data: siteAssetsData } = await supabase
+        .from("site_assets")
+        .select("id, item_name, manufacturer, model, location")
+        .eq("site_id", visit.site_id)
+        .eq("asset_type", "aspirator")
+        .order("item_name");
+
+      if (siteAssetsData && siteAssetsData.length > 0) {
+        setAsdAssets(siteAssetsData.map(a => ({
+          ...a,
+          item_type: null,
+          service_type: "Aspirator",
+        })));
+        setShowAsdReport(true);
+        onOpenChange(false);
+        setLoading(false);
+        return;
+      }
+
+      // Fallback to contract_assets
       const { data: contracts } = await supabase
         .from("site_service_contracts")
         .select("id, service_type")
