@@ -98,6 +98,7 @@ export function ASDReportDialog({
     city?: string | null;
   } | null>(null);
   const [contractPoNumber, setContractPoNumber] = useState<string | null>(null);
+  const [contractUnitPrice, setContractUnitPrice] = useState<number | null>(null);
 
   // Multi-unit state
   const [units, setUnits] = useState<ASDChecklistData[]>([]);
@@ -169,18 +170,18 @@ export function ASDReportDialog({
         });
       }
 
-      // Fetch service contracts to get PO number (match by aspirator service type)
+      // Fetch service contracts to get PO number and unit price (match by aspirator service type)
       try {
         const { data: contracts } = await supabase
           .from("site_service_contracts")
-          .select("po_number")
+          .select("po_number, unit_price")
           .eq("site_id", visit.site_id)
-          .eq("service_type", "Aspirator")
-          .not("po_number", "is", null)
+          .eq("service_type", "aspirator")
           .limit(1);
         
         if (contracts && contracts.length > 0) {
           setContractPoNumber(contracts[0].po_number);
+          setContractUnitPrice(contracts[0].unit_price);
         }
       } catch (error) {
         console.error("Failed to load service contracts:", error);
@@ -984,6 +985,7 @@ export function ASDReportDialog({
           reportDate: visit.visit_date,
           reportNumber: reportNumber,
           poNumber: contractPoNumber || undefined,
+          unitPrice: contractUnitPrice || undefined,
           siteName: siteInfoForInvoice.name,
         }}
       />
