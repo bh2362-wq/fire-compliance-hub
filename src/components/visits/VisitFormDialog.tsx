@@ -164,10 +164,16 @@ const VisitFormDialog = ({
   const showSiteSelector = !siteId && availableSites.length > 0;
   const selectedSiteName = availableSites.find(s => s.id === selectedSiteId)?.name || siteName;
 
-  // Group assets by type
-  const fireAssets = siteAssets.filter(a => a.asset_type === "fire_panel");
-  const asdAssets = siteAssets.filter(a => a.asset_type === "asd");
+  // Group assets by type - keys match SERVICE_TYPES from serviceContractService
+  const fireAssets = siteAssets.filter(a => a.asset_type === "fire");
+  const aspiratorAssets = siteAssets.filter(a => a.asset_type === "aspirator");
+  const gasSuppressionAssets = siteAssets.filter(a => a.asset_type === "gas_suppression");
+  const roomIntegrityAssets = siteAssets.filter(a => a.asset_type === "room_integrity");
+  const fireCurtainAssets = siteAssets.filter(a => a.asset_type === "fire_curtain");
   const disabledRefugeAssets = siteAssets.filter(a => a.asset_type === "disabled_refuge");
+  const emergencyLightingAssets = siteAssets.filter(a => a.asset_type === "emergency_lighting");
+  const intruderAlarmAssets = siteAssets.filter(a => a.asset_type === "intruder_alarm");
+  const nurseCallAssets = siteAssets.filter(a => a.asset_type === "nurse_call");
 
   // Fire panel visits cover ALL panels - report will have separate checklists per panel
   // ASD visits also cover ALL units at the site - same approach
@@ -180,22 +186,46 @@ const VisitFormDialog = ({
   // Get available asset types based on site assets
   const availableAssetTypes = [
     ...(fireAssets.length > 0 ? [{ 
-      value: "fire_panel", 
+      value: "fire", 
       label: `Fire Alarm${fireAssets.length > 1 ? ` (${fireAssets.length} panels)` : ""}`, 
       icon: Flame, 
       count: fireAssets.length 
     }] : []),
-    ...(asdAssets.length > 0 ? [{ 
-      value: "asd", 
-      label: `ASD${asdAssets.length > 1 ? ` (${asdAssets.length} units)` : ""}`, 
+    ...(aspiratorAssets.length > 0 ? [{ 
+      value: "aspirator", 
+      label: `Aspirator / ASD${aspiratorAssets.length > 1 ? ` (${aspiratorAssets.length} units)` : ""}`, 
       icon: Wind, 
-      count: asdAssets.length 
+      count: aspiratorAssets.length 
+    }] : []),
+    ...(gasSuppressionAssets.length > 0 ? [{ 
+      value: "gas_suppression", 
+      label: `Gas Suppression${gasSuppressionAssets.length > 1 ? ` (${gasSuppressionAssets.length} units)` : ""}`, 
+      icon: Flame, 
+      count: gasSuppressionAssets.length 
+    }] : []),
+    ...(emergencyLightingAssets.length > 0 ? [{ 
+      value: "emergency_lighting", 
+      label: `Emergency Lighting${emergencyLightingAssets.length > 1 ? ` (${emergencyLightingAssets.length} units)` : ""}`, 
+      icon: Flame, 
+      count: emergencyLightingAssets.length 
     }] : []),
     ...(disabledRefugeAssets.length > 0 ? [{ 
       value: "disabled_refuge", 
       label: `Disabled Refuge${disabledRefugeAssets.length > 1 ? ` (${disabledRefugeAssets.length} units)` : ""}`, 
       icon: Phone, 
       count: disabledRefugeAssets.length 
+    }] : []),
+    ...(intruderAlarmAssets.length > 0 ? [{ 
+      value: "intruder_alarm", 
+      label: `Intruder Alarm${intruderAlarmAssets.length > 1 ? ` (${intruderAlarmAssets.length} units)` : ""}`, 
+      icon: AlertTriangle, 
+      count: intruderAlarmAssets.length 
+    }] : []),
+    ...(nurseCallAssets.length > 0 ? [{ 
+      value: "nurse_call", 
+      label: `Nurse Call${nurseCallAssets.length > 1 ? ` (${nurseCallAssets.length} units)` : ""}`, 
+      icon: Phone, 
+      count: nurseCallAssets.length 
     }] : []),
     { value: "general", label: "General / Other", icon: Wrench, count: 0 },
   ];
@@ -453,50 +483,16 @@ const VisitFormDialog = ({
             )}
 
             {/* Asset info summary - show what will be included */}
-            {selectedAssetType === "fire_panel" && fireAssets.length > 0 && (
+            {selectedAssetType && selectedAssetType !== "general" && siteAssets.filter(a => a.asset_type === selectedAssetType).length > 0 && (
               <div className="bg-muted/50 border rounded-lg p-3 text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                  <Flame className="w-4 h-4" />
-                  <span className="font-medium">Panels included in this visit:</span>
+                  <span className="font-medium">Assets included in this visit:</span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {fireAssets.map((asset) => (
+                  {siteAssets.filter(a => a.asset_type === selectedAssetType).map((asset) => (
                     <Badge key={asset.id} variant="secondary" className="text-xs">
                       {asset.item_name}
-                      {asset.location && ` (${asset.location})`}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {selectedAssetType === "asd" && asdAssets.length > 0 && (
-              <div className="bg-muted/50 border rounded-lg p-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                  <Wind className="w-4 h-4" />
-                  <span className="font-medium">ASD units included in this visit:</span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {asdAssets.map((asset) => (
-                    <Badge key={asset.id} variant="secondary" className="text-xs">
-                      {asset.item_name}
-                      {asset.location && ` (${asset.location})`}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {selectedAssetType === "disabled_refuge" && disabledRefugeAssets.length > 0 && (
-              <div className="bg-muted/50 border rounded-lg p-3 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                  <Phone className="w-4 h-4" />
-                  <span className="font-medium">Disabled Refuge units included in this visit:</span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {disabledRefugeAssets.map((asset) => (
-                    <Badge key={asset.id} variant="secondary" className="text-xs">
-                      {asset.item_name}
+                      {asset.manufacturer && ` - ${asset.manufacturer}`}
                       {asset.location && ` (${asset.location})`}
                     </Badge>
                   ))}
