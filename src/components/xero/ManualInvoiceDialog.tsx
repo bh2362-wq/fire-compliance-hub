@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { format, addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,6 +91,41 @@ interface Site {
   customer_id: string | null;
 }
 
+const DRAFT_STORAGE_KEY = "invoice_draft";
+
+interface InvoiceDraft {
+  selectedContact: string;
+  selectedSite: string;
+  serviceType: string;
+  poNumber: string;
+  invoiceNumber: string;
+  dueDate: string | null;
+  lineItems: InvoiceLineItem[];
+  savedAt: string;
+}
+
+function saveDraft(draft: Omit<InvoiceDraft, "savedAt">) {
+  try {
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ ...draft, savedAt: new Date().toISOString() }));
+  } catch {}
+}
+
+function loadDraft(): InvoiceDraft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch {}
+}
+
 export function ManualInvoiceDialog({
   open,
   onOpenChange,
@@ -113,20 +148,60 @@ export function ManualInvoiceDialog({
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
     SERVICE_TYPE_LINE_ITEMS.quarterly_service
   );
+  const [hasDraft, setHasDraft] = useState(false);
+  const draftRestoredRef = useRef(false);
+  const skipAutoSaveRef = useRef(false);
+
+  // Auto-save draft whenever form values change
+  useEffect(() => {
+    if (!open || skipAutoSaveRef.current) return;
+    // Only save if there's meaningful data
+    const hasData = selectedContact || selectedSite || poNumber || 
+      lineItems.some(li => li.description && li.unitAmount > 0);
+    if (hasData) {
+      saveDraft({
+        selectedContact,
+        selectedSite,
+        serviceType,
+        poNumber,
+        invoiceNumber,
+        dueDate: dueDate ? dueDate.toISOString() : null,
+        lineItems,
+      });
+    }
+  }, [open, selectedContact, selectedSite, serviceType, poNumber, invoiceNumber, dueDate, lineItems]);
 
   useEffect(() => {
     if (open && user) {
       checkConnection();
       loadContacts();
       loadSites();
-      fetchNextInvoiceNumber();
-      // Reset form
-      setSelectedContact("");
-      setSelectedSite("");
-      setServiceType("quarterly_service");
-      setPoNumber("");
-      setDueDate(addDays(new Date(), 30));
-      setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+
+      // Check for saved draft
+      const draft = loadDraft();
+      if (draft) {
+        setHasDraft(true);
+        // Restore draft values
+        draftRestoredRef.current = true;
+        setSelectedContact(draft.selectedContact);
+        setSelectedSite(draft.selectedSite);
+        setServiceType(draft.serviceType);
+        setPoNumber(draft.poNumber);
+        setInvoiceNumber(draft.invoiceNumber);
+        setDueDate(draft.dueDate ? new Date(draft.dueDate) : addDays(new Date(), 30));
+        setLineItems(draft.lineItems.length > 0 ? draft.lineItems : SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+      } else {
+        setHasDraft(false);
+        draftRestoredRef.current = false;
+        // Reset form
+        setSelectedContact("");
+        setSelectedSite("");
+        setServiceType("quarterly_service");
+        setPoNumber("");
+        setDueDate(addDays(new Date(), 30));
+        setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+        fetchNextInvoiceNumber();
+      }
     }
   }, [open, user]);
 
@@ -210,6 +285,11 @@ export function ManualInvoiceDialog({
   }, [selectedSite, sites, contacts]);
 
   useEffect(() => {
+    // Skip auto-updating line items if we just restored a draft
+    if (draftRestoredRef.current) {
+      draftRestoredRef.current = false;
+      return;
+    }
     // Update line items when service type changes
     setLineItems(SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.remedial);
   }, [serviceType]);
@@ -294,6 +374,7 @@ export function ManualInvoiceDialog({
       } else {
         toast.success(`Invoice ${result.number} created successfully`);
       }
+      clearDraft();
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
@@ -302,6 +383,23 @@ export function ManualInvoiceDialog({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDiscardDraft = () => {
+    clearDraft();
+    setHasDraft(false);
+    skipAutoSaveRef.current = true;
+    setSelectedContact("");
+    setSelectedSite("");
+    setServiceType("quarterly_service");
+    setPoNumber("");
+    setDueDate(addDays(new Date(), 30));
+    setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+    setInvoiceNumber("");
+    fetchNextInvoiceNumber();
+    // Re-enable auto-save after reset
+    setTimeout(() => { skipAutoSaveRef.current = false; }, 100);
+    toast.info("Draft discarded");
   };
 
   if (hasConnection === false) {
@@ -336,6 +434,14 @@ export function ManualInvoiceDialog({
       </ResponsiveDialogHeader>
 
       <ResponsiveDialogBody className="py-4 space-y-4">
+        {hasDraft && (
+          <div className="flex items-center justify-between rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">
+            <span className="text-muted-foreground">Draft restored from your previous session</span>
+            <Button variant="ghost" size="sm" onClick={handleDiscardDraft} className="text-destructive hover:text-destructive">
+              Discard Draft
+            </Button>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
