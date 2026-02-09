@@ -28,16 +28,24 @@ export function SharePointConnectionCard() {
 
   useEffect(() => {
     checkConnection();
+  }, []);
 
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === "microsoft-connected") {
+  // Poll for connection when connecting
+  useEffect(() => {
+    if (!connecting) return;
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("microsoft_tokens")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      if (data) {
         setConnected(true);
         setConnecting(false);
       }
-    };
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, []);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [connecting]);
 
   const handleConnect = async () => {
     setConnecting(true);
