@@ -217,7 +217,7 @@ export function CustomerOverdueDialog({
       reference: invoice.reference,
       dueDate: invoice.dueDate,
       total: invoice.total,
-      lineItems: (invoice as any).lineItems || [],
+      lineItems: invoice.lineItems || [],
     });
   };
 
@@ -549,7 +549,7 @@ export function CustomerOverdueDialog({
               </div>
 
               {/* Line items for drafts */}
-              {(viewingInvoice as any).lineItems?.length > 0 && (
+              {viewingInvoice.lineItems && viewingInvoice.lineItems.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Line Items</p>
                   <div className="border rounded-md">
@@ -563,7 +563,7 @@ export function CustomerOverdueDialog({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(viewingInvoice as any).lineItems.map((li: InvoiceLineItem, i: number) => (
+                        {viewingInvoice.lineItems!.map((li, i) => (
                           <TableRow key={i}>
                             <TableCell className="text-sm">{li.description}</TableCell>
                             <TableCell className="text-right">{li.quantity}</TableCell>
