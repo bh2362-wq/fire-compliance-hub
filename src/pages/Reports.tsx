@@ -19,6 +19,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -28,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList } from "lucide-react";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import {
@@ -66,7 +70,7 @@ interface AssetInfo {
 }
 
 interface ReportWithSite extends ServiceReport {
-  sites: { name: string } | null;
+  sites: { name: string; customers?: { name: string } | null } | null;
   visits: { visit_type: string; visit_date: string } | null;
 }
 
@@ -136,6 +140,102 @@ const Reports = () => {
   const [reportForQuotation, setReportForQuotation] = useState<ReportWithSite | null>(null);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
+  const [uploadingToSharePoint, setUploadingToSharePoint] = useState<string | null>(null);
+
+  const sanitizeName = (name: string) => name.replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
+
+  const handleUploadToSharePoint = async (report: ReportWithSite) => {
+    const customerName = (report.sites as any)?.customers?.name || "Unknown Customer";
+    const siteName = report.sites?.name || "Unknown Site";
+    const folderPath = `${sanitizeName(customerName)}/${sanitizeName(siteName)}/Reports`;
+    const fileName = `${report.report_number || "report"}.pdf`;
+
+    setUploadingToSharePoint(report.id);
+    try {
+      // Fetch full report data for PDF generation
+      const { data: fullReport } = await supabase
+        .from("service_reports")
+        .select(`*, sites:site_id(name, address, city, postcode, contact_name, contact_phone, contact_email)`)
+        .eq("id", report.id)
+        .single();
+
+      if (!fullReport) throw new Error("Report not found");
+
+      const site = fullReport.sites as any;
+      const siteInfo = {
+        name: site?.name || "",
+        address: site?.address,
+        city: site?.city,
+        postcode: site?.postcode,
+        contact_name: site?.contact_name,
+        contact_phone: site?.contact_phone,
+        contact_email: site?.contact_email,
+      };
+      const visit = report.visits || { visit_type: "", visit_date: fullReport.report_date };
+
+      let base64: string | null = null;
+
+      if (isDisabledRefugeReport(fullReport as any)) {
+        const parsed = JSON.parse(fullReport.notes || "{}");
+        base64 = await generateDisabledRefugeReportPDF({
+          reportNumber: fullReport.report_number || "", reportDate: fullReport.report_date, engineerName: fullReport.engineer_name || "", clientName: fullReport.client_name || "",
+          units: (parsed.units || []).map((u: any) => ({ assetId: u.assetId, assetName: u.assetName, manufacturer: u.manufacturer, model: u.model, location: u.location, checklist: u.checklist, defects: u.defects, recommendations: u.recommendations, systemCondition: u.systemCondition })),
+          systemCondition: fullReport.system_condition || "", defectsFound: fullReport.defects_found || "", recommendations: fullReport.recommendations || "", workCarriedOut: fullReport.work_carried_out || "", partsUsed: fullReport.parts_used || "", notes: parsed.additional_notes || "",
+          engineerSignature: fullReport.engineer_signature || parsed.engineerSignature || "", engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
+          customerNotPresent: parsed.customerNotPresent || false, customerSignature: fullReport.client_signature || parsed.customerSignature || "", customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
+        }, siteInfo, visit.visit_date, visit.visit_type, true) as string;
+      } else if (isASDReport(fullReport as any)) {
+        const parsed = JSON.parse(fullReport.notes || "{}");
+        base64 = generateASDReportPDF({
+          reportNumber: fullReport.report_number || "", reportDate: fullReport.report_date, engineerName: fullReport.engineer_name || "", clientName: fullReport.client_name || "",
+          units: parsed.units || [], systemCondition: fullReport.system_condition || "", defectsFound: fullReport.defects_found || "", recommendations: fullReport.recommendations || "", workCarriedOut: fullReport.work_carried_out || "", partsUsed: fullReport.parts_used || "", notes: parsed.additional_notes || "",
+          engineerSignature: fullReport.engineer_signature || parsed.engineerSignature || "", engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
+          customerNotPresent: parsed.customerNotPresent || false, customerSignature: fullReport.client_signature || parsed.customerSignature || "", customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
+        }, siteInfo, visit.visit_date, visit.visit_type, true) as string;
+      } else if (isWorkReport(fullReport as any)) {
+        const parsed = JSON.parse(fullReport.notes || "{}");
+        base64 = generateWorkReportPDF({
+          certificateNo: fullReport.report_number || "", jobNumber: parsed.jobNumber || "", jobType: parsed.jobType || "", appointmentDate: parsed.appointmentDate || "",
+          systemStatusArrival: parsed.systemStatusArrival || "", systemStatusDeparture: parsed.systemStatusDeparture || "", workCompleted: parsed.workCompleted || false, returnRequired: parsed.returnRequired || false,
+          surveyRequired: parsed.surveyRequired || false, quotationRequired: parsed.quotationRequired || false, ramsCompleted: parsed.ramsCompleted || false, logBookEntry: parsed.logBookEntry || false,
+          worksReport: fullReport.work_carried_out || "", furtherAction: fullReport.recommendations || "", numEngineers: parsed.numEngineers || 1, workDays: parsed.workDays || [],
+          totalHours: parsed.totalHours || "", startTime: parsed.startTime || "", finishTime: parsed.finishTime || "", travelTime: parsed.travelTime || "", duration: parsed.duration || "",
+          materials: parsed.materials || [], engineerName: fullReport.engineer_name || "", engineerSignature: fullReport.engineer_signature || parsed.engineerSignature || "",
+          engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "", customerNotPresent: parsed.customerNotPresent || false,
+          customerName: fullReport.client_name || "", customerSignature: fullReport.client_signature || parsed.customerSignature || "", customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
+        }, siteInfo, visit.visit_date, visit.visit_type, true) as string;
+      } else {
+        let signatures = {}; let panels = undefined;
+        try { const parsed = JSON.parse(fullReport.notes || "{}"); signatures = { engineerSignature: fullReport.engineer_signature || parsed.engineerSignature || "", engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "", customerNotPresent: parsed.customerNotPresent || false, customerSignature: fullReport.client_signature || parsed.customerSignature || "", customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "" }; if (parsed.multi_panel && Array.isArray(parsed.panel_checklists)) panels = parsed.panel_checklists; } catch { /* ignore */ }
+        base64 = generateServiceReportPDF(fullReport as any, siteInfo, visit, panels, signatures, true) as string;
+      }
+
+      if (!base64) throw new Error("Failed to generate PDF");
+
+      const { data, error } = await supabase.functions.invoke("upload-to-sharepoint", {
+        body: { folderPath, fileName, fileBase64: base64, contentType: "application/pdf" },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Save SharePoint URL to report
+      if (data?.webUrl) {
+        await supabase.from("service_reports").update({
+          sharepoint_folder: folderPath,
+          sharepoint_url: data.webUrl,
+        }).eq("id", report.id);
+      }
+
+      toast.success(`Report ${report.report_number} uploaded to SharePoint`);
+      fetchReports();
+    } catch (err: any) {
+      console.error("SharePoint upload error:", err);
+      toast.error(err.message || "Failed to upload to SharePoint");
+    } finally {
+      setUploadingToSharePoint(null);
+    }
+  };
 
   // Helper to detect if a report is a Work Report (has JSON in notes with work report fields)
   function isWorkReport(report: ServiceReport): boolean {
@@ -402,7 +502,7 @@ const Reports = () => {
       .from("service_reports")
       .select(`
         *,
-        sites:site_id(name),
+        sites:site_id(name, customers:customer_id(name)),
         visits:visit_id(visit_type, visit_date)
       `)
       .order("created_at", { ascending: false });
@@ -861,6 +961,35 @@ const Reports = () => {
                               Mark as Completed
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <Globe className="w-4 h-4 mr-2" />
+                              View Online
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              {(report as any).sharepoint_url ? (
+                                <DropdownMenuItem
+                                  onClick={() => window.open((report as any).sharepoint_url, "_blank")}
+                                >
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  Open in SharePoint
+                                </DropdownMenuItem>
+                              ) : null}
+                              <DropdownMenuItem
+                                disabled={uploadingToSharePoint === report.id}
+                                onClick={() => handleUploadToSharePoint(report)}
+                              >
+                                {uploadingToSharePoint === report.id ? (
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Upload className="w-4 h-4 mr-2" />
+                                )}
+                                {(report as any).sharepoint_url ? "Update on SharePoint" : "Upload to SharePoint"}
+                              </DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => {
