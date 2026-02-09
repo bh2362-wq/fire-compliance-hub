@@ -48,6 +48,7 @@ import {
   XeroOutstandingInvoice,
   deleteXeroInvoice,
   approveInvoice,
+  fetchInvoiceDetail,
   InvoiceLineItem,
 } from "@/services/xeroService";
 import { supabase } from "@/integrations/supabase/client";
@@ -208,17 +209,26 @@ export function CustomerOverdueDialog({
   };
 
   // --- Invoice Actions ---
-  const handleEditInvoice = (invoice: XeroOutstandingInvoice) => {
-    setEditingInvoice({
-      invoiceId: invoice.invoiceId,
-      invoiceNumber: invoice.invoiceNumber,
-      contactId: invoice.contactId,
-      contactName: invoice.contactName,
-      reference: invoice.reference,
-      dueDate: invoice.dueDate,
-      total: invoice.total,
-      lineItems: invoice.lineItems || [],
-    });
+  const handleEditInvoice = async (invoice: XeroOutstandingInvoice) => {
+    try {
+      toast.loading("Loading invoice details...", { id: "loading-invoice" });
+      const detail = await fetchInvoiceDetail(invoice.invoiceId);
+      toast.dismiss("loading-invoice");
+      setEditingInvoice({
+        invoiceId: invoice.invoiceId,
+        invoiceNumber: invoice.invoiceNumber,
+        contactId: invoice.contactId,
+        contactName: invoice.contactName,
+        reference: invoice.reference,
+        dueDate: invoice.dueDate,
+        total: invoice.total,
+        lineItems: detail.lineItems || [],
+      });
+    } catch (error: any) {
+      toast.dismiss("loading-invoice");
+      console.error("Failed to fetch invoice details:", error);
+      toast.error("Failed to load invoice details for editing");
+    }
   };
 
   const handleApproveInvoice = async () => {
