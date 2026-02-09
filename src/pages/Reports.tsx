@@ -55,6 +55,7 @@ import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 import { GenerateQuotationDialog } from "@/components/quotations/GenerateQuotationDialog";
+import { PdfPreviewDialog } from "@/components/reports/PdfPreviewDialog";
 
 interface AssetInfo {
   id: string;
@@ -133,6 +134,8 @@ const Reports = () => {
   } | null>(null);
   const [quotationDialogOpen, setQuotationDialogOpen] = useState(false);
   const [reportForQuotation, setReportForQuotation] = useState<ReportWithSite | null>(null);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
 
   // Helper to detect if a report is a Work Report (has JSON in notes with work report fields)
   function isWorkReport(report: ServiceReport): boolean {
@@ -802,6 +805,15 @@ const Reports = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
+                            onClick={() => {
+                              setPdfPreviewReportId(report.id);
+                              setPdfPreviewOpen(true);
+                            }}
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            Preview PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={() => handleEmailReport(report)}
                           >
                             <Mail className="w-4 h-4 mr-2" />
@@ -1121,6 +1133,17 @@ const Reports = () => {
             visits: reportForQuotation.visits,
           }}
           onSuccess={fetchReports}
+        />
+      )}
+
+      {pdfPreviewReportId && (
+        <PdfPreviewDialog
+          open={pdfPreviewOpen}
+          onOpenChange={(open) => {
+            setPdfPreviewOpen(open);
+            if (!open) setPdfPreviewReportId(null);
+          }}
+          reportId={pdfPreviewReportId}
         />
       )}
     </DashboardLayout>
