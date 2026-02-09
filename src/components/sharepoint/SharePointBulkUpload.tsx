@@ -25,7 +25,7 @@ interface SharePointBulkUploadProps {
     [key: string]: any;
   }>;
   customerName: string;
-  siteMap: Record<string, string>; // siteId -> siteName
+  siteMap: Record<string, { name: string; address?: string }>; // siteId -> site info
   visitMap: Record<string, { visit_type: string; visit_date: string }>;
   generatePdfBase64ForReport: (report: any) => Promise<string | null>;
   onComplete?: () => void;
@@ -72,10 +72,10 @@ export function SharePointBulkUpload({
 
     for (let i = 0; i < pendingReports.length; i++) {
       const report = pendingReports[i];
-      const siteName = siteMap[report.site_id];
+      const siteInfo = siteMap[report.site_id];
       const visit = visitMap[report.visit_id];
 
-      if (!siteName || !visit) {
+      if (!siteInfo || !visit) {
         failCount++;
         setFailed(failCount);
         setProgress(((i + 1) / pendingReports.length) * 100);
@@ -83,7 +83,10 @@ export function SharePointBulkUpload({
       }
 
       try {
-        const folderPath = `Customers/${sanitize(customerName)}/${sanitize(siteName)}/Reports`;
+        const siteFolder = siteInfo.address
+          ? `${sanitize(siteInfo.name)} (${sanitize(siteInfo.address)})`
+          : sanitize(siteInfo.name);
+        const folderPath = `Customers/${sanitize(customerName)}/${siteFolder}/Reports`;
         const fileName = `${report.report_number}.pdf`;
 
         const fileBase64 = await generatePdfBase64ForReport(report);

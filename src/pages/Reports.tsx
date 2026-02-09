@@ -147,7 +147,9 @@ const Reports = () => {
   const handleUploadToSharePoint = async (report: ReportWithSite) => {
     const customerName = (report.sites as any)?.customers?.name || "Unknown Customer";
     const siteName = report.sites?.name || "Unknown Site";
-    const folderPath = `Customers/${sanitizeName(customerName)}/${sanitizeName(siteName)}/Reports`;
+    const siteAddress = (report.sites as any)?.address || "";
+    const siteFolder = siteAddress ? `${sanitizeName(siteName)} (${sanitizeName(siteAddress)})` : sanitizeName(siteName);
+    const folderPath = `Customers/${sanitizeName(customerName)}/${siteFolder}/Reports`;
     const fileName = `${report.report_number || "report"}.pdf`;
 
     setUploadingToSharePoint(report.id);
@@ -502,7 +504,7 @@ const Reports = () => {
       .from("service_reports")
       .select(`
         *,
-        sites:site_id(name, customers:customer_id(name)),
+        sites:site_id(name, address, customers:customer_id(name)),
         visits:visit_id(visit_type, visit_date)
       `)
       .order("created_at", { ascending: false });
