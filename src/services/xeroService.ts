@@ -178,6 +178,7 @@ export interface XeroOutstandingInvoice {
   amountPaid: number;
   currencyCode: string;
   isOverdue: boolean;
+  lineItems?: InvoiceLineItem[];
 }
 
 export interface XeroContactBalance {
