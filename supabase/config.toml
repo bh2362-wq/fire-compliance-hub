@@ -95,3 +95,12 @@ verify_jwt = false
 
 [functions.sync-invoice-status]
 verify_jwt = false
+
+[functions.microsoft-auth]
+verify_jwt = false
+
+[functions.microsoft-callback]
+verify_jwt = false
+
+[functions.upload-to-sharepoint]
+verify_jwt = false

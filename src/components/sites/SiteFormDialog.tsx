@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { FolderOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -33,6 +34,7 @@ interface SiteFormData {
   contact_email: string;
   contact_phone: string;
   customer_id: string | null;
+  sharepoint_folder: string;
 }
 
 interface SiteFormDialogProps {
@@ -64,6 +66,7 @@ const SiteFormDialog = ({
     contact_email: "",
     contact_phone: "",
     customer_id: defaultCustomerId || null,
+    sharepoint_folder: "",
   });
   const { toast } = useToast();
 
@@ -86,7 +89,7 @@ const SiteFormDialog = ({
       const fetchSiteWithCustomer = async () => {
         const { data } = await supabase
           .from("sites")
-          .select("customer_id")
+          .select("customer_id, sharepoint_folder")
           .eq("id", site.id)
           .maybeSingle();
         
@@ -99,6 +102,7 @@ const SiteFormDialog = ({
           contact_email: site.contact_email || "",
           contact_phone: site.contact_phone || "",
           customer_id: data?.customer_id || null,
+          sharepoint_folder: data?.sharepoint_folder || "",
         });
       };
       fetchSiteWithCustomer();
@@ -112,6 +116,7 @@ const SiteFormDialog = ({
         contact_email: "",
         contact_phone: "",
         customer_id: defaultCustomerId || null,
+        sharepoint_folder: "",
       });
     }
   }, [site, open, defaultCustomerId]);
@@ -142,11 +147,14 @@ const SiteFormDialog = ({
         contact_phone: formData.contact_phone || undefined,
       });
 
-      // Update customer_id separately
+      // Update customer_id and sharepoint_folder separately
       if (!error) {
         await supabase
           .from("sites")
-          .update({ customer_id: formData.customer_id })
+          .update({ 
+            customer_id: formData.customer_id,
+            sharepoint_folder: formData.sharepoint_folder || null,
+          })
           .eq("id", site.id);
       }
 
@@ -180,6 +188,7 @@ const SiteFormDialog = ({
           contact_email: formData.contact_email || null,
           contact_phone: formData.contact_phone || null,
           customer_id: formData.customer_id,
+          sharepoint_folder: formData.sharepoint_folder || null,
           status: "active",
         })
         .select()
@@ -328,6 +337,25 @@ const SiteFormDialog = ({
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <p className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
+              <FolderOpen className="w-4 h-4" />
+              SharePoint / OneDrive
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="sharepoint_folder">Folder Path</Label>
+              <Input
+                id="sharepoint_folder"
+                value={formData.sharepoint_folder}
+                onChange={handleChange("sharepoint_folder")}
+                placeholder="e.g., /sites/towerbm"
+              />
+              <p className="text-xs text-muted-foreground">
+                OneDrive folder path for uploading reports. Leave empty to disable.
+              </p>
             </div>
           </div>
 

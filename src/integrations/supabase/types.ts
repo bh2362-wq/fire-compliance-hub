@@ -1012,6 +1012,42 @@ export type Database = {
           },
         ]
       }
+      microsoft_tokens: {
+        Row: {
+          access_token: string
+          connected_at: string
+          connected_by: string
+          expires_at: string
+          id: string
+          refresh_token: string
+          scope: string | null
+          token_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          connected_at?: string
+          connected_by: string
+          expires_at: string
+          id?: string
+          refresh_token: string
+          scope?: string | null
+          token_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          connected_at?: string
+          connected_by?: string
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          scope?: string | null
+          token_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       parsed_device_tests: {
         Row: {
           address: string
@@ -2724,6 +2760,7 @@ export type Database = {
           id: string
           name: string
           postcode: string | null
+          sharepoint_folder: string | null
           status: string | null
           total_devices: number | null
           updated_at: string
@@ -2739,6 +2776,7 @@ export type Database = {
           id?: string
           name: string
           postcode?: string | null
+          sharepoint_folder?: string | null
           status?: string | null
           total_devices?: number | null
           updated_at?: string
@@ -2754,6 +2792,7 @@ export type Database = {
           id?: string
           name?: string
           postcode?: string | null
+          sharepoint_folder?: string | null
           status?: string | null
           total_devices?: number | null
           updated_at?: string
