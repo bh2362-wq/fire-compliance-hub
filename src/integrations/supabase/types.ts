@@ -3002,6 +3002,7 @@ export type Database = {
         Returns: string
       }
       has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
+      has_finance_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
