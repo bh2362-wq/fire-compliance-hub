@@ -240,16 +240,9 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
 
       if (!base64) throw new Error("Failed to generate PDF");
 
-      // Convert base64 to blob URL for iframe
-      const byteCharacters = atob(base64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      setPdfUrl(url);
+      // Use data URL instead of blob URL to avoid Chrome blocking
+      const dataUrl = `data:application/pdf;base64,${base64}`;
+      setPdfUrl(dataUrl);
     } catch (err) {
       console.error("PDF preview error:", err);
       setError("Failed to generate PDF preview");
@@ -261,11 +254,7 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
-      // Clean up blob URL
-      if (pdfUrl) {
-        URL.revokeObjectURL(pdfUrl);
-        setPdfUrl(null);
-      }
+      setPdfUrl(null);
       setError(null);
     }
     onOpenChange(isOpen);
