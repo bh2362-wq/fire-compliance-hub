@@ -969,11 +969,14 @@ const Reports = () => {
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent>
                               {(report as any).sharepoint_url ? (
-                                <DropdownMenuItem asChild>
-                                  <a href={(report as any).sharepoint_url} target="_blank" rel="noopener noreferrer">
-                                    <ExternalLink className="w-4 h-4 mr-2" />
-                                    Open in SharePoint
-                                  </a>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    navigator.clipboard.writeText((report as any).sharepoint_url);
+                                    toast.success("SharePoint link copied to clipboard");
+                                  }}
+                                >
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  Copy SharePoint Link
                                 </DropdownMenuItem>
                               ) : null}
                               <DropdownMenuItem
