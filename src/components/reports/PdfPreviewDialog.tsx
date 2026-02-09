@@ -298,11 +298,22 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
               <p className="text-sm text-destructive">{error}</p>
             </div>
           ) : pdfUrl ? (
-            <iframe
-              src={pdfUrl}
+            <object
+              data={pdfUrl}
+              type="application/pdf"
               className="w-full h-full border-0"
               title="Report PDF Preview"
-            />
+            >
+              <div className="flex flex-col items-center justify-center h-full gap-4 bg-background">
+                <p className="text-sm text-muted-foreground">
+                  Your browser cannot display the PDF inline.
+                </p>
+                <Button variant="outline" onClick={handleDownload}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF
+                </Button>
+              </div>
+            </object>
           ) : (
             <div className="flex items-center justify-center h-full bg-background">
               <div className="text-center space-y-3">
