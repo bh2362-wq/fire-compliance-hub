@@ -24,12 +24,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { deleteXeroInvoice, approveInvoice, XeroOutstandingInvoice } from "@/services/xeroService";
+import { deleteXeroInvoice, approveInvoice, XeroOutstandingInvoice, InvoiceLineItem } from "@/services/xeroService";
+import { ManualInvoiceDialog, EditInvoiceData } from "@/components/xero/ManualInvoiceDialog";
 import { CustomerOverdueDialog } from "@/components/credit-control/CustomerOverdueDialog";
 import {
   AlertDialog,
@@ -64,6 +65,7 @@ interface XeroInvoice {
   amountPaid: number;
   currencyCode: string;
   isOverdue: boolean;
+  lineItems?: InvoiceLineItem[];
 }
 
 interface ContactBalance {
@@ -107,6 +109,7 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
   const [selectedCustomer, setSelectedCustomer] = useState<{ name: string; contactId: string } | null>(null);
   const [approvingInvoice, setApprovingInvoice] = useState<XeroInvoice | null>(null);
   const [isApproving, setIsApproving] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<EditInvoiceData | null>(null);
   const [filters, setFilters] = useState<InvoiceFilters>({
     customer: "",
     status: "",
@@ -595,15 +598,35 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                             <TableCell>
                               <div className="flex items-center gap-1">
                                 {invoice.status === "DRAFT" && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-primary"
-                                    onClick={() => setApprovingInvoice(invoice)}
-                                    title="Approve Invoice"
-                                  >
-                                    <ShieldCheck className="h-4 w-4" />
-                                  </Button>
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                      onClick={() => setEditingInvoice({
+                                        invoiceId: invoice.invoiceId,
+                                        invoiceNumber: invoice.invoiceNumber,
+                                        contactId: invoice.contactId,
+                                        contactName: invoice.contactName,
+                                        reference: invoice.reference,
+                                        dueDate: invoice.dueDate,
+                                        total: invoice.total,
+                                        lineItems: invoice.lineItems || [],
+                                      })}
+                                      title="Edit Draft"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                      onClick={() => setApprovingInvoice(invoice)}
+                                      title="Approve Invoice"
+                                    >
+                                      <ShieldCheck className="h-4 w-4" />
+                                    </Button>
+                                  </>
                                 )}
                                 {invoice.status !== "DRAFT" && (
                                   <Button
@@ -827,6 +850,17 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Draft Invoice Dialog */}
+      <ManualInvoiceDialog
+        open={!!editingInvoice}
+        onOpenChange={(open) => !open && setEditingInvoice(null)}
+        onSuccess={() => {
+          setEditingInvoice(null);
+          fetchOutstandingInvoices();
+        }}
+        editInvoice={editingInvoice}
+      />
     </div>
   );
 }

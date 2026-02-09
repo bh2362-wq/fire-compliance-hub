@@ -32,6 +32,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   fetchXeroContacts,
   createXeroInvoice,
+  updateDraftInvoice,
   getXeroConnection,
   getNextInvoiceNumber,
   XeroContact,
@@ -40,10 +41,22 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
+export interface EditInvoiceData {
+  invoiceId: string;
+  invoiceNumber: string;
+  contactId: string;
+  contactName: string;
+  reference: string;
+  dueDate: string;
+  total: number;
+  lineItems: InvoiceLineItem[];
+}
+
 interface ManualInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  editInvoice?: EditInvoiceData | null;
 }
 
 const SERVICE_TYPES = [
@@ -130,6 +143,7 @@ export function ManualInvoiceDialog({
   open,
   onOpenChange,
   onSuccess,
+  editInvoice,
 }: ManualInvoiceDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -152,10 +166,11 @@ export function ManualInvoiceDialog({
   const draftRestoredRef = useRef(false);
   const skipAutoSaveRef = useRef(false);
 
-  // Auto-save draft whenever form values change
+  const isEditMode = !!editInvoice;
+
+  // Auto-save draft whenever form values change (only for new invoices)
   useEffect(() => {
-    if (!open || skipAutoSaveRef.current) return;
-    // Only save if there's meaningful data
+    if (!open || skipAutoSaveRef.current || isEditMode) return;
     const hasData = selectedContact || selectedSite || poNumber || 
       lineItems.some(li => li.description && li.unitAmount > 0);
     if (hasData) {
@@ -169,7 +184,7 @@ export function ManualInvoiceDialog({
         lineItems,
       });
     }
-  }, [open, selectedContact, selectedSite, serviceType, poNumber, invoiceNumber, dueDate, lineItems]);
+  }, [open, selectedContact, selectedSite, serviceType, poNumber, invoiceNumber, dueDate, lineItems, isEditMode]);
 
   useEffect(() => {
     if (open && user) {
@@ -177,33 +192,43 @@ export function ManualInvoiceDialog({
       loadContacts();
       loadSites();
 
-      // Check for saved draft
-      const draft = loadDraft();
-      if (draft) {
-        setHasDraft(true);
-        // Restore draft values
+      if (isEditMode && editInvoice) {
+        // Edit mode: populate from existing invoice data
         draftRestoredRef.current = true;
-        setSelectedContact(draft.selectedContact);
-        setSelectedSite(draft.selectedSite);
-        setServiceType(draft.serviceType);
-        setPoNumber(draft.poNumber);
-        setInvoiceNumber(draft.invoiceNumber);
-        setDueDate(draft.dueDate ? new Date(draft.dueDate) : addDays(new Date(), 30));
-        setLineItems(draft.lineItems.length > 0 ? draft.lineItems : SERVICE_TYPE_LINE_ITEMS.quarterly_service);
-      } else {
         setHasDraft(false);
-        draftRestoredRef.current = false;
-        // Reset form
-        setSelectedContact("");
+        setSelectedContact(editInvoice.contactId);
         setSelectedSite("");
-        setServiceType("quarterly_service");
-        setPoNumber("");
-        setDueDate(addDays(new Date(), 30));
-        setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
-        fetchNextInvoiceNumber();
+        setPoNumber(editInvoice.reference || "");
+        setInvoiceNumber(editInvoice.invoiceNumber);
+        setDueDate(editInvoice.dueDate ? new Date(editInvoice.dueDate) : addDays(new Date(), 30));
+        setLineItems(editInvoice.lineItems.length > 0 ? editInvoice.lineItems : SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+      } else {
+        // New invoice mode
+        const draft = loadDraft();
+        if (draft) {
+          setHasDraft(true);
+          draftRestoredRef.current = true;
+          setSelectedContact(draft.selectedContact);
+          setSelectedSite(draft.selectedSite);
+          setServiceType(draft.serviceType);
+          setPoNumber(draft.poNumber);
+          setInvoiceNumber(draft.invoiceNumber);
+          setDueDate(draft.dueDate ? new Date(draft.dueDate) : addDays(new Date(), 30));
+          setLineItems(draft.lineItems.length > 0 ? draft.lineItems : SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+        } else {
+          setHasDraft(false);
+          draftRestoredRef.current = false;
+          setSelectedContact("");
+          setSelectedSite("");
+          setServiceType("quarterly_service");
+          setPoNumber("");
+          setDueDate(addDays(new Date(), 30));
+          setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+          fetchNextInvoiceNumber();
+        }
       }
     }
-  }, [open, user]);
+  }, [open, user, isEditMode, editInvoice]);
 
   const fetchNextInvoiceNumber = async () => {
     setLoadingInvoiceNumber(true);
@@ -320,7 +345,7 @@ export function ManualInvoiceDialog({
       return;
     }
 
-    if (!selectedSite) {
+    if (!isEditMode && !selectedSite) {
       toast.error("Please select a site");
       return;
     }
@@ -333,53 +358,67 @@ export function ManualInvoiceDialog({
 
     setLoading(true);
     try {
-      // Build the reference - use PO number if provided, otherwise generate from service type + site
+      const contact = contacts.find(c => c.ContactID === selectedContact);
       const site = sites.find(s => s.id === selectedSite);
       const serviceLabel = SERVICE_TYPES.find(s => s.value === serviceType)?.label || serviceType;
       const invoiceReference = poNumber || `${serviceLabel} - ${site?.name || ""}`;
-      
-      // Create a visit record for invoice tracking
-      const { data: visit, error: visitError } = await supabase
-        .from("visits")
-        .insert({
-          site_id: selectedSite,
-          visit_type: serviceType,
-          visit_date: new Date().toISOString().split("T")[0],
-          status: "completed",
-          notes: `Manual invoice: ${invoiceReference}`,
-          devices_tested: 0,
-          total_devices: 0,
-          coverage_percentage: 0,
-        })
-        .select()
-        .single();
 
-      if (visitError) throw visitError;
+      if (isEditMode && editInvoice) {
+        // Update existing draft invoice in Xero
+        const result = await updateDraftInvoice(
+          editInvoice.invoiceId,
+          selectedContact,
+          contact?.Name || "",
+          validItems,
+          invoiceReference,
+          dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
+          invoiceNumber || undefined
+        );
 
-      // Create the invoice in Xero
-      const contact = contacts.find(c => c.ContactID === selectedContact);
-      
-      const result = await createXeroInvoice(
-        visit.id,
-        selectedContact,
-        contact?.Name || "",
-        validItems,
-        invoiceReference,
-        dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
-        invoiceNumber || undefined
-      );
-
-      if (result.emailSent) {
-        toast.success(`Invoice ${result.number} created and emailed to customer`);
+        toast.success(`Invoice ${result.number} updated successfully`);
+        onOpenChange(false);
+        onSuccess?.();
       } else {
-        toast.success(`Invoice ${result.number} created successfully`);
+        // Create a visit record for invoice tracking
+        const { data: visit, error: visitError } = await supabase
+          .from("visits")
+          .insert({
+            site_id: selectedSite,
+            visit_type: serviceType,
+            visit_date: new Date().toISOString().split("T")[0],
+            status: "completed",
+            notes: `Manual invoice: ${invoiceReference}`,
+            devices_tested: 0,
+            total_devices: 0,
+            coverage_percentage: 0,
+          })
+          .select()
+          .single();
+
+        if (visitError) throw visitError;
+
+        const result = await createXeroInvoice(
+          visit.id,
+          selectedContact,
+          contact?.Name || "",
+          validItems,
+          invoiceReference,
+          dueDate ? format(dueDate, "yyyy-MM-dd") : undefined,
+          invoiceNumber || undefined
+        );
+
+        if (result.emailSent) {
+          toast.success(`Invoice ${result.number} created and emailed to customer`);
+        } else {
+          toast.success(`Invoice ${result.number} created successfully`);
+        }
+        clearDraft();
+        onOpenChange(false);
+        onSuccess?.();
       }
-      clearDraft();
-      onOpenChange(false);
-      onSuccess?.();
     } catch (error: any) {
-      console.error("Failed to create invoice:", error);
-      toast.error(error.message || "Failed to create invoice");
+      console.error("Failed to create/update invoice:", error);
+      toast.error(error.message || "Failed to create/update invoice");
     } finally {
       setLoading(false);
     }
@@ -426,10 +465,10 @@ export function ManualInvoiceDialog({
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          Create Invoice
+          {isEditMode ? "Edit Draft Invoice" : "Create Invoice"}
         </ResponsiveDialogTitle>
         <ResponsiveDialogDescription>
-          Create a new Xero invoice manually
+          {isEditMode ? `Editing draft invoice ${editInvoice?.invoiceNumber}` : "Create a new Xero invoice manually"}
         </ResponsiveDialogDescription>
       </ResponsiveDialogHeader>
 
@@ -647,9 +686,9 @@ export function ManualInvoiceDialog({
         <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
           Cancel
         </Button>
-        <Button onClick={handleSubmit} disabled={loading || !selectedSite || !selectedContact} className="flex-1 sm:flex-none">
+        <Button onClick={handleSubmit} disabled={loading || (!isEditMode && !selectedSite) || !selectedContact} className="flex-1 sm:flex-none">
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Create Invoice
+          {isEditMode ? "Update Invoice" : "Create Invoice"}
         </Button>
       </ResponsiveDialogFooter>
     </ResponsiveDialog>

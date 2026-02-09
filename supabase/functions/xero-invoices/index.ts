@@ -202,6 +202,12 @@ Deno.serve(async (req) => {
             amountPaid: inv.AmountPaid,
             currencyCode: inv.CurrencyCode,
             isOverdue: dueDate < now && inv.AmountDue > 0,
+            lineItems: inv.Status === "DRAFT" ? (inv.LineItems || []).map((li: any) => ({
+              description: li.Description || "",
+              quantity: li.Quantity || 1,
+              unitAmount: li.UnitAmount || 0,
+              accountCode: li.AccountCode || "200",
+            })) : undefined,
           };
         }),
         contactBalances: contactsWithBalances,
