@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +55,12 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
   const [loading, setLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && !pdfUrl && !loading && !error) {
+      generatePreview();
+    }
+  }, [open]);
 
   const generatePreview = async () => {
     setLoading(true);
@@ -254,9 +260,7 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
   };
 
   const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
-      generatePreview();
-    } else {
+    if (!isOpen) {
       // Clean up blob URL
       if (pdfUrl) {
         URL.revokeObjectURL(pdfUrl);
