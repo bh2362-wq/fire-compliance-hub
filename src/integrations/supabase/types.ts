@@ -624,6 +624,7 @@ export type Database = {
           notes: string | null
           postcode: string | null
           sharepoint_folder: string | null
+          sharepoint_url: string | null
           status: string | null
           updated_at: string
           xero_contact_id: string | null
@@ -643,6 +644,7 @@ export type Database = {
           notes?: string | null
           postcode?: string | null
           sharepoint_folder?: string | null
+          sharepoint_url?: string | null
           status?: string | null
           updated_at?: string
           xero_contact_id?: string | null
@@ -662,6 +664,7 @@ export type Database = {
           notes?: string | null
           postcode?: string | null
           sharepoint_folder?: string | null
+          sharepoint_url?: string | null
           status?: string | null
           updated_at?: string
           xero_contact_id?: string | null
@@ -2770,6 +2773,7 @@ export type Database = {
           name: string
           postcode: string | null
           sharepoint_folder: string | null
+          sharepoint_url: string | null
           status: string | null
           total_devices: number | null
           updated_at: string
@@ -2786,6 +2790,7 @@ export type Database = {
           name: string
           postcode?: string | null
           sharepoint_folder?: string | null
+          sharepoint_url?: string | null
           status?: string | null
           total_devices?: number | null
           updated_at?: string
@@ -2802,6 +2807,7 @@ export type Database = {
           name?: string
           postcode?: string | null
           sharepoint_folder?: string | null
+          sharepoint_url?: string | null
           status?: string | null
           total_devices?: number | null
           updated_at?: string

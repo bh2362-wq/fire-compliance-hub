@@ -196,6 +196,7 @@ const SiteDetail = () => {
               entityName={site.name}
               customerName={customer?.name}
               existingFolder={site.sharepoint_folder}
+              existingUrl={(site as any).sharepoint_url}
               onFolderCreated={() => fetchSite()}
             />
             <Button variant="outline" onClick={() => setEditOpen(true)}>

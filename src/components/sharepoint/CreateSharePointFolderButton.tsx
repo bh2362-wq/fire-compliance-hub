@@ -18,8 +18,9 @@ interface CreateSharePointFolderButtonProps {
   entityType: "customer" | "site";
   entityId: string;
   entityName: string;
-  customerName?: string; // for sites, to build nested path
+  customerName?: string;
   existingFolder?: string | null;
+  existingUrl?: string | null;
   onFolderCreated?: (folderPath: string) => void;
   size?: "sm" | "default";
 }
@@ -30,6 +31,7 @@ export function CreateSharePointFolderButton({
   entityName,
   customerName,
   existingFolder,
+  existingUrl,
   onFolderCreated,
   size = "sm",
 }: CreateSharePointFolderButtonProps) {
@@ -45,7 +47,6 @@ export function CreateSharePointFolderButton({
     if (entityType === "customer") {
       return `Customers/${sanitize(entityName)}`;
     } else {
-      // Site: nested under customer
       if (customerName) {
         return `Customers/${sanitize(customerName)}/${sanitize(entityName)}`;
       }
@@ -55,7 +56,7 @@ export function CreateSharePointFolderButton({
 
   const handleOpen = () => {
     setFolderPath(existingFolder || getDefaultPath());
-    setWebUrl(null);
+    setWebUrl(existingUrl || null);
     setDialogOpen(true);
   };
 
@@ -88,6 +89,8 @@ export function CreateSharePointFolderButton({
       setCreating(false);
     }
   };
+
+  const displayUrl = webUrl || existingUrl;
 
   return (
     <>
@@ -133,10 +136,10 @@ export function CreateSharePointFolderButton({
               </p>
             </div>
 
-            {webUrl && (
+            {displayUrl && (
               <div className="bg-muted/50 rounded-lg p-3">
                 <a
-                  href={webUrl}
+                  href={displayUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-primary hover:underline flex items-center gap-1"
@@ -147,7 +150,7 @@ export function CreateSharePointFolderButton({
               </div>
             )}
 
-            {existingFolder && !webUrl && (
+            {existingFolder && !displayUrl && (
               <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
                 Current folder: <span className="font-medium text-foreground">{existingFolder}</span>
               </div>
@@ -156,23 +159,21 @@ export function CreateSharePointFolderButton({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              {webUrl ? "Close" : "Cancel"}
+              {displayUrl ? "Close" : "Cancel"}
             </Button>
-            {!webUrl && (
-              <Button onClick={handleCreate} disabled={creating}>
-                {creating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <FolderPlus className="w-4 h-4 mr-2" />
-                    {existingFolder ? "Update Folder" : "Create Folder"}
-                  </>
-                )}
-              </Button>
-            )}
+            <Button onClick={handleCreate} disabled={creating}>
+              {creating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <FolderPlus className="w-4 h-4 mr-2" />
+                  {existingFolder ? "Update Folder" : "Create Folder"}
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
