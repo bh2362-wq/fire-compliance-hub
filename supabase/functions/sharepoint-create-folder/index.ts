@@ -163,9 +163,9 @@ Deno.serve(async (req) => {
     const cleanPath = folderPath.replace(/^\/+|\/+$/g, "");
     const webUrl = await createFolderPath(accessToken, cleanPath);
 
-    // Save the folder path back to the entity
+    // Save the folder path and webUrl back to the entity
     const table = entityType === "customer" ? "customers" : "sites";
-    await supabase.from(table).update({ sharepoint_folder: cleanPath }).eq("id", entityId);
+    await supabase.from(table).update({ sharepoint_folder: cleanPath, sharepoint_url: webUrl || null }).eq("id", entityId);
 
     return new Response(
       JSON.stringify({ success: true, folderPath: cleanPath, webUrl }),

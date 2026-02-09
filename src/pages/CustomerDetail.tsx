@@ -162,6 +162,7 @@ const CustomerDetail = () => {
               entityId={customer.id}
               entityName={customer.name}
               existingFolder={(customer as any).sharepoint_folder}
+              existingUrl={(customer as any).sharepoint_url}
               onFolderCreated={() => loadData()}
             />
             <Button variant="outline" onClick={() => setShowEditDialog(true)}>
