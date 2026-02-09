@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardCheck, Calendar, MapPin, FileText, Download, Wind, AlertTriangle, CheckCircle2, RefreshCw, Upload, ExternalLink } from "lucide-react";
+import { ClipboardCheck, Calendar, MapPin, FileText, Download, Wind, AlertTriangle, CheckCircle2, RefreshCw, Upload, ExternalLink, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { InvoiceStatusBadge } from "@/components/reports/InvoiceStatusBadge";
 import { format, parseISO, isValid } from "date-fns";
@@ -588,18 +588,31 @@ export function CustomerReports({ customerId, customerName, siteIds }: CustomerR
                   </div>
                   <div className="flex items-center gap-1">
                     {report.sharepoint_url && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Copy SharePoint Link"
-                        onClick={() => {
-                          navigator.clipboard.writeText(report.sharepoint_url!);
-                          toast.success("SharePoint link copied to clipboard");
-                        }}
-                      >
-                        <ExternalLink className="w-4 h-4 text-primary" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Open in SharePoint"
+                          onClick={() => {
+                            window.open(report.sharepoint_url!, "_blank", "noopener,noreferrer");
+                          }}
+                        >
+                          <ExternalLink className="w-4 h-4 text-primary" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Copy SharePoint Link"
+                          onClick={() => {
+                            navigator.clipboard.writeText(report.sharepoint_url!);
+                            toast.success("SharePoint link copied to clipboard");
+                          }}
+                        >
+                          <Copy className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                      </>
                     )}
                     {!report.sharepoint_url && (
                       <Button
