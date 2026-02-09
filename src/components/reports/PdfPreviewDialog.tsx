@@ -191,7 +191,7 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
 
       if (!base64) throw new Error("Failed to generate PDF");
 
-      // Convert to blob and open in new tab
+      // Download the PDF via a hidden anchor (works inside sandboxed iframes)
       const byteCharacters = atob(base64);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
@@ -199,9 +199,15 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
       }
       const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/pdf" });
       const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, "_blank");
-      // Close the dialog since PDF opens in new tab
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `report-${reportId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
       onOpenChange(false);
+      toast.success("PDF downloaded");
     } catch (err) {
       console.error("PDF preview error:", err);
       setError("Failed to generate PDF preview");
@@ -217,7 +223,7 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
         <DialogHeader>
           <DialogTitle>Report Preview</DialogTitle>
           <DialogDescription>
-            {loading ? "Generating PDF..." : error ? error : "Opening PDF in a new tab..."}
+            {loading ? "Generating PDF..." : error ? error : "Downloading PDF..."}
           </DialogDescription>
         </DialogHeader>
         <div className="flex items-center justify-center py-6">
