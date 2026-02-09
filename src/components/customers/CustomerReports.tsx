@@ -112,7 +112,7 @@ export function CustomerReports({ customerId, customerName, siteIds }: CustomerR
 
   const getSharePointPath = (report: ServiceReport) => {
     const siteName = report.site?.name || siteNameMap[report.site_id] || "Unknown Site";
-    return `${sanitizeName(customerName)}/${sanitizeName(siteName)}/Reports`;
+    return `Customers/${sanitizeName(customerName)}/${sanitizeName(siteName)}/Reports`;
   };
 
   const handleSyncInvoiceStatus = async () => {

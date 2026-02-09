@@ -147,7 +147,7 @@ const Reports = () => {
   const handleUploadToSharePoint = async (report: ReportWithSite) => {
     const customerName = (report.sites as any)?.customers?.name || "Unknown Customer";
     const siteName = report.sites?.name || "Unknown Site";
-    const folderPath = `${sanitizeName(customerName)}/${sanitizeName(siteName)}/Reports`;
+    const folderPath = `Customers/${sanitizeName(customerName)}/${sanitizeName(siteName)}/Reports`;
     const fileName = `${report.report_number || "report"}.pdf`;
 
     setUploadingToSharePoint(report.id);
