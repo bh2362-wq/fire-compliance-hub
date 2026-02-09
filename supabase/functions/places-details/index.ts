@@ -15,9 +15,26 @@ serve(async (req) => {
   try {
     const { placeId, sessionToken } = await req.json();
 
-    if (!placeId) {
+    // Validate placeId: must be a string, max 300 chars, alphanumeric + basic chars
+    if (!placeId || typeof placeId !== 'string' || placeId.trim().length === 0 || placeId.length > 300) {
       return new Response(
         JSON.stringify({ error: 'placeId is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate placeId format (Google Place IDs are alphanumeric with hyphens/underscores)
+    if (!/^[A-Za-z0-9_\-]+$/.test(placeId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid placeId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate sessionToken if provided
+    if (sessionToken && (typeof sessionToken !== 'string' || sessionToken.length > 100)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid session token' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
