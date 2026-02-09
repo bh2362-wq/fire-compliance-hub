@@ -32,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2 } from "lucide-react";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2, Copy } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import {
@@ -971,15 +971,25 @@ const Reports = () => {
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent>
                               {(report as any).sharepoint_url ? (
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    navigator.clipboard.writeText((report as any).sharepoint_url);
-                                    toast.success("SharePoint link copied to clipboard");
-                                  }}
-                                >
-                                  <ExternalLink className="w-4 h-4 mr-2" />
-                                  Copy SharePoint Link
-                                </DropdownMenuItem>
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      window.open((report as any).sharepoint_url, "_blank", "noopener,noreferrer");
+                                    }}
+                                  >
+                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                    Open in SharePoint
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      navigator.clipboard.writeText((report as any).sharepoint_url);
+                                      toast.success("SharePoint link copied to clipboard");
+                                    }}
+                                  >
+                                    <Copy className="w-4 h-4 mr-2" />
+                                    Copy SharePoint Link
+                                  </DropdownMenuItem>
+                                </>
                               ) : null}
                               <DropdownMenuItem
                                 disabled={uploadingToSharePoint === report.id}
