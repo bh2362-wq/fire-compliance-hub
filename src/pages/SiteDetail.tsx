@@ -244,7 +244,7 @@ const SiteDetail = () => {
 
         {/* Service Reports */}
         <CollapsibleSection title="Service Reports" icon={ClipboardList} defaultOpen={false}>
-          <SiteServiceReports siteId={site.id} siteName={site.name} />
+          <SiteServiceReports siteId={site.id} siteName={site.name} customerName={customer?.name} />
         </CollapsibleSection>
 
         {/* Upload History */}

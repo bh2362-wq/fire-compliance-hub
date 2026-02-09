@@ -296,6 +296,7 @@ const CustomerDetail = () => {
         {/* Completed Reports */}
         <CustomerReports 
           customerId={customer.id} 
+          customerName={customer.name}
           siteIds={sites.map(s => s.id)} 
         />
 

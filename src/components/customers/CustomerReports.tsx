@@ -10,6 +10,7 @@ import { format, parseISO, isValid } from "date-fns";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
 import { SharePointUploadDialog } from "@/components/sharepoint/SharePointUploadDialog";
+import { SharePointBulkUpload } from "@/components/sharepoint/SharePointBulkUpload";
 
 interface ServiceReport {
   id: string;
@@ -56,6 +57,7 @@ interface InvoiceInfo {
 
 interface CustomerReportsProps {
   customerId: string;
+  customerName: string;
   siteIds: string[];
 }
 
@@ -95,14 +97,23 @@ const conditionConfig: Record<string, { label: string; icon: typeof CheckCircle2
   unsatisfactory: { label: "Unsatisfactory", icon: AlertTriangle, className: "text-destructive" },
 };
 
-export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
+export function CustomerReports({ customerId, customerName, siteIds }: CustomerReportsProps) {
   const [reports, setReports] = useState<ServiceReport[]>([]);
   const [visitMap, setVisitMap] = useState<Record<string, VisitInfo>>({});
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
   const [siteSharePointMap, setSiteSharePointMap] = useState<Record<string, string>>({});
+  const [siteNameMap, setSiteNameMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [sharePointReport, setSharePointReport] = useState<ServiceReport | null>(null);
+
+  const sanitizeName = (name: string) =>
+    name.replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
+
+  const getSharePointPath = (report: ServiceReport) => {
+    const siteName = report.site?.name || siteNameMap[report.site_id] || "Unknown Site";
+    return `${sanitizeName(customerName)}/${sanitizeName(siteName)}/Reports`;
+  };
 
   const handleSyncInvoiceStatus = async () => {
     setSyncing(true);
@@ -165,7 +176,7 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
         const [visitsResult, invoicesResult, spResult] = await Promise.all([
           supabase.from("visits").select("id, visit_type, visit_date").in("id", visitIds),
           supabase.from("xero_invoices").select("visit_id, xero_invoice_number, status").in("visit_id", visitIds),
-          supabase.from("sites").select("id, sharepoint_folder").in("id", siteIds),
+          supabase.from("sites").select("id, name, sharepoint_folder").in("id", siteIds),
         ]);
 
         if (visitsResult.data) {
@@ -186,10 +197,13 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
 
         if (spResult.data) {
           const spMap: Record<string, string> = {};
+          const snMap: Record<string, string> = {};
           spResult.data.forEach((s: any) => {
             if (s.sharepoint_folder) spMap[s.id] = s.sharepoint_folder;
+            if (s.name) snMap[s.id] = s.name;
           });
           setSiteSharePointMap(spMap);
+          setSiteNameMap(snMap);
         }
       }
     } catch (err) {
@@ -378,6 +392,96 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
     );
   }
 
+  const generatePdfForSharePoint = async (report: ServiceReport): Promise<string | null> => {
+    const visit = visitMap[report.visit_id];
+    const siteInfo = report.site;
+    if (!siteInfo || !visit) return null;
+    try {
+      if (isASDReport(report)) {
+        const parsed = JSON.parse(report.notes || "{}");
+        return generateASDReportPDF(
+          {
+            reportNumber: report.report_number || "", reportDate: report.report_date,
+            engineerName: report.engineer_name || "", clientName: report.client_name || "",
+            units: parsed.units || [], systemCondition: report.system_condition || "",
+            defectsFound: report.defects_found || "", recommendations: report.recommendations || "",
+            workCarriedOut: report.work_carried_out || "", partsUsed: report.parts_used || "",
+            notes: parsed.additional_notes || "",
+            engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
+            engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
+            customerNotPresent: parsed.customerNotPresent || false,
+            customerSignature: report.client_signature || parsed.customerSignature || "",
+            customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
+          }, siteInfo, visit.visit_date, visit.visit_type, true
+        ) as string;
+      } else if (isDisabledRefugeReport(report)) {
+        const parsed = JSON.parse(report.notes || "{}");
+        return await generateDisabledRefugeReportPDF(
+          {
+            reportNumber: report.report_number || "", reportDate: report.report_date,
+            engineerName: report.engineer_name || "", clientName: report.client_name || "",
+            units: (parsed.units || []).map((u: any) => ({
+              assetId: u.assetId, assetName: u.assetName, manufacturer: u.manufacturer,
+              model: u.model, location: u.location, checklist: u.checklist,
+              defects: u.defects, recommendations: u.recommendations, systemCondition: u.systemCondition,
+            })),
+            systemCondition: report.system_condition || "", defectsFound: report.defects_found || "",
+            recommendations: report.recommendations || "", workCarriedOut: report.work_carried_out || "",
+            partsUsed: report.parts_used || "", notes: parsed.additional_notes || "",
+            engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
+            engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
+            customerNotPresent: parsed.customerNotPresent || false,
+            customerSignature: report.client_signature || parsed.customerSignature || "",
+            customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
+          }, siteInfo, visit.visit_date, visit.visit_type || "EVC Service", true
+        ) as string;
+      } else if (isWorkReport(report)) {
+        const parsed = JSON.parse(report.notes || "{}");
+        return generateWorkReportPDF(
+          {
+            certificateNo: report.report_number || "", jobNumber: parsed.jobNumber || "",
+            jobType: parsed.jobType || "", appointmentDate: parsed.appointmentDate || "",
+            systemStatusArrival: parsed.systemStatusArrival || "",
+            systemStatusDeparture: parsed.systemStatusDeparture || "",
+            workCompleted: parsed.workCompleted || false, returnRequired: parsed.returnRequired || false,
+            surveyRequired: parsed.surveyRequired || false, quotationRequired: parsed.quotationRequired || false,
+            ramsCompleted: parsed.ramsCompleted || false, logBookEntry: parsed.logBookEntry || false,
+            worksReport: report.work_carried_out || "", furtherAction: report.recommendations || "",
+            numEngineers: parsed.numEngineers || 1, workDays: parsed.workDays || [],
+            totalHours: parsed.totalHours || "", startTime: parsed.startTime || "",
+            finishTime: parsed.finishTime || "", travelTime: parsed.travelTime || "",
+            duration: parsed.duration || "", materials: parsed.materials || [],
+            photos: parsed.photos || [], engineerName: report.engineer_name || "",
+            engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
+            engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
+            customerNotPresent: parsed.customerNotPresent || false,
+            customerName: report.client_name || "",
+            customerSignature: report.client_signature || parsed.customerSignature || "",
+            customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
+          }, siteInfo, visit.visit_date, visit.visit_type, true
+        ) as string;
+      } else {
+        let signatures = {};
+        let panels = undefined;
+        try {
+          const parsed = JSON.parse(report.notes || "{}");
+          signatures = {
+            engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
+            engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
+            customerNotPresent: parsed.customerNotPresent || false,
+            customerSignature: report.client_signature || parsed.customerSignature || "",
+            customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
+          };
+          if (parsed.multi_panel && Array.isArray(parsed.panel_checklists)) panels = parsed.panel_checklists;
+        } catch { /* ignore */ }
+        return generateServiceReportPDF(report as any, siteInfo, visit, panels, signatures, true) as string;
+      }
+    } catch (err) {
+      console.error("Failed to generate PDF for SharePoint:", err);
+      return null;
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -386,16 +490,26 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
           Completed Reports
           <Badge variant="secondary" className="ml-1">{reports.length}</Badge>
         </CardTitle>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSyncInvoiceStatus}
-          disabled={syncing || reports.length === 0}
-          className="gap-1.5"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Syncing..." : "Sync Xero"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <SharePointBulkUpload
+            reports={reports}
+            customerName={customerName}
+            siteMap={siteNameMap}
+            visitMap={visitMap}
+            generatePdfBase64ForReport={(report) => generatePdfForSharePoint(report)}
+            onComplete={() => loadReports()}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSyncInvoiceStatus}
+            disabled={syncing || reports.length === 0}
+            className="gap-1.5"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing..." : "Sync Xero"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {reports.length === 0 ? (
@@ -480,7 +594,7 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
                         <ExternalLink className="w-4 h-4 text-primary" />
                       </a>
                     )}
-                    {siteSharePointMap[report.site_id] && (
+                    {!report.sharepoint_url && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -510,137 +624,11 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
         <SharePointUploadDialog
           open={!!sharePointReport}
           onOpenChange={(open) => !open && setSharePointReport(null)}
-          folderPath={siteSharePointMap[sharePointReport.site_id] || ""}
-          fileName={`${sharePointReport.report_number || "Report"}-${sharePointReport.report_date}.pdf`}
+          folderPath={getSharePointPath(sharePointReport)}
+          fileName={`${sharePointReport.report_number || "Report"}.pdf`}
           reportId={sharePointReport.id}
           onUploaded={() => loadReports()}
-          generatePdfBase64={async () => {
-            const visit = visitMap[sharePointReport.visit_id];
-            const siteInfo = sharePointReport.site;
-            if (!siteInfo || !visit) return null;
-            try {
-              // Use the same PDF generation but return bytes instead of downloading
-              // For now, generate and return output bytes
-              if (isASDReport(sharePointReport)) {
-                const parsed = JSON.parse(sharePointReport.notes || "{}");
-                return generateASDReportPDF(
-                  {
-                    reportNumber: sharePointReport.report_number || "",
-                    reportDate: sharePointReport.report_date,
-                    engineerName: sharePointReport.engineer_name || "",
-                    clientName: sharePointReport.client_name || "",
-                    units: parsed.units || [],
-                    systemCondition: sharePointReport.system_condition || "",
-                    defectsFound: sharePointReport.defects_found || "",
-                    recommendations: sharePointReport.recommendations || "",
-                    workCarriedOut: sharePointReport.work_carried_out || "",
-                    partsUsed: sharePointReport.parts_used || "",
-                    notes: parsed.additional_notes || "",
-                    engineerSignature: sharePointReport.engineer_signature || parsed.engineerSignature || "",
-                    engineerSignDate: parsed.engineerSignDate || "",
-                    engineerSignTime: parsed.engineerSignTime || "",
-                    customerNotPresent: parsed.customerNotPresent || false,
-                    customerSignature: sharePointReport.client_signature || parsed.customerSignature || "",
-                    customerSignDate: parsed.customerSignDate || "",
-                    customerSignTime: parsed.customerSignTime || "",
-                  },
-                  siteInfo,
-                  visit.visit_date,
-                  visit.visit_type,
-                  true
-                ) as string;
-              } else if (isDisabledRefugeReport(sharePointReport)) {
-                const parsed = JSON.parse(sharePointReport.notes || "{}");
-                return await generateDisabledRefugeReportPDF(
-                  {
-                    reportNumber: sharePointReport.report_number || "",
-                    reportDate: sharePointReport.report_date,
-                    engineerName: sharePointReport.engineer_name || "",
-                    clientName: sharePointReport.client_name || "",
-                    units: (parsed.units || []).map((u: any) => ({
-                      assetId: u.assetId, assetName: u.assetName, manufacturer: u.manufacturer,
-                      model: u.model, location: u.location, checklist: u.checklist,
-                      defects: u.defects, recommendations: u.recommendations, systemCondition: u.systemCondition,
-                    })),
-                    systemCondition: sharePointReport.system_condition || "",
-                    defectsFound: sharePointReport.defects_found || "",
-                    recommendations: sharePointReport.recommendations || "",
-                    workCarriedOut: sharePointReport.work_carried_out || "",
-                    partsUsed: sharePointReport.parts_used || "",
-                    notes: parsed.additional_notes || "",
-                    engineerSignature: sharePointReport.engineer_signature || parsed.engineerSignature || "",
-                    engineerSignDate: parsed.engineerSignDate || "",
-                    engineerSignTime: parsed.engineerSignTime || "",
-                    customerNotPresent: parsed.customerNotPresent || false,
-                    customerSignature: sharePointReport.client_signature || parsed.customerSignature || "",
-                    customerSignDate: parsed.customerSignDate || "",
-                    customerSignTime: parsed.customerSignTime || "",
-                  },
-                  siteInfo,
-                  visit.visit_date,
-                  visit.visit_type || "EVC Service",
-                  true
-                ) as string;
-              } else if (isWorkReport(sharePointReport)) {
-                const parsed = JSON.parse(sharePointReport.notes || "{}");
-                return generateWorkReportPDF(
-                  {
-                    certificateNo: sharePointReport.report_number || "",
-                    jobNumber: parsed.jobNumber || "", jobType: parsed.jobType || "",
-                    appointmentDate: parsed.appointmentDate || "",
-                    systemStatusArrival: parsed.systemStatusArrival || "",
-                    systemStatusDeparture: parsed.systemStatusDeparture || "",
-                    workCompleted: parsed.workCompleted || false,
-                    returnRequired: parsed.returnRequired || false,
-                    surveyRequired: parsed.surveyRequired || false,
-                    quotationRequired: parsed.quotationRequired || false,
-                    ramsCompleted: parsed.ramsCompleted || false,
-                    logBookEntry: parsed.logBookEntry || false,
-                    worksReport: sharePointReport.work_carried_out || "",
-                    furtherAction: sharePointReport.recommendations || "",
-                    numEngineers: parsed.numEngineers || 1,
-                    workDays: parsed.workDays || [], totalHours: parsed.totalHours || "",
-                    startTime: parsed.startTime || "", finishTime: parsed.finishTime || "",
-                    travelTime: parsed.travelTime || "", duration: parsed.duration || "",
-                    materials: parsed.materials || [], photos: parsed.photos || [],
-                    engineerName: sharePointReport.engineer_name || "",
-                    engineerSignature: sharePointReport.engineer_signature || parsed.engineerSignature || "",
-                    engineerSignDate: parsed.engineerSignDate || "",
-                    engineerSignTime: parsed.engineerSignTime || "",
-                    customerNotPresent: parsed.customerNotPresent || false,
-                    customerName: sharePointReport.client_name || "",
-                    customerSignature: sharePointReport.client_signature || parsed.customerSignature || "",
-                    customerSignDate: parsed.customerSignDate || "",
-                    customerSignTime: parsed.customerSignTime || "",
-                  },
-                  siteInfo, visit.visit_date, visit.visit_type,
-                  true
-                ) as string;
-              } else {
-                let signatures = {};
-                let panels = undefined;
-                try {
-                  const parsed = JSON.parse(sharePointReport.notes || "{}");
-                  signatures = {
-                    engineerSignature: sharePointReport.engineer_signature || parsed.engineerSignature || "",
-                    engineerSignDate: parsed.engineerSignDate || "",
-                    engineerSignTime: parsed.engineerSignTime || "",
-                    customerNotPresent: parsed.customerNotPresent || false,
-                    customerSignature: sharePointReport.client_signature || parsed.customerSignature || "",
-                    customerSignDate: parsed.customerSignDate || "",
-                    customerSignTime: parsed.customerSignTime || "",
-                  };
-                  if (parsed.multi_panel && Array.isArray(parsed.panel_checklists)) {
-                    panels = parsed.panel_checklists;
-                  }
-                } catch { /* ignore */ }
-                return generateServiceReportPDF(sharePointReport as any, siteInfo, visit, panels, signatures, true) as string;
-              }
-            } catch (err) {
-              console.error("Failed to generate PDF for SharePoint:", err);
-              return null;
-            }
-          }}
+          generatePdfBase64={() => generatePdfForSharePoint(sharePointReport)}
         />
       )}
     </Card>
