@@ -121,7 +121,9 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
   const getSharePointPath = () => {
     const cName = customerName || "Unknown Customer";
     const sName = siteName || "Unknown Site";
-    return `${sanitizeName(cName)}/${sanitizeName(sName)}/Reports`;
+    const sAddr = siteInfo?.address || "";
+    const siteFolder = sAddr ? `${sanitizeName(sName)} (${sanitizeName(sAddr)})` : sanitizeName(sName);
+    return `Customers/${sanitizeName(cName)}/${siteFolder}/Reports`;
   };
 
   const generatePdfForSharePoint = async (report: ServiceReport): Promise<string | null> => {
@@ -412,7 +414,7 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
             <SharePointBulkUpload
               reports={reports}
               customerName={customerName}
-              siteMap={{ [siteId]: siteName || "Unknown Site" }}
+              siteMap={{ [siteId]: { name: siteName || "Unknown Site", address: siteInfo?.address || "" } }}
               visitMap={visitMap}
               generatePdfBase64ForReport={(report) => generatePdfForSharePoint(report)}
               onComplete={() => fetchReports()}

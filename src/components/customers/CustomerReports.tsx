@@ -112,7 +112,9 @@ export function CustomerReports({ customerId, customerName, siteIds }: CustomerR
 
   const getSharePointPath = (report: ServiceReport) => {
     const siteName = report.site?.name || siteNameMap[report.site_id] || "Unknown Site";
-    return `Customers/${sanitizeName(customerName)}/${sanitizeName(siteName)}/Reports`;
+    const siteAddress = (report.site as any)?.address || "";
+    const siteFolder = siteAddress ? `${sanitizeName(siteName)} (${sanitizeName(siteAddress)})` : sanitizeName(siteName);
+    return `Customers/${sanitizeName(customerName)}/${siteFolder}/Reports`;
   };
 
   const handleSyncInvoiceStatus = async () => {
@@ -494,7 +496,9 @@ export function CustomerReports({ customerId, customerName, siteIds }: CustomerR
           <SharePointBulkUpload
             reports={reports}
             customerName={customerName}
-            siteMap={siteNameMap}
+            siteMap={Object.fromEntries(
+              reports.map((r: any) => [r.site_id, { name: r.site?.name || siteNameMap[r.site_id] || "Unknown Site", address: r.site?.address || "" }])
+            )}
             visitMap={visitMap}
             generatePdfBase64ForReport={(report) => generatePdfForSharePoint(report)}
             onComplete={() => loadReports()}
