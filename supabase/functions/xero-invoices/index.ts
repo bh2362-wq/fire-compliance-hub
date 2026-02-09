@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
       whereClause += `&&Contact.ContactID==Guid("${contactId}")`;
     }
     
-    const xeroUrl = `https://api.xero.com/api.xro/2.0/Invoices?where=${encodeURIComponent(whereClause)}&order=DueDate`;
+    const xeroUrl = `https://api.xero.com/api.xro/2.0/Invoices?where=${encodeURIComponent(whereClause)}&order=Date DESC`;
     
     console.log("Fetching invoices from Xero:", xeroUrl);
 
