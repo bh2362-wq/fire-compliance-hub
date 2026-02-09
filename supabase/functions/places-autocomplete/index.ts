@@ -15,10 +15,21 @@ serve(async (req) => {
   try {
     const { input, sessionToken } = await req.json();
 
-    if (!input || input.trim().length < 3) {
+    // Validate input: must be a string, 3-200 chars, no control characters
+    if (!input || typeof input !== 'string' || input.trim().length < 3) {
       return new Response(
         JSON.stringify({ predictions: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const sanitizedInput = input.trim().slice(0, 200);
+
+    // Validate sessionToken format if provided (should be UUID-like)
+    if (sessionToken && (typeof sessionToken !== 'string' || sessionToken.length > 100)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid session token' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -33,7 +44,7 @@ serve(async (req) => {
 
     // Call Google Places Autocomplete API - restrict to UK, allow addresses and businesses
     const params = new URLSearchParams({
-      input: input.trim(),
+      input: sanitizedInput,
       key: apiKey,
       components: 'country:gb',
     });
