@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { XeroConnectionCard } from "@/components/xero/XeroConnectionCard";
+import { SharePointConnectionCard } from "@/components/sharepoint/SharePointConnectionCard";
 import { OutstandingInvoices } from "@/components/xero/OutstandingInvoices";
 import { useAuth } from "@/contexts/AuthContext";
 import { getXeroConnection, XeroConnection } from "@/services/xeroService";
@@ -147,6 +148,7 @@ const Settings = () => {
           <TabsContent value="integrations" className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
               <XeroConnectionCard />
+              <SharePointConnectionCard />
             </div>
             {xeroConnection && <OutstandingInvoices />}
           </TabsContent>
