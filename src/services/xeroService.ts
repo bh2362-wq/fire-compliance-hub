@@ -307,3 +307,30 @@ export async function approveInvoice(invoiceId: string): Promise<{ success: bool
   
   return data;
 }
+
+export async function updateDraftInvoice(
+  invoiceId: string,
+  contactId: string,
+  contactName: string,
+  lineItems: InvoiceLineItem[],
+  reference?: string,
+  dueDate?: string,
+  invoiceNumber?: string
+): Promise<{ id: string; number: string; status: string; total: number }> {
+  const { data, error } = await supabase.functions.invoke("xero-update-draft-invoice", {
+    body: {
+      invoiceId,
+      contactId,
+      contactName,
+      lineItems,
+      reference,
+      dueDate,
+      invoiceNumber,
+    },
+  });
+
+  if (error) throw new Error(error.message);
+  if (data.error) throw new Error(data.error);
+  
+  return data.invoice;
+}

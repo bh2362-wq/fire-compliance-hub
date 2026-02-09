@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.upload-to-sharepoint]
 verify_jwt = false
+
+[functions.xero-update-draft-invoice]
+verify_jwt = false
