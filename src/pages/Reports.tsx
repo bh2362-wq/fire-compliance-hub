@@ -969,11 +969,11 @@ const Reports = () => {
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent>
                               {(report as any).sharepoint_url ? (
-                                <DropdownMenuItem
-                                  onClick={() => window.open((report as any).sharepoint_url, "_blank")}
-                                >
-                                  <ExternalLink className="w-4 h-4 mr-2" />
-                                  Open in SharePoint
+                                <DropdownMenuItem asChild>
+                                  <a href={(report as any).sharepoint_url} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                    Open in SharePoint
+                                  </a>
                                 </DropdownMenuItem>
                               ) : null}
                               <DropdownMenuItem
