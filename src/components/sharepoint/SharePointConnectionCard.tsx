@@ -33,7 +33,6 @@ export function SharePointConnectionCard() {
       if (event.data?.type === "microsoft-connected") {
         setConnected(true);
         setConnecting(false);
-        toast.success("Microsoft connected successfully");
       }
     };
     window.addEventListener("message", handleMessage);
