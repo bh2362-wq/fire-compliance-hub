@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, AlertTriangle, CheckCircle2, Eye, Download, Wind, RefreshCw, FileSearch } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle2, Eye, Download, Wind, RefreshCw, FileSearch, Upload, ExternalLink } from "lucide-react";
 import { PdfPreviewDialog } from "@/components/reports/PdfPreviewDialog";
 import { format } from "date-fns";
 import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportService";
@@ -10,13 +10,16 @@ import { InvoiceStatusBadge } from "@/components/reports/InvoiceStatusBadge";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
-import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF } from "@/lib/pdfGenerator";
+import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SharePointBulkUpload } from "@/components/sharepoint/SharePointBulkUpload";
+import { SharePointUploadDialog } from "@/components/sharepoint/SharePointUploadDialog";
 
 interface SiteServiceReportsProps {
   siteId: string;
   siteName?: string;
+  customerName?: string;
 }
 
 interface VisitInfo {
@@ -99,7 +102,7 @@ function isASDReport(report: ServiceReport): boolean {
   }
 }
 
-export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps) {
+export function SiteServiceReports({ siteId, siteName, customerName }: SiteServiceReportsProps) {
   const [reports, setReports] = useState<ServiceReport[]>([]);
   const [visitMap, setVisitMap] = useState<Record<string, VisitInfo>>({});
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
@@ -111,6 +114,33 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
   const [asdAssets, setAsdAssets] = useState<ASDAsset[]>([]);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
+  const [sharePointReport, setSharePointReport] = useState<ServiceReport | null>(null);
+
+  const sanitizeName = (name: string) => name.replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
+
+  const getSharePointPath = () => {
+    const cName = customerName || "Unknown Customer";
+    const sName = siteName || "Unknown Site";
+    return `${sanitizeName(cName)}/${sanitizeName(sName)}/Reports`;
+  };
+
+  const generatePdfForSharePoint = async (report: ServiceReport): Promise<string | null> => {
+    const visit = visitMap[report.visit_id];
+    if (!siteInfo || !visit) return null;
+    try {
+      if (isASDReport(report)) {
+        const parsed = JSON.parse(report.notes || "{}");
+        return generateASDReportPDF({ reportNumber: report.report_number || "", reportDate: report.report_date, engineerName: report.engineer_name || "", clientName: report.client_name || "", units: parsed.units || [], systemCondition: report.system_condition || "", defectsFound: report.defects_found || "", recommendations: report.recommendations || "", workCarriedOut: report.work_carried_out || "", partsUsed: report.parts_used || "", notes: parsed.additional_notes || "", engineerSignature: report.engineer_signature || parsed.engineerSignature || "", engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "", customerNotPresent: parsed.customerNotPresent || false, customerSignature: report.client_signature || parsed.customerSignature || "", customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "" }, siteInfo, visit.visit_date, visit.visit_type, true) as string;
+      } else if (isWorkReport(report)) {
+        const parsed = JSON.parse(report.notes || "{}");
+        return generateWorkReportPDF({ certificateNo: report.report_number || "", jobNumber: parsed.jobNumber || "", jobType: parsed.jobType || "", appointmentDate: parsed.appointmentDate || "", systemStatusArrival: parsed.systemStatusArrival || "", systemStatusDeparture: parsed.systemStatusDeparture || "", workCompleted: parsed.workCompleted || false, returnRequired: parsed.returnRequired || false, surveyRequired: parsed.surveyRequired || false, quotationRequired: parsed.quotationRequired || false, ramsCompleted: parsed.ramsCompleted || false, logBookEntry: parsed.logBookEntry || false, worksReport: report.work_carried_out || "", furtherAction: report.recommendations || "", numEngineers: parsed.numEngineers || 1, workDays: parsed.workDays || [], totalHours: parsed.totalHours || "", startTime: parsed.startTime || "", finishTime: parsed.finishTime || "", travelTime: parsed.travelTime || "", duration: parsed.duration || "", materials: parsed.materials || [], engineerName: report.engineer_name || "", engineerSignature: report.engineer_signature || parsed.engineerSignature || "", engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "", customerNotPresent: parsed.customerNotPresent || false, customerName: report.client_name || "", customerSignature: report.client_signature || parsed.customerSignature || "", customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "" }, siteInfo, visit.visit_date, visit.visit_type, true) as string;
+      } else {
+        let signatures = {}; let panels = undefined;
+        try { const parsed = JSON.parse(report.notes || "{}"); signatures = { engineerSignature: report.engineer_signature || parsed.engineerSignature || "", engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "", customerNotPresent: parsed.customerNotPresent || false, customerSignature: report.client_signature || parsed.customerSignature || "", customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "" }; if (parsed.multi_panel && Array.isArray(parsed.panel_checklists)) panels = parsed.panel_checklists; } catch { /* ignore */ }
+        return generateServiceReportPDF(report, siteInfo, visit, panels, signatures, true) as string;
+      }
+    } catch (err) { console.error("Failed to generate PDF:", err); return null; }
+  };
 
   const handleSyncInvoiceStatus = async () => {
     setSyncing(true);
@@ -377,16 +407,29 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
           <h3 className="font-semibold text-foreground">Service Reports</h3>
           <Badge variant="secondary">{reports.length}</Badge>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSyncInvoiceStatus}
-          disabled={syncing || reports.length === 0}
-          className="gap-1.5"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Syncing..." : "Sync Xero"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {customerName && (
+            <SharePointBulkUpload
+              reports={reports}
+              customerName={customerName}
+              siteMap={{ [siteId]: siteName || "Unknown Site" }}
+              visitMap={visitMap}
+              generatePdfBase64ForReport={(report) => generatePdfForSharePoint(report)}
+              onComplete={() => fetchReports()}
+              label="Upload to SharePoint"
+            />
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSyncInvoiceStatus}
+            disabled={syncing || reports.length === 0}
+            className="gap-1.5"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing..." : "Sync Xero"}
+          </Button>
+        </div>
       </div>
 
       {reports.length === 0 ? (
