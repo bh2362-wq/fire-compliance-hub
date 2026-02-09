@@ -21,7 +21,9 @@ interface SharePointUploadDialogProps {
   onOpenChange: (open: boolean) => void;
   folderPath: string;
   fileName: string;
+  reportId?: string;
   generatePdfBase64: () => Promise<string | null>;
+  onUploaded?: (folderPath: string, webUrl: string) => void;
 }
 
 interface FolderItem {
@@ -43,7 +45,9 @@ export function SharePointUploadDialog({
   onOpenChange,
   folderPath: defaultFolder,
   fileName,
+  reportId,
   generatePdfBase64,
+  onUploaded,
 }: SharePointUploadDialogProps) {
   const [folder, setFolder] = useState(defaultFolder);
   const [uploading, setUploading] = useState(false);
@@ -140,7 +144,19 @@ export function SharePointUploadDialog({
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
 
+      // Save SharePoint info back to the report if we have a reportId
+      if (reportId && data.webUrl) {
+        await supabase
+          .from("service_reports")
+          .update({
+            sharepoint_folder: folder.trim(),
+            sharepoint_url: data.webUrl,
+          })
+          .eq("id", reportId);
+      }
+
       toast.success(`Uploaded to SharePoint: ${data.fileName}`);
+      onUploaded?.(folder.trim(), data.webUrl || "");
       onOpenChange(false);
     } catch (err: any) {
       console.error("SharePoint upload failed:", err);

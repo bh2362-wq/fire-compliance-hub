@@ -11,6 +11,7 @@ export interface Site {
   contact_phone: string | null;
   total_devices: number | null;
   status: string | null;
+  sharepoint_folder: string | null;
   created_at: string;
   updated_at: string;
 }

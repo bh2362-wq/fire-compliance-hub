@@ -27,6 +27,7 @@ import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCrea
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import { CreditCheckCard } from "@/components/credit-control/CreditCheckCard";
 import { CustomerIntelligenceDashboard } from "@/components/customers/CustomerIntelligenceDashboard";
+import { CreateSharePointFolderButton } from "@/components/sharepoint/CreateSharePointFolderButton";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -156,6 +157,13 @@ const CustomerDetail = () => {
               <BarChart3 className="w-4 h-4 mr-2" />
               Intelligence
             </Button>
+            <CreateSharePointFolderButton
+              entityType="customer"
+              entityId={customer.id}
+              entityName={customer.name}
+              existingFolder={(customer as any).sharepoint_folder}
+              onFolderCreated={() => loadData()}
+            />
             <Button variant="outline" onClick={() => setShowEditDialog(true)}>
               <Pencil className="w-4 h-4 mr-2" />
               Edit Customer

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardCheck, Calendar, MapPin, FileText, Download, Wind, AlertTriangle, CheckCircle2, RefreshCw, Upload } from "lucide-react";
+import { ClipboardCheck, Calendar, MapPin, FileText, Download, Wind, AlertTriangle, CheckCircle2, RefreshCw, Upload, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { InvoiceStatusBadge } from "@/components/reports/InvoiceStatusBadge";
 import { format, parseISO, isValid } from "date-fns";
@@ -32,6 +32,8 @@ interface ServiceReport {
   visit_id: string;
   invoiced: boolean;
   xero_invoice_number: string | null;
+  sharepoint_folder: string | null;
+  sharepoint_url: string | null;
   site?: {
     name: string;
     address?: string | null;
@@ -140,6 +142,7 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
           engineer_name, defects_found, recommendations, work_carried_out,
           parts_used, engineer_signature, client_name, client_signature,
           checklist, notes, site_id, visit_id, invoiced, xero_invoice_number,
+          sharepoint_folder, sharepoint_url,
           site:sites(name, address, city, postcode, contact_name, contact_phone)
         `)
         .in("site_id", siteIds)
@@ -466,6 +469,17 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
                     )}
                   </div>
                   <div className="flex items-center gap-1">
+                    {report.sharepoint_url && (
+                      <a
+                        href={report.sharepoint_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open in SharePoint"
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4 text-primary" />
+                      </a>
+                    )}
                     {siteSharePointMap[report.site_id] && (
                       <Button
                         variant="ghost"
@@ -498,6 +512,8 @@ export function CustomerReports({ customerId, siteIds }: CustomerReportsProps) {
           onOpenChange={(open) => !open && setSharePointReport(null)}
           folderPath={siteSharePointMap[sharePointReport.site_id] || ""}
           fileName={`${sharePointReport.report_number || "Report"}-${sharePointReport.report_date}.pdf`}
+          reportId={sharePointReport.id}
+          onUploaded={() => loadReports()}
           generatePdfBase64={async () => {
             const visit = visitMap[sharePointReport.visit_id];
             const siteInfo = sharePointReport.site;
