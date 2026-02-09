@@ -141,6 +141,9 @@ Deno.serve(async (req) => {
     const invoicesData = await invoicesResponse.json();
     const invoices = invoicesData.Invoices || [];
 
+    // Calculate summary - parse dates properly
+    const now = new Date();
+
     // Build contact balances from the fetched invoices (includes both DRAFT and AUTHORISED)
     // This ensures customers with only DRAFT invoices also appear
     const contactMap = new Map<string, { contactId: string; name: string; email: string; outstanding: number; overdue: number }>();
@@ -170,9 +173,6 @@ Deno.serve(async (req) => {
     
     // Only include contacts that actually owe money (outstanding > 0)
     const contactsWithBalances = Array.from(contactMap.values()).filter(c => c.outstanding > 0);
-
-    // Calculate summary - parse dates properly
-    const now = new Date();
     const totalOutstanding = invoices.reduce((sum: number, inv: any) => sum + (inv.AmountDue || 0), 0);
     const overdueInvoices = invoices.filter((inv: any) => {
       const dueDateStr = parseXeroDate(inv.DueDate);
