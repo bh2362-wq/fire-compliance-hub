@@ -6,9 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Loader2, Download, X } from "lucide-react";
-import { ServiceReport } from "@/services/serviceReportService";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   generateServiceReportPDF,
@@ -53,20 +51,18 @@ function getReportType(notes: string | null): "bs5839" | "work" | "asd" | "disab
 
 export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open && !pdfUrl && !loading && !error) {
-      generatePreview();
+    if (open && !loading && !error) {
+      generateAndOpen();
     }
   }, [open]);
 
-  const generatePreview = async () => {
+  const generateAndOpen = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Fetch the full report with site and visit info
       const { data: report, error: reportError } = await supabase
         .from("service_reports")
         .select(`
@@ -103,15 +99,9 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
             engineerName: report.engineer_name || "",
             clientName: report.client_name || "",
             units: (parsed.units || []).map((u: any) => ({
-              assetId: u.assetId,
-              assetName: u.assetName,
-              manufacturer: u.manufacturer,
-              model: u.model,
-              location: u.location,
-              checklist: u.checklist,
-              defects: u.defects,
-              recommendations: u.recommendations,
-              systemCondition: u.systemCondition,
+              assetId: u.assetId, assetName: u.assetName, manufacturer: u.manufacturer,
+              model: u.model, location: u.location, checklist: u.checklist,
+              defects: u.defects, recommendations: u.recommendations, systemCondition: u.systemCondition,
             })),
             systemCondition: report.system_condition || "",
             defectsFound: report.defects_found || "",
@@ -127,129 +117,91 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
             customerSignDate: parsed.customerSignDate || "",
             customerSignTime: parsed.customerSignTime || "",
           },
-          siteInfo,
-          visit?.visit_date || report.report_date,
-          visit?.visit_type || "",
-          true
+          siteInfo, visit?.visit_date || report.report_date, visit?.visit_type || "", true
         ) as string;
       } else if (reportType === "asd") {
         const parsed = JSON.parse(report.notes || "{}");
         base64 = generateASDReportPDF(
           {
-            reportNumber: report.report_number || "",
-            reportDate: report.report_date,
-            engineerName: report.engineer_name || "",
-            clientName: report.client_name || "",
-            units: parsed.units || [],
-            systemCondition: report.system_condition || "",
-            defectsFound: report.defects_found || "",
-            recommendations: report.recommendations || "",
-            workCarriedOut: report.work_carried_out || "",
-            partsUsed: report.parts_used || "",
+            reportNumber: report.report_number || "", reportDate: report.report_date,
+            engineerName: report.engineer_name || "", clientName: report.client_name || "",
+            units: parsed.units || [], systemCondition: report.system_condition || "",
+            defectsFound: report.defects_found || "", recommendations: report.recommendations || "",
+            workCarriedOut: report.work_carried_out || "", partsUsed: report.parts_used || "",
             notes: parsed.additional_notes || "",
             engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
-            engineerSignDate: parsed.engineerSignDate || "",
-            engineerSignTime: parsed.engineerSignTime || "",
+            engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
             customerNotPresent: parsed.customerNotPresent || false,
             customerSignature: report.client_signature || parsed.customerSignature || "",
-            customerSignDate: parsed.customerSignDate || "",
-            customerSignTime: parsed.customerSignTime || "",
+            customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
           },
-          siteInfo,
-          visit?.visit_date || report.report_date,
-          visit?.visit_type || "",
-          true
+          siteInfo, visit?.visit_date || report.report_date, visit?.visit_type || "", true
         ) as string;
       } else if (reportType === "work") {
         const parsed = JSON.parse(report.notes || "{}");
         base64 = generateWorkReportPDF(
           {
-            certificateNo: report.report_number || "",
-            jobNumber: parsed.jobNumber || "",
-            jobType: parsed.jobType || "",
-            appointmentDate: parsed.appointmentDate || "",
+            certificateNo: report.report_number || "", jobNumber: parsed.jobNumber || "",
+            jobType: parsed.jobType || "", appointmentDate: parsed.appointmentDate || "",
             systemStatusArrival: parsed.systemStatusArrival || "",
             systemStatusDeparture: parsed.systemStatusDeparture || "",
-            workCompleted: parsed.workCompleted || false,
-            returnRequired: parsed.returnRequired || false,
-            surveyRequired: parsed.surveyRequired || false,
-            quotationRequired: parsed.quotationRequired || false,
-            ramsCompleted: parsed.ramsCompleted || false,
-            logBookEntry: parsed.logBookEntry || false,
-            worksReport: report.work_carried_out || "",
-            furtherAction: report.recommendations || "",
-            numEngineers: parsed.numEngineers || 1,
-            workDays: parsed.workDays || [],
-            totalHours: parsed.totalHours || "",
-            startTime: parsed.startTime || "",
-            finishTime: parsed.finishTime || "",
-            travelTime: parsed.travelTime || "",
-            duration: parsed.duration || "",
-            materials: parsed.materials || [],
+            workCompleted: parsed.workCompleted || false, returnRequired: parsed.returnRequired || false,
+            surveyRequired: parsed.surveyRequired || false, quotationRequired: parsed.quotationRequired || false,
+            ramsCompleted: parsed.ramsCompleted || false, logBookEntry: parsed.logBookEntry || false,
+            worksReport: report.work_carried_out || "", furtherAction: report.recommendations || "",
+            numEngineers: parsed.numEngineers || 1, workDays: parsed.workDays || [],
+            totalHours: parsed.totalHours || "", startTime: parsed.startTime || "",
+            finishTime: parsed.finishTime || "", travelTime: parsed.travelTime || "",
+            duration: parsed.duration || "", materials: parsed.materials || [],
             engineerName: report.engineer_name || "",
             engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
-            engineerSignDate: parsed.engineerSignDate || "",
-            engineerSignTime: parsed.engineerSignTime || "",
+            engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
             customerNotPresent: parsed.customerNotPresent || false,
             customerName: report.client_name || "",
             customerSignature: report.client_signature || parsed.customerSignature || "",
-            customerSignDate: parsed.customerSignDate || "",
-            customerSignTime: parsed.customerSignTime || "",
-            customerPosition: parsed.customerPosition || "",
-            systemType: parsed.systemType || "",
-            panelManufacturer: parsed.panelManufacturer || "",
-            panelModel: parsed.panelModel || "",
-            panelLocation: parsed.panelLocation || "",
-            zonesCount: parsed.zonesCount,
-            devicesCount: parsed.devicesCount,
+            customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
+            customerPosition: parsed.customerPosition || "", systemType: parsed.systemType || "",
+            panelManufacturer: parsed.panelManufacturer || "", panelModel: parsed.panelModel || "",
+            panelLocation: parsed.panelLocation || "", zonesCount: parsed.zonesCount, devicesCount: parsed.devicesCount,
           },
-          siteInfo,
-          visit?.visit_date || report.report_date,
-          visit?.visit_type || "",
-          true
+          siteInfo, visit?.visit_date || report.report_date, visit?.visit_type || "", true
         ) as string;
       } else {
-        // BS5839
         let signatures = {};
         let panels = undefined;
         try {
           const parsed = JSON.parse(report.notes || "{}");
           signatures = {
             engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
-            engineerSignDate: parsed.engineerSignDate || "",
-            engineerSignTime: parsed.engineerSignTime || "",
+            engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
             customerNotPresent: parsed.customerNotPresent || false,
             customerSignature: report.client_signature || parsed.customerSignature || "",
-            customerSignDate: parsed.customerSignDate || "",
-            customerSignTime: parsed.customerSignTime || "",
+            customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
           };
           if (parsed.multi_panel && Array.isArray(parsed.panel_checklists)) {
             panels = parsed.panel_checklists;
           }
         } catch {}
-
         base64 = generateServiceReportPDF(
-          report as any,
-          siteInfo,
+          report as any, siteInfo,
           { visit_type: visit?.visit_type || "", visit_date: visit?.visit_date || report.report_date },
-          panels,
-          signatures,
-          true
+          panels, signatures, true
         ) as string;
       }
 
       if (!base64) throw new Error("Failed to generate PDF");
 
-      // Convert base64 to blob URL for reliable iframe rendering
+      // Convert to blob and open in new tab
       const byteCharacters = atob(base64);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
         byteNumbers[i] = byteCharacters.charCodeAt(i);
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/pdf" });
       const blobUrl = URL.createObjectURL(blob);
-      setPdfUrl(blobUrl);
+      window.open(blobUrl, "_blank");
+      // Close the dialog since PDF opens in new tab
+      onOpenChange(false);
     } catch (err) {
       console.error("PDF preview error:", err);
       setError("Failed to generate PDF preview");
@@ -259,66 +211,21 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
     }
   };
 
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-      setPdfUrl(null);
-      setError(null);
-    }
-    onOpenChange(isOpen);
-  };
-
-  const handleDownload = () => {
-    if (pdfUrl) {
-      const a = document.createElement("a");
-      a.href = pdfUrl;
-      a.download = "report.pdf";
-      a.click();
-    }
-  };
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-3 border-b flex-row items-center justify-between shrink-0">
-          <div>
-            <DialogTitle>Report Preview</DialogTitle>
-            <DialogDescription>PDF preview of the completed report</DialogDescription>
-          </div>
-          {pdfUrl && (
-            <Button variant="outline" size="sm" onClick={handleDownload}>
-              <Download className="w-4 h-4 mr-2" />
-              Download
-            </Button>
-          )}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Report Preview</DialogTitle>
+          <DialogDescription>
+            {loading ? "Generating PDF..." : error ? error : "Opening PDF in a new tab..."}
+          </DialogDescription>
         </DialogHeader>
-
-        <div className="flex-1 min-h-0 bg-background">
+        <div className="flex items-center justify-center py-6">
           {loading ? (
-            <div className="flex items-center justify-center h-full bg-background">
-              <div className="text-center space-y-3">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
-                <p className="text-sm text-muted-foreground">Generating PDF preview...</p>
-              </div>
-            </div>
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           ) : error ? (
-            <div className="flex items-center justify-center h-full bg-background">
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          ) : pdfUrl ? (
-            <iframe
-              src={pdfUrl}
-              className="w-full h-full border-0"
-              title="Report PDF Preview"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full bg-background">
-              <div className="text-center space-y-3">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              </div>
-            </div>
-          )}
+            <p className="text-sm text-destructive">{error}</p>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>
