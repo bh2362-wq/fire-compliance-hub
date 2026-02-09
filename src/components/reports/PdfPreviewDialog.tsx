@@ -292,16 +292,16 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
           )}
         </DialogHeader>
 
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 bg-background">
           {loading ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center h-full bg-background">
               <div className="text-center space-y-3">
                 <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
                 <p className="text-sm text-muted-foreground">Generating PDF preview...</p>
               </div>
             </div>
           ) : error ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center h-full bg-background">
               <p className="text-sm text-destructive">{error}</p>
             </div>
           ) : pdfUrl ? (
@@ -310,7 +310,14 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
               className="w-full h-full border-0"
               title="Report PDF Preview"
             />
-          ) : null}
+          ) : (
+            <div className="flex items-center justify-center h-full bg-background">
+              <div className="text-center space-y-3">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
