@@ -792,7 +792,10 @@ const Reports = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={handleViewReport}
+                        onClick={() => {
+                          setPdfPreviewReportId(report.id);
+                          setPdfPreviewOpen(true);
+                        }}
                       >
                         <Eye className="w-4 h-4 mr-1" />
                         View Report
@@ -805,13 +808,10 @@ const Reports = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => {
-                              setPdfPreviewReportId(report.id);
-                              setPdfPreviewOpen(true);
-                            }}
+                            onClick={handleViewReport}
                           >
-                            <FileText className="w-4 h-4 mr-2" />
-                            Preview PDF
+                            <FilePen className="w-4 h-4 mr-2" />
+                            Edit Report
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleEmailReport(report)}
