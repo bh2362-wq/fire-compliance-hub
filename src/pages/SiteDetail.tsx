@@ -11,6 +11,7 @@ import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
+import { CreateSharePointFolderButton } from "@/components/sharepoint/CreateSharePointFolderButton";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -189,6 +190,14 @@ const SiteDetail = () => {
               <HardHat className="w-4 h-4 mr-2" />
               New RAMS
             </Button>
+            <CreateSharePointFolderButton
+              entityType="site"
+              entityId={site.id}
+              entityName={site.name}
+              customerName={customer?.name}
+              existingFolder={site.sharepoint_folder}
+              onFolderCreated={() => fetchSite()}
+            />
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Pencil className="w-4 h-4 mr-2" />
               Edit Site
