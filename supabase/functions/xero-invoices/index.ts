@@ -112,12 +112,10 @@ Deno.serve(async (req) => {
 
     // Parse body params
     const body = await req.json().catch(() => ({}));
-    const status = body.status || "AUTHORISED"; // DRAFT, SUBMITTED, AUTHORISED, PAID, VOIDED
     const contactId = body.contactId || null;
 
-    // Build Xero API URL for invoices
-    // Fetch outstanding invoices (AUTHORISED = approved but unpaid)
-    let whereClause = `Type=="ACCREC"&&Status=="${status}"`;
+    // Fetch both DRAFT and AUTHORISED invoices (outstanding)
+    let whereClause = `Type=="ACCREC"&&(Status=="AUTHORISED"||Status=="DRAFT")`;
     if (contactId) {
       whereClause += `&&Contact.ContactID==Guid("${contactId}")`;
     }
@@ -143,30 +141,35 @@ Deno.serve(async (req) => {
     const invoicesData = await invoicesResponse.json();
     const invoices = invoicesData.Invoices || [];
 
-    // Also fetch contacts with balances for the overview
-    const contactsUrl = `https://api.xero.com/api.xro/2.0/Contacts?where=IsCustomer==true&&AccountsReceivable.Outstanding>0`;
+    // Build contact balances from the fetched invoices (includes both DRAFT and AUTHORISED)
+    // This ensures customers with only DRAFT invoices also appear
+    const contactMap = new Map<string, { contactId: string; name: string; email: string; outstanding: number; overdue: number }>();
     
-    console.log("Fetching contacts with outstanding balances...");
-    
-    const contactsResponse = await fetch(contactsUrl, {
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Xero-Tenant-Id": connection.tenant_id,
-        "Accept": "application/json",
-      },
-    });
-
-    let contactsWithBalances: any[] = [];
-    if (contactsResponse.ok) {
-      const contactsData = await contactsResponse.json();
-      contactsWithBalances = (contactsData.Contacts || []).map((c: any) => ({
-        contactId: c.ContactID,
-        name: c.Name,
-        email: c.EmailAddress,
-        outstanding: c.Balances?.AccountsReceivable?.Outstanding || 0,
-        overdue: c.Balances?.AccountsReceivable?.Overdue || 0,
-      }));
+    for (const inv of invoices) {
+      const cId = inv.Contact?.ContactID;
+      if (!cId) continue;
+      
+      const existing = contactMap.get(cId) || {
+        contactId: cId,
+        name: inv.Contact?.Name || "",
+        email: inv.Contact?.EmailAddress || "",
+        outstanding: 0,
+        overdue: 0,
+      };
+      
+      existing.outstanding += inv.AmountDue || 0;
+      
+      const dueDateStr = parseXeroDate(inv.DueDate);
+      const dueDate = new Date(dueDateStr);
+      if (dueDate < now && (inv.AmountDue || 0) > 0 && inv.Status !== "DRAFT") {
+        existing.overdue += inv.AmountDue || 0;
+      }
+      
+      contactMap.set(cId, existing);
     }
+    
+    // Only include contacts that actually owe money (outstanding > 0)
+    const contactsWithBalances = Array.from(contactMap.values()).filter(c => c.outstanding > 0);
 
     // Calculate summary - parse dates properly
     const now = new Date();
