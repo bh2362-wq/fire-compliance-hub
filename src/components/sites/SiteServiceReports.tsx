@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, AlertTriangle, CheckCircle2, Eye, Download, Wind, RefreshCw } from "lucide-react";
+import { FileText, AlertTriangle, CheckCircle2, Eye, Download, Wind, RefreshCw, FileSearch } from "lucide-react";
+import { PdfPreviewDialog } from "@/components/reports/PdfPreviewDialog";
 import { format } from "date-fns";
 import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportService";
 import { InvoiceStatusBadge } from "@/components/reports/InvoiceStatusBadge";
@@ -108,6 +109,8 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
   const [selectedReport, setSelectedReport] = useState<ServiceReport | null>(null);
   const [dialogType, setDialogType] = useState<"work" | "bs5839" | "asd" | null>(null);
   const [asdAssets, setAsdAssets] = useState<ASDAsset[]>([]);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
 
   const handleSyncInvoiceStatus = async () => {
     setSyncing(true);
@@ -461,6 +464,17 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() => {
+                        setPdfPreviewReportId(report.id);
+                        setPdfPreviewOpen(true);
+                      }}
+                      title="Preview PDF"
+                    >
+                      <FileSearch className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => handleViewReport(report)}
                       title="View / Edit"
                     >
@@ -544,6 +558,17 @@ export function SiteServiceReports({ siteId, siteName }: SiteServiceReportsProps
           }}
           assets={asdAssets}
           onSuccess={fetchReports}
+        />
+      )}
+
+      {pdfPreviewReportId && (
+        <PdfPreviewDialog
+          open={pdfPreviewOpen}
+          onOpenChange={(open) => {
+            setPdfPreviewOpen(open);
+            if (!open) setPdfPreviewReportId(null);
+          }}
+          reportId={pdfPreviewReportId}
         />
       )}
     </div>
