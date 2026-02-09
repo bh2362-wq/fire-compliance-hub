@@ -584,15 +584,18 @@ export function CustomerReports({ customerId, customerName, siteIds }: CustomerR
                   </div>
                   <div className="flex items-center gap-1">
                     {report.sharepoint_url && (
-                      <a
-                        href={report.sharepoint_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Open in SharePoint"
-                        className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors"
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Copy SharePoint Link"
+                        onClick={() => {
+                          navigator.clipboard.writeText(report.sharepoint_url!);
+                          toast.success("SharePoint link copied to clipboard");
+                        }}
                       >
                         <ExternalLink className="w-4 h-4 text-primary" />
-                      </a>
+                      </Button>
                     )}
                     {!report.sharepoint_url && (
                       <Button
