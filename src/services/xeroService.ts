@@ -280,7 +280,7 @@ export async function getNextInvoiceNumber(): Promise<string | null> {
    return data;
  }
  
- export async function voidInvoice(invoiceId: string): Promise<{ success: boolean; message: string }> {
+export async function voidInvoice(invoiceId: string): Promise<{ success: boolean; message: string }> {
    const { data, error } = await supabase.functions.invoke("xero-update-invoice-status", {
      body: {
        invoiceId,
@@ -292,4 +292,18 @@ export async function getNextInvoiceNumber(): Promise<string | null> {
    if (data.error) throw new Error(data.error);
    
    return data;
+}
+
+export async function approveInvoice(invoiceId: string): Promise<{ success: boolean; message: string; emailSent: boolean }> {
+  const { data, error } = await supabase.functions.invoke("xero-update-invoice-status", {
+    body: {
+      invoiceId,
+      action: "approve",
+    },
+  });
+
+  if (error) throw new Error(error.message);
+  if (data.error) throw new Error(data.error);
+  
+  return data;
 }

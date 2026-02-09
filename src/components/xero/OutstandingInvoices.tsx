@@ -24,12 +24,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { deleteXeroInvoice, XeroOutstandingInvoice } from "@/services/xeroService";
+import { deleteXeroInvoice, approveInvoice, XeroOutstandingInvoice } from "@/services/xeroService";
 import { CustomerOverdueDialog } from "@/components/credit-control/CustomerOverdueDialog";
 import {
   AlertDialog,
@@ -105,6 +105,8 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
   const [paymentAmount, setPaymentAmount] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<{ name: string; contactId: string } | null>(null);
+  const [approvingInvoice, setApprovingInvoice] = useState<XeroInvoice | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
   const [filters, setFilters] = useState<InvoiceFilters>({
     customer: "",
     status: "",
@@ -161,6 +163,30 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleApproveInvoice = async () => {
+    if (!approvingInvoice) return;
+    
+    setIsApproving(true);
+    try {
+      const result = await approveInvoice(approvingInvoice.invoiceId);
+      toast({
+        title: "Invoice Approved",
+        description: result.message,
+      });
+      setApprovingInvoice(null);
+      fetchOutstandingInvoices();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to approve invoice";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -568,15 +594,28 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-green-600"
-                                  onClick={() => openPaymentDialog(invoice)}
-                                  title="Mark as Paid"
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
+                                {invoice.status === "DRAFT" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                    onClick={() => setApprovingInvoice(invoice)}
+                                    title="Approve Invoice"
+                                  >
+                                    <ShieldCheck className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {invoice.status !== "DRAFT" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-green-600"
+                                    onClick={() => openPaymentDialog(invoice)}
+                                    title="Mark as Paid"
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 {canDeleteInvoice(invoice) && (
                                   <Button
                                     variant="ghost"
@@ -754,6 +793,40 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Approve Invoice Confirmation Dialog */}
+      <AlertDialog open={!!approvingInvoice} onOpenChange={(open) => !open && setApprovingInvoice(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve Invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+              Approve invoice <strong>{approvingInvoice?.invoiceNumber}</strong> for{" "}
+              <strong>{approvingInvoice?.contactName}</strong> ({approvingInvoice && new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(approvingInvoice.total)})?
+              <br /><br />
+              This will authorise the invoice in Xero and automatically email it to the customer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isApproving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApproveInvoice}
+              disabled={isApproving}
+            >
+              {isApproving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Approve & Send
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

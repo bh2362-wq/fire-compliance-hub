@@ -93,12 +93,12 @@
        );
      }
  
-     if (!["mark_paid", "void"].includes(action)) {
-       return new Response(
-         JSON.stringify({ error: "Invalid action. Must be 'mark_paid' or 'void'" }),
-         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-       );
-     }
+    if (!["mark_paid", "void", "approve"].includes(action)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid action. Must be 'mark_paid', 'void', or 'approve'" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
  
      // Get user's Xero connection
      const { data: connection, error: connError } = await supabase
@@ -259,7 +259,88 @@
          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
        );
  
-     } else if (action === "void") {
+    } else if (action === "approve") {
+      // Approve a DRAFT invoice - authorise it in Xero and send email
+      if (invoice.Status !== "DRAFT") {
+        return new Response(
+          JSON.stringify({ error: `Invoice is already ${invoice.Status}. Only DRAFT invoices can be approved.` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("Approving (authorising) invoice...");
+
+      const approveResponse = await fetch(
+        `https://api.xero.com/api.xro/2.0/Invoices/${invoiceId}`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Xero-Tenant-Id": connection.tenant_id,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          body: JSON.stringify({
+            Invoices: [{
+              InvoiceID: invoiceId,
+              Status: "AUTHORISED",
+            }],
+          }),
+        }
+      );
+
+      if (!approveResponse.ok) {
+        const errorText = await approveResponse.text();
+        console.error("Failed to approve invoice:", errorText);
+        throw new Error(`Failed to approve invoice: ${errorText}`);
+      }
+
+      console.log("Invoice approved successfully");
+
+      // Auto-send email to customer
+      let emailSent = false;
+      try {
+        const emailResponse = await fetch(
+          `https://api.xero.com/api.xro/2.0/Invoices/${invoiceId}/Email`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "Xero-Tenant-Id": connection.tenant_id,
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+          }
+        );
+        if (emailResponse.ok) {
+          console.log("Invoice emailed to customer after approval");
+          emailSent = true;
+        } else {
+          console.error("Failed to email invoice:", await emailResponse.text());
+        }
+      } catch (emailErr) {
+        console.error("Error sending invoice email:", emailErr);
+      }
+
+      // Update local record status
+      await supabase
+        .from("xero_invoices")
+        .update({ status: "AUTHORISED" })
+        .eq("xero_invoice_id", invoiceId);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: "approve",
+          message: emailSent
+            ? `Invoice approved and emailed to customer`
+            : `Invoice approved successfully`,
+          emailSent,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+
+    } else if (action === "void") {
        // Check if invoice can be voided
        if (invoice.Status === "PAID") {
          return new Response(
