@@ -83,7 +83,7 @@ export function SharePointBulkUpload({
       }
 
       try {
-        const folderPath = `${sanitize(customerName)}/${sanitize(siteName)}/Reports`;
+        const folderPath = `Customers/${sanitize(customerName)}/${sanitize(siteName)}/Reports`;
         const fileName = `${report.report_number}.pdf`;
 
         const fileBase64 = await generatePdfBase64ForReport(report);
