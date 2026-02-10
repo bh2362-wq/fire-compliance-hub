@@ -392,29 +392,58 @@ export function QuotationDetailDialog({
 
       await generateQuotationPDF(pdfData, companySettings || undefined, false, columnOptions);
       
-      // Also upload PDF to SharePoint if the report/site has a folder
+      // Also upload PDF to SharePoint in the report's visit folder
       try {
-        // Get the site's SharePoint folder
-        const { data: siteData } = await supabase
-          .from("sites")
-          .select("sharepoint_folder")
-          .eq("id", quotation.site_id)
+        // Get the linked report's SharePoint folder
+        const { data: reportData } = await supabase
+          .from("quotations")
+          .select("report_id")
+          .eq("id", quotation.id)
           .single();
 
-        if (siteData?.sharepoint_folder) {
+        let baseFolderPath: string | null = null;
+
+        if (reportData?.report_id) {
+          const { data: report } = await supabase
+            .from("service_reports")
+            .select("sharepoint_folder, report_number, visits(visit_date)")
+            .eq("id", reportData.report_id)
+            .single();
+
+          if (report?.sharepoint_folder) {
+            // Use the report's folder which is site-level Reports path
+            const visitDate = (report as any).visits?.visit_date;
+            const reportNum = report.report_number || "DRAFT";
+            const dateStr = visitDate ? format(new Date(visitDate), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
+            baseFolderPath = `${report.sharepoint_folder}/${reportNum}_${dateStr}/Quotations`;
+          }
+        }
+
+        // Fallback to site-level folder
+        if (!baseFolderPath) {
+          const { data: siteData } = await supabase
+            .from("sites")
+            .select("sharepoint_folder")
+            .eq("id", quotation.site_id)
+            .single();
+          if (siteData?.sharepoint_folder) {
+            baseFolderPath = `${siteData.sharepoint_folder}/Quotations`;
+          }
+        }
+
+        if (baseFolderPath) {
           const pdfBase64 = await generateQuotationPDF(pdfData, companySettings || undefined, true, columnOptions);
           if (pdfBase64) {
-            const quoteFolderPath = `${siteData.sharepoint_folder}/Quotations`;
             const pdfFileName = `${quotation.quotation_number} - ${quotation.sites?.name || 'Site'}.pdf`;
             await supabase.functions.invoke("upload-to-sharepoint", {
               body: {
-                folderPath: quoteFolderPath,
+                folderPath: baseFolderPath,
                 fileName: pdfFileName,
                 fileBase64: pdfBase64,
                 contentType: "application/pdf",
               },
             });
-            console.log("Quotation PDF uploaded to SharePoint");
+            console.log("Quotation PDF uploaded to SharePoint:", baseFolderPath);
           }
         }
       } catch (spErr) {
