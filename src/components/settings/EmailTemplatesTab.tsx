@@ -24,35 +24,49 @@
    AlertDialogHeader,
    AlertDialogTitle,
  } from "@/components/ui/alert-dialog";
- import { Plus, Edit2, Trash2, Mail, Star, Loader2 } from "lucide-react";
- import { toast } from "sonner";
- import { useAuth } from "@/contexts/AuthContext";
- import {
-   EmailTemplate,
-   EmailTemplateInput,
-   getAllEmailTemplates,
-   createEmailTemplate,
-   updateEmailTemplate,
-   deleteEmailTemplate,
- } from "@/services/emailTemplateService";
- 
- const PLACEHOLDERS = [
-   { key: "customer_name", description: "Customer/contact name" },
-   { key: "site_name", description: "Site name" },
-   { key: "report_number", description: "Report number (e.g., CERT-00123)" },
-   { key: "report_date", description: "Date of the report" },
-   { key: "company_name", description: "Your company name" },
- ];
- 
- const DEFAULT_TEMPLATE: EmailTemplateInput = {
-   name: "",
-   subject_template: "Service Report {{report_number}} - {{site_name}}",
-   greeting_template: "Dear {{customer_name}},",
-   body_template: "Please find attached the service report for your records.\n\nIf you have any questions regarding this report, please don't hesitate to contact us.",
-   signoff_template: "Kind regards,\n{{company_name}}",
-   is_default: false,
-   is_active: true,
- };
+import { Plus, Edit2, Trash2, Mail, Star, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  EmailTemplate,
+  EmailTemplateInput,
+  getAllEmailTemplates,
+  createEmailTemplate,
+  updateEmailTemplate,
+  deleteEmailTemplate,
+} from "@/services/emailTemplateService";
+
+const PLACEHOLDERS = [
+  { key: "customer_name", description: "Customer/contact name" },
+  { key: "site_name", description: "Site name" },
+  { key: "report_number", description: "Report/quotation/invoice number" },
+  { key: "report_date", description: "Date" },
+  { key: "company_name", description: "Your company name" },
+];
+
+const TEMPLATE_TYPES = [
+  { value: "report", label: "Service Report" },
+  { value: "quotation", label: "Quotation" },
+  { value: "invoice", label: "Invoice" },
+];
+
+const DEFAULT_TEMPLATE: EmailTemplateInput = {
+  name: "",
+  subject_template: "Service Report {{report_number}} - {{site_name}}",
+  greeting_template: "Dear {{customer_name}},",
+  body_template: "Please find attached the service report for your records.\n\nIf you have any questions regarding this report, please don't hesitate to contact us.",
+  signoff_template: "Kind regards,\n{{company_name}}",
+  is_default: false,
+  is_active: true,
+  template_type: "report",
+};
  
  export function EmailTemplatesTab() {
    const { user } = useAuth();
@@ -87,19 +101,20 @@
      setDialogOpen(true);
    };
  
-   const openEditDialog = (template: EmailTemplate) => {
-     setEditingTemplate(template);
-     setFormData({
-       name: template.name,
-       subject_template: template.subject_template,
-       greeting_template: template.greeting_template,
-       body_template: template.body_template,
-       signoff_template: template.signoff_template,
-       is_default: template.is_default,
-       is_active: template.is_active,
-     });
-     setDialogOpen(true);
-   };
+    const openEditDialog = (template: EmailTemplate) => {
+      setEditingTemplate(template);
+      setFormData({
+        name: template.name,
+        subject_template: template.subject_template,
+        greeting_template: template.greeting_template,
+        body_template: template.body_template,
+        signoff_template: template.signoff_template,
+        is_default: template.is_default,
+        is_active: template.is_active,
+        template_type: template.template_type || "report",
+      });
+      setDialogOpen(true);
+    };
  
    const handleSave = async () => {
      if (!user) return;
@@ -190,18 +205,21 @@
                    className="flex items-center justify-between p-4 border rounded-lg"
                  >
                    <div className="flex-1 min-w-0">
-                     <div className="flex items-center gap-2">
-                       <span className="font-medium truncate">{template.name}</span>
-                       {template.is_default && (
-                         <Badge variant="secondary" className="flex items-center gap-1">
-                           <Star className="h-3 w-3" />
-                           Default
-                         </Badge>
-                       )}
-                       {!template.is_active && (
-                         <Badge variant="outline">Inactive</Badge>
-                       )}
-                     </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium truncate">{template.name}</span>
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {TEMPLATE_TYPES.find(t => t.value === template.template_type)?.label || template.template_type}
+                        </Badge>
+                        {template.is_default && (
+                          <Badge variant="secondary" className="flex items-center gap-1">
+                            <Star className="h-3 w-3" />
+                            Default
+                          </Badge>
+                        )}
+                        {!template.is_active && (
+                          <Badge variant="outline">Inactive</Badge>
+                        )}
+                      </div>
                      <p className="text-sm text-muted-foreground truncate mt-1">
                        Subject: {template.subject_template}
                      </p>
@@ -254,15 +272,35 @@
                </div>
              </div>
  
-             <div className="space-y-2">
-               <Label htmlFor="name">Template Name *</Label>
-               <Input
-                 id="name"
-                 value={formData.name}
-                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                 placeholder="e.g., Standard Report Email"
-               />
-             </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Template Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="e.g., Standard Report Email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="template_type">Template Type</Label>
+                  <Select
+                    value={formData.template_type || "report"}
+                    onValueChange={(value) => setFormData({ ...formData, template_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEMPLATE_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
  
              <div className="space-y-2">
                <Label htmlFor="subject">Subject Line</Label>
