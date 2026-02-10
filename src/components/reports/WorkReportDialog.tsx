@@ -422,10 +422,10 @@ export function WorkReportDialog({
       // Auto-create SharePoint folder for this report if not already created
       const customerData2 = site?.customers as { id: string; name: string } | null;
       if (!existingReport.sharepoint_folder && customerData2 && site) {
-        const reportDateStr = format(reportDate, "dd-MM-yyyy");
+        const visitDateStr = format(new Date(visit.visit_date), "yyyy-MM-dd");
         const reportNum = existingReport.report_number || `DRAFT-${existingReport.id.substring(0, 6)}`;
         const siteLabel = [site.name, site.address].filter(Boolean).join(" ");
-        const reportFolder = `${reportDateStr} ${reportNum}`;
+        const reportFolder = `${reportNum}_${visitDateStr}`;
         const folderPath = `Customers/${customerData2.name}/${siteLabel}/Reports/${reportFolder}`;
         
         try {
