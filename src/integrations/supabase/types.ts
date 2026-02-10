@@ -2215,6 +2215,8 @@ export type Database = {
           po_number: string | null
           quotation_number: string
           report_id: string | null
+          sharepoint_folder: string | null
+          sharepoint_url: string | null
           site_id: string
           status: string
           summary: string | null
@@ -2237,6 +2239,8 @@ export type Database = {
           po_number?: string | null
           quotation_number: string
           report_id?: string | null
+          sharepoint_folder?: string | null
+          sharepoint_url?: string | null
           site_id: string
           status?: string
           summary?: string | null
@@ -2259,6 +2263,8 @@ export type Database = {
           po_number?: string | null
           quotation_number?: string
           report_id?: string | null
+          sharepoint_folder?: string | null
+          sharepoint_url?: string | null
           site_id?: string
           status?: string
           summary?: string | null

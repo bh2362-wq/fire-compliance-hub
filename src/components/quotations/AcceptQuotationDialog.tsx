@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, FileCheck, Calendar } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, FileCheck, Calendar, Clock, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -30,6 +37,11 @@ interface AcceptQuotationDialogProps {
   onAccepted: () => void;
 }
 
+interface Engineer {
+  user_id: string;
+  full_name: string | null;
+}
+
 export function AcceptQuotationDialog({
   open,
   onOpenChange,
@@ -38,7 +50,35 @@ export function AcceptQuotationDialog({
 }: AcceptQuotationDialogProps) {
   const [poNumber, setPoNumber] = useState("");
   const [visitDate, setVisitDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("17:00");
+  const [selectedEngineer, setSelectedEngineer] = useState<string>("");
+  const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      fetchEngineers();
+    }
+  }, [open]);
+
+  const fetchEngineers = async () => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .order("full_name");
+      
+      if (data) {
+        setEngineers(data);
+        // Auto-select current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) setSelectedEngineer(user.id);
+      }
+    } catch (err) {
+      console.error("Error fetching engineers:", err);
+    }
+  };
 
   const handleAccept = async () => {
     setLoading(true);
@@ -46,6 +86,8 @@ export function AcceptQuotationDialog({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
+
+      const engineerId = selectedEngineer || user.id;
 
       // 1. Update quotation status and PO number
       const { error: updateError } = await supabase
@@ -73,7 +115,7 @@ export function AcceptQuotationDialog({
           visit_date: visitDate,
           visit_type: "remedial",
           status: "in_progress",
-          engineer_id: user.id,
+          engineer_id: engineerId,
           quotation_id: quotation.id,
           notes: visitNotes,
         })
@@ -88,12 +130,12 @@ export function AcceptQuotationDialog({
           visit_id: visit.id,
           site_id: quotation.site_id,
           customer_id: quotation.customer_id,
-          engineer_id: user.id,
+          engineer_id: engineerId,
           title: `Remedial Works - ${quotation.sites?.name || "Site"}`,
           description: `${quotation.quotation_number}${poNumber ? ` | PO: ${poNumber}` : ""}`,
           appointment_date: visitDate,
-          start_time: "09:00:00",
-          end_time: "17:00:00",
+          start_time: `${startTime}:00`,
+          end_time: `${endTime}:00`,
           status: "scheduled",
           visit_type: "remedial",
         }, user.id);
@@ -121,7 +163,7 @@ export function AcceptQuotationDialog({
             Accept Quotation
           </DialogTitle>
           <DialogDescription>
-            Accept {quotation.quotation_number} and create a remedial visit for{" "}
+            Accept {quotation.quotation_number} and schedule remedial works for{" "}
             {quotation.sites?.name || "the site"}.
           </DialogDescription>
         </DialogHeader>
@@ -141,7 +183,24 @@ export function AcceptQuotationDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="visit-date">Visit Date</Label>
+            <Label htmlFor="engineer">Assign Engineer</Label>
+            <Select value={selectedEngineer} onValueChange={setSelectedEngineer}>
+              <SelectTrigger>
+                <User className="w-4 h-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Select engineer" />
+              </SelectTrigger>
+              <SelectContent>
+                {engineers.map((eng) => (
+                  <SelectItem key={eng.user_id} value={eng.user_id}>
+                    {eng.full_name || "Unnamed"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="visit-date">Appointment Date</Label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -151,6 +210,35 @@ export function AcceptQuotationDialog({
                 onChange={(e) => setVisitDate(e.target.value)}
                 className="pl-10"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="start-time">Start Time</Label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="start-time"
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end-time">End Time</Label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="end-time"
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -168,7 +256,7 @@ export function AcceptQuotationDialog({
             ) : (
               <>
                 <FileCheck className="mr-2 h-4 w-4" />
-                Accept & Create Visit
+                Accept & Schedule
               </>
             )}
           </Button>
