@@ -111,11 +111,11 @@ export function EmailReportDialog({
    const loadTemplatesAndDefaults = async () => {
      setLoadingTemplates(true);
      try {
-       const [templatesList, defaultTemplate, settings] = await Promise.all([
-         getEmailTemplates(),
-         getDefaultTemplate(),
-         getCompanySettings().catch(() => null),
-       ]);
+      const [templatesList, defaultTemplate, settings] = await Promise.all([
+          getEmailTemplates("report"),
+          getDefaultTemplate("report"),
+          getCompanySettings().catch(() => null),
+        ]);
        
        setTemplates(templatesList);
        const compName = settings?.company_name || companyName || "The Service Team";

@@ -26,16 +26,21 @@
    template_type?: string;
  }
  
- export async function getEmailTemplates(): Promise<EmailTemplate[]> {
-   const { data, error } = await supabase
-     .from("email_templates")
-     .select("*")
-     .eq("is_active", true)
-     .order("name");
- 
-   if (error) throw error;
-   return data || [];
- }
+export async function getEmailTemplates(templateType?: string): Promise<EmailTemplate[]> {
+  let query = supabase
+    .from("email_templates")
+    .select("*")
+    .eq("is_active", true);
+
+  if (templateType) {
+    query = query.eq("template_type", templateType);
+  }
+
+  const { data, error } = await query.order("name");
+
+  if (error) throw error;
+  return data || [];
+}
  
  export async function getAllEmailTemplates(): Promise<EmailTemplate[]> {
    const { data, error } = await supabase
@@ -47,17 +52,22 @@
    return data || [];
  }
  
- export async function getDefaultTemplate(): Promise<EmailTemplate | null> {
-   const { data, error } = await supabase
-     .from("email_templates")
-     .select("*")
-     .eq("is_default", true)
-     .eq("is_active", true)
-     .single();
- 
-   if (error && error.code !== "PGRST116") throw error;
-   return data;
- }
+export async function getDefaultTemplate(templateType?: string): Promise<EmailTemplate | null> {
+  let query = supabase
+    .from("email_templates")
+    .select("*")
+    .eq("is_default", true)
+    .eq("is_active", true);
+
+  if (templateType) {
+    query = query.eq("template_type", templateType);
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error && error.code !== "PGRST116") throw error;
+  return data;
+}
  
  export async function createEmailTemplate(
    template: EmailTemplateInput,

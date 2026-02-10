@@ -11,11 +11,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Send, Mail } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Send, Mail, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
 import { getCompanySettings } from "@/services/companySettingsService";
+import {
+  EmailTemplate,
+  getEmailTemplates,
+  getDefaultTemplate,
+  applyTemplate,
+} from "@/services/emailTemplateService";
 
 interface EmailQuotationDialogProps {
   open: boolean;
@@ -29,6 +42,7 @@ interface EmailQuotationDialogProps {
     sites: { name: string } | null;
   };
   customerEmail: string;
+  customerName?: string;
   pdfData: QuotationData;
   columnOptions: PDFColumnOptions;
   onSuccess?: () => void;
@@ -39,6 +53,7 @@ export function EmailQuotationDialog({
   onOpenChange,
   quotation,
   customerEmail,
+  customerName,
   pdfData,
   columnOptions,
   onSuccess,
@@ -47,23 +62,79 @@ export function EmailQuotationDialog({
   const [recipients, setRecipients] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [companyNameVal, setCompanyNameVal] = useState("");
 
   useEffect(() => {
     if (open) {
       setRecipients(customerEmail);
-      setSubject(`Quotation ${quotation.quotation_number} - ${quotation.title || quotation.sites?.name || "Fire Safety Works"}`);
-      setBody(`Dear Customer,
-
-Please find attached our quotation ${quotation.quotation_number} for fire safety works at ${quotation.sites?.name || "your site"}.
-
-This quotation is valid for 30 days from the date of issue. Please review the attached document and contact us if you have any questions.
-
-To accept this quotation, please sign and return the acceptance section at the bottom of the document.
-
-Kind regards,
-BHO Fire Ltd`);
+      loadTemplatesAndDefaults();
     }
   }, [open, customerEmail, quotation]);
+
+  const loadTemplatesAndDefaults = async () => {
+    setLoadingTemplates(true);
+    try {
+      const [templatesList, defaultTemplate, settings] = await Promise.all([
+        getEmailTemplates("quotation"),
+        getDefaultTemplate("quotation"),
+        getCompanySettings().catch(() => null),
+      ]);
+
+      setTemplates(templatesList);
+      const compName = settings?.company_name || "The Service Team";
+      setCompanyNameVal(compName);
+
+      const variables = {
+        customer_name: customerName || pdfData.customer?.name || "Customer",
+        site_name: quotation.sites?.name || "Site",
+        report_number: quotation.quotation_number,
+        report_date: new Date().toISOString().split("T")[0],
+        company_name: compName,
+      };
+
+      if (defaultTemplate) {
+        setSelectedTemplateId(defaultTemplate.id);
+        const applied = applyTemplate(defaultTemplate, variables);
+        setSubject(applied.subject);
+        setBody(`${applied.greeting}\n\n${applied.body}\n\n${applied.signoff}`);
+      } else if (templatesList.length > 0) {
+        setSelectedTemplateId(templatesList[0].id);
+        const applied = applyTemplate(templatesList[0], variables);
+        setSubject(applied.subject);
+        setBody(`${applied.greeting}\n\n${applied.body}\n\n${applied.signoff}`);
+      } else {
+        // Fallback
+        setSubject(`Quotation ${quotation.quotation_number} - ${quotation.title || quotation.sites?.name || "Fire Safety Works"}`);
+        setBody(`Dear ${customerName || "Customer"},\n\nPlease find attached our quotation ${quotation.quotation_number} for fire safety works at ${quotation.sites?.name || "your site"}.\n\nThis quotation is valid for 30 days from the date of issue. Please review the attached document and contact us if you have any questions.\n\nTo accept this quotation, please sign and return the acceptance section at the bottom of the document.\n\nKind regards,\n${compName}`);
+      }
+    } catch (error) {
+      console.error("Failed to load templates:", error);
+      setSubject(`Quotation ${quotation.quotation_number} - ${quotation.title || quotation.sites?.name || "Fire Safety Works"}`);
+      setBody(`Dear ${customerName || "Customer"},\n\nPlease find attached our quotation ${quotation.quotation_number}.\n\nKind regards,\nBHO Fire Ltd`);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    const template = templates.find((t) => t.id === templateId);
+    if (template) {
+      const variables = {
+        customer_name: customerName || pdfData.customer?.name || "Customer",
+        site_name: quotation.sites?.name || "Site",
+        report_number: quotation.quotation_number,
+        report_date: new Date().toISOString().split("T")[0],
+        company_name: companyNameVal || "The Service Team",
+      };
+      const applied = applyTemplate(template, variables);
+      setSubject(applied.subject);
+      setBody(`${applied.greeting}\n\n${applied.body}\n\n${applied.signoff}`);
+    }
+  };
 
   const handleSend = async () => {
     if (!recipients.trim()) {
@@ -73,7 +144,6 @@ BHO Fire Ltd`);
 
     setSending(true);
     try {
-      // Generate PDF as base64
       const companySettings = await getCompanySettings();
       const pdfBase64 = await generateQuotationPDF(pdfData, companySettings || undefined, true, columnOptions);
 
@@ -81,13 +151,11 @@ BHO Fire Ltd`);
         throw new Error("Failed to generate PDF");
       }
 
-      // Parse recipients
       const recipientList = recipients
         .split(/[,;\s]+/)
         .map((email) => email.trim())
         .filter((email) => email.length > 0);
 
-      // Send email via edge function
       const { data, error } = await supabase.functions.invoke("send-report-email", {
         body: {
           to: recipientList,
@@ -103,7 +171,6 @@ BHO Fire Ltd`);
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      // Log email
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("email_logs").insert({
         email_type: "quotation",
@@ -115,7 +182,6 @@ BHO Fire Ltd`);
         created_by: user?.id,
       });
 
-      // Update quotation status to sent and lock it
       await supabase
         .from("quotations")
         .update({ 
@@ -150,6 +216,28 @@ BHO Fire Ltd`);
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Template Selection */}
+          {templates.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Email Template
+              </Label>
+              <Select value={selectedTemplateId} onValueChange={handleTemplateChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a template" />
+                </SelectTrigger>
+                <SelectContent className="z-[200]">
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div>
             <Label>Recipients</Label>
             <Input

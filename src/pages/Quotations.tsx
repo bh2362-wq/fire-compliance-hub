@@ -710,6 +710,7 @@ const Quotations = () => {
             sites: quotationToEmail.sites ? { name: quotationToEmail.sites.name } : null,
           }}
           customerEmail={quotationToEmail.customers?.contact_email || ""}
+          customerName={quotationToEmail.customers?.contact_name || quotationToEmail.customers?.name || ""}
           pdfData={emailPdfData}
           columnOptions={{
             showItemNumber: true,

@@ -1084,6 +1084,7 @@ export function QuotationDetailDialog({
             sites: quotation.sites,
           }}
           customerEmail={customerContactEmail}
+          customerName={customerContactName || customerName}
           pdfData={buildPDFData()}
           columnOptions={columnOptions}
           onSuccess={() => {
