@@ -24,12 +24,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck, Pencil } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck, Pencil, ExternalLink, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { deleteXeroInvoice, approveInvoice, XeroOutstandingInvoice, InvoiceLineItem } from "@/services/xeroService";
+import { deleteXeroInvoice, approveInvoice, XeroOutstandingInvoice, InvoiceLineItem, fetchInvoiceDetail } from "@/services/xeroService";
 import { ManualInvoiceDialog, EditInvoiceData } from "@/components/xero/ManualInvoiceDialog";
 import { CustomerOverdueDialog } from "@/components/credit-control/CustomerOverdueDialog";
 import {
@@ -42,6 +42,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -110,6 +117,7 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
   const [approvingInvoice, setApprovingInvoice] = useState<XeroInvoice | null>(null);
   const [isApproving, setIsApproving] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<EditInvoiceData | null>(null);
+  const [fetchingEditInvoice, setFetchingEditInvoice] = useState<string | null>(null);
   const [filters, setFilters] = useState<InvoiceFilters>({
     customer: "",
     status: "",
@@ -234,11 +242,40 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
   };
 
   const canDeleteInvoice = (invoice: XeroInvoice) => {
-    // Can only delete DRAFT or AUTHORISED invoices with no payments
     return (
       (invoice.status === "DRAFT" || invoice.status === "AUTHORISED") &&
       invoice.amountPaid === 0
     );
+  };
+
+  const handleEditInvoice = async (invoice: XeroInvoice) => {
+    setFetchingEditInvoice(invoice.invoiceId);
+    try {
+      const detail = await fetchInvoiceDetail(invoice.invoiceId);
+      setEditingInvoice({
+        invoiceId: invoice.invoiceId,
+        invoiceNumber: detail.invoiceNumber || invoice.invoiceNumber,
+        contactId: detail.contactId || invoice.contactId,
+        contactName: detail.contactName || invoice.contactName,
+        reference: detail.reference || invoice.reference,
+        dueDate: detail.dueDate || invoice.dueDate,
+        total: detail.total || invoice.total,
+        lineItems: detail.lineItems || [],
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to fetch invoice details";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setFetchingEditInvoice(null);
+    }
+  };
+
+  const openInXero = (invoiceId: string) => {
+    window.open(`https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${invoiceId}`, "_blank", "noopener,noreferrer");
   };
 
   useEffect(() => {
@@ -596,61 +633,67 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                               )}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                {invoice.status === "DRAFT" && (
-                                  <>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-muted-foreground hover:text-primary"
-                                      onClick={() => setEditingInvoice({
-                                        invoiceId: invoice.invoiceId,
-                                        invoiceNumber: invoice.invoiceNumber,
-                                        contactId: invoice.contactId,
-                                        contactName: invoice.contactName,
-                                        reference: invoice.reference,
-                                        dueDate: invoice.dueDate,
-                                        total: invoice.total,
-                                        lineItems: invoice.lineItems || [],
-                                      })}
-                                      title="Edit Draft"
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                  >
+                                    {fetchingEditInvoice === invoice.invoiceId ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  {invoice.status === "DRAFT" && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleEditInvoice(invoice)}
+                                      disabled={!!fetchingEditInvoice}
                                     >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Edit Draft
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    onClick={() => openInXero(invoice.invoiceId)}
+                                  >
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    Open in Xero
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  {invoice.status === "DRAFT" && (
+                                    <DropdownMenuItem
                                       onClick={() => setApprovingInvoice(invoice)}
-                                      title="Approve Invoice"
                                     >
-                                      <ShieldCheck className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                                {invoice.status !== "DRAFT" && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-green-600"
-                                    onClick={() => openPaymentDialog(invoice)}
-                                    title="Mark as Paid"
-                                  >
-                                    <CheckCircle className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                {canDeleteInvoice(invoice) && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                    onClick={() => setDeletingInvoice(invoice)}
-                                    title="Delete Invoice"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
+                                      <ShieldCheck className="h-4 w-4 mr-2" />
+                                      Approve & Send
+                                    </DropdownMenuItem>
+                                  )}
+                                  {invoice.status !== "DRAFT" && (
+                                    <DropdownMenuItem
+                                      onClick={() => openPaymentDialog(invoice)}
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      Mark as Paid
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canDeleteInvoice(invoice) && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => setDeletingInvoice(invoice)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        {invoice.status === "AUTHORISED" ? "Void Invoice" : "Delete Invoice"}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                           </TableRow>
                         ))}
