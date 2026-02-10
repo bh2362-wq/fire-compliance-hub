@@ -907,7 +907,8 @@ export function WorkReportDialog({
         true
       );
       if (pdfBase64) {
-        const pdfFileName = `${certificateNo || jobNumber || 'Report'} - ${siteInfo.name || 'Site'}.pdf`;
+        const visitDateStr = visit?.visit_date ? format(new Date(visit.visit_date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
+        const pdfFileName = `${certificateNo || jobNumber || 'Report'}_${visitDateStr}.pdf`;
         await supabase.functions.invoke("upload-to-sharepoint", {
           body: {
             folderPath: reportSharePointFolder,
