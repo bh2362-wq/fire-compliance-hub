@@ -153,6 +153,7 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
             totalHours: parsed.totalHours || "", startTime: parsed.startTime || "",
             finishTime: parsed.finishTime || "", travelTime: parsed.travelTime || "",
             duration: parsed.duration || "", materials: parsed.materials || [],
+            photos: parsed.photos || [], reportFiles: parsed.reportFiles || [],
             engineerName: report.engineer_name || "",
             engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
             engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
@@ -160,9 +161,11 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
             customerName: report.client_name || "",
             customerSignature: report.client_signature || parsed.customerSignature || "",
             customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
-            customerPosition: parsed.customerPosition || "", systemType: parsed.systemType || "",
-            panelManufacturer: parsed.panelManufacturer || "", panelModel: parsed.panelModel || "",
-            panelLocation: parsed.panelLocation || "", zonesCount: parsed.zonesCount, devicesCount: parsed.devicesCount,
+            customerPosition: parsed.customerPosition || "",
+            panelInfo: parsed.panelInfo || "", locationInfo: parsed.locationInfo || "",
+            typeInfo: parsed.typeInfo || "", zonesInfo: parsed.zonesInfo || "",
+            contactPhone: parsed.contactPhone || "",
+            reportDate: parsed.reportDate || report.report_date,
           },
           siteInfo, visit?.visit_date || report.report_date, visit?.visit_type || "", true
         ) as string;
