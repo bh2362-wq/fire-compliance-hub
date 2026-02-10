@@ -744,6 +744,33 @@ export function WorkReportDialog({
           
         setIsLocked(true);
         toast.success(`Work report ${finalReportNumber || ""} completed and locked`);
+
+        // Upload PDF to SharePoint
+        if (reportSharePointFolder && siteInfo) {
+          try {
+            const pdfBase64 = await generateWorkReportPDF(
+              buildPdfData(),
+              siteInfo,
+              format(reportDate, "yyyy-MM-dd"),
+              undefined,
+              true
+            );
+            if (pdfBase64) {
+              const pdfFileName = `${finalReportNumber || 'Report'} - ${siteInfo.name || 'Site'}.pdf`;
+              await supabase.functions.invoke("upload-to-sharepoint", {
+                body: {
+                  folderPath: reportSharePointFolder,
+                  fileName: pdfFileName,
+                  fileBase64: pdfBase64,
+                  contentType: "application/pdf",
+                },
+              });
+              console.log("PDF uploaded to SharePoint");
+            }
+          } catch (spErr) {
+            console.log("SharePoint PDF upload skipped:", spErr);
+          }
+        }
         
         // Send job completed notification email
         sendJobCompletedNotification(visit.id).catch(console.error);
@@ -841,6 +868,33 @@ export function WorkReportDialog({
 
       setIsLocked(true);
       toast.success(`Visit ${finalReportNumber || ""} completed and locked`);
+
+      // Upload PDF to SharePoint
+      if (reportSharePointFolder && siteInfo) {
+        try {
+          const pdfBase64 = await generateWorkReportPDF(
+            buildPdfData(),
+            siteInfo,
+            format(reportDate, "yyyy-MM-dd"),
+            undefined,
+            true
+          );
+          if (pdfBase64) {
+            const pdfFileName = `${finalReportNumber || 'Report'} - ${siteInfo.name || 'Site'}.pdf`;
+            await supabase.functions.invoke("upload-to-sharepoint", {
+              body: {
+                folderPath: reportSharePointFolder,
+                fileName: pdfFileName,
+                fileBase64: pdfBase64,
+                contentType: "application/pdf",
+              },
+            });
+            console.log("PDF uploaded to SharePoint");
+          }
+        } catch (spErr) {
+          console.log("SharePoint PDF upload skipped:", spErr);
+        }
+      }
       
       // Send job completed notification email
       sendJobCompletedNotification(visit.id).catch(console.error);
