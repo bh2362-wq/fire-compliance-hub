@@ -24,17 +24,18 @@
    SelectValue,
  } from "@/components/ui/select";
  
- interface QuotationLineItem {
-   id?: string;
-   description: string;
-   regulation_reference?: string;
-   priority: string;
-   source_section?: string;
-   quantity: number;
-   unit_price: number;
-   total_price: number;
-   notes?: string;
- }
+interface QuotationLineItem {
+  id?: string;
+  description: string;
+  regulation_reference?: string;
+  priority: string;
+  source_section?: string;
+  quantity: number;
+  unit_price: number;
+  labour_cost: number;
+  total_price: number;
+  notes?: string;
+}
  
 interface GenerateQuotationDialogProps {
   open: boolean;
@@ -108,16 +109,17 @@ interface GenerateQuotationDialogProps {
        if (error) throw error;
        if (data.error) throw new Error(data.error);
  
-       const items: QuotationLineItem[] = (data.items || []).map((item: any, index: number) => ({
-         description: item.description,
-         regulation_reference: item.regulation_reference,
-         priority: item.priority || "medium",
-         source_section: item.source_section,
-         quantity: 1,
-         unit_price: 0,
-         total_price: 0,
-         notes: "",
-       }));
+      const items: QuotationLineItem[] = (data.items || []).map((item: any, index: number) => ({
+        description: item.description,
+        regulation_reference: item.regulation_reference,
+        priority: item.priority || "medium",
+        source_section: item.source_section,
+        quantity: 1,
+        unit_price: 0,
+        labour_cost: 0,
+        total_price: 0,
+        notes: "",
+      }));
  
        setLineItems(items);
        setSummary(data.summary || "");
@@ -136,34 +138,35 @@ interface GenerateQuotationDialogProps {
      }
    };
  
-   const handleAddItem = () => {
-     setLineItems([
-       ...lineItems,
-       {
-         description: "",
-         priority: "medium",
-         quantity: 1,
-         unit_price: 0,
-         total_price: 0,
-       },
-     ]);
-   };
+  const handleAddItem = () => {
+    setLineItems([
+      ...lineItems,
+      {
+        description: "",
+        priority: "medium",
+        quantity: 1,
+        unit_price: 0,
+        labour_cost: 0,
+        total_price: 0,
+      },
+    ]);
+  };
  
    const handleRemoveItem = (index: number) => {
      setLineItems(lineItems.filter((_, i) => i !== index));
    };
  
-   const handleItemChange = (index: number, field: keyof QuotationLineItem, value: any) => {
-     const updated = [...lineItems];
-     updated[index] = { ...updated[index], [field]: value };
-     
-     // Recalculate total if quantity or unit price changed
-     if (field === "quantity" || field === "unit_price") {
-       updated[index].total_price = updated[index].quantity * updated[index].unit_price;
-     }
-     
-     setLineItems(updated);
-   };
+  const handleItemChange = (index: number, field: keyof QuotationLineItem, value: any) => {
+    const updated = [...lineItems];
+    updated[index] = { ...updated[index], [field]: value };
+    
+    // Recalculate total if quantity, unit price, or labour changed
+    if (field === "quantity" || field === "unit_price" || field === "labour_cost") {
+      updated[index].total_price = (updated[index].quantity * updated[index].unit_price) + (updated[index].labour_cost || 0);
+    }
+    
+    setLineItems(updated);
+  };
  
    const handleSaveQuotation = async () => {
      if (lineItems.length === 0) {
@@ -205,18 +208,19 @@ interface GenerateQuotationDialogProps {
        if (quotationError) throw quotationError;
  
        // Insert line items
-       const lineItemsToInsert = lineItems.map((item, index) => ({
-         quotation_id: quotation.id,
-         description: item.description,
-         regulation_reference: item.regulation_reference || null,
-         priority: item.priority,
-         source_section: item.source_section || null,
-         quantity: item.quantity,
-         unit_price: item.unit_price,
-         total_price: item.total_price,
-         notes: item.notes || null,
-         sort_order: index,
-       }));
+      const lineItemsToInsert = lineItems.map((item, index) => ({
+        quotation_id: quotation.id,
+        description: item.description,
+        regulation_reference: item.regulation_reference || null,
+        priority: item.priority,
+        source_section: item.source_section || null,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        labour_cost: item.labour_cost || 0,
+        total_price: item.total_price,
+        notes: item.notes || null,
+        sort_order: index,
+      }));
  
        const { error: itemsError } = await supabase
          .from("quotation_line_items")
@@ -355,55 +359,66 @@ interface GenerateQuotationDialogProps {
                                className="min-h-[60px]"
                              />
  
-                             <div className="grid grid-cols-4 gap-3">
-                               <div>
-                                 <Label className="text-xs">Priority</Label>
-                                 <Select
-                                   value={item.priority}
-                                   onValueChange={(value) => handleItemChange(index, "priority", value)}
-                                 >
-                                   <SelectTrigger className="h-9">
-                                     <SelectValue />
-                                   </SelectTrigger>
-                                   <SelectContent>
-                                     <SelectItem value="critical">Critical</SelectItem>
-                                     <SelectItem value="high">High</SelectItem>
-                                     <SelectItem value="medium">Medium</SelectItem>
-                                     <SelectItem value="low">Low</SelectItem>
-                                   </SelectContent>
-                                 </Select>
-                               </div>
-                               <div>
-                                 <Label className="text-xs">Qty</Label>
-                                 <Input
-                                   type="number"
-                                   min={1}
-                                   value={item.quantity}
-                                   onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
-                                   className="h-9"
-                                 />
-                               </div>
-                               <div>
-                                 <Label className="text-xs">Unit Price (£)</Label>
-                                 <Input
-                                   type="number"
-                                   min={0}
-                                   step={0.01}
-                                   value={item.unit_price}
-                                   onChange={(e) => handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
-                                   className="h-9"
-                                 />
-                               </div>
-                               <div>
-                                 <Label className="text-xs">Total (£)</Label>
-                                 <Input
-                                   type="number"
-                                   value={item.total_price.toFixed(2)}
-                                   readOnly
-                                   className="h-9 bg-muted"
-                                 />
-                               </div>
-                             </div>
+                              <div className="grid grid-cols-5 gap-3">
+                                <div>
+                                  <Label className="text-xs">Priority</Label>
+                                  <Select
+                                    value={item.priority}
+                                    onValueChange={(value) => handleItemChange(index, "priority", value)}
+                                  >
+                                    <SelectTrigger className="h-9">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="critical">Critical</SelectItem>
+                                      <SelectItem value="high">High</SelectItem>
+                                      <SelectItem value="medium">Medium</SelectItem>
+                                      <SelectItem value="low">Low</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Qty</Label>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={item.quantity}
+                                    onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Unit Price (£)</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    value={item.unit_price}
+                                    onChange={(e) => handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Labour (£)</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    value={item.labour_cost || 0}
+                                    onChange={(e) => handleItemChange(index, "labour_cost", parseFloat(e.target.value) || 0)}
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">Total (£)</Label>
+                                  <Input
+                                    type="number"
+                                    value={item.total_price.toFixed(2)}
+                                    readOnly
+                                    className="h-9 bg-muted"
+                                  />
+                                </div>
+                              </div>
                            </div>
  
                            <Button

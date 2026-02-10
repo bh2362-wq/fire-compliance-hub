@@ -2134,6 +2134,7 @@ export type Database = {
           description: string
           id: string
           item_name: string | null
+          labour_cost: number | null
           notes: string | null
           parent_id: string | null
           priority: string | null
@@ -2152,6 +2153,7 @@ export type Database = {
           description: string
           id?: string
           item_name?: string | null
+          labour_cost?: number | null
           notes?: string | null
           parent_id?: string | null
           priority?: string | null
@@ -2170,6 +2172,7 @@ export type Database = {
           description?: string
           id?: string
           item_name?: string | null
+          labour_cost?: number | null
           notes?: string | null
           parent_id?: string | null
           priority?: string | null

@@ -43,6 +43,7 @@ export interface PDFColumnOptions {
   showItem: boolean;
   showQuantity: boolean;
   showUnitPrice: boolean;
+  showLabour: boolean;
   showTotal: boolean;
 }
 
@@ -54,6 +55,7 @@ export interface QuotationLineItem {
   parent_id?: string | null;
   quantity: number;
   unit_price: number;
+  labour_cost?: number;
   total_price: number;
 }
 
@@ -446,6 +448,7 @@ const defaultColumnOptions: PDFColumnOptions = {
   showItem: true,
   showQuantity: true,
   showUnitPrice: true,
+  showLabour: true,
   showTotal: true,
 };
 
@@ -518,7 +521,12 @@ export async function generateQuotationPDF(
   }
   if (columnOptions.showUnitPrice) {
     headers.push("Unit");
-    colStyles[colIndex] = { cellWidth: 20, halign: "right" };
+    colStyles[colIndex] = { cellWidth: 18, halign: "right" };
+    colIndex++;
+  }
+  if (columnOptions.showLabour) {
+    headers.push("Labour");
+    colStyles[colIndex] = { cellWidth: 18, halign: "right" };
     colIndex++;
   }
   if (columnOptions.showTotal) {
@@ -538,6 +546,7 @@ export async function generateQuotationPDF(
     if (columnOptions.showItem) row.push(item.item_name || "-");
     if (columnOptions.showQuantity) row.push(item.quantity.toString());
     if (columnOptions.showUnitPrice) row.push(`£${item.unit_price.toFixed(2)}`);
+    if (columnOptions.showLabour) row.push(item.labour_cost ? `£${item.labour_cost.toFixed(2)}` : "-");
     if (columnOptions.showTotal) row.push(`£${item.total_price.toFixed(2)}`);
     return row;
   });

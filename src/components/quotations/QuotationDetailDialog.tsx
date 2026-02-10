@@ -39,6 +39,7 @@ interface LineItem {
   source_section: string | null;
   quantity: number;
   unit_price: number;
+  labour_cost: number;
   total_price: number;
   notes: string | null;
   sort_order: number;
@@ -131,6 +132,7 @@ export function QuotationDetailDialog({
     showItem: true,
     showQuantity: true,
     showUnitPrice: true,
+    showLabour: true,
     showTotal: true,
   });
 
@@ -218,8 +220,8 @@ export function QuotationDetailDialog({
     const updated = [...lineItems];
     updated[index] = { ...updated[index], [field]: value };
 
-    if (field === "quantity" || field === "unit_price") {
-      updated[index].total_price = updated[index].quantity * updated[index].unit_price;
+    if (field === "quantity" || field === "unit_price" || field === "labour_cost") {
+      updated[index].total_price = (updated[index].quantity * updated[index].unit_price) + (updated[index].labour_cost || 0);
     }
 
     setLineItems(updated);
@@ -237,6 +239,7 @@ export function QuotationDetailDialog({
       source_section: null,
       quantity: 1,
       unit_price: 0,
+      labour_cost: 0,
       total_price: 0,
       notes: null,
       sort_order: lineItems.length,
@@ -290,10 +293,11 @@ export function QuotationDetailDialog({
           regulation_reference: item.regulation_reference,
           priority: item.priority,
           item_name: item.item_name,
-          parent_id: null, // For now, we don't persist parent relationships
+          parent_id: null,
           source_section: item.source_section,
           quantity: item.quantity,
           unit_price: item.unit_price,
+          labour_cost: item.labour_cost || 0,
           total_price: item.total_price,
           notes: item.notes,
           sort_order: index,
@@ -351,6 +355,7 @@ export function QuotationDetailDialog({
         parent_id: item.parent_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
+        labour_cost: item.labour_cost || 0,
         total_price: item.total_price,
       })),
       vat_rate: vatRate,
@@ -386,6 +391,35 @@ export function QuotationDetailDialog({
       const pdfData = buildPDFData();
 
       await generateQuotationPDF(pdfData, companySettings || undefined, false, columnOptions);
+      
+      // Also upload PDF to SharePoint if the report/site has a folder
+      try {
+        // Get the site's SharePoint folder
+        const { data: siteData } = await supabase
+          .from("sites")
+          .select("sharepoint_folder")
+          .eq("id", quotation.site_id)
+          .single();
+
+        if (siteData?.sharepoint_folder) {
+          const pdfBase64 = await generateQuotationPDF(pdfData, companySettings || undefined, true, columnOptions);
+          if (pdfBase64) {
+            const quoteFolderPath = `${siteData.sharepoint_folder}/Quotations`;
+            const pdfFileName = `${quotation.quotation_number} - ${quotation.sites?.name || 'Site'}.pdf`;
+            await supabase.functions.invoke("upload-to-sharepoint", {
+              body: {
+                folderPath: quoteFolderPath,
+                fileName: pdfFileName,
+                fileBase64: pdfBase64,
+                contentType: "application/pdf",
+              },
+            });
+            console.log("Quotation PDF uploaded to SharePoint");
+          }
+        }
+      } catch (spErr) {
+        console.log("SharePoint quotation upload skipped:", spErr);
+      }
       
       // Lock the quotation after download
       await lockQuotation();
@@ -541,7 +575,7 @@ export function QuotationDetailDialog({
                               disabled={isLocked}
                             />
 
-                            <div className="grid grid-cols-6 gap-3">
+                            <div className="grid grid-cols-7 gap-3">
                               <div>
                                 <Label className="text-xs">Item/Part</Label>
                                 <Input
@@ -594,6 +628,24 @@ export function QuotationDetailDialog({
                                     handleItemChange(
                                       index,
                                       "unit_price",
+                                      parseFloat(e.target.value) || 0
+                                    )
+                                  }
+                                  className="h-9"
+                                  disabled={isLocked}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Labour (£)</Label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={0.01}
+                                  value={item.labour_cost || 0}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "labour_cost",
                                       parseFloat(e.target.value) || 0
                                     )
                                   }
@@ -908,6 +960,16 @@ export function QuotationDetailDialog({
                           }
                         />
                         <label htmlFor="col-unit" className="text-sm">Unit Price</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="col-labour"
+                          checked={columnOptions.showLabour}
+                          onCheckedChange={(checked) =>
+                            setColumnOptions({ ...columnOptions, showLabour: !!checked })
+                          }
+                        />
+                        <label htmlFor="col-labour" className="text-sm">Labour</label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
