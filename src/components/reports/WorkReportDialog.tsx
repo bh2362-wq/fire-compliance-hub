@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
+import heic2any from "heic2any";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
@@ -1550,7 +1551,7 @@ export function WorkReportDialog({
                   <div className="relative">
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*,.heic,.heif"
                       multiple
                       onChange={async (e) => {
                         const files = e.target.files;
@@ -1560,7 +1561,23 @@ export function WorkReportDialog({
                         try {
                           const newPhotos: { url: string; caption: string }[] = [];
                           
-                          for (const file of Array.from(files)) {
+                          for (const rawFile of Array.from(files)) {
+                            // Convert HEIC/HEIF to JPEG for browser compatibility
+                            let file: File = rawFile;
+                            const isHeic = /\.(heic|heif)$/i.test(rawFile.name) || rawFile.type === 'image/heic' || rawFile.type === 'image/heif';
+                            if (isHeic) {
+                              try {
+                                const convertedBlob = await heic2any({ blob: rawFile, toType: 'image/jpeg', quality: 0.85 });
+                                const jpeg = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+                                const newName = rawFile.name.replace(/\.(heic|heif)$/i, '.jpg');
+                                file = new File([jpeg], newName, { type: 'image/jpeg' });
+                              } catch (convErr) {
+                                console.error('HEIC conversion failed:', convErr);
+                                toast.error(`Failed to convert ${rawFile.name} — unsupported HEIC format`);
+                                continue;
+                              }
+                            }
+
                             const fileExt = file.name.split('.').pop();
                             const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
                             const storagePath = `${report.id}/${uniqueName}`;
