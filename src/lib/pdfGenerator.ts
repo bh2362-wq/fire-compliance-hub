@@ -1023,10 +1023,13 @@ export async function generateWorkReportPDF(
 
   // === PHOTOS SECTION (only if photos exist) ===
   if (data.photos && data.photos.length > 0) {
-    // Check if we need a new page for photos
-    const photosPerRow = 3;
-    const photoSize = (contentWidth - 10) / photosPerRow;
-    const estimatedPhotoHeight = 8 + Math.ceil(data.photos.length / photosPerRow) * (photoSize + 20);
+    // 2-column grid, ~66mm per photo (250px equivalent at 96dpi)
+    const photosPerRow = 2;
+    const photoGap = 8;
+    const photoSize = 66; // ~250px - medium size, not overpowering
+    const captionHeight = 10;
+    const rowHeight = photoSize + captionHeight + 5;
+    const estimatedPhotoHeight = 8 + Math.ceil(data.photos.length / photosPerRow) * rowHeight;
     
     if (yPos + Math.min(estimatedPhotoHeight, 80) > pageHeight - 15) {
       doc.addPage();
@@ -1043,44 +1046,69 @@ export async function generateWorkReportPDF(
     
     yPos += 12;
 
-    // Render photos in a grid
-    let photoX = margin;
+    // Center the 2-column grid within content width
+    const gridWidth = (photoSize * photosPerRow) + (photoGap * (photosPerRow - 1));
+    const gridStartX = margin + (contentWidth - gridWidth) / 2;
+
+    // Render photos in a 2-column grid
+    let photoX = gridStartX;
     let photoY = yPos;
-    const captionHeight = 10;
     
     for (let i = 0; i < data.photos.length; i++) {
       const photo = data.photos[i];
+      const colIndex = i % photosPerRow;
       
-      // Check if we need a new row or page
-      if (photoX + photoSize > pageWidth - margin) {
-        photoX = margin;
-        photoY += photoSize + captionHeight + 5;
+      // Start new row after every 2 photos
+      if (i > 0 && colIndex === 0) {
+        photoX = gridStartX;
+        photoY += rowHeight;
+      } else if (i > 0) {
+        photoX = gridStartX + colIndex * (photoSize + photoGap);
       }
       
       // Check if we need a new page
       if (photoY + photoSize + captionHeight > pageHeight - 15) {
         doc.addPage();
         photoY = addCompactHeader(doc, pageWidth, margin, logoImg);
-        photoX = margin;
+        photoX = gridStartX + colIndex * (photoSize + photoGap);
       }
 
-      // Draw photo placeholder with border
+      // Draw photo border
       doc.setDrawColor(...COLORS.borderGrey);
       doc.setLineWidth(0.3);
       doc.rect(photoX, photoY, photoSize, photoSize);
       
-      // Try to add the image (pre-load it first)
+      // Try to add the image - use fetch+blob to avoid CORS issues
       try {
-        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-          const image = new Image();
-          image.crossOrigin = "anonymous";
-          image.onload = () => resolve(image);
-          image.onerror = () => reject(new Error("Failed to load image"));
-          image.src = photo.url;
-        });
-        doc.addImage(img, "JPEG", photoX + 1, photoY + 1, photoSize - 2, photoSize - 2);
-      } catch {
-        // If image fails, show placeholder text
+        let imgDataUrl: string;
+        try {
+          const response = await fetch(photo.url);
+          const blob = await response.blob();
+          imgDataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } catch {
+          // Fallback: try Image element with canvas
+          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const image = new Image();
+            image.crossOrigin = "anonymous";
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error("Failed to load image"));
+            image.src = photo.url;
+          });
+          const canvas = document.createElement("canvas");
+          canvas.width = 250;
+          canvas.height = 250;
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0, 250, 250);
+          imgDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        }
+        doc.addImage(imgDataUrl, "JPEG", photoX + 1, photoY + 1, photoSize - 2, photoSize - 2);
+      } catch (photoErr) {
+        console.error("Failed to load photo for PDF:", photoErr);
         doc.setFillColor(...COLORS.lightGrey);
         doc.rect(photoX + 1, photoY + 1, photoSize - 2, photoSize - 2, "F");
         doc.setFontSize(8);
@@ -1096,12 +1124,10 @@ export async function generateWorkReportPDF(
         const captionLines = doc.splitTextToSize(photo.caption, photoSize - 2);
         doc.text(captionLines.slice(0, 2), photoX + 1, photoY + photoSize + 4);
       }
-      
-      photoX += photoSize + 5;
     }
     
     // Calculate final Y position after photos
-    yPos = photoY + photoSize + captionHeight + 5;
+    yPos = photoY + rowHeight;
   }
 
   // === SIGN-OFF SECTION ===
