@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight, Mail } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight, Mail, Upload, Paperclip } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -200,6 +200,13 @@ export function WorkReportDialog({
   // Photos
   const [photos, setPhotos] = useState<{ url: string; caption: string }[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  
+  // Files (paperwork, config files etc.)
+  const [reportFiles, setReportFiles] = useState<{ url: string; name: string; size: number }[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  
+  // SharePoint folder for this report
+  const [reportSharePointFolder, setReportSharePointFolder] = useState<string | null>(null);
 
   // Signatures
   const [engineerName, setEngineerName] = useState("");
@@ -401,9 +408,43 @@ export function WorkReportDialog({
       setReport(existingReport);
       populateForm(existingReport);
       
+      // Set existing SharePoint folder if any
+      if (existingReport.sharepoint_folder) {
+        setReportSharePointFolder(existingReport.sharepoint_folder);
+      }
+      
       // Check if report is already completed - lock it
       if (existingReport.status === "completed") {
         setIsLocked(true);
+      }
+      
+      // Auto-create SharePoint folder for this report if not already created
+      if (!existingReport.sharepoint_folder && customerInfo && site) {
+        const reportDateStr = format(reportDate, "dd-MM-yyyy");
+        const reportNum = existingReport.report_number || "draft";
+        const folderPath = `Customers/${customerInfo.name}/${site.name}/Reports/${reportDateStr} ${reportNum}`;
+        
+        try {
+          const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
+            body: {
+              folderPath,
+              entityType: "report",
+              entityId: existingReport.id,
+            },
+          });
+          
+          if (!spError && spData?.success) {
+            setReportSharePointFolder(spData.folderPath);
+            // Save to report record
+            await supabase
+              .from("service_reports")
+              .update({ sharepoint_folder: spData.folderPath, sharepoint_url: spData.webUrl || null })
+              .eq("id", existingReport.id);
+          }
+        } catch (e) {
+          // SharePoint not connected - silently ignore
+          console.log("SharePoint folder creation skipped:", e);
+        }
       }
     } catch (error) {
       console.error("Failed to load report:", error);
@@ -465,6 +506,7 @@ export function WorkReportDialog({
         setDuration(parsedNotes.duration || "");
         setMaterials(parsedNotes.materials || [{ name: "", qty: "", cost: "" }]);
         setPhotos(parsedNotes.photos || []);
+        setReportFiles(parsedNotes.reportFiles || []);
         setEngineerSignature(parsedNotes.engineerSignature || "");
         setCustomerSignature(parsedNotes.customerSignature || "");
         setCustomerNotPresent(parsedNotes.customerNotPresent || false);
@@ -517,6 +559,7 @@ export function WorkReportDialog({
       duration: workDays[0]?.duration || duration,
       materials: materials.filter((m) => m.name.trim()),
       photos,
+      reportFiles,
       engineerSignature,
       customerSignature,
       customerNotPresent,
@@ -609,7 +652,7 @@ export function WorkReportDialog({
     jobNumber, jobType, workCompleted, returnRequired, surveyRequired, quotationRequired,
     ramsCompleted, logBookEntry, systemStatusArrival, systemStatusDeparture, appointmentDate, reportDate,
     panelInfo, locationInfo, typeInfo, zonesInfo, contactPhone,
-    numEngineers, workDays, travelTime, materials, photos, worksReport, furtherAction,
+    numEngineers, workDays, travelTime, materials, photos, reportFiles, worksReport, furtherAction,
     engineerName, engineerSignature, engineerSignDate, engineerSignTime,
     customerName, customerSignature, customerSignDate, customerSignTime, customerNotPresent
   ]);
@@ -1490,7 +1533,16 @@ export function WorkReportDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="photos" className="mt-0 space-y-4">
+            <TabsContent value="photos" className="mt-0 space-y-6">
+              {/* SharePoint folder status */}
+              {reportSharePointFolder && (
+                <div className="bg-muted/50 rounded-lg p-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Upload className="w-3.5 h-3.5 shrink-0" />
+                  <span>SharePoint: <span className="font-medium text-foreground">{reportSharePointFolder}</span></span>
+                </div>
+              )}
+              
+              {/* Site Photos Section */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label>Site Photos</Label>
@@ -1509,19 +1561,46 @@ export function WorkReportDialog({
                           
                           for (const file of Array.from(files)) {
                             const fileExt = file.name.split('.').pop();
-                            const fileName = `${report.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                            const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                            const storagePath = `${report.id}/${uniqueName}`;
                             
                             const { error: uploadError } = await supabase.storage
                               .from('work-report-photos')
-                              .upload(fileName, file);
+                              .upload(storagePath, file);
                             
                             if (uploadError) throw uploadError;
                             
                             const { data: { publicUrl } } = supabase.storage
                               .from('work-report-photos')
-                              .getPublicUrl(fileName);
+                              .getPublicUrl(storagePath);
                             
                             newPhotos.push({ url: publicUrl, caption: '' });
+                            
+                            // Also upload to SharePoint if folder exists
+                            if (reportSharePointFolder) {
+                              try {
+                                const reader = new FileReader();
+                                const base64 = await new Promise<string>((resolve, reject) => {
+                                  reader.onload = () => {
+                                    const result = reader.result as string;
+                                    resolve(result.split(',')[1]);
+                                  };
+                                  reader.onerror = reject;
+                                  reader.readAsDataURL(file);
+                                });
+                                
+                                await supabase.functions.invoke("upload-to-sharepoint", {
+                                  body: {
+                                    folderPath: `${reportSharePointFolder}/Photos`,
+                                    fileName: file.name,
+                                    fileBase64: base64,
+                                    contentType: file.type || 'image/jpeg',
+                                  },
+                                });
+                              } catch (spErr) {
+                                console.log("SharePoint photo upload skipped:", spErr);
+                              }
+                            }
                           }
                           
                           setPhotos(prev => [...prev, ...newPhotos]);
@@ -1568,6 +1647,9 @@ export function WorkReportDialog({
                             src={photo.url} 
                             alt={photo.caption || `Photo ${index + 1}`}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/placeholder.svg';
+                            }}
                           />
                         </div>
                         {!isLocked && (
@@ -1590,6 +1672,137 @@ export function WorkReportDialog({
                           className="mt-2 text-xs"
                           disabled={isLocked}
                         />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Separator */}
+              <div className="border-t border-border" />
+
+              {/* File Upload Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Files & Documents</Label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      multiple
+                      onChange={async (e) => {
+                        const files = e.target.files;
+                        if (!files || files.length === 0 || !report) return;
+                        
+                        setUploadingFile(true);
+                        try {
+                          const newFiles: { url: string; name: string; size: number }[] = [];
+                          
+                          for (const file of Array.from(files)) {
+                            const fileExt = file.name.split('.').pop();
+                            const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                            const storagePath = `${report.id}/files/${uniqueName}`;
+                            
+                            const { error: uploadError } = await supabase.storage
+                              .from('work-report-photos')
+                              .upload(storagePath, file);
+                            
+                            if (uploadError) throw uploadError;
+                            
+                            const { data: { publicUrl } } = supabase.storage
+                              .from('work-report-photos')
+                              .getPublicUrl(storagePath);
+                            
+                            newFiles.push({ url: publicUrl, name: file.name, size: file.size });
+                            
+                            // Also upload to SharePoint if folder exists
+                            if (reportSharePointFolder) {
+                              try {
+                                const reader = new FileReader();
+                                const base64 = await new Promise<string>((resolve, reject) => {
+                                  reader.onload = () => {
+                                    const result = reader.result as string;
+                                    resolve(result.split(',')[1]);
+                                  };
+                                  reader.onerror = reject;
+                                  reader.readAsDataURL(file);
+                                });
+                                
+                                await supabase.functions.invoke("upload-to-sharepoint", {
+                                  body: {
+                                    folderPath: `${reportSharePointFolder}/Documents`,
+                                    fileName: file.name,
+                                    fileBase64: base64,
+                                    contentType: file.type || 'application/octet-stream',
+                                  },
+                                });
+                              } catch (spErr) {
+                                console.log("SharePoint file upload skipped:", spErr);
+                              }
+                            }
+                          }
+                          
+                          setReportFiles(prev => [...prev, ...newFiles]);
+                          toast.success(`${newFiles.length} file(s) uploaded`);
+                        } catch (error) {
+                          console.error('Failed to upload file:', error);
+                          toast.error('Failed to upload file');
+                        } finally {
+                          setUploadingFile(false);
+                          e.target.value = '';
+                        }
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={isLocked || uploadingFile}
+                    />
+                    <Button variant="outline" size="sm" disabled={isLocked || uploadingFile}>
+                      {uploadingFile ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Paperclip className="w-4 h-4 mr-2" />
+                          Add Files
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                
+                {reportFiles.length === 0 ? (
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center text-muted-foreground">
+                    <Paperclip className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No files uploaded yet</p>
+                    <p className="text-xs mt-1">Upload paperwork, configuration files, or other documents</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {reportFiles.map((file, index) => (
+                      <div key={index} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
+                        <Paperclip className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <a 
+                            href={file.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-primary hover:underline truncate block"
+                          >
+                            {file.name}
+                          </a>
+                          <span className="text-xs text-muted-foreground">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </span>
+                        </div>
+                        {!isLocked && (
+                          <button
+                            type="button"
+                            onClick={() => setReportFiles(reportFiles.filter((_, i) => i !== index))}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

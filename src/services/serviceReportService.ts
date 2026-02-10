@@ -167,6 +167,8 @@ export interface ServiceReport {
   parts_used: string | null;
   notes: string | null;
   status: string;
+  sharepoint_folder: string | null;
+  sharepoint_url: string | null;
 }
 
 export const getDefaultChecklist = (): BS5839Checklist => ({

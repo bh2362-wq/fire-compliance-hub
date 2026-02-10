@@ -164,8 +164,12 @@ Deno.serve(async (req) => {
     const webUrl = await createFolderPath(accessToken, cleanPath);
 
     // Save the folder path and webUrl back to the entity
-    const table = entityType === "customer" ? "customers" : "sites";
-    await supabase.from(table).update({ sharepoint_folder: cleanPath, sharepoint_url: webUrl || null }).eq("id", entityId);
+    if (entityType === "report") {
+      await supabase.from("service_reports").update({ sharepoint_folder: cleanPath, sharepoint_url: webUrl || null }).eq("id", entityId);
+    } else {
+      const table = entityType === "customer" ? "customers" : "sites";
+      await supabase.from(table).update({ sharepoint_folder: cleanPath, sharepoint_url: webUrl || null }).eq("id", entityId);
+    }
 
     return new Response(
       JSON.stringify({ success: true, folderPath: cleanPath, webUrl }),
