@@ -139,7 +139,7 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
         ) as string;
       } else if (reportType === "work") {
         const parsed = JSON.parse(report.notes || "{}");
-        base64 = generateWorkReportPDF(
+        base64 = await generateWorkReportPDF(
           {
             certificateNo: report.report_number || "", jobNumber: parsed.jobNumber || "",
             jobType: parsed.jobType || "", appointmentDate: parsed.appointmentDate || "",

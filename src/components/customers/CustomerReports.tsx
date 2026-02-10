@@ -310,7 +310,7 @@ export function CustomerReports({ customerId, customerName, siteIds }: CustomerR
         );
       } else if (isWorkReport(report)) {
         const parsed = JSON.parse(report.notes || "{}");
-        generateWorkReportPDF(
+        await generateWorkReportPDF(
           {
             certificateNo: report.report_number || "",
             jobNumber: parsed.jobNumber || "",
@@ -439,7 +439,7 @@ export function CustomerReports({ customerId, customerName, siteIds }: CustomerR
         ) as string;
       } else if (isWorkReport(report)) {
         const parsed = JSON.parse(report.notes || "{}");
-        return generateWorkReportPDF(
+        return await generateWorkReportPDF(
           {
             certificateNo: report.report_number || "", jobNumber: parsed.jobNumber || "",
             jobType: parsed.jobType || "", appointmentDate: parsed.appointmentDate || "",

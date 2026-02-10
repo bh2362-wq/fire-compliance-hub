@@ -799,13 +799,13 @@ interface WorkReportSiteInfo {
   contact_phone?: string | null;
 }
 
-export function generateWorkReportPDF(
+export async function generateWorkReportPDF(
   data: WorkReportData,
   site: WorkReportSiteInfo,
   visitDate: string,
   visitType?: string,
   returnBase64?: boolean
-): string | void {
+): Promise<string | void> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -1069,11 +1069,15 @@ export function generateWorkReportPDF(
       doc.setLineWidth(0.3);
       doc.rect(photoX, photoY, photoSize, photoSize);
       
-      // Try to add the image
+      // Try to add the image (pre-load it first)
       try {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.src = photo.url;
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const image = new Image();
+          image.crossOrigin = "anonymous";
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error("Failed to load image"));
+          image.src = photo.url;
+        });
         doc.addImage(img, "JPEG", photoX + 1, photoY + 1, photoSize - 2, photoSize - 2);
       } catch {
         // If image fails, show placeholder text

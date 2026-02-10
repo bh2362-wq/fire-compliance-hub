@@ -307,7 +307,7 @@ export function ReportPreviewDialog({
           devicesCount: src.devices_count || undefined,
         };
 
-        generateWorkReportPDF(
+        await generateWorkReportPDF(
           workReportData,
           {
             name: siteDetails.name,

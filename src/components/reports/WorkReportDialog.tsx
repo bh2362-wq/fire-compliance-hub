@@ -886,11 +886,11 @@ export function WorkReportDialog({
     setMaterials(updated);
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!siteInfo) return;
 
     try {
-      generateWorkReportPDF(
+      await generateWorkReportPDF(
         buildPdfData(),
         siteInfo,
         format(reportDate, "yyyy-MM-dd")
@@ -953,7 +953,7 @@ export function WorkReportDialog({
   const generatePdfBase64 = async (): Promise<string> => {
     if (!siteInfo) throw new Error("Site info not loaded");
     
-    const base64 = generateWorkReportPDF(
+    const base64 = await generateWorkReportPDF(
       buildPdfData(),
       siteInfo,
       format(reportDate, "yyyy-MM-dd"),
