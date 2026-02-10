@@ -419,10 +419,13 @@ export function WorkReportDialog({
       }
       
       // Auto-create SharePoint folder for this report if not already created
-      if (!existingReport.sharepoint_folder && customerInfo && site) {
+      const customerData2 = site?.customers as { id: string; name: string } | null;
+      if (!existingReport.sharepoint_folder && customerData2 && site) {
         const reportDateStr = format(reportDate, "dd-MM-yyyy");
-        const reportNum = existingReport.report_number || "draft";
-        const folderPath = `Customers/${customerInfo.name}/${site.name}/Reports/${reportDateStr} ${reportNum}`;
+        const reportNum = existingReport.report_number || `DRAFT-${existingReport.id.substring(0, 6)}`;
+        const siteLabel = [site.name, site.address].filter(Boolean).join(" ");
+        const reportFolder = `${reportDateStr} ${reportNum}`;
+        const folderPath = `Customers/${customerData2.name}/${siteLabel}/Reports/${reportFolder}`;
         
         try {
           const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
@@ -435,14 +438,12 @@ export function WorkReportDialog({
           
           if (!spError && spData?.success) {
             setReportSharePointFolder(spData.folderPath);
-            // Save to report record
             await supabase
               .from("service_reports")
               .update({ sharepoint_folder: spData.folderPath, sharepoint_url: spData.webUrl || null })
               .eq("id", existingReport.id);
           }
         } catch (e) {
-          // SharePoint not connected - silently ignore
           console.log("SharePoint folder creation skipped:", e);
         }
       }
