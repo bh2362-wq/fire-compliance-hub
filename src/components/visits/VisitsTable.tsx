@@ -441,7 +441,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             customerSignDate: (parsedNotes.customerSignDate as string) || undefined,
             customerSignTime: (parsedNotes.customerSignTime as string) || undefined,
           };
-          const result = generateWorkReportPDF(pdfData, siteData, reportDate, visit.visit_type, true);
+          const result = await generateWorkReportPDF(pdfData, siteData, reportDate, visit.visit_type, true);
           if (typeof result === "string") return result;
           throw new Error("Failed to generate Work Report PDF");
         }

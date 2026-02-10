@@ -196,7 +196,7 @@ const Reports = () => {
         }, siteInfo, visit.visit_date, visit.visit_type, true) as string;
       } else if (isWorkReport(fullReport as any)) {
         const parsed = JSON.parse(fullReport.notes || "{}");
-        base64 = generateWorkReportPDF({
+        base64 = await generateWorkReportPDF({
           certificateNo: fullReport.report_number || "", jobNumber: parsed.jobNumber || "", jobType: parsed.jobType || "", appointmentDate: parsed.appointmentDate || "",
           systemStatusArrival: parsed.systemStatusArrival || "", systemStatusDeparture: parsed.systemStatusDeparture || "", workCompleted: parsed.workCompleted || false, returnRequired: parsed.returnRequired || false,
           surveyRequired: parsed.surveyRequired || false, quotationRequired: parsed.quotationRequired || false, ramsCompleted: parsed.ramsCompleted || false, logBookEntry: parsed.logBookEntry || false,
@@ -413,7 +413,7 @@ const Reports = () => {
       // Work Report / Job Sheet
       const parsed = JSON.parse(fullReport.notes || "{}");
       
-      const base64 = generateWorkReportPDF(
+      const base64 = await generateWorkReportPDF(
         {
           certificateNo: fullReport.report_number || "",
           jobNumber: parsed.jobNumber || "",
