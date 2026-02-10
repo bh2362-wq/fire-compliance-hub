@@ -149,8 +149,12 @@ const Reports = () => {
     const siteName = report.sites?.name || "Unknown Site";
     const siteAddress = (report.sites as any)?.address || "";
     const siteFolder = siteAddress ? `${sanitizeName(siteName)} (${sanitizeName(siteAddress)})` : sanitizeName(siteName);
-    const folderPath = `Customers/${sanitizeName(customerName)}/${siteFolder}/Reports`;
-    const fileName = `${report.report_number || "report"}.pdf`;
+    const visitDate = report.visits?.visit_date || report.report_date;
+    const dateStr = visitDate ? format(new Date(visitDate), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
+    const reportNum = report.report_number || "report";
+    const reportFolderName = `${reportNum}_${dateStr}`;
+    const folderPath = `Customers/${sanitizeName(customerName)}/${siteFolder}/Reports/${reportFolderName}`;
+    const fileName = `${reportFolderName}.pdf`;
 
     setUploadingToSharePoint(report.id);
     try {
