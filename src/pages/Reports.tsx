@@ -202,9 +202,12 @@ const Reports = () => {
           surveyRequired: parsed.surveyRequired || false, quotationRequired: parsed.quotationRequired || false, ramsCompleted: parsed.ramsCompleted || false, logBookEntry: parsed.logBookEntry || false,
           worksReport: fullReport.work_carried_out || "", furtherAction: fullReport.recommendations || "", numEngineers: parsed.numEngineers || 1, workDays: parsed.workDays || [],
           totalHours: parsed.totalHours || "", startTime: parsed.startTime || "", finishTime: parsed.finishTime || "", travelTime: parsed.travelTime || "", duration: parsed.duration || "",
-          materials: parsed.materials || [], engineerName: fullReport.engineer_name || "", engineerSignature: fullReport.engineer_signature || parsed.engineerSignature || "",
+          materials: parsed.materials || [], photos: parsed.photos || [], reportFiles: parsed.reportFiles || [],
+          engineerName: fullReport.engineer_name || "", engineerSignature: fullReport.engineer_signature || parsed.engineerSignature || "",
           engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "", customerNotPresent: parsed.customerNotPresent || false,
           customerName: fullReport.client_name || "", customerSignature: fullReport.client_signature || parsed.customerSignature || "", customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
+          panelInfo: parsed.panelInfo || "", locationInfo: parsed.locationInfo || "", typeInfo: parsed.typeInfo || "", zonesInfo: parsed.zonesInfo || "", contactPhone: parsed.contactPhone || "",
+          reportDate: parsed.reportDate || fullReport.report_date,
         }, siteInfo, visit.visit_date, visit.visit_type, true) as string;
       } else {
         let signatures = {}; let panels = undefined;
