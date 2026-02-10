@@ -11,7 +11,6 @@ async function refreshMicrosoftToken(supabase: any, tokenRow: any): Promise<stri
   const clientSecret = Deno.env.get("MICROSOFT_CLIENT_SECRET")!;
   const tenantId = Deno.env.get("MICROSOFT_TENANT_ID")!;
 
-  // Check if token is still valid (with 5 min buffer)
   const expiresAt = new Date(tokenRow.expires_at);
   if (expiresAt.getTime() > Date.now() + 5 * 60 * 1000) {
     return tokenRow.access_token;
@@ -52,7 +51,6 @@ async function refreshMicrosoftToken(supabase: any, tokenRow: any): Promise<stri
 }
 
 async function ensureFolderExists(accessToken: string, folderPath: string): Promise<void> {
-  // Split path into segments and create each level
   const segments = folderPath.replace(/^\/+|\/+$/g, "").split("/");
   let currentPath = "";
 
@@ -60,7 +58,6 @@ async function ensureFolderExists(accessToken: string, folderPath: string): Prom
     const parentPath = currentPath || "root";
     currentPath = currentPath ? `${currentPath}/${segment}` : segment;
 
-    // Check if folder exists
     const checkUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${currentPath}`;
     const checkResponse = await fetch(checkUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -68,7 +65,6 @@ async function ensureFolderExists(accessToken: string, folderPath: string): Prom
 
     if (checkResponse.ok) continue;
 
-    // Create folder
     const parentUrl = parentPath === "root"
       ? "https://graph.microsoft.com/v1.0/me/drive/root/children"
       : `https://graph.microsoft.com/v1.0/me/drive/root:/${parentPath}:/children`;
@@ -88,13 +84,19 @@ async function ensureFolderExists(accessToken: string, folderPath: string): Prom
 
     if (!createResponse.ok) {
       const err = await createResponse.text();
-      // 409 = already exists (race condition), that's fine
       if (createResponse.status !== 409) {
         console.error(`Failed to create folder ${segment}:`, err);
         throw new Error(`Failed to create folder: ${segment}`);
       }
     }
   }
+}
+
+// Simple hash for checksum comparison
+async function computeHash(data: Uint8Array): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 Deno.serve(async (req) => {
@@ -129,7 +131,6 @@ Deno.serve(async (req) => {
 
     const { folderPath, fileName, fileBase64, contentType } = await req.json();
 
-    // Validate inputs
     if (!folderPath || typeof folderPath !== "string" || folderPath.length > 500) {
       return new Response(
         JSON.stringify({ error: "Invalid folder path" }),
@@ -149,11 +150,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get service role client for reading tokens
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get Microsoft tokens
     const { data: tokenRow, error: tokenError } = await serviceClient
       .from("microsoft_tokens")
       .select("*")
@@ -169,10 +168,9 @@ Deno.serve(async (req) => {
 
     const accessToken = await refreshMicrosoftToken(serviceClient, tokenRow);
 
-    // Clean the folder path
     const cleanPath = folderPath.replace(/^\/+|\/+$/g, "");
 
-    // Ensure the folder exists (creates if missing)
+    // Ensure the folder exists
     await ensureFolderExists(accessToken, cleanPath);
 
     // Convert base64 to binary
@@ -182,7 +180,54 @@ Deno.serve(async (req) => {
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    // Upload file to OneDrive/SharePoint
+    // Compute SHA-256 hash of the new file
+    const newFileHash = await computeHash(bytes);
+    const newFileSize = bytes.length;
+    console.log(`New file: ${fileName}, size: ${newFileSize} bytes, SHA-256: ${newFileHash.substring(0, 16)}...`);
+
+    // Check if file already exists and compare
+    const existingUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${cleanPath}/${fileName}`;
+    const existingResponse = await fetch(existingUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    let skipped = false;
+    if (existingResponse.ok) {
+      const existingMeta = await existingResponse.json();
+      const existingSize = existingMeta.size;
+      const existingHash = existingMeta.file?.hashes?.sha256Hash?.toLowerCase();
+
+      console.log(`Existing file: size: ${existingSize} bytes, SHA-256: ${existingHash?.substring(0, 16) || "N/A"}...`);
+
+      // Compare by hash if available, otherwise by size
+      if (existingHash && existingHash === newFileHash) {
+        console.log("File unchanged (hash match) - skipping upload");
+        skipped = true;
+      } else if (!existingHash && existingSize === newFileSize) {
+        // Size match without hash - still upload to be safe, but log it
+        console.log("Size matches but no hash available - uploading to ensure latest version");
+      } else {
+        console.log(`File changed (old: ${existingSize}b, new: ${newFileSize}b) - uploading update`);
+      }
+    } else {
+      console.log("File does not exist yet - uploading new file");
+    }
+
+    if (skipped) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          message: "File unchanged - no upload needed",
+          fileName,
+          newFileHash: newFileHash.substring(0, 16),
+          newFileSize,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
+
+    // Upload file (PUT overwrites existing)
     const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${cleanPath}/${fileName}:/content`;
     const uploadResponse = await fetch(uploadUrl, {
       method: "PUT",
@@ -200,13 +245,24 @@ Deno.serve(async (req) => {
     }
 
     const result = await uploadResponse.json();
-    console.log("File uploaded successfully:", result.name);
+    const uploadedHash = result.file?.hashes?.sha256Hash?.toLowerCase() || "N/A";
+    console.log(`File uploaded successfully: ${result.name}, size: ${result.size}b, SHA-256: ${uploadedHash.substring(0, 16)}...`);
+
+    // Verify the uploaded file matches what we sent
+    if (uploadedHash !== "n/a" && uploadedHash !== newFileHash) {
+      console.warn(`WARNING: Upload hash mismatch! Sent: ${newFileHash.substring(0, 16)}, Got: ${uploadedHash.substring(0, 16)}`);
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
+        skipped: false,
         fileName: result.name,
         webUrl: result.webUrl,
+        newFileSize,
+        newFileHash: newFileHash.substring(0, 16),
+        uploadedSize: result.size,
+        uploadedHash: uploadedHash.substring(0, 16),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );

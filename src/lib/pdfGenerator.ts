@@ -765,6 +765,7 @@ export interface WorkReportData {
   duration: string;
   materials: { name: string; qty: string; cost: string }[];
   photos?: { url: string; caption: string }[];
+  reportFiles?: { url: string; name: string; size?: number }[];
   engineerName: string;
   engineerSignature?: string;
   engineerSignDate?: string;
@@ -775,6 +776,7 @@ export interface WorkReportData {
   customerSignDate?: string;
   customerSignTime?: string;
   customerPosition?: string;
+  reportDate?: string;
   // Custom system info fields (only show if populated)
   panelInfo?: string;
   locationInfo?: string;
