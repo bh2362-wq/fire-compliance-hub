@@ -543,6 +543,7 @@ export function QuotationDetailDialog({
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 space-y-3">
                             <div className="flex items-center gap-2">
+                              {columnOptions.showPriority && (
                               <Select
                                 value={item.priority}
                                 onValueChange={(value) => handleItemChange(index, "priority", value)}
@@ -558,6 +559,7 @@ export function QuotationDetailDialog({
                                   <SelectItem value="labour">Labour Only</SelectItem>
                                 </SelectContent>
                               </Select>
+                              )}
                               {item.regulation_reference && (
                                 <Badge variant="outline" className="text-xs">
                                   {item.regulation_reference}
