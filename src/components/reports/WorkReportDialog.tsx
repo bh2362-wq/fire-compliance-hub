@@ -746,31 +746,7 @@ export function WorkReportDialog({
         toast.success(`Work report ${finalReportNumber || ""} completed and locked`);
 
         // Upload PDF to SharePoint
-        if (reportSharePointFolder && siteInfo) {
-          try {
-            const pdfBase64 = await generateWorkReportPDF(
-              buildPdfData(),
-              siteInfo,
-              format(reportDate, "yyyy-MM-dd"),
-              undefined,
-              true
-            );
-            if (pdfBase64) {
-              const pdfFileName = `${finalReportNumber || 'Report'} - ${siteInfo.name || 'Site'}.pdf`;
-              await supabase.functions.invoke("upload-to-sharepoint", {
-                body: {
-                  folderPath: reportSharePointFolder,
-                  fileName: pdfFileName,
-                  fileBase64: pdfBase64,
-                  contentType: "application/pdf",
-                },
-              });
-              console.log("PDF uploaded to SharePoint");
-            }
-          } catch (spErr) {
-            console.log("SharePoint PDF upload skipped:", spErr);
-          }
-        }
+        syncPdfToSharePoint();
         
         // Send job completed notification email
         sendJobCompletedNotification(visit.id).catch(console.error);
@@ -784,6 +760,8 @@ export function WorkReportDialog({
         }
       } else {
         toast.success("Work report saved");
+        // Sync PDF to SharePoint on every save so folder stays current
+        syncPdfToSharePoint();
         // Also trigger refresh for draft saves so preview gets updated
         onSuccess?.();
       }
@@ -870,31 +848,7 @@ export function WorkReportDialog({
       toast.success(`Visit ${finalReportNumber || ""} completed and locked`);
 
       // Upload PDF to SharePoint
-      if (reportSharePointFolder && siteInfo) {
-        try {
-          const pdfBase64 = await generateWorkReportPDF(
-            buildPdfData(),
-            siteInfo,
-            format(reportDate, "yyyy-MM-dd"),
-            undefined,
-            true
-          );
-          if (pdfBase64) {
-            const pdfFileName = `${finalReportNumber || 'Report'} - ${siteInfo.name || 'Site'}.pdf`;
-            await supabase.functions.invoke("upload-to-sharepoint", {
-              body: {
-                folderPath: reportSharePointFolder,
-                fileName: pdfFileName,
-                fileBase64: pdfBase64,
-                contentType: "application/pdf",
-              },
-            });
-            console.log("PDF uploaded to SharePoint");
-          }
-        } catch (spErr) {
-          console.log("SharePoint PDF upload skipped:", spErr);
-        }
-      }
+      syncPdfToSharePoint();
       
       // Send job completed notification email
       sendJobCompletedNotification(visit.id).catch(console.error);
@@ -941,6 +895,34 @@ export function WorkReportDialog({
     setMaterials(updated);
   };
 
+  // Shared helper to upload current PDF to SharePoint
+  const syncPdfToSharePoint = async () => {
+    if (!reportSharePointFolder || !siteInfo) return;
+    try {
+      const pdfBase64 = await generateWorkReportPDF(
+        buildPdfData(),
+        siteInfo,
+        format(reportDate, "yyyy-MM-dd"),
+        undefined,
+        true
+      );
+      if (pdfBase64) {
+        const pdfFileName = `${certificateNo || jobNumber || 'Report'} - ${siteInfo.name || 'Site'}.pdf`;
+        await supabase.functions.invoke("upload-to-sharepoint", {
+          body: {
+            folderPath: reportSharePointFolder,
+            fileName: pdfFileName,
+            fileBase64: pdfBase64,
+            contentType: "application/pdf",
+          },
+        });
+        console.log("PDF synced to SharePoint");
+      }
+    } catch (spErr) {
+      console.log("SharePoint PDF sync skipped:", spErr);
+    }
+  };
+
   const handleDownloadPDF = async () => {
     if (!siteInfo) return;
 
@@ -950,6 +932,9 @@ export function WorkReportDialog({
         siteInfo,
         format(reportDate, "yyyy-MM-dd")
       );
+
+      // Also sync to SharePoint so the folder always has the latest version
+      syncPdfToSharePoint();
 
       toast.success("PDF downloaded successfully");
     } catch (error) {
