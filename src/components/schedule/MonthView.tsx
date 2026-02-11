@@ -9,7 +9,6 @@ import {
   endOfWeek,
   addDays,
   isSameMonth,
-  isSameDay,
   isToday,
 } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -46,9 +45,8 @@ export function MonthView({
   }
 
   const getAppointmentsForDay = (d: Date) => {
-    return appointments.filter((apt) =>
-      isSameDay(new Date(apt.appointment_date), d)
-    );
+    const dayStr = format(d, 'yyyy-MM-dd');
+    return appointments.filter((apt) => apt.appointment_date === dayStr);
   };
 
   const handleDragStart = useCallback((e: DragEvent, apt: Appointment) => {

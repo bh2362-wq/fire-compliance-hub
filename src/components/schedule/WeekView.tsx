@@ -4,7 +4,6 @@ import {
   format,
   startOfWeek,
   addDays,
-  isSameDay,
   isToday,
 } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -22,8 +21,9 @@ export function WeekView({ currentDate, appointments, onAppointmentClick }: Week
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const getAppointmentsForDayHour = (day: Date, hour: number) => {
+    const dayStr = format(day, 'yyyy-MM-dd');
     return appointments.filter((apt) => {
-      if (!isSameDay(new Date(apt.appointment_date), day)) return false;
+      if (apt.appointment_date !== dayStr) return false;
       try {
         const startHour = parseInt(apt.start_time.split(':')[0], 10);
         return startHour === hour;
