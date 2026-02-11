@@ -12,7 +12,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -611,96 +618,150 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         <div className="col-span-2">
           <SmokeSprayEstimate siteId={visit.site_id} visitType={visit.visit_type} />
         </div>
-        <div className="col-span-2 flex items-center gap-2 flex-wrap">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(`/dashboard/sites/${visit.site_id}`)}
-          >
-            <Eye className="w-4 h-4 mr-1" />
-            Site
-          </Button>
-          {reportInfo?.status === "completed" && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleEmailReport(visit)}
-                >
-                  <Mail className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Email Report</TooltipContent>
-            </Tooltip>
-          )}
+        <div className="col-span-2 flex items-center justify-end gap-2">
           {!isInvoiced && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  navigate(`/dashboard/reconciliation?siteId=${visit.site_id}&visitId=${visit.id}`)
-                }
-              >
-                <GitCompare className="w-4 h-4 mr-1" />
-                Reconcile
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPreviewVisit(visit)}
+            >
+              <ClipboardCheck className="w-4 h-4 mr-1" />
+              Report
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="w-4 h-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPreviewVisit(visit)}
-              >
-                <ClipboardCheck className="w-4 h-4 mr-1" />
-                Report
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                  // Look up the customer linked to this site
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => navigate(`/dashboard/sites/${visit.site_id}`)}>
+                <Eye className="w-4 h-4 mr-2" />
+                View Site
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setEditVisit(visit)}>
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit Visit
+              </DropdownMenuItem>
+              {reportInfo?.status === "completed" && (
+                <DropdownMenuItem onClick={() => handleEmailReport(visit)}>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Email Customer
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate(`/dashboard/schedule`)}>
+                <CalendarDays className="w-4 h-4 mr-2" />
+                View Schedule
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={async () => {
+                // Check if appointment already exists
+                const { data: existing } = await supabase
+                  .from("appointments")
+                  .select("id")
+                  .eq("visit_id", visit.id)
+                  .maybeSingle();
+                
+                if (existing) {
+                  toast({ title: "Already scheduled", description: "This visit is already on the schedule." });
+                  navigate(`/dashboard/schedule`);
+                } else {
+                  // Create appointment from visit
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) return;
+                  
+                  // Get customer_id from site
                   const { data: siteData } = await supabase
                     .from("sites")
                     .select("customer_id")
                     .eq("id", visit.site_id)
                     .maybeSingle();
                   
-                  if (siteData?.customer_id) {
-                    const { data: customerData } = await supabase
-                      .from("customers")
-                      .select("xero_contact_id")
-                      .eq("id", siteData.customer_id)
+                  const { error } = await supabase.from("appointments").insert({
+                    visit_id: visit.id,
+                    site_id: visit.site_id,
+                    customer_id: siteData?.customer_id || null,
+                    title: `${visit.visit_type} - ${visit.site?.name || "Site"}`,
+                    appointment_date: visit.visit_date,
+                    start_time: "09:00",
+                    end_time: "17:00",
+                    status: "scheduled",
+                    visit_type: visit.visit_type,
+                    created_by: user.id,
+                  });
+                  
+                  if (error) {
+                    toast({ title: "Error", description: "Failed to add to schedule", variant: "destructive" });
+                  } else {
+                    toast({ title: "Added to schedule", description: `Visit added to schedule for ${format(new Date(visit.visit_date), "MMM d, yyyy")}` });
+                    navigate(`/dashboard/schedule`);
+                  }
+                }
+              }}>
+                <CalendarPlus className="w-4 h-4 mr-2" />
+                Add to Schedule
+              </DropdownMenuItem>
+              {!isInvoiced && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate(`/dashboard/reconciliation?siteId=${visit.site_id}&visitId=${visit.id}`)}>
+                    <GitCompare className="w-4 h-4 mr-2" />
+                    Reconcile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => {
+                    const { data: siteData } = await supabase
+                      .from("sites")
+                      .select("customer_id")
+                      .eq("id", visit.site_id)
                       .maybeSingle();
                     
-                    setInvoiceContactId(customerData?.xero_contact_id || null);
-                  } else {
-                    setInvoiceContactId(null);
-                  }
-                  
-                  setInvoiceVisit(visit);
-                }}
-              >
-                <FileText className="w-4 h-4 mr-1" />
-                Invoice
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditVisit(visit)}
-              >
-                <Pencil className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => setDeleteVisit(visit)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </>
-          )}
+                    if (siteData?.customer_id) {
+                      const { data: customerData } = await supabase
+                        .from("customers")
+                        .select("xero_contact_id")
+                        .eq("id", siteData.customer_id)
+                        .maybeSingle();
+                      setInvoiceContactId(customerData?.xero_contact_id || null);
+                    } else {
+                      setInvoiceContactId(null);
+                    }
+                    setInvoiceVisit(visit);
+                  }}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Create Invoice
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      // Cancel visit - update status
+                      const { error } = await supabase
+                        .from("visits")
+                        .update({ status: "cancelled" })
+                        .eq("id", visit.id);
+                      if (error) {
+                        toast({ title: "Error", description: "Failed to cancel visit", variant: "destructive" });
+                      } else {
+                        toast({ title: "Visit cancelled", description: "The visit has been cancelled." });
+                        onRefresh?.();
+                      }
+                    }}
+                    className="text-warning focus:text-warning"
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Cancel Visit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setDeleteVisit(visit)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Visit
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     );
