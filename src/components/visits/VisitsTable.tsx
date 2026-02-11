@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -101,6 +102,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitialVisitOpened }: VisitsTableProps) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
   const [invoiceContactId, setInvoiceContactId] = useState<string | null>(null);
@@ -688,6 +690,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   } else {
                     toast({ title: "Schedule updated", description: `Appointment moved to ${format(new Date(visit.visit_date), "MMM d, yyyy")}` });
                   }
+                  await queryClient.invalidateQueries({ queryKey: ['appointments'] });
                   navigate(`/dashboard/schedule`);
                 } else {
                   // Create appointment from visit
@@ -718,6 +721,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                     toast({ title: "Error", description: "Failed to add to schedule", variant: "destructive" });
                   } else {
                     toast({ title: "Added to schedule", description: `Visit added to schedule for ${format(new Date(visit.visit_date), "MMM d, yyyy")}` });
+                    await queryClient.invalidateQueries({ queryKey: ['appointments'] });
                     navigate(`/dashboard/schedule`);
                   }
                 }
