@@ -29,7 +29,7 @@ serve(async (req) => {
     }
 
     const systemPrompt = mode === 'bulk_visits'
-      ? `You are an AI assistant for a fire safety engineering company. Analyse the email which contains MULTIPLE jobs/visits, potentially on different dates and at different sites but for the same customer. Extract:
+      ? `You are an AI assistant for a fire safety engineering company. Analyse the email which contains MULTIPLE jobs/visits for the same customer. Extract:
 - company_name: The customer/company name
 - contact_name: Main contact person
 - contact_email: Contact email
@@ -44,7 +44,12 @@ serve(async (req) => {
   - description: What work is needed at this visit
   - notes: Any additional notes
 
-If multiple visits are at the same site on different dates, create separate entries for each date.
+CRITICAL RULES:
+- Every single line item, job, or piece of work mentioned in the email MUST be its own separate visit entry in the array.
+- If the email lists 10 jobs, you MUST return 10 visit entries. If it lists 20, return 20. There is NO limit.
+- Even if multiple jobs are at the SAME site on the SAME date, each job MUST be a separate entry.
+- Never merge or combine jobs together. Each distinct piece of work = one visit entry.
+- Do not summarise or group entries. Extract every single one individually.
 Return ONLY valid JSON. Use null for fields you cannot determine. visits must always be an array.`
       : mode === 'visit'
       ? `You are an AI assistant for a fire safety engineering company. Analyse the email and extract structured data to create a site visit. Extract:
