@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ArrowLeft,
   Building2,
   MapPin,
@@ -17,7 +24,11 @@ import {
   FileText,
   ClipboardList,
   BarChart3,
+  MoreHorizontal,
+  Eye,
+  Trash2,
 } from "lucide-react";
+import DeleteSiteDialog from "@/components/sites/DeleteSiteDialog";
 import { Customer, getCustomer, getCustomerSites } from "@/services/customerService";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
@@ -55,6 +66,8 @@ const CustomerDetail = () => {
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showIntelligence, setShowIntelligence] = useState(false);
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
+  const [deleteSiteDialogOpen, setDeleteSiteDialogOpen] = useState(false);
+  const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
 
   const loadData = async () => {
     if (!id) return;
@@ -272,8 +285,34 @@ const CustomerDetail = () => {
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="flex items-center gap-2">
                         <Badge variant="secondary">{site.total_devices || 0} devices</Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/sites/${site.id}`); }}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Site
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); setSiteToDelete(site); setDeleteSiteDialogOpen(true); }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete Site
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   ))}
@@ -360,6 +399,16 @@ const CustomerDetail = () => {
         companyNumber={(customer as any).company_number}
         xeroContactId={customer.xero_contact_id}
       />
+
+      {siteToDelete && (
+        <DeleteSiteDialog
+          open={deleteSiteDialogOpen}
+          onOpenChange={setDeleteSiteDialogOpen}
+          siteId={siteToDelete.id}
+          siteName={siteToDelete.name}
+          onSuccess={loadData}
+        />
+      )}
     </DashboardLayout>
   );
 };

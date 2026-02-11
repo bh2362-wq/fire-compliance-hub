@@ -23,6 +23,7 @@ import { Building2, MapPin, Cpu, MoreHorizontal, Plus, Pencil, Trash2, Upload, L
 import { Site, getSites, deleteSite } from "@/services/siteService";
 import SiteFormDialog from "./SiteFormDialog";
 import DeviceImportDialog from "./DeviceImportDialog";
+import DeleteSiteDialog from "./DeleteSiteDialog";
 import { useToast } from "@/hooks/use-toast";
 
 const statusConfig = {
@@ -41,6 +42,11 @@ const SitesTable = () => {
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const handleDeleteSuccess = () => {
+    loadSites();
+    setSiteToDelete(null);
+  };
 
   const loadSites = async () => {
     setLoading(true);
@@ -79,27 +85,6 @@ const SitesTable = () => {
   const handleDeleteClick = (site: Site) => {
     setSiteToDelete(site);
     setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!siteToDelete) return;
-
-    const { error } = await deleteSite(siteToDelete.id);
-    if (error) {
-      toast({
-        title: "Delete failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Site deleted",
-        description: `${siteToDelete.name} has been removed.`,
-      });
-      loadSites();
-    }
-    setDeleteDialogOpen(false);
-    setSiteToDelete(null);
   };
 
   if (loading) {
@@ -277,26 +262,15 @@ const SitesTable = () => {
       )}
 
       {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Site</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete <span className="font-medium">{siteToDelete?.name}</span>? 
-              This will also delete all associated devices, visits, and uploads. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {siteToDelete && (
+        <DeleteSiteDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          siteId={siteToDelete.id}
+          siteName={siteToDelete.name}
+          onSuccess={handleDeleteSuccess}
+        />
+      )}
     </>
   );
 };
