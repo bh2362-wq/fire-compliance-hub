@@ -1,6 +1,6 @@
 import { Appointment } from "@/services/appointmentService";
 import { AppointmentCard } from "./AppointmentCard";
-import { format, parse, isSameDay } from "date-fns";
+import { format, parse } from "date-fns";
 
 interface DayViewProps {
   currentDate: Date;
@@ -11,9 +11,8 @@ interface DayViewProps {
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export function DayView({ currentDate, appointments, onAppointmentClick }: DayViewProps) {
-  const dayAppointments = appointments.filter((apt) =>
-    isSameDay(new Date(apt.appointment_date), currentDate)
-  );
+  const currentDayStr = format(currentDate, 'yyyy-MM-dd');
+  const dayAppointments = appointments.filter((apt) => apt.appointment_date === currentDayStr);
 
   const getAppointmentsForHour = (hour: number) => {
     return dayAppointments.filter((apt) => {
