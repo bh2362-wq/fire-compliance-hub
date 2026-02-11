@@ -11,6 +11,8 @@ import { Loader2, ArrowLeft, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { createAppointment } from "@/services/appointmentService";
+import { sendAppointmentCreatedNotification } from "@/services/notificationService";
 import type { ExtractedEmailData } from "@/pages/EmailScanner";
 
 interface Customer {
@@ -143,6 +145,7 @@ export const EmailScannerVisitFlow = ({ data, onBack }: Props) => {
 
       let customerId = matchedCustomerId;
       let siteId = selectedSiteId;
+      let customerName = customers.find(c => c.id === matchedCustomerId)?.name || newCustomerName;
 
       // Create new customer if needed
       if (createNewCustomer && newCustomerName) {
@@ -154,33 +157,95 @@ export const EmailScannerVisitFlow = ({ data, onBack }: Props) => {
         }).select().single();
         if (custErr) throw custErr;
         customerId = newCust.id;
+        customerName = newCustomerName;
       }
 
       // Create new site if needed
+      let siteName = "";
+      let siteAddress = "";
       if (createNewSite && newSiteName) {
+        // Build SharePoint folder path: Customers/CustomerName/SiteName (Address)
+        const spSiteName = newSiteAddress 
+          ? `${newSiteName} (${newSiteAddress})` 
+          : newSiteName;
+        const spFolderPath = customerName 
+          ? `Customers/${customerName}/${spSiteName}` 
+          : `Customers/${spSiteName}`;
+
         const { data: newSite, error: siteErr } = await supabase.from("sites").insert({
           name: newSiteName,
           address: newSiteAddress || null,
           city: newSiteCity || null,
           postcode: newSitePostcode || null,
           customer_id: customerId || null,
+          sharepoint_folder: spFolderPath,
           status: "active",
         }).select().single();
         if (siteErr) throw siteErr;
         siteId = newSite.id;
+        siteName = newSiteName;
+        siteAddress = newSiteAddress;
+
+        // Create the SharePoint folder
+        try {
+          const { data: spData } = await supabase.functions.invoke("sharepoint-create-folder", {
+            body: {
+              folderPath: spFolderPath,
+              entityType: "site",
+              entityId: newSite.id,
+            },
+          });
+          if (spData?.webUrl) {
+            await supabase.from("sites").update({ sharepoint_url: spData.webUrl }).eq("id", newSite.id);
+          }
+        } catch (spErr) {
+          console.warn("SharePoint folder creation skipped:", spErr);
+        }
+      } else {
+        const existingSite = sites.find(s => s.id === siteId);
+        siteName = existingSite?.name || "";
+        siteAddress = existingSite?.address || "";
       }
 
-      // Create visit
+      // Build notes JSON with asset type info (matching VisitFormDialog pattern)
+      const notesData: Record<string, unknown> = {
+        asset_type: "general",
+      };
+      const fullDescription = `${description}\n\n${notes}`.trim();
+      if (fullDescription) {
+        notesData.user_notes = fullDescription;
+      }
+
+      // Create visit (no asset_type column — stored in notes JSON)
       const { data: visit, error: visitErr } = await supabase.from("visits").insert({
         site_id: siteId,
         visit_date: visitDate,
         visit_type: visitType,
-        asset_type: "Fire Alarm System",
-        notes: `${description}\n\n${notes}`.trim(),
+        notes: JSON.stringify(notesData),
         status: "scheduled",
-        created_by: userData.user.id,
       }).select().single();
       if (visitErr) throw visitErr;
+
+      // Create corresponding appointment
+      try {
+        const typeLabel = VISIT_TYPES.find(t => t.value === visitType)?.label || visitType;
+        const newAppointment = await createAppointment({
+          visit_id: visit.id,
+          site_id: siteId,
+          customer_id: customerId || null,
+          engineer_id: userData.user.id,
+          title: `${typeLabel} - ${siteName || "Site Visit"}`,
+          description: fullDescription || null,
+          appointment_date: visitDate,
+          start_time: "09:00:00",
+          end_time: "17:00:00",
+          status: "scheduled",
+          visit_type: visitType,
+        }, userData.user.id);
+        sendAppointmentCreatedNotification(newAppointment.id).catch(console.error);
+      } catch (aptErr) {
+        console.warn("Appointment creation skipped:", aptErr);
+      }
 
       toast({ title: "Visit created", description: `Visit scheduled for ${visitDate}` });
       navigate(`/dashboard/visits?visitId=${visit.id}`);
