@@ -2519,6 +2519,24 @@ export type Database = {
           },
         ]
       }
+      recycled_quotation_numbers: {
+        Row: {
+          id: string
+          quotation_number: string
+          recycled_at: string
+        }
+        Insert: {
+          id?: string
+          quotation_number: string
+          recycled_at?: string
+        }
+        Update: {
+          id?: string
+          quotation_number?: string
+          recycled_at?: string
+        }
+        Relationships: []
+      }
       recycled_report_numbers: {
         Row: {
           id: string
