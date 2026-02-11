@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mail, FileSpreadsheet, ClipboardList, Sparkles, AlertCircle, CheckCircle2, Building2, User, MapPin, Phone, AtSign } from "lucide-react";
+import { Loader2, Mail, FileSpreadsheet, ClipboardList, Sparkles, AlertCircle, CheckCircle2, Building2, User, MapPin, Phone, AtSign, ListPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { EmailScannerQuoteFlow } from "@/components/email-scanner/EmailScannerQuoteFlow";
 import { EmailScannerVisitFlow } from "@/components/email-scanner/EmailScannerVisitFlow";
-
+import { EmailScannerBulkVisitFlow } from "@/components/email-scanner/EmailScannerBulkVisitFlow";
 export interface ExtractedEmailData {
   sender_name?: string | null;
   sender_email?: string | null;
@@ -37,12 +37,13 @@ export interface ExtractedEmailData {
 const EmailScanner = () => {
   const [emailContent, setEmailContent] = useState("");
   const [scanning, setScanning] = useState(false);
-  const [scanMode, setScanMode] = useState<"quote" | "visit" | null>(null);
+  const [scanMode, setScanMode] = useState<"quote" | "visit" | "bulk_visits" | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedEmailData | null>(null);
-  const [activeFlow, setActiveFlow] = useState<"quote" | "visit" | null>(null);
+  const [bulkData, setBulkData] = useState<any>(null);
+  const [activeFlow, setActiveFlow] = useState<"quote" | "visit" | "bulk_visits" | null>(null);
   const { toast } = useToast();
 
-  const handleScan = async (mode: "quote" | "visit") => {
+  const handleScan = async (mode: "quote" | "visit" | "bulk_visits") => {
     if (!emailContent.trim()) {
       toast({ title: "No email content", description: "Please paste an email to scan.", variant: "destructive" });
       return;
@@ -51,6 +52,7 @@ const EmailScanner = () => {
     setScanning(true);
     setScanMode(mode);
     setExtractedData(null);
+    setBulkData(null);
     setActiveFlow(null);
 
     try {
@@ -61,8 +63,14 @@ const EmailScanner = () => {
       if (error) throw error;
 
       if (data?.success && data?.data) {
-        setExtractedData(data.data);
-        toast({ title: "Email scanned successfully", description: "Review the extracted data below." });
+        if (mode === "bulk_visits") {
+          setBulkData(data.data);
+          setActiveFlow("bulk_visits");
+          toast({ title: "Email scanned", description: `Found ${data.data.visits?.length || 0} visits.` });
+        } else {
+          setExtractedData(data.data);
+          toast({ title: "Email scanned successfully", description: "Review the extracted data below." });
+        }
       } else {
         throw new Error(data?.error || "Failed to extract data");
       }
@@ -76,6 +84,7 @@ const EmailScanner = () => {
 
   const handleReset = () => {
     setExtractedData(null);
+    setBulkData(null);
     setActiveFlow(null);
     setScanMode(null);
   };
@@ -98,6 +107,9 @@ const EmailScanner = () => {
         )}
         {activeFlow === "visit" && extractedData && (
           <EmailScannerVisitFlow data={extractedData} onBack={handleReset} />
+        )}
+        {activeFlow === "bulk_visits" && bulkData && (
+          <EmailScannerBulkVisitFlow data={bulkData} onBack={handleReset} />
         )}
 
         {/* Main scanner UI (hidden when in a flow) */}
@@ -145,6 +157,19 @@ const EmailScanner = () => {
                       <ClipboardList className="w-4 h-4 mr-2" />
                     )}
                     Scan for Visit
+                  </Button>
+                  <Button
+                    onClick={() => handleScan("bulk_visits")}
+                    disabled={scanning || !emailContent.trim()}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    {scanning && scanMode === "bulk_visits" ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <ListPlus className="w-4 h-4 mr-2" />
+                    )}
+                    Scan Bulk Visits
                   </Button>
                 </div>
               </CardContent>
