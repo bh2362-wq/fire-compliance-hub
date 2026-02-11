@@ -107,3 +107,9 @@ verify_jwt = false
 
 [functions.xero-update-draft-invoice]
 verify_jwt = false
+
+[functions.ai-sweep-visits]
+verify_jwt = false
+
+[functions.send-engineer-reminder]
+verify_jwt = false

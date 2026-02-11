@@ -2903,6 +2903,53 @@ export type Database = {
         }
         Relationships: []
       }
+      visit_requirements: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string
+          id: string
+          is_confirmed: boolean | null
+          item_name: string
+          notes: string | null
+          quantity: number | null
+          updated_at: string
+          visit_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_confirmed?: boolean | null
+          item_name: string
+          notes?: string | null
+          quantity?: number | null
+          updated_at?: string
+          visit_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_confirmed?: boolean | null
+          item_name?: string
+          notes?: string | null
+          quantity?: number | null
+          updated_at?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_requirements_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visits: {
         Row: {
           coverage_percentage: number | null
