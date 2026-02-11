@@ -2205,6 +2205,11 @@ export type Database = {
       }
       quotations: {
         Row: {
+          acceptance_token: string | null
+          accepted_by_name: string | null
+          client_acceptance_signature: string | null
+          client_accepted_at: string | null
+          client_po_number: string | null
           created_at: string
           created_by: string
           customer_id: string | null
@@ -2229,6 +2234,11 @@ export type Database = {
           visit_id: string | null
         }
         Insert: {
+          acceptance_token?: string | null
+          accepted_by_name?: string | null
+          client_acceptance_signature?: string | null
+          client_accepted_at?: string | null
+          client_po_number?: string | null
           created_at?: string
           created_by: string
           customer_id?: string | null
@@ -2253,6 +2263,11 @@ export type Database = {
           visit_id?: string | null
         }
         Update: {
+          acceptance_token?: string | null
+          accepted_by_name?: string | null
+          client_acceptance_signature?: string | null
+          client_accepted_at?: string | null
+          client_po_number?: string | null
           created_at?: string
           created_by?: string
           customer_id?: string | null

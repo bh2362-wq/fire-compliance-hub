@@ -40,6 +40,7 @@ interface EmailQuotationDialogProps {
     site_id: string;
     customer_id: string | null;
     sites: { name: string } | null;
+    acceptance_token?: string | null;
   };
   customerEmail: string;
   customerName?: string;
@@ -95,20 +96,33 @@ export function EmailQuotationDialog({
         company_name: compName,
       };
 
+      const acceptUrl = quotation.acceptance_token
+        ? `${window.location.origin}/accept-quote/${quotation.acceptance_token}`
+        : null;
+      const acceptBlock = acceptUrl
+        ? `\n\nTo accept this quotation online, click here:\n${acceptUrl}`
+        : "";
+
       if (defaultTemplate) {
         setSelectedTemplateId(defaultTemplate.id);
         const applied = applyTemplate(defaultTemplate, variables);
         setSubject(applied.subject);
-        setBody(`${applied.greeting}\n\n${applied.body}\n\n${applied.signoff}`);
+        setBody(`${applied.greeting}\n\n${applied.body}${acceptBlock}\n\n${applied.signoff}`);
       } else if (templatesList.length > 0) {
         setSelectedTemplateId(templatesList[0].id);
         const applied = applyTemplate(templatesList[0], variables);
         setSubject(applied.subject);
-        setBody(`${applied.greeting}\n\n${applied.body}\n\n${applied.signoff}`);
+        setBody(`${applied.greeting}\n\n${applied.body}${acceptBlock}\n\n${applied.signoff}`);
       } else {
         // Fallback
         setSubject(`Quotation ${quotation.quotation_number} - ${quotation.title || quotation.sites?.name || "Fire Safety Works"}`);
-        setBody(`Dear ${customerName || "Customer"},\n\nPlease find attached our quotation ${quotation.quotation_number} for fire safety works at ${quotation.sites?.name || "your site"}.\n\nThis quotation is valid for 30 days from the date of issue. Please review the attached document and contact us if you have any questions.\n\nTo accept this quotation, please sign and return the acceptance section at the bottom of the document.\n\nKind regards,\n${compName}`);
+        const acceptUrl = quotation.acceptance_token
+          ? `${window.location.origin}/accept-quote/${quotation.acceptance_token}`
+          : null;
+        const acceptLine = acceptUrl
+          ? `\n\nTo accept this quotation online, please click the link below:\n${acceptUrl}`
+          : "\n\nTo accept this quotation, please sign and return the acceptance section at the bottom of the document.";
+        setBody(`Dear ${customerName || "Customer"},\n\nPlease find attached our quotation ${quotation.quotation_number} for fire safety works at ${quotation.sites?.name || "your site"}.\n\nThis quotation is valid for 30 days from the date of issue. Please review the attached document and contact us if you have any questions.${acceptLine}\n\nKind regards,\n${compName}`);
       }
     } catch (error) {
       console.error("Failed to load templates:", error);

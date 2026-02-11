@@ -96,8 +96,12 @@ const statusConfig: Record<string, { label: string; className: string }> = {
     label: "Sent",
     className: "bg-primary/10 text-primary border-primary/20",
   },
+  customer_accepted: {
+    label: "Customer Accepted",
+    className: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  },
   accepted: {
-    label: "Accepted",
+    label: "Scheduled",
     className: "bg-success/10 text-success border-success/20",
   },
   declined: {
@@ -445,12 +449,68 @@ const Quotations = () => {
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="sent">Sent</SelectItem>
-              <SelectItem value="accepted">Accepted</SelectItem>
+              <SelectItem value="customer_accepted">Customer Accepted</SelectItem>
+              <SelectItem value="accepted">Scheduled</SelectItem>
               <SelectItem value="declined">Declined</SelectItem>
               <SelectItem value="expired">Expired</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {/* Awaiting Scheduling Section */}
+        {(() => {
+          const awaitingQuotes = quotations.filter(q => q.status === "customer_accepted");
+          if (awaitingQuotes.length === 0) return null;
+          return (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <FileCheck className="w-5 h-5 text-amber-500" />
+                <h2 className="text-lg font-semibold">Awaiting Scheduling</h2>
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                  {awaitingQuotes.length}
+                </Badge>
+              </div>
+              <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800 divide-y divide-amber-200 dark:divide-amber-800">
+                {awaitingQuotes.map((quotation) => (
+                  <div key={quotation.id} className="p-4 flex items-center justify-between gap-4">
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{quotation.quotation_number}</span>
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-xs">
+                          Customer Accepted
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {quotation.sites?.name} — {quotation.customers?.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {quotation.title || "Remedial works"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 font-semibold">
+                          <PoundSterling className="w-3.5 h-3.5" />
+                          {quotation.total_amount.toFixed(2)}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setQuotationToAccept(quotation);
+                          setAcceptDialogOpen(true);
+                        }}
+                      >
+                        <Calendar className="w-4 h-4 mr-1" />
+                        Schedule
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Quotations List */}
         {loading ? (
@@ -620,7 +680,7 @@ const Quotations = () => {
                               </DropdownMenuItem>
                             )}
 
-                            {quotation.status === "sent" && (
+                            {(quotation.status === "sent" || quotation.status === "customer_accepted") && (
                               <>
                                 <DropdownMenuItem
                                   onClick={() => {
@@ -629,7 +689,7 @@ const Quotations = () => {
                                   }}
                                 >
                                   <FileCheck className="w-4 h-4 mr-2" />
-                                  Accept with PO
+                                  {quotation.status === "customer_accepted" ? "Schedule Works" : "Accept with PO"}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handleStatusChange(quotation.id, "declined")}
@@ -739,6 +799,7 @@ const Quotations = () => {
             site_id: quotationToEmail.site_id,
             customer_id: quotationToEmail.customer_id,
             sites: quotationToEmail.sites ? { name: quotationToEmail.sites.name } : null,
+            acceptance_token: (quotationToEmail as any).acceptance_token || null,
           }}
           customerEmail={quotationToEmail.customers?.contact_email || ""}
           customerName={quotationToEmail.customers?.contact_name || quotationToEmail.customers?.name || ""}

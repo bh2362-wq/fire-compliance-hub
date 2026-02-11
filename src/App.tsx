@@ -26,6 +26,7 @@ import CreditControl from "./pages/CreditControl";
 import Quotations from "./pages/Quotations";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import SharedReport from "./pages/SharedReport";
+import AcceptQuote from "./pages/AcceptQuote";
 import EmailScanner from "./pages/EmailScanner";
 
 // QMS Pages
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/shared-report/:token" element={<SharedReport />} />
+            <Route path="/accept-quote/:token" element={<AcceptQuote />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
