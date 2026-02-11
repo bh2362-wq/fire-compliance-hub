@@ -674,7 +674,20 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   .maybeSingle();
                 
                 if (existing) {
-                  toast({ title: "Already scheduled", description: "This visit is already on the schedule." });
+                  // Update existing appointment to match current visit date
+                  const { error: updateErr } = await supabase
+                    .from("appointments")
+                    .update({
+                      appointment_date: visit.visit_date,
+                      visit_type: visit.visit_type,
+                      title: `${visit.visit_type} - ${visit.site?.name || "Site"}`,
+                    })
+                    .eq("id", existing.id);
+                  if (updateErr) {
+                    toast({ title: "Error", description: "Failed to update schedule", variant: "destructive" });
+                  } else {
+                    toast({ title: "Schedule updated", description: `Appointment moved to ${format(new Date(visit.visit_date), "MMM d, yyyy")}` });
+                  }
                   navigate(`/dashboard/schedule`);
                 } else {
                   // Create appointment from visit
