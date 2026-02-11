@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -169,6 +170,7 @@ const VisitEditDialog = ({
   const [newReqNotes, setNewReqNotes] = useState("");
   
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { assetType: initialAssetType, userNotes: initialUserNotes } = parseVisitNotes(visit.notes);
 
@@ -401,8 +403,10 @@ const VisitEditDialog = ({
         }
       } catch (aptError) {
         console.error("Error updating appointment:", aptError);
-        // Don't fail the visit update if appointment update fails
       }
+
+      // Invalidate appointments cache so calendar updates immediately
+      await queryClient.invalidateQueries({ queryKey: ["appointments"] });
 
       toast({
         title: "Visit updated",

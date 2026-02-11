@@ -22,6 +22,7 @@ import {
   format,
 } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCalendarSync } from "@/hooks/useCalendarSync";
 
 const Schedule = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -31,6 +32,9 @@ const Schedule = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Auto-sync: ensure all open visits have calendar entries
+  useCalendarSync();
 
   // Calculate date range for fetching
   const dateRange = useMemo(() => {
