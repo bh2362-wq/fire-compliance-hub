@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, Save } from "lucide-react";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -314,7 +315,19 @@ export const EmailScannerVisitFlow = ({ data, onBack }: Props) => {
               {createNewSite ? (
                 <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
                   <Input placeholder="Site name" value={newSiteName} onChange={(e) => setNewSiteName(e.target.value)} />
-                  <Input placeholder="Address" value={newSiteAddress} onChange={(e) => setNewSiteAddress(e.target.value)} />
+                  <AddressAutocomplete
+                    value={newSiteAddress}
+                    onChange={setNewSiteAddress}
+                    onAddressSelect={(details) => {
+                      setNewSiteAddress(details.address);
+                      setNewSiteCity(details.city);
+                      setNewSitePostcode(details.postcode);
+                      if (details.businessName && !newSiteName) {
+                        setNewSiteName(details.businessName);
+                      }
+                    }}
+                    placeholder="Search address..."
+                  />
                   <Input placeholder="City" value={newSiteCity} onChange={(e) => setNewSiteCity(e.target.value)} />
                   <Input placeholder="Postcode" value={newSitePostcode} onChange={(e) => setNewSitePostcode(e.target.value)} />
                 </div>

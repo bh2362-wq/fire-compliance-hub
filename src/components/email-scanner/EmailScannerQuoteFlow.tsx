@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, Plus, Trash2, Save } from "lucide-react";
+import { Loader2, ArrowLeft, Plus, Trash2, Save, Merge } from "lucide-react";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { ExtractedEmailData } from "@/pages/EmailScanner";
@@ -149,6 +150,23 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
 
   const addItem = () => setLineItems([...lineItems, { description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }]);
   const removeItem = (i: number) => lineItems.length > 1 && setLineItems(lineItems.filter((_, idx) => idx !== i));
+
+  const mergeItems = (i: number) => {
+    if (i >= lineItems.length - 1) return;
+    const updated = [...lineItems];
+    const a = updated[i];
+    const b = updated[i + 1];
+    const merged: LineItem = {
+      description: `${a.description}; ${b.description}`.replace(/^; |; $/g, ''),
+      quantity: a.quantity + b.quantity,
+      unit_price: a.unit_price || b.unit_price,
+      labour_cost: a.labour_cost + b.labour_cost,
+      total_price: 0,
+    };
+    merged.total_price = merged.quantity * merged.unit_price + merged.labour_cost;
+    updated.splice(i, 2, merged);
+    setLineItems(updated);
+  };
 
   const subtotal = lineItems.reduce((s, item) => s + item.total_price, 0);
   const vatAmount = subtotal * (vatRate / 100);
@@ -292,7 +310,19 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
               {createNewSite ? (
                 <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
                   <Input placeholder="Site name" value={newSiteName} onChange={(e) => setNewSiteName(e.target.value)} />
-                  <Input placeholder="Address" value={newSiteAddress} onChange={(e) => setNewSiteAddress(e.target.value)} />
+                  <AddressAutocomplete
+                    value={newSiteAddress}
+                    onChange={setNewSiteAddress}
+                    onAddressSelect={(details) => {
+                      setNewSiteAddress(details.address);
+                      setNewSiteCity(details.city);
+                      setNewSitePostcode(details.postcode);
+                      if (details.businessName && !newSiteName) {
+                        setNewSiteName(details.businessName);
+                      }
+                    }}
+                    placeholder="Search address..."
+                  />
                   <Input placeholder="City" value={newSiteCity} onChange={(e) => setNewSiteCity(e.target.value)} />
                   <Input placeholder="Postcode" value={newSitePostcode} onChange={(e) => setNewSitePostcode(e.target.value)} />
                 </div>
@@ -358,15 +388,31 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
               <div className="col-span-1"></div>
             </div>
             {lineItems.map((item, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-center">
-                <Input className="col-span-5" placeholder="Description" value={item.description} onChange={(e) => handleItemChange(i, "description", e.target.value)} />
-                <Input className="col-span-1" type="number" min={1} value={item.quantity} onChange={(e) => handleItemChange(i, "quantity", Number(e.target.value))} />
-                <Input className="col-span-2" type="number" min={0} step={0.01} value={item.unit_price} onChange={(e) => handleItemChange(i, "unit_price", Number(e.target.value))} />
-                <Input className="col-span-2" type="number" min={0} step={0.01} value={item.labour_cost} onChange={(e) => handleItemChange(i, "labour_cost", Number(e.target.value))} />
-                <div className="col-span-1 text-sm font-medium">£{item.total_price.toFixed(2)}</div>
-                <Button variant="ghost" size="icon" className="col-span-1" onClick={() => removeItem(i)} disabled={lineItems.length <= 1}>
-                  <Trash2 className="w-4 h-4 text-muted-foreground" />
-                </Button>
+              <div key={i}>
+                <div className="grid grid-cols-12 gap-2 items-center">
+                  <Input className="col-span-5" placeholder="Description" value={item.description} onChange={(e) => handleItemChange(i, "description", e.target.value)} />
+                  <Input className="col-span-1" type="number" min={1} value={item.quantity} onChange={(e) => handleItemChange(i, "quantity", Number(e.target.value))} />
+                  <Input className="col-span-2" type="number" min={0} step={0.01} value={item.unit_price} onChange={(e) => handleItemChange(i, "unit_price", Number(e.target.value))} />
+                  <Input className="col-span-2" type="number" min={0} step={0.01} value={item.labour_cost} onChange={(e) => handleItemChange(i, "labour_cost", Number(e.target.value))} />
+                  <div className="col-span-1 text-sm font-medium">£{item.total_price.toFixed(2)}</div>
+                  <Button variant="ghost" size="icon" className="col-span-1" onClick={() => removeItem(i)} disabled={lineItems.length <= 1}>
+                    <Trash2 className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                </div>
+                {i < lineItems.length - 1 && (
+                  <div className="flex justify-center -my-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-accent"
+                      onClick={() => mergeItems(i)}
+                      title="Combine with line below"
+                    >
+                      <Merge className="w-3 h-3 mr-1 rotate-180" />
+                      Combine
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
