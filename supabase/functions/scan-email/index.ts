@@ -153,6 +153,14 @@ Return ONLY valid JSON with these fields. Use null for any fields you cannot det
     }
 
     const aiData = await response.json();
+    console.log('AI response structure:', JSON.stringify({
+      hasChoices: !!aiData.choices,
+      choiceCount: aiData.choices?.length,
+      hasToolCalls: !!aiData.choices?.[0]?.message?.tool_calls,
+      contentLength: aiData.choices?.[0]?.message?.content?.length,
+      finishReason: aiData.choices?.[0]?.finish_reason,
+    }));
+
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     
     let extracted;
@@ -163,10 +171,15 @@ Return ONLY valid JSON with these fields. Use null for any fields you cannot det
     } else {
       // Fallback: try to parse from content
       const content = aiData.choices?.[0]?.message?.content || '';
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        extracted = JSON.parse(jsonMatch[0]);
+      console.log('Fallback content (first 500 chars):', content.substring(0, 500));
+      // Try to extract JSON from content - handle markdown code blocks too
+      const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const rawJsonMatch = content.match(/\{[\s\S]*\}/);
+      const jsonStr = codeBlockMatch ? codeBlockMatch[1].trim() : rawJsonMatch?.[0];
+      if (jsonStr) {
+        extracted = JSON.parse(jsonStr);
       } else {
+        console.error('Could not extract data. Full AI response:', JSON.stringify(aiData).substring(0, 1000));
         return new Response(JSON.stringify({ error: 'Could not extract data from email' }), {
           status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
