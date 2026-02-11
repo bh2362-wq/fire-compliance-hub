@@ -1,0 +1,324 @@
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, Trash2, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface LineItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+  labour_cost: number;
+  total_price: number;
+}
+
+interface NewQuotationDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
+}
+
+export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotationDialogProps) {
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null }[]>([]);
+  const [filteredSites, setFilteredSites] = useState<typeof sites>([]);
+
+  const [customerId, setCustomerId] = useState("");
+  const [siteId, setSiteId] = useState("");
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [validDays, setValidDays] = useState(30);
+  const [vatRate, setVatRate] = useState(20);
+  const [terms, setTerms] = useState("");
+  const [notes, setNotes] = useState("");
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    { description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 },
+  ]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const fetchData = async () => {
+      const [custRes, siteRes] = await Promise.all([
+        supabase.from("customers").select("id, name").order("name"),
+        supabase.from("sites").select("id, name, customer_id").order("name"),
+      ]);
+      setCustomers(custRes.data || []);
+      setSites(siteRes.data || []);
+    };
+    fetchData();
+  }, [open]);
+
+  useEffect(() => {
+    if (customerId) {
+      setFilteredSites(sites.filter((s) => s.customer_id === customerId));
+    } else {
+      setFilteredSites(sites);
+    }
+  }, [customerId, sites]);
+
+  const handleItemChange = (index: number, field: keyof LineItem, value: any) => {
+    const updated = [...lineItems];
+    updated[index] = { ...updated[index], [field]: value };
+    if (field === "quantity" || field === "unit_price" || field === "labour_cost") {
+      updated[index].total_price =
+        updated[index].quantity * updated[index].unit_price + (updated[index].labour_cost || 0);
+    }
+    setLineItems(updated);
+  };
+
+  const addItem = () => {
+    setLineItems([...lineItems, { description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }]);
+  };
+
+  const removeItem = (i: number) => {
+    setLineItems(lineItems.filter((_, idx) => idx !== i));
+  };
+
+  const subtotal = lineItems.reduce((s, item) => s + (item.total_price || 0), 0);
+  const vatAmount = subtotal * (vatRate / 100);
+  const grandTotal = subtotal + vatAmount;
+
+  const handleSave = async () => {
+    if (!siteId) { toast.error("Please select a site"); return; }
+    if (lineItems.length === 0 || !lineItems.some((i) => i.description.trim())) {
+      toast.error("Add at least one line item with a description");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: quotationNumber } = await supabase.rpc("get_next_quotation_number");
+
+      const { data: quotation, error } = await supabase
+        .from("quotations")
+        .insert({
+          quotation_number: quotationNumber,
+          site_id: siteId,
+          customer_id: customerId || null,
+          status: "draft",
+          title: title || "New Quotation",
+          summary,
+          total_amount: subtotal,
+          vat_rate: vatRate,
+          valid_until: new Date(Date.now() + validDays * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          terms: terms || null,
+          notes: notes || null,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const itemsToInsert = lineItems
+        .filter((i) => i.description.trim())
+        .map((item, index) => ({
+          quotation_id: quotation.id,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          labour_cost: item.labour_cost || 0,
+          total_price: item.total_price,
+          sort_order: index,
+          priority: "medium",
+        }));
+
+      if (itemsToInsert.length > 0) {
+        const { error: itemsErr } = await supabase.from("quotation_line_items").insert(itemsToInsert);
+        if (itemsErr) throw itemsErr;
+      }
+
+      toast.success(`Quotation ${quotationNumber} created`);
+      onSuccess?.();
+      onOpenChange(false);
+      resetForm();
+    } catch (err: any) {
+      console.error("Save error:", err);
+      toast.error(err.message || "Failed to create quotation");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetForm = () => {
+    setCustomerId("");
+    setSiteId("");
+    setTitle("");
+    setSummary("");
+    setTerms("");
+    setNotes("");
+    setLineItems([{ description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }]);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>New Quotation</DialogTitle>
+          <DialogDescription>Create a standalone quotation with customer, site and line items.</DialogDescription>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 pr-4">
+          <div className="space-y-6 pb-4">
+            {/* Customer & Site */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Customer</Label>
+                <Select value={customerId} onValueChange={(v) => { setCustomerId(v); setSiteId(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
+                  <SelectContent>
+                    {customers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Site *</Label>
+                <Select value={siteId} onValueChange={setSiteId}>
+                  <SelectTrigger><SelectValue placeholder="Select site..." /></SelectTrigger>
+                  <SelectContent>
+                    {filteredSites.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Quote Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Quote Title</Label>
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Fire Alarm Upgrade" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Valid (days)</Label>
+                  <Input type="number" value={validDays} onChange={(e) => setValidDays(parseInt(e.target.value) || 30)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>VAT %</Label>
+                  <Input type="number" value={vatRate} onChange={(e) => setVatRate(parseFloat(e.target.value) || 0)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Summary</Label>
+              <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description of the works..." className="min-h-[60px]" />
+            </div>
+
+            {/* Line Items */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">Line Items</Label>
+                <Button variant="outline" size="sm" onClick={addItem}>
+                  <Plus className="mr-1 h-4 w-4" /> Add Item
+                </Button>
+              </div>
+
+              {lineItems.map((item, index) => (
+                <div key={index} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 space-y-3">
+                      <Input
+                        value={item.description}
+                        onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                        placeholder="Item description (materials, labour, etc.)"
+                      />
+                      <div className="grid grid-cols-4 gap-3">
+                        <div>
+                          <Label className="text-xs">Qty</Label>
+                          <Input
+                            type="number" min={1} value={item.quantity}
+                            onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Unit Price (£)</Label>
+                          <Input
+                            type="number" min={0} step={0.01} value={item.unit_price}
+                            onChange={(e) => handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Labour (£)</Label>
+                          <Input
+                            type="number" min={0} step={0.01} value={item.labour_cost}
+                            onChange={(e) => handleItemChange(index, "labour_cost", parseFloat(e.target.value) || 0)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Total (£)</Label>
+                          <Input type="number" value={item.total_price.toFixed(2)} readOnly className="h-9 bg-muted" />
+                        </div>
+                      </div>
+                    </div>
+                    {lineItems.length > 1 && (
+                      <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="text-muted-foreground hover:text-destructive mt-1">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Totals */}
+              <div className="border-t pt-3 space-y-1 text-right text-sm">
+                <div><span className="text-muted-foreground">Subtotal:</span> <span className="font-medium">£{subtotal.toFixed(2)}</span></div>
+                <div><span className="text-muted-foreground">VAT ({vatRate}%):</span> <span className="font-medium">£{vatAmount.toFixed(2)}</span></div>
+                <div className="text-base"><span className="text-muted-foreground">Grand Total:</span> <span className="font-semibold">£{grandTotal.toFixed(2)}</span></div>
+              </div>
+            </div>
+
+            {/* Terms & Notes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Terms & Conditions</Label>
+                <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} placeholder="Payment terms, warranty info..." className="min-h-[60px]" />
+              </div>
+              <div className="space-y-2">
+                <Label>Internal Notes</Label>
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (not shown on PDF)..." className="min-h-[60px]" />
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Create Quotation"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
