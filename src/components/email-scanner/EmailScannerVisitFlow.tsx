@@ -23,6 +23,9 @@ interface Site {
   id: string;
   name: string;
   customer_id: string | null;
+  address: string | null;
+  city: string | null;
+  postcode: string | null;
 }
 
 interface Props {
@@ -69,8 +72,9 @@ export const EmailScannerVisitFlow = ({ data, onBack }: Props) => {
     const fetchData = async () => {
       const [{ data: cust }, { data: sit }] = await Promise.all([
         supabase.from("customers").select("id, name, contact_email").eq("status", "active").order("name"),
-        supabase.from("sites").select("id, name, customer_id").eq("status", "active").order("name"),
+        supabase.from("sites").select("id, name, customer_id, address, city, postcode").eq("status", "active").order("name"),
       ]);
+      let matchedCustId = "";
       if (cust) {
         setCustomers(cust);
         if (data.company_name) {
@@ -80,16 +84,47 @@ export const EmailScannerVisitFlow = ({ data, onBack }: Props) => {
               data.company_name!.toLowerCase().includes(c.name.toLowerCase())
           );
           if (match) {
+            matchedCustId = match.id;
             setMatchedCustomerId(match.id);
           } else {
             setCreateNewCustomer(true);
           }
         }
       }
-      if (sit) setSites(sit);
+      if (sit) {
+        setSites(sit);
+        // Try to match an existing site for this customer
+        if (matchedCustId) {
+          const customerSites = sit.filter((s) => s.customer_id === matchedCustId);
+          const siteMatch = customerSites.find((s) => {
+            const nameMatch = data.site_name && s.name.toLowerCase().includes(data.site_name.toLowerCase());
+            const addrMatch = data.site_address && s.address?.toLowerCase().includes(data.site_address.toLowerCase());
+            const postcodeMatch = data.site_postcode && s.postcode?.toLowerCase().replace(/\s/g, '') === data.site_postcode.toLowerCase().replace(/\s/g, '');
+            return nameMatch || addrMatch || postcodeMatch;
+          });
+          if (siteMatch) {
+            setSelectedSiteId(siteMatch.id);
+          } else if (data.site_name || data.site_address) {
+            // No match found but we have site info from email — offer to create new
+            setCreateNewSite(true);
+          }
+        } else if (data.site_name || data.site_address) {
+          // No customer match, but we have site info — check all sites
+          const siteMatch = sit.find((s) => {
+            const nameMatch = data.site_name && s.name.toLowerCase().includes(data.site_name.toLowerCase());
+            const postcodeMatch = data.site_postcode && s.postcode?.toLowerCase().replace(/\s/g, '') === data.site_postcode.toLowerCase().replace(/\s/g, '');
+            return nameMatch || postcodeMatch;
+          });
+          if (siteMatch) {
+            setSelectedSiteId(siteMatch.id);
+          } else {
+            setCreateNewSite(true);
+          }
+        }
+      }
     };
     fetchData();
-  }, [data.company_name]);
+  }, [data.company_name, data.site_name, data.site_address, data.site_postcode]);
 
   const filteredSites = matchedCustomerId
     ? sites.filter((s) => s.customer_id === matchedCustomerId)
