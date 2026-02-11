@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Send, Mail, FileText } from "lucide-react";
+import { Loader2, Send, Mail, FileText, Link2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
@@ -67,6 +68,7 @@ export function EmailQuotationDialog({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [companyNameVal, setCompanyNameVal] = useState("");
+  const [includeAcceptLink, setIncludeAcceptLink] = useState(!!quotation.acceptance_token);
 
   useEffect(() => {
     if (open) {
@@ -96,33 +98,19 @@ export function EmailQuotationDialog({
         company_name: compName,
       };
 
-      const acceptUrl = quotation.acceptance_token
-        ? `${window.location.origin}/accept-quote/${quotation.acceptance_token}`
-        : null;
-      const acceptBlock = acceptUrl
-        ? `\n\nTo accept this quotation online, click here:\n${acceptUrl}`
-        : "";
-
       if (defaultTemplate) {
         setSelectedTemplateId(defaultTemplate.id);
         const applied = applyTemplate(defaultTemplate, variables);
         setSubject(applied.subject);
-        setBody(`${applied.greeting}\n\n${applied.body}${acceptBlock}\n\n${applied.signoff}`);
+        setBody(`${applied.greeting}\n\n${applied.body}\n\n${applied.signoff}`);
       } else if (templatesList.length > 0) {
         setSelectedTemplateId(templatesList[0].id);
         const applied = applyTemplate(templatesList[0], variables);
         setSubject(applied.subject);
-        setBody(`${applied.greeting}\n\n${applied.body}${acceptBlock}\n\n${applied.signoff}`);
+        setBody(`${applied.greeting}\n\n${applied.body}\n\n${applied.signoff}`);
       } else {
-        // Fallback
         setSubject(`Quotation ${quotation.quotation_number} - ${quotation.title || quotation.sites?.name || "Fire Safety Works"}`);
-        const acceptUrl = quotation.acceptance_token
-          ? `${window.location.origin}/accept-quote/${quotation.acceptance_token}`
-          : null;
-        const acceptLine = acceptUrl
-          ? `\n\nTo accept this quotation online, please click the link below:\n${acceptUrl}`
-          : "\n\nTo accept this quotation, please sign and return the acceptance section at the bottom of the document.";
-        setBody(`Dear ${customerName || "Customer"},\n\nPlease find attached our quotation ${quotation.quotation_number} for fire safety works at ${quotation.sites?.name || "your site"}.\n\nThis quotation is valid for 30 days from the date of issue. Please review the attached document and contact us if you have any questions.${acceptLine}\n\nKind regards,\n${compName}`);
+        setBody(`Dear ${customerName || "Customer"},\n\nPlease find attached our quotation ${quotation.quotation_number} for fire safety works at ${quotation.sites?.name || "your site"}.\n\nThis quotation is valid for 30 days from the date of issue. Please review the attached document and contact us if you have any questions.\n\nKind regards,\n${compName}`);
       }
     } catch (error) {
       console.error("Failed to load templates:", error);
@@ -170,11 +158,18 @@ export function EmailQuotationDialog({
         .map((email) => email.trim())
         .filter((email) => email.length > 0);
 
+      // Append accept link to body if toggled on
+      let finalBody = body;
+      if (includeAcceptLink && quotation.acceptance_token) {
+        const acceptUrl = `${window.location.origin}/accept-quote/${quotation.acceptance_token}`;
+        finalBody += `\n\nTo accept this quotation online, please click the link below:\n${acceptUrl}`;
+      }
+
       const { data, error } = await supabase.functions.invoke("send-report-email", {
         body: {
           to: recipientList,
           subject,
-          emailBody: body,
+          emailBody: finalBody,
           pdfBase64,
           siteName: quotation.sites?.name || "Site",
           reportNumber: quotation.quotation_number,
@@ -272,6 +267,19 @@ export function EmailQuotationDialog({
               placeholder="Email subject"
             />
           </div>
+
+          {quotation.acceptance_token && (
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <Label className="text-sm font-medium">Include Accept Link</Label>
+                  <p className="text-xs text-muted-foreground">Adds a clickable link for the client to accept online</p>
+                </div>
+              </div>
+              <Switch checked={includeAcceptLink} onCheckedChange={setIncludeAcceptLink} />
+            </div>
+          )}
 
           <div>
             <Label>Message</Label>
