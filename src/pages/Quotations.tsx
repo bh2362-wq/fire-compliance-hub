@@ -50,6 +50,7 @@ import {
   ExternalLink,
   Loader2,
   Copy,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -57,6 +58,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDialog";
 import { AcceptQuotationDialog } from "@/components/quotations/AcceptQuotationDialog";
 import { EmailQuotationDialog } from "@/components/quotations/EmailQuotationDialog";
+import { NewQuotationDialog } from "@/components/quotations/NewQuotationDialog";
 import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
 import { getCompanySettings } from "@/services/companySettingsService";
 
@@ -123,6 +125,7 @@ const Quotations = () => {
   const [quotationToEmail, setQuotationToEmail] = useState<QuotationWithDetails | null>(null);
   const [emailPdfData, setEmailPdfData] = useState<QuotationData | null>(null);
   const [uploadingToSharePoint, setUploadingToSharePoint] = useState<string | null>(null);
+  const [newQuoteOpen, setNewQuoteOpen] = useState(false);
 
   const fetchQuotations = async () => {
     try {
@@ -399,6 +402,10 @@ const Quotations = () => {
               Manage quotations generated from service reports
             </p>
           </div>
+          <Button onClick={() => setNewQuoteOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Quote
+          </Button>
         </div>
 
         {/* Filters */}
@@ -728,6 +735,12 @@ const Quotations = () => {
           }}
         />
       )}
+      {/* New Quotation Dialog */}
+      <NewQuotationDialog
+        open={newQuoteOpen}
+        onOpenChange={setNewQuoteOpen}
+        onSuccess={fetchQuotations}
+      />
     </DashboardLayout>
   );
 };
