@@ -29,7 +29,8 @@ import {
    Plus,
    CreditCard,
    FileSpreadsheet,
-   ShoppingCart
+   ShoppingCart,
+   ScanSearch
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -56,6 +57,7 @@ const mainNavigation = [
   { name: "Credit Control", href: "/dashboard/credit-control", icon: CreditCard },
   { name: "Quotations", href: "/dashboard/quotations", icon: FileSpreadsheet },
   { name: "Purchase Orders", href: "/dashboard/purchase-orders", icon: ShoppingCart },
+  { name: "Email Scanner", href: "/dashboard/email-scanner", icon: ScanSearch },
 ];
 
 const qmsNavigation = [

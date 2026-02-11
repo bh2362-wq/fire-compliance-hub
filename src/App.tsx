@@ -26,6 +26,7 @@ import CreditControl from "./pages/CreditControl";
 import Quotations from "./pages/Quotations";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import SharedReport from "./pages/SharedReport";
+import EmailScanner from "./pages/EmailScanner";
 
 // QMS Pages
 import QMSDashboard from "./pages/qms/QMSDashboard";
@@ -71,6 +72,7 @@ const App = () => (
             <Route path="/dashboard/credit-control" element={<ProtectedRoute><CreditControl /></ProtectedRoute>} />
             <Route path="/dashboard/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
             <Route path="/dashboard/purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
+            <Route path="/dashboard/email-scanner" element={<ProtectedRoute><EmailScanner /></ProtectedRoute>} />
             
             {/* QMS Routes */}
             <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
