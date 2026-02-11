@@ -51,6 +51,7 @@ import {
   Loader2,
   Copy,
   Plus,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -334,19 +335,36 @@ const Quotations = () => {
         }
       }
 
-      // Fallback to site-level
+      // Fallback to site-level — auto-create if missing
       if (!folderPath) {
         const { data: siteData } = await supabase
           .from("sites")
-          .select("sharepoint_folder")
+          .select("sharepoint_folder, name, address")
           .eq("id", quotation.site_id)
           .single();
         if (siteData?.sharepoint_folder) {
           folderPath = `${siteData.sharepoint_folder}/Quotations`;
+        } else if (siteData && quotation.customers?.name) {
+          // Auto-create SharePoint folder: Customers/{Customer}/{Site}/Quotations
+          const siteLabel = [siteData.name, siteData.address].filter(Boolean).join(" ");
+          const siteFolderPath = `Customers/${quotation.customers.name}/${siteLabel}`;
+          const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
+            body: {
+              folderPath: `${siteFolderPath}/Quotations`,
+              entityType: "folder_only",
+              entityId: quotation.site_id,
+            },
+          });
+          if (!spError && spData?.success) {
+            await supabase.from("sites").update({
+              sharepoint_folder: siteFolderPath,
+            }).eq("id", quotation.site_id);
+            folderPath = `${siteFolderPath}/Quotations`;
+          }
         }
       }
 
-      if (!folderPath) throw new Error("No SharePoint folder configured for this site");
+      if (!folderPath) throw new Error("Could not create SharePoint folder. Ensure the quotation has a customer and site assigned.");
 
       const fileName = `${quotation.quotation_number} - ${quotation.sites?.name || "Site"}.pdf`;
 
@@ -527,6 +545,12 @@ const Quotations = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => setSelectedQuotation(quotation)}
+                            >
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit Quote
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => navigate(`/dashboard/sites/${quotation.site_id}`)}
                             >
