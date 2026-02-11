@@ -214,19 +214,20 @@ function addTitleSection(
   
   yPos += 18;
   
-  // Subtitle with title if exists
+  // Subtitle with title if exists — wrap to prevent overflow
   if (data.title) {
     doc.setTextColor(...COLORS.textSecondary);
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(data.title, margin, yPos);
-    yPos += 8;
+    const titleLines = doc.splitTextToSize(data.title, contentWidth);
+    doc.text(titleLines, margin, yPos);
+    yPos += titleLines.length * 4.5 + 4;
   }
   
   return yPos;
 }
 
-// Elegant info cards
+// Elegant info cards — auto-sized to content
 function addInfoCards(
   doc: jsPDF,
   pageWidth: number,
@@ -236,27 +237,46 @@ function addInfoCards(
 ): number {
   const contentWidth = pageWidth - margin * 2;
   const cardWidth = (contentWidth - 8) / 2;
-  const cardHeight = 50;
   const leftX = margin;
   const rightX = margin + cardWidth + 8;
-  
+
+  // Calculate left card height
+  let leftContentH = 0;
+  leftContentH += 10; // DATE ISSUED label + value
+  leftContentH += 14; // VALID UNTIL label + value
+  const leftCardHeight = 8 + 6 + leftContentH + 4; // header + padding-top + content + padding-bottom
+
+  // Calculate right card height
+  let rightContentH = 0;
+  if (data.customer) {
+    rightContentH += 6; // name
+    if (data.customer.contact_name) rightContentH += 4;
+    if (data.customer.address) rightContentH += 4;
+    if (data.customer.city || data.customer.postcode) rightContentH += 4;
+    if (data.customer.contact_email) rightContentH += 4;
+  } else {
+    rightContentH += 5;
+  }
+  const rightCardHeight = 8 + 6 + rightContentH + 4;
+
+  const cardHeight = Math.max(leftCardHeight, rightCardHeight);
+
   // Left card - Quote Details
   doc.setFillColor(...COLORS.bgLight);
   doc.roundedRect(leftX, yPos, cardWidth, cardHeight, 3, 3, "F");
   doc.setDrawColor(...COLORS.border);
   doc.setLineWidth(0.3);
   doc.roundedRect(leftX, yPos, cardWidth, cardHeight, 3, 3, "S");
-  
+
   // Card header
   doc.setFillColor(...COLORS.primary);
   doc.roundedRect(leftX, yPos, cardWidth, 8, 3, 3, "F");
-  doc.rect(leftX, yPos + 5, cardWidth, 3, "F"); // Square off bottom corners
+  doc.rect(leftX, yPos + 5, cardWidth, 3, "F");
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.text("QUOTE DETAILS", leftX + 6, yPos + 5.5);
-  
-  // Left card content
+
   let cardY = yPos + 14;
   doc.setTextColor(...COLORS.textMuted);
   doc.setFontSize(7);
@@ -266,7 +286,7 @@ function addInfoCards(
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.text(format(new Date(data.created_at), "dd MMMM yyyy"), leftX + 6, cardY + 5);
-  
+
   cardY += 14;
   doc.setTextColor(...COLORS.textMuted);
   doc.setFontSize(7);
@@ -280,14 +300,13 @@ function addInfoCards(
     leftX + 6,
     cardY + 5
   );
-  
+
   // Right card - Quote For
   doc.setFillColor(...COLORS.bgLight);
   doc.roundedRect(rightX, yPos, cardWidth, cardHeight, 3, 3, "F");
   doc.setDrawColor(...COLORS.border);
   doc.roundedRect(rightX, yPos, cardWidth, cardHeight, 3, 3, "S");
-  
-  // Card header
+
   doc.setFillColor(...COLORS.accent);
   doc.roundedRect(rightX, yPos, cardWidth, 8, 3, 3, "F");
   doc.rect(rightX, yPos + 5, cardWidth, 3, "F");
@@ -295,8 +314,7 @@ function addInfoCards(
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.text("QUOTE FOR", rightX + 6, yPos + 5.5);
-  
-  // Right card content
+
   cardY = yPos + 14;
   if (data.customer) {
     doc.setTextColor(...COLORS.textPrimary);
@@ -304,11 +322,11 @@ function addInfoCards(
     doc.setFont("helvetica", "bold");
     doc.text(data.customer.name, rightX + 6, cardY);
     cardY += 5;
-    
+
     doc.setTextColor(...COLORS.textSecondary);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    
+
     if (data.customer.contact_name) {
       doc.text(`FAO: ${data.customer.contact_name}`, rightX + 6, cardY);
       cardY += 4;
@@ -329,8 +347,8 @@ function addInfoCards(
     doc.setFontSize(8);
     doc.text("No customer specified", rightX + 6, cardY);
   }
-  
-  return yPos + cardHeight + 8;
+
+  return yPos + cardHeight + 6;
 }
 
 // Site information bar
@@ -496,7 +514,8 @@ export async function generateQuotationPDF(
   }
   if (columnOptions.showDescription) {
     headers.push("Description");
-    colStyles[colIndex] = { cellWidth: 50 }; // Adjusted width with Item column
+    // Let description auto-fill remaining width (no fixed cellWidth)
+    colStyles[colIndex] = { cellWidth: "auto" };
     colIndex++;
   }
   if (columnOptions.showRegulationRef) {
