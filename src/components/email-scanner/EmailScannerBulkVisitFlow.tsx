@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, ArrowLeft, Save, Trash2, MapPin, Calendar } from "lucide-react";
+import { Loader2, ArrowLeft, Save, Trash2, MapPin, Calendar, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { createAppointment } from "@/services/appointmentService";
@@ -145,6 +145,25 @@ export const EmailScannerBulkVisitFlow = ({ data, onBack }: Props) => {
 
   const updateRow = (index: number, updates: Partial<VisitRow>) => {
     setVisitRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...updates } : r)));
+  };
+
+  const addRow = () => {
+    setVisitRows((prev) => [
+      ...prev,
+      {
+        site_name: "",
+        site_address: "",
+        site_city: "",
+        site_postcode: "",
+        visit_date: "",
+        visit_type: "remedial",
+        description: "",
+        notes: "",
+        selected: true,
+        matched_site_id: "",
+        create_new_site: false,
+      },
+    ]);
   };
 
   const removeRow = (index: number) => {
@@ -364,7 +383,12 @@ export const EmailScannerBulkVisitFlow = ({ data, onBack }: Props) => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Visits ({selectedCount} selected)</span>
-            <Badge variant="secondary">{visitRows.length} extracted</Badge>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={addRow} className="gap-1">
+                <Plus className="w-3 h-3" /> Add Visit
+              </Button>
+              <Badge variant="secondary">{visitRows.length} total</Badge>
+            </div>
           </CardTitle>
           <CardDescription>Review, edit or remove visits before creating them</CardDescription>
         </CardHeader>
