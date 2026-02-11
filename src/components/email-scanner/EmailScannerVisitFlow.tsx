@@ -222,7 +222,7 @@ export const EmailScannerVisitFlow = ({ data, onBack }: Props) => {
         visit_date: visitDate,
         visit_type: visitType,
         notes: JSON.stringify(notesData),
-        status: "scheduled",
+        status: "in_progress",
       }).select().single();
       if (visitErr) throw visitErr;
 
