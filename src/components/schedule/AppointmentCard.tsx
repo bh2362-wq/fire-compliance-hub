@@ -11,8 +11,9 @@ interface AppointmentCardProps {
 }
 
 export function AppointmentCard({ appointment, compact = false, onClick }: AppointmentCardProps) {
-  const statusColor = APPOINTMENT_STATUS_COLORS[appointment.status] || 'bg-gray-500';
   const statusLabel = APPOINTMENT_STATUS_LABELS[appointment.status] || appointment.status;
+  const visitTypeColor = getVisitTypeColor(appointment.visit_type);
+  const statusColor = APPOINTMENT_STATUS_COLORS[appointment.status] || 'bg-gray-500';
 
   const formatTime = (time: string) => {
     try {
@@ -28,7 +29,7 @@ export function AppointmentCard({ appointment, compact = false, onClick }: Appoi
       <div
         className={cn(
           "text-xs p-1 rounded cursor-pointer truncate text-white",
-          statusColor,
+          visitTypeColor.bg,
           "hover:opacity-90 transition-opacity"
         )}
         onClick={onClick}
@@ -48,7 +49,7 @@ export function AppointmentCard({ appointment, compact = false, onClick }: Appoi
         "border-l-4",
         `border-l-${statusColor.replace('bg-', '')}`
       )}
-      style={{ borderLeftColor: getStatusHexColor(appointment.status) }}
+      style={{ borderLeftColor: visitTypeColor.hex }}
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -101,13 +102,16 @@ export function AppointmentCard({ appointment, compact = false, onClick }: Appoi
   );
 }
 
-function getStatusHexColor(status: string): string {
-  const colors: Record<string, string> = {
-    scheduled: '#3b82f6',
-    confirmed: '#10b981',
-    in_progress: '#f59e0b',
-    completed: '#16a34a',
-    cancelled: '#ef4444',
-  };
-  return colors[status] || '#6b7280';
+const FIRE_SERVICE_TYPES = [
+  'quarterly', 'bi_annual', 'annual', 'fire_service',
+  'quarterly_service', 'bi_annual_service', 'annual_service',
+  'fire_alarm', 'emergency_lighting', 'extinguisher',
+];
+
+function getVisitTypeColor(visitType: string | null | undefined): { bg: string; hex: string } {
+  if (!visitType) return { bg: 'bg-gray-500', hex: '#6b7280' };
+  const lower = visitType.toLowerCase().replace(/[\s-]/g, '_');
+  const isFireService = FIRE_SERVICE_TYPES.some(t => lower.includes(t));
+  if (isFireService) return { bg: 'bg-blue-500', hex: '#3b82f6' };
+  return { bg: 'bg-gray-500', hex: '#6b7280' };
 }
