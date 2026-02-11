@@ -77,11 +77,19 @@ serve(async (req) => {
     const fileName = `${reportNumber || "Report"}-${reportDate || "report"}.pdf`;
     const fromName = companyName || "Service Reports";
 
+     // Auto-linkify URLs in text
+     const linkifyText = (text: string): string => {
+       return text.replace(
+         /(https?:\/\/[^\s<]+)/g,
+         '<a href="$1" style="color: #dc2626; text-decoration: underline;">$1</a>'
+       );
+     };
+
      // Convert plain text email body to HTML paragraphs if provided
      const bodyHtml = emailBody
        ? emailBody
            .split("\n\n")
-           .map((paragraph) => `<p style="color: #374151; margin: 16px 0;">${paragraph.replace(/\n/g, "<br/>")}</p>`)
+           .map((paragraph) => `<p style="color: #374151; margin: 16px 0;">${linkifyText(paragraph.replace(/\n/g, "<br/>"))}</p>`)
            .join("")
        : `
          ${customerName ? `<p style="color: #374151;">Dear ${customerName},</p>` : '<p style="color: #374151;">Dear Customer,</p>'}
