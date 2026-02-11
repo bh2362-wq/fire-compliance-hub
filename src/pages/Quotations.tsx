@@ -487,7 +487,7 @@ const Quotations = () => {
                         {quotation.title || "Remedial works"}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <div className="text-right">
                         <div className="flex items-center gap-1 font-semibold">
                           <PoundSterling className="w-3.5 h-3.5" />
@@ -504,6 +504,46 @@ const Quotations = () => {
                         <Calendar className="w-4 h-4 mr-1" />
                         Schedule
                       </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setSelectedQuotation(quotation)}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={async () => {
+                              try {
+                                await supabase
+                                  .from("quotations")
+                                  .update({
+                                    status: "sent",
+                                    client_accepted_at: null,
+                                    accepted_by_name: null,
+                                    client_acceptance_signature: null,
+                                    client_po_number: null,
+                                  })
+                                  .eq("id", quotation.id);
+                                toast.success(`${quotation.quotation_number} moved back to quotations list`);
+                                fetchQuotations();
+                              } catch (err: any) {
+                                toast.error(err.message || "Failed to revoke acceptance");
+                              }
+                            }}
+                          >
+                            <Undo2 className="w-4 h-4 mr-2" />
+                            Revoke Acceptance
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 ))}
