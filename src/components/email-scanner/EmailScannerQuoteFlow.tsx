@@ -210,19 +210,21 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
       // Get quotation number
       const { data: quoteNum } = await supabase.rpc("get_next_quotation_number");
 
+      if (!siteId) {
+        throw new Error("A site is required to create a quotation. Please select or create a site.");
+      }
+
       // Create quotation
       const { data: quote, error: quoteErr } = await supabase.from("quotations").insert({
         quotation_number: quoteNum,
         customer_id: customerId || null,
-        site_id: siteId || null,
+        site_id: siteId,
         title: title || "Quotation",
         summary: summary || null,
         terms: terms || null,
         notes: notes || null,
-        subtotal,
         vat_rate: vatRate,
-        vat_amount: vatAmount,
-        total_amount: total,
+        total_amount: total || 0,
         status: "draft",
         created_by: userData.user.id,
       }).select().single();
