@@ -60,6 +60,12 @@ const VISIT_TYPES = [
   { value: "supply_only", label: "Supply Only" },
 ];
 
+const VALID_VISIT_TYPES = VISIT_TYPES.map((t) => t.value);
+const sanitizeVisitType = (type: string | null | undefined): string => {
+  if (type && VALID_VISIT_TYPES.includes(type)) return type;
+  return "remedial";
+};
+
 interface VisitRow extends BulkVisit {
   selected: boolean;
   matched_site_id: string;
@@ -82,7 +88,7 @@ export const EmailScannerBulkVisitFlow = ({ data, onBack }: Props) => {
   const [visitRows, setVisitRows] = useState<VisitRow[]>(() =>
     data.visits.map((v) => ({
       ...v,
-      visit_type: v.visit_type || "remedial",
+      visit_type: sanitizeVisitType(v.visit_type),
       selected: true,
       matched_site_id: "",
       create_new_site: false,
@@ -253,7 +259,7 @@ export const EmailScannerBulkVisitFlow = ({ data, onBack }: Props) => {
           .insert({
             site_id: siteId,
             visit_date: row.visit_date!,
-            visit_type: row.visit_type || "remedial",
+            visit_type: sanitizeVisitType(row.visit_type),
             notes: JSON.stringify(notesData),
             status: "in_progress",
           })
@@ -276,7 +282,7 @@ export const EmailScannerBulkVisitFlow = ({ data, onBack }: Props) => {
               start_time: "09:00:00",
               end_time: "17:00:00",
               status: "scheduled",
-              visit_type: row.visit_type || "remedial",
+              visit_type: sanitizeVisitType(row.visit_type),
             },
             userData.user.id
           );
