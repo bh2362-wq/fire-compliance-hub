@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +41,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
+import { VisitRequirementsDialog } from "./VisitRequirementsDialog";
+import { VisitRequirementsBadges } from "./VisitRequirementsBadges";
 
 interface ASDAsset {
   id: string;
@@ -114,6 +116,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [initialVisitHandled, setInitialVisitHandled] = useState(false);
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
   const [reportMap, setReportMap] = useState<Record<string, ReportInfo>>({});
+  const [requirementsVisit, setRequirementsVisit] = useState<Visit | null>(null);
+  const [requirementsRefreshKey, setRequirementsRefreshKey] = useState(0);
 
   const [emailVisit, setEmailVisit] = useState<Visit | null>(null);
   const [emailVisitData, setEmailVisitData] = useState<{
@@ -568,6 +572,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   </Badge>
                 )}
               </div>
+              <VisitRequirementsBadges key={requirementsRefreshKey} visitId={visit.id} />
             </div>
           </div>
         </div>
@@ -645,11 +650,15 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 Edit Visit
               </DropdownMenuItem>
               {reportInfo?.status === "completed" && (
-                <DropdownMenuItem onClick={() => handleEmailReport(visit)}>
+              <DropdownMenuItem onClick={() => handleEmailReport(visit)}>
                   <Mail className="w-4 h-4 mr-2" />
                   Email Customer
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => setRequirementsVisit(visit)}>
+                <Package className="w-4 h-4 mr-2" />
+                Job Requirements
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate(`/dashboard/schedule`)}>
                 <CalendarDays className="w-4 h-4 mr-2" />
@@ -1084,6 +1093,17 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           companyName={emailVisitData.companyName}
           logoUrl={emailVisitData.logoUrl}
           generatePdfBase64={emailVisitData.generatePdfBase64}
+        />
+      )}
+      {/* Visit Requirements Dialog */}
+      {requirementsVisit && (
+        <VisitRequirementsDialog
+          open={!!requirementsVisit}
+          onOpenChange={(open) => !open && setRequirementsVisit(null)}
+          visitId={requirementsVisit.id}
+          siteName={requirementsVisit.site?.name || "Site"}
+          visitDate={format(new Date(requirementsVisit.visit_date), "MMM d, yyyy")}
+          onUpdate={() => setRequirementsRefreshKey((k) => k + 1)}
         />
       )}
     </div>

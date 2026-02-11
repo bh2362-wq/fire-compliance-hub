@@ -2,11 +2,12 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import VisitsTable from "@/components/visits/VisitsTable";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { Button } from "@/components/ui/button";
-import { Filter, Plus } from "lucide-react";
+import { Filter, Plus, Sparkles } from "lucide-react";
 import { useVisits } from "@/hooks/useVisits";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { AISweepDialog } from "@/components/visits/AISweepDialog";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ const Visits = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
   const [sites, setSites] = useState<Site[]>([]);
+  const [showAISweep, setShowAISweep] = useState(false);
   const initialVisitId = searchParams.get("visitId");
   const { visits, loading, refetch } = useVisits({
     siteId: selectedSiteId && selectedSiteId !== "all" ? selectedSiteId : undefined,
@@ -73,6 +75,10 @@ const Visits = () => {
                 ))}
               </SelectContent>
             </Select>
+            <Button variant="outline" size="sm" onClick={() => setShowAISweep(true)}>
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI Sweep
+            </Button>
             <VisitFormDialog
               siteId={selectedSiteId && selectedSiteId !== "all" ? selectedSiteId : undefined}
               siteName={sites.find((s) => s.id === selectedSiteId)?.name}
@@ -96,6 +102,8 @@ const Visits = () => {
           initialEditVisitId={initialVisitId || undefined}
           onInitialVisitOpened={handleVisitOpened}
         />
+
+        <AISweepDialog open={showAISweep} onOpenChange={setShowAISweep} />
       </div>
     </DashboardLayout>
   );
