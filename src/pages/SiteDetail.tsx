@@ -153,9 +153,9 @@ const SiteDetail = () => {
                   {customer.name}
                 </Link>
               )}
-              {(site.address || site.city) && (
+              {(site.address || site.city || site.postcode) && (
                 <p className="text-muted-foreground flex items-center gap-1 mt-1">
-                  <MapPin className="w-4 h-4" />
+                  <MapPin className="w-4 h-4 flex-shrink-0" />
                   {[site.address, site.city, site.postcode].filter(Boolean).join(", ")}
                 </p>
               )}
