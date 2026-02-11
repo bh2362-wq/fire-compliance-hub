@@ -16,7 +16,15 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import DeleteSiteDialog from "@/components/sites/DeleteSiteDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Site } from "@/services/siteService";
 import { Customer } from "@/services/customerService";
@@ -37,6 +45,7 @@ const SiteDetail = () => {
   const [importOpen, setImportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [ramsOpen, setRamsOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const fetchSite = async () => {
     if (!siteId) return;
@@ -199,10 +208,27 @@ const SiteDetail = () => {
               existingUrl={(site as any).sharepoint_url}
               onFolderCreated={() => fetchSite()}
             />
-            <Button variant="outline" onClick={() => setEditOpen(true)}>
-              <Pencil className="w-4 h-4 mr-2" />
-              Edit Site
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setEditOpen(true)}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit Site
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setDeleteOpen(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Site
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -275,9 +301,14 @@ const SiteDetail = () => {
         open={ramsOpen}
         onOpenChange={setRamsOpen}
         preselectedSiteId={site.id}
-        onSuccess={() => {
-          // Optionally navigate to RAMS page
-        }}
+        onSuccess={() => {}}
+      />
+      <DeleteSiteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        siteId={site.id}
+        siteName={site.name}
+        onSuccess={() => navigate("/dashboard/sites")}
       />
     </DashboardLayout>
   );
