@@ -28,7 +28,25 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = mode === 'visit'
+    const systemPrompt = mode === 'bulk_visits'
+      ? `You are an AI assistant for a fire safety engineering company. Analyse the email which contains MULTIPLE jobs/visits, potentially on different dates and at different sites but for the same customer. Extract:
+- company_name: The customer/company name
+- contact_name: Main contact person
+- contact_email: Contact email
+- contact_phone: Contact phone
+- visits: An array of individual visit objects, each containing:
+  - site_name: The site or building name
+  - site_address: Full address of the site
+  - site_city: City
+  - site_postcode: Postcode
+  - visit_date: The date for this visit (YYYY-MM-DD format)
+  - visit_type: One of: quarterly_service, biannual_service, annual_inspection, emergency, remedial, supply_only
+  - description: What work is needed at this visit
+  - notes: Any additional notes
+
+If multiple visits are at the same site on different dates, create separate entries for each date.
+Return ONLY valid JSON. Use null for fields you cannot determine. visits must always be an array.`
+      : mode === 'visit'
       ? `You are an AI assistant for a fire safety engineering company. Analyse the email and extract structured data to create a site visit. Extract:
 - sender_name: The name of the person who sent the email
 - sender_email: Their email address
@@ -85,7 +103,33 @@ Return ONLY valid JSON with these fields. Use null for any fields you cannot det
           function: {
             name: "extract_email_data",
             description: "Extract structured data from the email",
-            parameters: {
+            parameters: mode === 'bulk_visits' ? {
+              type: "object",
+              properties: {
+                company_name: { type: "string", nullable: true },
+                contact_name: { type: "string", nullable: true },
+                contact_email: { type: "string", nullable: true },
+                contact_phone: { type: "string", nullable: true },
+                visits: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      site_name: { type: "string", nullable: true },
+                      site_address: { type: "string", nullable: true },
+                      site_city: { type: "string", nullable: true },
+                      site_postcode: { type: "string", nullable: true },
+                      visit_date: { type: "string", nullable: true },
+                      visit_type: { type: "string", nullable: true },
+                      description: { type: "string", nullable: true },
+                      notes: { type: "string", nullable: true },
+                    },
+                  },
+                },
+              },
+              required: ["visits"],
+              additionalProperties: false,
+            } : {
               type: "object",
               properties: {
                 sender_name: { type: "string", nullable: true },
