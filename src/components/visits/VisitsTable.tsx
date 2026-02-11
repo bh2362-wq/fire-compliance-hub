@@ -535,10 +535,11 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
 
   // Empty state is handled after invoice filtering below
 
-  // Separate invoiced and non-invoiced visits
+  // Separate invoiced/completed and active visits
   // A visit is considered invoiced if it has a xero_invoices record OR its status is 'invoiced'
+  // Completed visits are also removed from the active list (they live in Reports)
   const invoicedVisits = visits.filter(v => !!invoiceMap[v.id] || v.status === 'invoiced');
-  const activeVisits = visits.filter(v => !invoiceMap[v.id] && v.status !== 'invoiced');
+  const activeVisits = visits.filter(v => !invoiceMap[v.id] && v.status !== 'invoiced' && v.status !== 'completed');
 
   // Helper to render a visit row
   const renderVisitRow = (visit: Visit, isInvoiced: boolean = false) => {
