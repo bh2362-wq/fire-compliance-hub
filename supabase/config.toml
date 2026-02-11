@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.send-engineer-reminder]
 verify_jwt = false
+
+[functions.scan-email]
+verify_jwt = false
