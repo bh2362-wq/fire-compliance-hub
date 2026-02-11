@@ -166,10 +166,14 @@ Deno.serve(async (req) => {
     // Save the folder path and webUrl back to the entity
     if (entityType === "report") {
       await supabase.from("service_reports").update({ sharepoint_folder: cleanPath, sharepoint_url: webUrl || null }).eq("id", entityId);
-    } else {
-      const table = entityType === "customer" ? "customers" : "sites";
-      await supabase.from(table).update({ sharepoint_folder: cleanPath, sharepoint_url: webUrl || null }).eq("id", entityId);
+    } else if (entityType === "customer") {
+      await supabase.from("customers").update({ sharepoint_folder: cleanPath, sharepoint_url: webUrl || null }).eq("id", entityId);
+    } else if (entityType === "site") {
+      await supabase.from("sites").update({ sharepoint_folder: cleanPath, sharepoint_url: webUrl || null }).eq("id", entityId);
+    } else if (entityType === "quotation") {
+      await supabase.from("quotations").update({ sharepoint_folder: cleanPath, sharepoint_url: webUrl || null }).eq("id", entityId);
     }
+    // For entityType "folder_only", skip saving — caller handles persistence
 
     return new Response(
       JSON.stringify({ success: true, folderPath: cleanPath, webUrl }),
