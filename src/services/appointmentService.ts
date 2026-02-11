@@ -137,6 +137,15 @@ export async function updateAppointment(id: string, input: Partial<AppointmentIn
     .single();
 
   if (error) throw error;
+
+  // If date changed, sync linked visit date
+  if (input.appointment_date && data.visit_id) {
+    await supabase
+      .from('visits')
+      .update({ visit_date: input.appointment_date })
+      .eq('id', data.visit_id);
+  }
+
   return data as unknown as Appointment;
 }
 

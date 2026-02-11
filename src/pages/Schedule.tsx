@@ -1,12 +1,13 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { CalendarHeader, CalendarView } from "@/components/schedule/CalendarHeader";
 import { DayView } from "@/components/schedule/DayView";
 import { WeekView } from "@/components/schedule/WeekView";
 import { MonthView } from "@/components/schedule/MonthView";
 import { AppointmentFormDialog } from "@/components/schedule/AppointmentFormDialog";
-import { Appointment, fetchAppointments } from "@/services/appointmentService";
+import { Appointment, fetchAppointments, updateAppointment } from "@/services/appointmentService";
+import { useToast } from "@/hooks/use-toast";
 import {
   addDays,
   addWeeks,
@@ -28,6 +29,8 @@ const Schedule = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Calculate date range for fetching
   const dateRange = useMemo(() => {
@@ -63,6 +66,7 @@ const Schedule = () => {
   } = useQuery({
     queryKey: ['appointments', dateRange.start, dateRange.end],
     queryFn: () => fetchAppointments(dateRange.start, dateRange.end),
+    refetchOnMount: 'always',
   });
 
   const handleNavigate = (direction: 'prev' | 'next' | 'today') => {
@@ -109,6 +113,17 @@ const Schedule = () => {
     refetch();
   };
 
+  const handleAppointmentDrop = useCallback(async (appointmentId: string, newDate: string) => {
+    try {
+      await updateAppointment(appointmentId, { appointment_date: newDate });
+      toast({ title: "Job moved", description: `Moved to ${format(new Date(newDate + 'T12:00:00'), "EEE, MMM d yyyy")}` });
+      await queryClient.invalidateQueries({ queryKey: ['appointments'] });
+    } catch (err) {
+      console.error("Failed to move appointment:", err);
+      toast({ title: "Error", description: "Failed to move job", variant: "destructive" });
+    }
+  }, [queryClient, toast]);
+
   return (
     <DashboardLayout>
       <div className="h-[calc(100vh-8rem)] flex flex-col">
@@ -149,6 +164,7 @@ const Schedule = () => {
                   appointments={appointments}
                   onAppointmentClick={handleAppointmentClick}
                   onDayClick={handleDayClick}
+                  onAppointmentDrop={handleAppointmentDrop}
                 />
               )}
             </>
