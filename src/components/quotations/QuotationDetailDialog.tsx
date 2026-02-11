@@ -419,15 +419,39 @@ export function QuotationDetailDialog({
           }
         }
 
-        // Fallback to site-level folder
+        // Fallback to site-level folder — auto-create if missing
         if (!baseFolderPath) {
           const { data: siteData } = await supabase
             .from("sites")
-            .select("sharepoint_folder")
+            .select("sharepoint_folder, name, address")
             .eq("id", quotation.site_id)
             .single();
           if (siteData?.sharepoint_folder) {
             baseFolderPath = `${siteData.sharepoint_folder}/Quotations`;
+          } else if (siteData && quotation.customers?.name) {
+            // Auto-create SharePoint folder: Customers/{Customer}/{Site}/Quotations
+            const siteLabel = [siteData.name, siteData.address].filter(Boolean).join(" ");
+            const siteFolderPath = `Customers/${quotation.customers.name}/${siteLabel}`;
+            try {
+              const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
+                body: {
+                  folderPath: `${siteFolderPath}/Quotations`,
+                  entityType: "folder_only",
+                  entityId: quotation.site_id,
+                },
+              });
+              if (!spError && spData?.success) {
+                // Save site-level path (without /Quotations) to site record
+                await supabase.from("sites").update({
+                  sharepoint_folder: siteFolderPath,
+                  sharepoint_url: null,
+                }).eq("id", quotation.site_id);
+                baseFolderPath = `${siteFolderPath}/Quotations`;
+                console.log("Auto-created SharePoint folder for quotation:", baseFolderPath);
+              }
+            } catch (e) {
+              console.log("SharePoint auto-create skipped:", e);
+            }
           }
         }
 

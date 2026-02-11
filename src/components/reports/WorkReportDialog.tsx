@@ -443,6 +443,19 @@ export function WorkReportDialog({
               .from("service_reports")
               .update({ sharepoint_folder: spData.folderPath, sharepoint_url: spData.webUrl || null })
               .eq("id", existingReport.id);
+            
+            // Also save site-level folder so future operations (quotations etc.) can find it
+            const siteLevelPath = `Customers/${customerData2.name}/${siteLabel}`;
+            const { data: currentSite } = await supabase
+              .from("sites")
+              .select("sharepoint_folder")
+              .eq("id", site.id)
+              .single();
+            if (!currentSite?.sharepoint_folder) {
+              await supabase.from("sites").update({
+                sharepoint_folder: siteLevelPath,
+              }).eq("id", site.id);
+            }
           }
         } catch (e) {
           console.log("SharePoint folder creation skipped:", e);
