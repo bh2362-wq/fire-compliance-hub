@@ -562,10 +562,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       >
         <div className="col-span-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
               <Building2 className="w-5 h-5 text-muted-foreground" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="font-medium text-foreground">
                 {visit.site?.name || "Unknown Site"}
               </p>
@@ -577,6 +577,20 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   </Badge>
                 )}
               </div>
+              {(() => {
+                let notesPreview = "";
+                try {
+                  const parsed = JSON.parse(visit.notes || "{}");
+                  notesPreview = parsed.user_notes || "";
+                } catch {
+                  notesPreview = visit.notes || "";
+                }
+                return notesPreview ? (
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                    {notesPreview}
+                  </p>
+                ) : null;
+              })()}
               <VisitRequirementsBadges key={requirementsRefreshKey} visitId={visit.id} />
             </div>
           </div>
