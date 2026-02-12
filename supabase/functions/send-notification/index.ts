@@ -27,6 +27,7 @@ interface NotificationRequest {
   jobNumber?: string;
   engineerName?: string;
   acceptUrl?: string;
+  jobNotes?: string;
 }
 
 const formatDate = (dateStr: string): string => {
@@ -424,10 +425,18 @@ const handler = async (req: Request): Promise<Response> => {
                     <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;"><strong>Date:</strong></td>
                     <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">${formattedDate}</td>
                   </tr>
-                  <tr>
-                    <td style="padding: 10px 0;"><strong>Service Type:</strong></td>
-                    <td style="padding: 10px 0;">${visitTypeLabel}</td>
+                   <tr>
+                    <td style="padding: 10px 0;${body.jobNotes ? ' border-bottom: 1px solid #e5e7eb;' : ''}"><strong>Service Type:</strong></td>
+                    <td style="padding: 10px 0;${body.jobNotes ? ' border-bottom: 1px solid #e5e7eb;' : ''}">${visitTypeLabel}</td>
                   </tr>
+                  ${body.jobNotes ? `
+                  <tr>
+                    <td style="padding: 10px 0;" colspan="2">
+                      <strong>Job Details:</strong>
+                      <p style="margin: 8px 0 0; color: #374151; line-height: 1.5;">${body.jobNotes}</p>
+                    </td>
+                  </tr>
+                  ` : ""}
                 </table>
               </div>
               

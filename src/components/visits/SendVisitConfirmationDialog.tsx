@@ -94,6 +94,15 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
 
       const siteAddress = [siteData?.address, siteData?.city, siteData?.postcode].filter(Boolean).join(", ");
 
+      // Extract user-readable job notes
+      let jobNotes = "";
+      try {
+        const parsed = JSON.parse(visit.notes || "{}");
+        jobNotes = parsed.user_notes || "";
+      } catch {
+        jobNotes = visit.notes || "";
+      }
+
       const { error } = await supabase.functions.invoke("send-notification", {
         body: {
           type: "visit_confirmation",
@@ -105,6 +114,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
           appointmentTime: "09:00",
           visitType: visit.visit_type,
           acceptUrl,
+          jobNotes: jobNotes || undefined,
         },
       });
 
