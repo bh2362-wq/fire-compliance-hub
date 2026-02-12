@@ -65,7 +65,7 @@ const visitEditSchema = z.object({
   visit_date: z.string().min(1, "Visit date is required"),
   visit_type: z.string().min(1, "Visit type is required"),
   status: z.string().min(1, "Status is required"),
-  notes: z.string().max(2000).optional(),
+  notes: z.string().max(10000).optional(),
 });
 
 type VisitEditFormData = z.infer<typeof visitEditSchema>;
