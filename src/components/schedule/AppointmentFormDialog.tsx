@@ -35,14 +35,7 @@ interface AppointmentFormDialogProps {
   onSuccess: () => void;
 }
 
-const VISIT_TYPES = [
-  { value: 'quarterly_service', label: 'Quarterly Service' },
-  { value: 'biannual_service', label: 'Biannual Service' },
-  { value: 'annual_inspection', label: 'Annual Inspection' },
-  { value: 'emergency', label: 'Emergency' },
-  { value: 'remedial', label: 'Remedial' },
-  { value: 'supply_only', label: 'Supply Only' },
-];
+import { VISIT_TYPES } from "@/constants/visitTypes";
 
 export function AppointmentFormDialog({
   open,

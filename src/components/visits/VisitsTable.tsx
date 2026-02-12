@@ -45,6 +45,7 @@ import { getCompanySettings } from "@/services/companySettingsService";
 import { VisitRequirementsDialog } from "./VisitRequirementsDialog";
 import { VisitRequirementsBadges } from "./VisitRequirementsBadges";
 import { SendVisitConfirmationDialog } from "./SendVisitConfirmationDialog";
+import { getVisitTypeLabel } from "@/constants/visitTypes";
 
 interface ASDAsset {
   id: string;
@@ -569,8 +570,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
               <p className="font-medium text-foreground">
                 {visit.site?.name || "Unknown Site"}
               </p>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{visit.visit_type}</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-primary/5 text-primary border-primary/20">
+                  {getVisitTypeLabel(visit.visit_type)}
+                </Badge>
                 {reportInfo?.report_number && (
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-muted/50">
                     {reportInfo.report_number}
