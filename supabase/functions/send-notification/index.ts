@@ -30,6 +30,55 @@ interface NotificationRequest {
   jobNotes?: string;
 }
 
+const formatJobNotes = (notes: string): string => {
+  const lines = notes.split("\n");
+  let html = "";
+  let inList = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (inList) { html += "</ul>"; inList = false; }
+      continue;
+    }
+
+    // Bullet points
+    if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
+      if (!inList) { html += '<ul style="margin: 8px 0; padding-left: 20px;">'; inList = true; }
+      const text = trimmed.replace(/^[•\-]\s*/, "").trim();
+      html += `<li style="margin-bottom: 4px; color: #374151;">${text}</li>`;
+      continue;
+    }
+
+    if (inList) { html += "</ul>"; inList = false; }
+
+    // Key:Value lines (label before colon is short)
+    if (trimmed.includes(":") && trimmed.indexOf(":") < 30 && !trimmed.endsWith(".")) {
+      const colonIdx = trimmed.indexOf(":");
+      const label = trimmed.substring(0, colonIdx + 1);
+      const value = trimmed.substring(colonIdx + 1).trim();
+      if (value) {
+        html += `<p style="margin: 4px 0; font-size: 14px;"><strong style="color: #1f2937;">${label}</strong> ${value}</p>`;
+      } else {
+        html += `<h4 style="margin: 14px 0 6px; font-size: 14px; font-weight: 700; color: #1f2937;">${trimmed}</h4>`;
+      }
+      continue;
+    }
+
+    // All-caps headings
+    if (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && trimmed.length < 80) {
+      html += `<h4 style="margin: 14px 0 6px; font-size: 14px; font-weight: 700; color: #1e40af; text-transform: uppercase;">${trimmed}</h4>`;
+      continue;
+    }
+
+    // Regular paragraph
+    html += `<p style="margin: 6px 0; color: #374151; line-height: 1.6;">${trimmed}</p>`;
+  }
+
+  if (inList) html += "</ul>";
+  return html;
+};
+
 const formatDate = (dateStr: string): string => {
   const date = new Date(dateStr);
   return date.toLocaleDateString("en-GB", {
@@ -431,9 +480,13 @@ const handler = async (req: Request): Promise<Response> => {
                   </tr>
                   ${body.jobNotes ? `
                   <tr>
-                    <td style="padding: 10px 0;" colspan="2">
-                      <strong>Job Details:</strong>
-                      <p style="margin: 8px 0 0; color: #374151; line-height: 1.5;">${body.jobNotes}</p>
+                    <td style="padding: 16px 0 10px;" colspan="2">
+                      <div style="font-family: Arial, Helvetica, sans-serif; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; background: #f9fafb;">
+                        <h3 style="margin: 0 0 12px; font-size: 15px; font-weight: 700; color: #1f2937; border-bottom: 2px solid #1e40af; padding-bottom: 8px;">Job Details</h3>
+                        <div style="color: #374151; font-size: 14px; line-height: 1.7;">
+                          ${formatJobNotes(body.jobNotes)}
+                        </div>
+                      </div>
                     </td>
                   </tr>
                   ` : ""}
