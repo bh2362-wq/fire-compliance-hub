@@ -228,6 +228,58 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         return;
       }
 
+      // Build the SharePoint folder path to delete
+      const shortId = deleteVisit.id.substring(0, 8);
+      const visitDate = deleteVisit.visit_date?.replace(/-/g, "") || "";
+      const visitType = deleteVisit.visit_type || "visit";
+
+      // Get site info for SharePoint path
+      let spFolderPath = "";
+      if (deleteVisit.site_id) {
+        const { data: siteData } = await supabase
+          .from("sites")
+          .select("name, address, customer_id, sharepoint_folder")
+          .eq("id", deleteVisit.site_id)
+          .single();
+
+        if (siteData?.sharepoint_folder) {
+          spFolderPath = `${siteData.sharepoint_folder}/Reports/${visitType}_${visitDate}_${shortId}`;
+        } else if (siteData) {
+          const sanitize = (name: string) =>
+            name.replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
+          let customerName = "";
+          if (siteData.customer_id) {
+            const { data: custData } = await supabase
+              .from("customers")
+              .select("name")
+              .eq("id", siteData.customer_id)
+              .single();
+            customerName = custData?.name || "";
+          }
+          const sName = sanitize(siteData.name);
+          const sAddr = siteData.address ? ` (${sanitize(siteData.address)})` : "";
+          const basePath = customerName
+            ? `Customers/${sanitize(customerName)}/${sName}${sAddr}`
+            : `Sites/${sName}${sAddr}`;
+          spFolderPath = `${basePath}/Reports/${visitType}_${visitDate}_${shortId}`;
+        }
+      }
+
+      // Delete SharePoint folder (fire-and-forget, don't block deletion)
+      if (spFolderPath) {
+        supabase.functions.invoke("sharepoint-delete-folder", {
+          body: { folderPath: spFolderPath },
+        }).then(({ data, error: spError }) => {
+          if (spError) {
+            console.warn("SharePoint folder deletion failed:", spError);
+          } else {
+            console.log("SharePoint folder deleted:", data?.deletedPath);
+          }
+        }).catch((err: unknown) => {
+          console.warn("SharePoint folder deletion skipped:", err);
+        });
+      }
+
       // Delete linked appointment from schedule first
       const { error: appointmentError } = await supabase
         .from("appointments")
@@ -267,7 +319,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       } else {
         toast({
           title: "Visit deleted",
-          description: "The visit has been successfully deleted.",
+          description: "The visit and its SharePoint folder have been removed.",
         });
         onRefresh?.();
       }
