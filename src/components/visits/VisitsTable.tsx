@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +44,7 @@ import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { VisitRequirementsDialog } from "./VisitRequirementsDialog";
 import { VisitRequirementsBadges } from "./VisitRequirementsBadges";
+import { SendVisitConfirmationDialog } from "./SendVisitConfirmationDialog";
 
 interface ASDAsset {
   id: string;
@@ -120,6 +121,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [reportMap, setReportMap] = useState<Record<string, ReportInfo>>({});
   const [requirementsVisit, setRequirementsVisit] = useState<Visit | null>(null);
   const [requirementsRefreshKey, setRequirementsRefreshKey] = useState(0);
+  const [confirmationVisit, setConfirmationVisit] = useState<Visit | null>(null);
 
   const [emailVisit, setEmailVisit] = useState<Visit | null>(null);
   const [emailVisitData, setEmailVisitData] = useState<{
@@ -658,6 +660,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   Email Customer
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => setConfirmationVisit(visit)}>
+                <Send className="w-4 h-4 mr-2" />
+                Send Confirmation
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setRequirementsVisit(visit)}>
                 <Package className="w-4 h-4 mr-2" />
                 Job Requirements
@@ -1122,6 +1128,14 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           siteName={requirementsVisit.site?.name || "Site"}
           visitDate={format(new Date(requirementsVisit.visit_date), "MMM d, yyyy")}
           onUpdate={() => setRequirementsRefreshKey((k) => k + 1)}
+        />
+      )}
+      {confirmationVisit && (
+        <SendVisitConfirmationDialog
+          open={!!confirmationVisit}
+          onOpenChange={(open) => !open && setConfirmationVisit(null)}
+          visit={confirmationVisit}
+          onSuccess={onRefresh}
         />
       )}
     </div>

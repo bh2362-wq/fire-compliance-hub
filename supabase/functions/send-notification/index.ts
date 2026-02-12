@@ -11,7 +11,7 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: "appointment_created" | "appointment_reminder" | "job_completed" | "appointment_updated";
+  type: "appointment_created" | "appointment_reminder" | "job_completed" | "appointment_updated" | "visit_confirmation";
   appointmentId?: string;
   visitId?: string;
   customerId?: string;
@@ -26,6 +26,7 @@ interface NotificationRequest {
   visitType?: string;
   jobNumber?: string;
   engineerName?: string;
+  acceptUrl?: string;
 }
 
 const formatDate = (dateStr: string): string => {
@@ -386,6 +387,61 @@ const handler = async (req: Request): Promise<Response> => {
               
               <p>A copy of the job sheet will be sent separately if applicable.</p>
               <p>Thank you for choosing BHO Fire for your fire safety needs.</p>
+              <p>Best regards,<br>BHO Fire Team</p>
+            </div>
+            <div style="background: #1f2937; color: #9ca3af; padding: 15px; text-align: center; font-size: 12px;">
+              <p style="margin: 0;">BHO Fire - Fire Safety Solutions</p>
+            </div>
+          </div>
+        `;
+        break;
+
+      case "visit_confirmation":
+        subject = `Appointment Confirmation Required - ${siteName}`;
+        htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #1e40af; color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">BHO Fire</h1>
+            </div>
+            <div style="padding: 30px; background: #f9fafb;">
+              <h2 style="color: #1e40af;">Appointment Confirmation Required</h2>
+              <p>Dear ${customerName},</p>
+              <p>We have scheduled an appointment at your site. Please review the details below and confirm:</p>
+              
+              <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;"><strong>Site:</strong></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">${siteName}</td>
+                  </tr>
+                  ${siteAddress ? `
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;"><strong>Address:</strong></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">${siteAddress}</td>
+                  </tr>
+                  ` : ""}
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;"><strong>Date:</strong></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">${formattedDate}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 0;"><strong>Service Type:</strong></td>
+                    <td style="padding: 10px 0;">${visitTypeLabel}</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${body.acceptUrl || ""}" style="background: #1e40af; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                  Confirm Appointment
+                </a>
+              </div>
+              
+              <p style="color: #6b7280; font-size: 14px;">
+                Click the button above to confirm the appointment and provide a PO number if required.
+              </p>
+              
+              <p>If you need to reschedule, please contact us directly.</p>
               <p>Best regards,<br>BHO Fire Team</p>
             </div>
             <div style="background: #1f2937; color: #9ca3af; padding: 15px; text-align: center; font-size: 12px;">

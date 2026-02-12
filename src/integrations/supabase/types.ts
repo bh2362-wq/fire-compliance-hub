@@ -2985,6 +2985,10 @@ export type Database = {
       }
       visits: {
         Row: {
+          acceptance_token: string | null
+          accepted_by_name: string | null
+          client_accepted_at: string | null
+          client_po_number: string | null
           coverage_percentage: number | null
           created_at: string
           devices_tested: number | null
@@ -3001,6 +3005,10 @@ export type Database = {
           visit_type: string
         }
         Insert: {
+          acceptance_token?: string | null
+          accepted_by_name?: string | null
+          client_accepted_at?: string | null
+          client_po_number?: string | null
           coverage_percentage?: number | null
           created_at?: string
           devices_tested?: number | null
@@ -3017,6 +3025,10 @@ export type Database = {
           visit_type: string
         }
         Update: {
+          acceptance_token?: string | null
+          accepted_by_name?: string | null
+          client_accepted_at?: string | null
+          client_po_number?: string | null
           coverage_percentage?: number | null
           created_at?: string
           devices_tested?: number | null
