@@ -51,14 +51,7 @@ interface Customer {
   name: string;
 }
 
-const VISIT_TYPES = [
-  { value: "quarterly_service", label: "Quarterly Service" },
-  { value: "biannual_service", label: "6-Monthly Service" },
-  { value: "annual_inspection", label: "Annual Inspection" },
-  { value: "emergency", label: "Emergency Callout" },
-  { value: "remedial", label: "Remedial Work" },
-  { value: "supply_only", label: "Supply Only" },
-];
+import { VISIT_TYPES } from "@/constants/visitTypes";
 
 const VALID_VISIT_TYPES = VISIT_TYPES.map((t) => t.value);
 const sanitizeVisitType = (type: string | null | undefined): string => {

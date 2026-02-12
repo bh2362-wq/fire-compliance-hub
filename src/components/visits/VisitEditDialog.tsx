@@ -70,14 +70,7 @@ const visitEditSchema = z.object({
 
 type VisitEditFormData = z.infer<typeof visitEditSchema>;
 
-const VISIT_TYPES = [
-  { value: "quarterly_service", label: "Quarterly Service" },
-  { value: "biannual_service", label: "6-Monthly Service" },
-  { value: "annual_inspection", label: "Annual Inspection" },
-  { value: "emergency", label: "Emergency Callout" },
-  { value: "remedial", label: "Remedial Works" },
-  { value: "supply_only", label: "Supply Only" },
-];
+import { VISIT_TYPES } from "@/constants/visitTypes";
 
 const STATUSES = [
   { value: "in_progress", label: "In Progress" },
