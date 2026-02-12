@@ -15,9 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     steps:
-      - uses: actions/checkout@v3
+     - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Fix git permission for cleanup
-  run: chmod -R a+rwx .
+        run: chmod -R a+rwX .git
         with:
           submodules: true
           lfs: false
@@ -46,4 +48,5 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DELIGHTFUL_POND_07C1B9303 }}
           action: "close"
+
 
