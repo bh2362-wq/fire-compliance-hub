@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,6 +84,10 @@ interface VisitsTableProps {
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
+  scheduled: {
+    label: "Scheduled",
+    className: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  },
   completed: {
     label: "Completed",
     className: "bg-success/10 text-success border-success/20",
@@ -95,6 +99,10 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   pending_review: {
     label: "Pending Review",
     className: "bg-accent/10 text-accent border-accent/20",
+  },
+  cancelled: {
+    label: "Cancelled",
+    className: "bg-destructive/10 text-destructive border-destructive/20",
   },
   invoiced: {
     label: "Invoiced",
@@ -782,25 +790,45 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                     Create Invoice
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      // Cancel visit - update status
-                      const { error } = await supabase
-                        .from("visits")
-                        .update({ status: "cancelled" })
-                        .eq("id", visit.id);
-                      if (error) {
-                        toast({ title: "Error", description: "Failed to cancel visit", variant: "destructive" });
-                      } else {
-                        toast({ title: "Visit cancelled", description: "The visit has been cancelled." });
-                        onRefresh?.();
-                      }
-                    }}
-                    className="text-warning focus:text-warning"
-                  >
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Cancel Visit
-                  </DropdownMenuItem>
+                  {visit.status !== 'cancelled' && visit.status !== 'completed' && (
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        const { error } = await supabase
+                          .from("visits")
+                          .update({ status: "cancelled" })
+                          .eq("id", visit.id);
+                        if (error) {
+                          toast({ title: "Error", description: "Failed to cancel visit", variant: "destructive" });
+                        } else {
+                          toast({ title: "Visit cancelled", description: "The visit has been cancelled." });
+                          onRefresh?.();
+                        }
+                      }}
+                      className="text-warning focus:text-warning"
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Cancel Visit
+                    </DropdownMenuItem>
+                  )}
+                  {(visit.status === 'cancelled' || visit.status === 'completed') && (
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        const { error } = await supabase
+                          .from("visits")
+                          .update({ status: "scheduled" })
+                          .eq("id", visit.id);
+                        if (error) {
+                          toast({ title: "Error", description: "Failed to revoke visit", variant: "destructive" });
+                        } else {
+                          toast({ title: "Visit revoked", description: "The visit has been returned to the active list." });
+                          onRefresh?.();
+                        }
+                      }}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Revoke Visit
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={() => setDeleteVisit(visit)}
                     className="text-destructive focus:text-destructive"
