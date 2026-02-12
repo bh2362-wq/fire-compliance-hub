@@ -31,7 +31,7 @@ interface NotificationRequest {
 }
 
 const formatJobNotes = (notes: string): string => {
-  const lines = notes.split("\n");
+  const lines = notes.split("\n").filter(line => !line.trim().toLowerCase().startsWith("standards referenced:"));
   let html = "";
   let inList = false;
 
