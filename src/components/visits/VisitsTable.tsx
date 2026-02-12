@@ -84,6 +84,10 @@ interface VisitsTableProps {
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
+  confirmed: {
+    label: "Confirmed — Awaiting Scheduling",
+    className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  },
   scheduled: {
     label: "Scheduled",
     className: "bg-blue-500/10 text-blue-600 border-blue-500/20",
@@ -604,7 +608,16 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   // A visit is considered invoiced if it has a xero_invoices record OR its status is 'invoiced'
   // Completed visits are also removed from the active list (they live in Reports)
   const invoicedVisits = visits.filter(v => !!invoiceMap[v.id] || v.status === 'invoiced');
-  const activeVisits = visits.filter(v => !invoiceMap[v.id] && v.status !== 'invoiced' && v.status !== 'completed');
+  // Sort confirmed visits to the top, then by date
+  const statusPriority: Record<string, number> = { confirmed: 0, scheduled: 1, in_progress: 2, pending_review: 3 };
+  const activeVisits = visits
+    .filter(v => !invoiceMap[v.id] && v.status !== 'invoiced' && v.status !== 'completed')
+    .sort((a, b) => {
+      const pa = statusPriority[a.status || ''] ?? 99;
+      const pb = statusPriority[b.status || ''] ?? 99;
+      if (pa !== pb) return pa - pb;
+      return 0; // preserve existing date order within same priority
+    });
 
   // Helper to render a visit row
   const renderVisitRow = (visit: Visit, isInvoiced: boolean = false) => {
