@@ -177,7 +177,11 @@ export function QuotationPriceLookupDialog({
                         return (
                           <TableRow key={si}>
                             <TableCell className="text-sm font-medium py-2">{supplier.name}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground py-2">{supplier.product_code || "—"}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground py-2">
+                              {result.model_number && <span className="font-medium text-foreground">{result.model_number}</span>}
+                              {result.model_number && supplier.product_code && <span className="mx-1">·</span>}
+                              {supplier.product_code || (!result.model_number ? "—" : "")}
+                            </TableCell>
                             <TableCell className="text-xs text-muted-foreground py-2 hidden sm:table-cell max-w-[200px] truncate">{supplier.description || "—"}</TableCell>
                             <TableCell className="text-sm text-right font-bold py-2">
                               £{Number(supplier.estimated_price).toFixed(2)}
