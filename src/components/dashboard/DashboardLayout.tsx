@@ -34,6 +34,7 @@ const mainNavigation = [
   { name: "Purchase Orders", href: "/dashboard/purchase-orders", icon: ShoppingCart },
   { name: "Email Scanner", href: "/dashboard/email-scanner", icon: ScanSearch },
   { name: "Device Pricing", href: "/dashboard/device-pricing", icon: Package },
+  { name: "Product Lookup", href: "/dashboard/product-lookup", icon: Search },
 ];
 
 const qmsNavigation = [

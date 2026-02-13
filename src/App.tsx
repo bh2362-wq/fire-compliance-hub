@@ -30,6 +30,7 @@ import AcceptQuote from "./pages/AcceptQuote";
 import AcceptVisit from "./pages/AcceptVisit";
 import EmailScanner from "./pages/EmailScanner";
 import DevicePricing from "./pages/DevicePricing";
+import ProductLookup from "./pages/ProductLookup";
 
 // QMS Pages
 import QMSDashboard from "./pages/qms/QMSDashboard";
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/dashboard/purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
             <Route path="/dashboard/email-scanner" element={<ProtectedRoute><EmailScanner /></ProtectedRoute>} />
             <Route path="/dashboard/device-pricing" element={<ProtectedRoute><DevicePricing /></ProtectedRoute>} />
+            <Route path="/dashboard/product-lookup" element={<ProtectedRoute><ProductLookup /></ProtectedRoute>} />
             
             {/* QMS Routes */}
             <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
