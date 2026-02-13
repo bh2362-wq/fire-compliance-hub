@@ -30,15 +30,26 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
     setProgress("Reading PDF...");
 
     try {
-      // Step 1: Parse PDF to text using existing parse-pdf function
+      // Step 1: Parse PDF to text using direct fetch (supabase.functions.invoke doesn't handle FormData)
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error("You must be signed in");
+
       const formData = new FormData();
       formData.append("file", file);
       
-      const { data: pdfData, error: pdfError } = await supabase.functions.invoke("parse-pdf", {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/parse-pdf`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
-      if (pdfError) throw pdfError;
+      if (!pdfResponse.ok) {
+        const errData = await pdfResponse.json().catch(() => ({}));
+        throw new Error(errData.error || `PDF parse failed (${pdfResponse.status})`);
+      }
+      const pdfData = await pdfResponse.json();
       const text = pdfData?.text || pdfData?.content || "";
       
       if (!text || text.length < 50) {

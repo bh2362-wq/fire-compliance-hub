@@ -122,3 +122,9 @@ verify_jwt = false
 
 [functions.search-device-prices]
 verify_jwt = false
+
+[functions.parse-catalog-pdf]
+verify_jwt = false
+
+[functions.accept-quotation]
+verify_jwt = false
