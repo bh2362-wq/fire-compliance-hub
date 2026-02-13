@@ -171,6 +171,8 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
   };
 
   const subtotal = lineItems.reduce((s, item) => s + (item.total_price || 0), 0);
+  const totalCost = lineItems.reduce((s, item) => s + (item.quantity * item.unit_price) + (item.labour_cost || 0), 0);
+  const profitMargin = subtotal - totalCost;
   const vatAmount = subtotal * (vatRate / 100);
   const grandTotal = subtotal + vatAmount;
 
@@ -420,6 +422,8 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
 
             {/* Totals */}
             <div className="border-t pt-3 space-y-1 text-right text-sm">
+              <div><span className="text-muted-foreground">Cost:</span> <span className="font-medium">£{totalCost.toFixed(2)}</span></div>
+              <div><span className="text-emerald-600 dark:text-emerald-400">Profit Margin:</span> <span className="font-medium text-emerald-600 dark:text-emerald-400">£{profitMargin.toFixed(2)}{totalCost > 0 ? ` (${((profitMargin / totalCost) * 100).toFixed(1)}%)` : ''}</span></div>
               <div><span className="text-muted-foreground">Subtotal:</span> <span className="font-medium">£{subtotal.toFixed(2)}</span></div>
               <div><span className="text-muted-foreground">VAT ({vatRate}%):</span> <span className="font-medium">£{vatAmount.toFixed(2)}</span></div>
               <div className="text-base"><span className="text-muted-foreground">Grand Total:</span> <span className="font-semibold">£{grandTotal.toFixed(2)}</span></div>
