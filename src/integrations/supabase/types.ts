@@ -3001,6 +3001,39 @@ export type Database = {
           },
         ]
       }
+      supplier_products: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string
+          id: string
+          product_code: string
+          supplier_name: string
+          trade_price: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          product_code: string
+          supplier_name?: string
+          trade_price?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          product_code?: string
+          supplier_name?: string
+          trade_price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       suppliers: {
         Row: {
           address: string | null

@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, Plus, Loader2, SearchX, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ExternalLink, Plus, Loader2, SearchX, RefreshCw, Database } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import {
   Table,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { searchDevicePrices } from "@/services/devicePricingService";
+import { searchSupplierProducts, SupplierProduct } from "@/services/supplierProductService";
 
 interface Supplier {
   name: string;
@@ -55,6 +57,7 @@ export function QuotationPriceLookupDialog({
   onAddToQuote,
 }: QuotationPriceLookupDialogProps) {
   const [results, setResults] = useState<PriceResult[]>([]);
+  const [catalogResults, setCatalogResults] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [refinedSearch, setRefinedSearch] = useState("");
@@ -69,25 +72,26 @@ export function QuotationPriceLookupDialog({
     setLoading(true);
     setSearched(true);
     setResults([]);
+    setCatalogResults([]);
     setAddedIndices(new Set());
     lastSearchRef.current = term;
 
     try {
-      const { results: data, error } = await searchDevicePrices([
-        { model_number: term, description: term, quantity },
-      ]);
+      // Search local catalog first
+      const { data: local } = await searchSupplierProducts(term, 20);
+      setCatalogResults(local);
 
-      if (error) {
-        toast.error(error.message || "Lookup failed");
-        return;
-      }
-
-      setResults(data || []);
-      if (!data?.length) {
-        toast.info("No results found — try refining your search");
+      // Also search AI for additional results
+      if (local.length === 0) {
+        const { results: data, error } = await searchDevicePrices([
+          { model_number: term, description: term, quantity },
+        ]);
+        if (error) { toast.error(error.message || "Lookup failed"); return; }
+        setResults(data || []);
+        if (!data?.length) toast.info("No results found — try refining your search");
       }
     } catch {
-      toast.error("AI lookup failed");
+      toast.error("Lookup failed");
     } finally {
       setLoading(false);
     }
@@ -135,10 +139,60 @@ export function QuotationPriceLookupDialog({
             </div>
           )}
 
-          {!loading && searched && results.length === 0 && (
+          {!loading && searched && catalogResults.length === 0 && results.length === 0 && (
             <div className="text-center py-8 space-y-4">
               <SearchX className="h-10 w-10 mx-auto text-muted-foreground" />
               <p className="text-muted-foreground">No exact match found. Try refining your search below.</p>
+            </div>
+          )}
+
+          {/* Catalog results */}
+          {!loading && catalogResults.length > 0 && (
+            <div className="border rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-sm">Catalog Matches</p>
+                <Badge variant="outline" className="text-xs gap-1"><Database className="h-3 w-3" />{catalogResults.length}</Badge>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Code</TableHead>
+                      <TableHead className="text-xs">Description</TableHead>
+                      <TableHead className="text-xs text-right">Trade Price</TableHead>
+                      <TableHead className="text-xs text-center">Add</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {catalogResults.map((p) => {
+                      const key = `catalog-${p.id}`;
+                      const added = addedIndices.has(key);
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell className="font-mono text-sm font-medium py-2">{p.product_code}</TableCell>
+                          <TableCell className="text-sm py-2 max-w-[250px]">{p.description}</TableCell>
+                          <TableCell className="text-sm text-right font-bold py-2">£{Number(p.trade_price).toFixed(2)}</TableCell>
+                          <TableCell className="text-center py-2">
+                            <Button
+                              variant={added ? "secondary" : "outline"}
+                              size="sm"
+                              className="h-7 px-2"
+                              disabled={added}
+                              onClick={() => {
+                                onAddToQuote(`${p.product_code} - ${p.description}`, p.trade_price);
+                                setAddedIndices((prev) => new Set(prev).add(key));
+                                toast.success(`Added ${p.product_code} at £${Number(p.trade_price).toFixed(2)}`);
+                              }}
+                            >
+                              {added ? "Added" : <Plus className="h-3.5 w-3.5" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
 
