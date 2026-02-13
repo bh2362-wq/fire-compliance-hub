@@ -182,7 +182,7 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Import Supplier Catalog</DialogTitle>
-          <DialogDescription>Add products by pasting from a spreadsheet or uploading a CSV file.</DialogDescription>
+          <DialogDescription>Add products by pasting text/spreadsheet data or uploading a CSV/text file.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -201,16 +201,16 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full">
               <TabsTrigger value="paste" className="flex-1 gap-1.5">
-                <ClipboardPaste className="h-3.5 w-3.5" /> Paste Data
+                <ClipboardPaste className="h-3.5 w-3.5" /> Paste Text / Data
               </TabsTrigger>
               <TabsTrigger value="csv" className="flex-1 gap-1.5">
-                <FileText className="h-3.5 w-3.5" /> Upload CSV
+                <FileText className="h-3.5 w-3.5" /> Upload File
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="paste" className="space-y-3 mt-3">
               <div className="text-xs text-muted-foreground space-y-1">
-                <p>Copy rows from Excel/Google Sheets and paste below. Expected columns:</p>
+                <p>Copy rows from Excel, Google Sheets, or any text source and paste below. Expected columns (tab or comma separated):</p>
                 <p className="font-mono bg-muted px-2 py-1 rounded">Product Code | Description | Price</p>
               </div>
               <Textarea
@@ -230,7 +230,7 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
 
             <TabsContent value="csv" className="space-y-3 mt-3">
               <div className="text-xs text-muted-foreground">
-                <p>Upload a CSV file with columns: Product Code, Description, Price (optional: Category)</p>
+                <p>Upload a CSV, TSV, or plain text file with columns: Product Code, Description, Price (optional: Category)</p>
               </div>
               <div className="border-2 border-dashed rounded-lg p-6 text-center space-y-3">
                 <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
