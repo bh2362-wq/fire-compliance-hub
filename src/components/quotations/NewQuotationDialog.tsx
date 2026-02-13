@@ -1,17 +1,16 @@
 import { useState, useEffect } from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogDescription,
+  ResponsiveDialogBody,
+  ResponsiveDialogFooter,
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -19,9 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { searchDevicePrices } from "@/services/devicePricingService";
 
 interface LineItem {
   description: string;
@@ -54,6 +54,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
     { description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 },
   ]);
   const [saving, setSaving] = useState(false);
+  const [searchingIndex, setSearchingIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -92,6 +93,48 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
 
   const removeItem = (i: number) => {
     setLineItems(lineItems.filter((_, idx) => idx !== i));
+  };
+
+  const handleAILookup = async (index: number) => {
+    const item = lineItems[index];
+    if (!item.description.trim()) {
+      toast.error("Enter a part number or description first");
+      return;
+    }
+
+    setSearchingIndex(index);
+    try {
+      const { results, error } = await searchDevicePrices([
+        { model_number: item.description, description: item.description, quantity: item.quantity },
+      ]);
+
+      if (error) {
+        toast.error(error.message || "AI lookup failed");
+        return;
+      }
+
+      if (results.length > 0) {
+        const result = results[0];
+        const tradePrice = result.estimated_trade_price || 0;
+        const updated = [...lineItems];
+        updated[index] = {
+          ...updated[index],
+          description: result.product_name || updated[index].description,
+          unit_price: tradePrice,
+          total_price: updated[index].quantity * tradePrice + (updated[index].labour_cost || 0),
+        };
+        setLineItems(updated);
+
+        const supplierNames = (result.suppliers || []).map((s: any) => s.name).join(", ");
+        toast.success(`Found: £${tradePrice.toFixed(2)} trade price${supplierNames ? ` (${supplierNames})` : ""}`);
+      } else {
+        toast.info("No pricing found for this item");
+      }
+    } catch (err: any) {
+      toast.error("AI lookup failed");
+    } finally {
+      setSearchingIndex(null);
+    }
   };
 
   const subtotal = lineItems.reduce((s, item) => s + (item.total_price || 0), 0);
@@ -174,151 +217,166 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col w-[95vw] sm:w-auto">
-        <DialogHeader>
-          <DialogTitle>New Quotation</DialogTitle>
-          <DialogDescription>Create a standalone quotation with customer, site and line items.</DialogDescription>
-        </DialogHeader>
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogHeader>
+        <ResponsiveDialogTitle>New Quotation</ResponsiveDialogTitle>
+        <ResponsiveDialogDescription>Create a standalone quotation with customer, site and line items.</ResponsiveDialogDescription>
+      </ResponsiveDialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-6 pb-4">
-            {/* Customer & Site */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Customer</Label>
-                <Select value={customerId} onValueChange={(v) => { setCustomerId(v); setSiteId(""); }}>
-                  <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
-                  <SelectContent>
-                    {customers.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Site *</Label>
-                <Select value={siteId} onValueChange={setSiteId}>
-                  <SelectTrigger><SelectValue placeholder="Select site..." /></SelectTrigger>
-                  <SelectContent>
-                    {filteredSites.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Quote Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Quote Title</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Fire Alarm Upgrade" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Valid (days)</Label>
-                  <Input type="number" value={validDays} onChange={(e) => setValidDays(parseInt(e.target.value) || 30)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>VAT %</Label>
-                  <Input type="number" value={vatRate} onChange={(e) => setVatRate(parseFloat(e.target.value) || 0)} />
-                </div>
-              </div>
-            </div>
-
+      <ResponsiveDialogBody>
+        <div className="space-y-6 pb-4">
+          {/* Customer & Site */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Summary</Label>
-              <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description of the works..." className="min-h-[60px]" />
+              <Label>Customer</Label>
+              <Select value={customerId} onValueChange={(v) => { setCustomerId(v); setSiteId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
+                <SelectContent>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
-            {/* Line Items */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Line Items</Label>
-                <Button variant="outline" size="sm" onClick={addItem}>
-                  <Plus className="mr-1 h-4 w-4" /> Add Item
-                </Button>
-              </div>
-
-              {lineItems.map((item, index) => (
-                <div key={index} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 space-y-3">
-                      <Input
-                        value={item.description}
-                        onChange={(e) => handleItemChange(index, "description", e.target.value)}
-                        placeholder="Item description (materials, labour, etc.)"
-                      />
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                        <div>
-                          <Label className="text-xs">Qty</Label>
-                          <Input
-                            type="number" min={1} value={item.quantity}
-                            onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
-                            className="h-9"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Unit Price (£)</Label>
-                          <Input
-                            type="number" min={0} step={0.01} value={item.unit_price}
-                            onChange={(e) => handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
-                            className="h-9"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Labour (£)</Label>
-                          <Input
-                            type="number" min={0} step={0.01} value={item.labour_cost}
-                            onChange={(e) => handleItemChange(index, "labour_cost", parseFloat(e.target.value) || 0)}
-                            className="h-9"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Total (£)</Label>
-                          <Input type="number" value={item.total_price.toFixed(2)} readOnly className="h-9 bg-muted" />
-                        </div>
-                      </div>
-                    </div>
-                    {lineItems.length > 1 && (
-                      <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="text-muted-foreground hover:text-destructive mt-1">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {/* Totals */}
-              <div className="border-t pt-3 space-y-1 text-right text-sm">
-                <div><span className="text-muted-foreground">Subtotal:</span> <span className="font-medium">£{subtotal.toFixed(2)}</span></div>
-                <div><span className="text-muted-foreground">VAT ({vatRate}%):</span> <span className="font-medium">£{vatAmount.toFixed(2)}</span></div>
-                <div className="text-base"><span className="text-muted-foreground">Grand Total:</span> <span className="font-semibold">£{grandTotal.toFixed(2)}</span></div>
-              </div>
+            <div className="space-y-2">
+              <Label>Site *</Label>
+              <Select value={siteId} onValueChange={setSiteId}>
+                <SelectTrigger><SelectValue placeholder="Select site..." /></SelectTrigger>
+                <SelectContent>
+                  {filteredSites.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
 
-            {/* Terms & Notes */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Quote Details */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Quote Title</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Fire Alarm Upgrade" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Terms & Conditions</Label>
-                <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} placeholder="Payment terms, warranty info..." className="min-h-[60px]" />
+                <Label>Valid (days)</Label>
+                <Input type="number" value={validDays} onChange={(e) => setValidDays(parseInt(e.target.value) || 30)} />
               </div>
               <div className="space-y-2">
-                <Label>Internal Notes</Label>
-                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (not shown on PDF)..." className="min-h-[60px]" />
+                <Label>VAT %</Label>
+                <Input type="number" value={vatRate} onChange={(e) => setVatRate(parseFloat(e.target.value) || 0)} />
               </div>
             </div>
           </div>
-        </ScrollArea>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Create Quotation"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <div className="space-y-2">
+            <Label>Summary</Label>
+            <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description of the works..." className="min-h-[60px]" />
+          </div>
+
+          {/* Line Items */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">Line Items</Label>
+              <Button variant="outline" size="sm" onClick={addItem}>
+                <Plus className="mr-1 h-4 w-4" /> Add Item
+              </Button>
+            </div>
+
+            {lineItems.map((item, index) => (
+              <div key={index} className="border rounded-lg p-3 sm:p-4 space-y-3">
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex gap-2">
+                      <Input
+                        value={item.description}
+                        onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                        placeholder="Part number or description"
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleAILookup(index)}
+                        disabled={searchingIndex !== null}
+                        title="AI Price Lookup"
+                        className="shrink-0"
+                      >
+                        {searchingIndex === index ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                      <div>
+                        <Label className="text-xs">Qty</Label>
+                        <Input
+                          type="number" min={1} value={item.quantity}
+                          onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Unit Price (£)</Label>
+                        <Input
+                          type="number" min={0} step={0.01} value={item.unit_price}
+                          onChange={(e) => handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Labour (£)</Label>
+                        <Input
+                          type="number" min={0} step={0.01} value={item.labour_cost}
+                          onChange={(e) => handleItemChange(index, "labour_cost", parseFloat(e.target.value) || 0)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Total (£)</Label>
+                        <Input type="number" value={item.total_price.toFixed(2)} readOnly className="h-9 bg-muted" />
+                      </div>
+                    </div>
+                  </div>
+                  {lineItems.length > 1 && (
+                    <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="text-muted-foreground hover:text-destructive mt-1 shrink-0">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Totals */}
+            <div className="border-t pt-3 space-y-1 text-right text-sm">
+              <div><span className="text-muted-foreground">Subtotal:</span> <span className="font-medium">£{subtotal.toFixed(2)}</span></div>
+              <div><span className="text-muted-foreground">VAT ({vatRate}%):</span> <span className="font-medium">£{vatAmount.toFixed(2)}</span></div>
+              <div className="text-base"><span className="text-muted-foreground">Grand Total:</span> <span className="font-semibold">£{grandTotal.toFixed(2)}</span></div>
+            </div>
+          </div>
+
+          {/* Terms & Notes */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Terms & Conditions</Label>
+              <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} placeholder="Payment terms, warranty info..." className="min-h-[60px]" />
+            </div>
+            <div className="space-y-2">
+              <Label>Internal Notes</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (not shown on PDF)..." className="min-h-[60px]" />
+            </div>
+          </div>
+        </div>
+      </ResponsiveDialogBody>
+
+      <ResponsiveDialogFooter>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Create Quotation"}
+        </Button>
+      </ResponsiveDialogFooter>
+    </ResponsiveDialog>
   );
 }
