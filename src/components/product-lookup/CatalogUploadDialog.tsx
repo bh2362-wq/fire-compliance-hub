@@ -56,9 +56,9 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
         throw new Error("Could not extract text from PDF. Try a different file.");
       }
 
-      setProgress(`Extracted ${text.length.toLocaleString()} characters. Parsing products with AI...`);
+      setProgress(`Extracted ${text.length.toLocaleString()} characters. Parsing products with AI (this may take a few minutes for large catalogs)...`);
 
-      // Step 2: Send text to AI parser
+      // Step 2: Send text to AI parser (handles chunking internally)
       const { data: parseData, error: parseError } = await supabase.functions.invoke("parse-catalog-pdf", {
         body: { text },
       });
@@ -67,11 +67,12 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
       if (parseData?.error) throw new Error(parseData.error);
 
       const products = parseData?.products || [];
+      const chunksProcessed = parseData?.chunks_processed || 1;
       if (products.length === 0) {
         throw new Error("No products found in the PDF. Check the file format.");
       }
 
-      setProgress(`Found ${products.length} products. Saving to database...`);
+      setProgress(`Found ${products.length} products across ${chunksProcessed} sections. Saving to database...`);
 
       // Step 3: Insert into database
       const { count, error: insertError } = await insertSupplierProducts(products);
