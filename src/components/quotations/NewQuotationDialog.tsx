@@ -21,7 +21,7 @@ import {
 import { Plus, Trash2, Loader2, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { searchDevicePrices } from "@/services/devicePricingService";
+import { QuotationPriceLookupDialog } from "./QuotationPriceLookupDialog";
 
 interface LineItem {
   description: string;
@@ -55,6 +55,8 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
   ]);
   const [saving, setSaving] = useState(false);
   const [searchingIndex, setSearchingIndex] = useState<number | null>(null);
+  const [lookupDialogOpen, setLookupDialogOpen] = useState(false);
+  const [lookupIndex, setLookupIndex] = useState<number>(0);
 
   useEffect(() => {
     if (!open) return;
@@ -95,46 +97,26 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
     setLineItems(lineItems.filter((_, idx) => idx !== i));
   };
 
-  const handleAILookup = async (index: number) => {
+  const openLookup = (index: number) => {
     const item = lineItems[index];
     if (!item.description.trim()) {
       toast.error("Enter a part number or description first");
       return;
     }
+    setLookupIndex(index);
+    setLookupDialogOpen(true);
+  };
 
-    setSearchingIndex(index);
-    try {
-      const { results, error } = await searchDevicePrices([
-        { model_number: item.description, description: item.description, quantity: item.quantity },
-      ]);
-
-      if (error) {
-        toast.error(error.message || "AI lookup failed");
-        return;
-      }
-
-      if (results.length > 0) {
-        const result = results[0];
-        const tradePrice = result.estimated_trade_price || 0;
-        const updated = [...lineItems];
-        updated[index] = {
-          ...updated[index],
-          description: result.product_name || updated[index].description,
-          unit_price: tradePrice,
-          total_price: updated[index].quantity * tradePrice + (updated[index].labour_cost || 0),
-        };
-        setLineItems(updated);
-
-        const supplierNames = (result.suppliers || []).map((s: any) => s.name).join(", ");
-        toast.success(`Found: £${tradePrice.toFixed(2)} trade price${supplierNames ? ` (${supplierNames})` : ""}`);
-      } else {
-        toast.info("No pricing found for this item");
-      }
-    } catch (err: any) {
-      toast.error("AI lookup failed");
-    } finally {
-      setSearchingIndex(null);
-    }
+  const handleAddFromLookup = (description: string, unitPrice: number) => {
+    const updated = [...lineItems];
+    const item = updated[lookupIndex];
+    updated[lookupIndex] = {
+      ...item,
+      description,
+      unit_price: unitPrice,
+      total_price: item.quantity * unitPrice + (item.labour_cost || 0),
+    };
+    setLineItems(updated);
   };
 
   const subtotal = lineItems.reduce((s, item) => s + (item.total_price || 0), 0);
@@ -217,6 +199,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
   };
 
   return (
+    <>
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle>New Quotation</ResponsiveDialogTitle>
@@ -297,16 +280,11 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => handleAILookup(index)}
-                        disabled={searchingIndex !== null}
+                        onClick={() => openLookup(index)}
                         title="AI Price Lookup"
                         className="shrink-0"
                       >
-                        {searchingIndex === index ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Search className="h-4 w-4" />
-                        )}
+                        <Search className="h-4 w-4" />
                       </Button>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -378,5 +356,14 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
         </Button>
       </ResponsiveDialogFooter>
     </ResponsiveDialog>
+
+    <QuotationPriceLookupDialog
+      open={lookupDialogOpen}
+      onOpenChange={setLookupDialogOpen}
+      searchTerm={lineItems[lookupIndex]?.description || ""}
+      quantity={lineItems[lookupIndex]?.quantity || 1}
+      onAddToQuote={handleAddFromLookup}
+    />
+    </>
   );
 }
