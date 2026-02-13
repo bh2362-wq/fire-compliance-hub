@@ -29,6 +29,7 @@ import SharedReport from "./pages/SharedReport";
 import AcceptQuote from "./pages/AcceptQuote";
 import AcceptVisit from "./pages/AcceptVisit";
 import EmailScanner from "./pages/EmailScanner";
+import DevicePricing from "./pages/DevicePricing";
 
 // QMS Pages
 import QMSDashboard from "./pages/qms/QMSDashboard";
@@ -77,6 +78,7 @@ const App = () => (
             <Route path="/dashboard/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
             <Route path="/dashboard/purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
             <Route path="/dashboard/email-scanner" element={<ProtectedRoute><EmailScanner /></ProtectedRoute>} />
+            <Route path="/dashboard/device-pricing" element={<ProtectedRoute><DevicePricing /></ProtectedRoute>} />
             
             {/* QMS Routes */}
             <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
