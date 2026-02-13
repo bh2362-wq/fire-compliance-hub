@@ -43,7 +43,7 @@ Do NOT skip any products.
 IMPORTANT: Return ONLY the JSON array, no other text.
 
 Catalog text:
-${text.substring(0, 100000)}`;
+${text.substring(0, 50000)}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -61,20 +61,39 @@ ${text.substring(0, 100000)}`;
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("AI API error:", errText);
-      return new Response(JSON.stringify({ error: "AI parsing failed" }), {
+      console.error("AI API error:", response.status, errText);
+      return new Response(JSON.stringify({ error: "AI parsing failed", status: response.status }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const aiResult = await response.json();
+    const rawBody = await response.text();
+    if (!rawBody || rawBody.trim().length === 0) {
+      console.error("AI returned empty response body");
+      return new Response(JSON.stringify({ error: "AI returned empty response" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let aiResult;
+    try {
+      aiResult = JSON.parse(rawBody);
+    } catch (jsonErr) {
+      console.error("Failed to parse AI response JSON:", rawBody.substring(0, 300));
+      return new Response(JSON.stringify({ error: "Invalid AI response format" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const content = aiResult.choices?.[0]?.message?.content || "";
+    console.log("AI response length:", content.length);
 
     // Extract JSON array from the response
     let products = [];
     try {
-      // Try to find JSON array in the response
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         products = JSON.parse(jsonMatch[0]);
@@ -103,7 +122,8 @@ ${text.substring(0, 100000)}`;
     });
   } catch (err) {
     console.error("Error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
