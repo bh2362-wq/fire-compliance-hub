@@ -175,7 +175,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col w-[95vw] sm:w-auto">
         <DialogHeader>
           <DialogTitle>New Quotation</DialogTitle>
           <DialogDescription>Create a standalone quotation with customer, site and line items.</DialogDescription>
@@ -250,7 +250,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
                         onChange={(e) => handleItemChange(index, "description", e.target.value)}
                         placeholder="Item description (materials, labour, etc.)"
                       />
-                      <div className="grid grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                         <div>
                           <Label className="text-xs">Qty</Label>
                           <Input
