@@ -508,6 +508,8 @@ export function QuotationDetailDialog({
   };
 
   const totalAmount = lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+  const totalCost = lineItems.reduce((sum, item) => sum + (item.quantity * item.unit_price) + (item.labour_cost || 0), 0);
+  const profitMargin = totalAmount - totalCost;
   const vatAmount = totalAmount * (vatRate / 100);
   const grandTotal = totalAmount + vatAmount;
   const isLocked = !!quotation?.locked_at;
@@ -766,7 +768,15 @@ export function QuotationDetailDialog({
                   )}
 
                   {/* Totals */}
-                  <div className="border-t pt-4 space-y-2">
+                   <div className="border-t pt-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Cost:</span>
+                      <span>£{totalCost.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-emerald-600 dark:text-emerald-400">Profit Margin:</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">£{profitMargin.toFixed(2)}{totalCost > 0 ? ` (${((profitMargin / totalCost) * 100).toFixed(1)}%)` : ''}</span>
+                    </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal:</span>
                       <span>£{totalAmount.toFixed(2)}</span>
