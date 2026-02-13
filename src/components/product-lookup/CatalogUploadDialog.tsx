@@ -17,8 +17,8 @@ interface CatalogUploadDialogProps {
   currentCount: number;
 }
 
-const CHUNK_SIZE = 60000; // chars per chunk
-const CONCURRENCY = 3; // parallel chunk requests
+const CHUNK_SIZE = 30000; // chars per chunk - smaller for reliable AI parsing
+const CONCURRENCY = 2; // parallel chunk requests - avoid rate limits
 
 export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCount }: CatalogUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null);

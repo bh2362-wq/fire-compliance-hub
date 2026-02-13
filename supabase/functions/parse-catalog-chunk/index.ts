@@ -5,6 +5,48 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function extractJsonArray(text: string): any[] {
+  // Remove markdown code fences
+  let cleaned = text.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
+
+  // Try direct parse
+  try {
+    const parsed = JSON.parse(cleaned);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { /* continue */ }
+
+  // Try to find array brackets
+  const start = cleaned.indexOf("[");
+  const end = cleaned.lastIndexOf("]");
+  if (start !== -1 && end > start) {
+    try {
+      return JSON.parse(cleaned.substring(start, end + 1));
+    } catch { /* continue */ }
+  }
+
+  // Try fixing truncated JSON by closing brackets
+  if (start !== -1) {
+    let fragment = cleaned.substring(start);
+    // Remove trailing incomplete object
+    const lastComplete = fragment.lastIndexOf("},");
+    if (lastComplete > 0) {
+      fragment = fragment.substring(0, lastComplete + 1) + "]";
+      try {
+        return JSON.parse(fragment);
+      } catch { /* continue */ }
+    }
+    const lastObj = fragment.lastIndexOf("}");
+    if (lastObj > 0) {
+      fragment = fragment.substring(0, lastObj + 1) + "]";
+      try {
+        return JSON.parse(fragment);
+      } catch { /* continue */ }
+    }
+  }
+
+  return [];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -27,23 +69,21 @@ serve(async (req) => {
       });
     }
 
-    const prompt = `You are a product catalog parser. Extract EVERY product from this section of a supplier catalog.
+    const prompt = `You are a product catalog parser. Extract EVERY product from this trade price list section.
 
-For each product, extract:
-- product_code: The product/part code (e.g. "S4-34805EP", "HFC-WSR-03")
-- description: The full product description/name
-- trade_price: The trade price as a number (no currency symbols). If multiple prices exist, use the trade/wholesale price. If no price found, use 0.
-- category: The product category if one is apparent from the context
+For each product return a JSON object with these fields:
+- "product_code": the exact part/model code (e.g. "S4-34805EP", "HFC-WSR-03")
+- "description": full product name/description
+- "trade_price": trade price as a number (no £ sign). Use 0 if not found.
+- "category": product category from context, or null
 
-Return a JSON array of objects. Extract ALL products from this section.
-Be extremely precise with product codes - copy them exactly as shown.
-Do NOT skip any products.
+Rules:
+- Return ONLY a JSON array: [{...}, {...}]
+- NO markdown, NO explanation, NO code fences
+- Extract ALL products, do not skip any
+- Copy product codes exactly as shown
 
-IMPORTANT: Return ONLY the JSON array, no other text. If no products found in this section, return [].
-
-This is chunk ${chunkIndex + 1} of ${totalChunks}.
-
-Catalog text:
+Chunk ${chunkIndex + 1} of ${totalChunks}:
 ${text}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -55,7 +95,7 @@ ${text}`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
+        temperature: 0.0,
         max_tokens: 65000,
       }),
     });
@@ -70,7 +110,7 @@ ${text}`;
 
     const rawBody = await response.text();
     if (!rawBody || rawBody.trim().length === 0) {
-      console.error(`Chunk ${chunkIndex + 1} returned empty response`);
+      console.error(`Chunk ${chunkIndex + 1} empty response`);
       return new Response(JSON.stringify({ products: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -80,28 +120,18 @@ ${text}`;
     try {
       aiResult = JSON.parse(rawBody);
     } catch {
-      console.error(`Chunk ${chunkIndex + 1} invalid JSON response`);
+      console.error(`Chunk ${chunkIndex + 1} invalid API response`);
       return new Response(JSON.stringify({ products: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const content = aiResult.choices?.[0]?.message?.content || "";
-
-    let products: any[] = [];
-    try {
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        products = Array.isArray(parsed) ? parsed : [];
-      }
-    } catch (parseErr) {
-      console.error(`Chunk ${chunkIndex + 1} parse error:`, parseErr);
-    }
+    const products = extractJsonArray(content);
 
     // Clean products
     const cleaned = products
-      .filter((p: any) => p.product_code && p.description)
+      .filter((p: any) => p && p.product_code && p.description)
       .map((p: any) => ({
         product_code: String(p.product_code).trim(),
         description: String(p.description).trim(),
