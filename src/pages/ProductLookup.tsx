@@ -7,34 +7,15 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Loader2, Search, SearchX, FileSpreadsheet, Upload, Database } from "lucide-react";
+import { Loader2, Search, SearchX, FileSpreadsheet, Upload, Database } from "lucide-react";
 import { toast } from "sonner";
-import { searchDevicePrices } from "@/services/devicePricingService";
 import { searchSupplierProducts, getSupplierProductCount, SupplierProduct } from "@/services/supplierProductService";
 import { CatalogUploadDialog } from "@/components/product-lookup/CatalogUploadDialog";
 import { useNavigate } from "react-router-dom";
-interface Supplier {
-  name: string;
-  url?: string;
-  estimated_price: number;
-  product_code?: string;
-  description?: string;
-  delivery_cost?: string;
-}
-
-interface PriceResult {
-  index: number;
-  model_number: string;
-  product_name: string;
-  estimated_trade_price: number;
-  suppliers: Supplier[];
-  notes?: string;
-}
 
 const ProductLookup = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [catalogResults, setCatalogResults] = useState<SupplierProduct[]>([]);
-  const [aiResults, setAiResults] = useState<PriceResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [catalogCount, setCatalogCount] = useState(0);
@@ -91,9 +72,7 @@ const ProductLookup = () => {
   const selectSuggestion = (product: SupplierProduct) => {
     setSearchTerm(product.product_code);
     setShowSuggestions(false);
-    // Show this product directly as the result
     setCatalogResults([product]);
-    setAiResults([]);
     setSearched(true);
   };
 
@@ -103,28 +82,18 @@ const ProductLookup = () => {
     setLoading(true);
     setSearched(true);
     setCatalogResults([]);
-    setAiResults([]);
 
     try {
-      // Always search local catalog first
       const { data: local } = await searchSupplierProducts(term, 50);
       setCatalogResults(local);
-
-      // If no local results, fall back to AI search
-      if (local.length === 0) {
-        const { results: data, error } = await searchDevicePrices([
-          { model_number: term, description: term, quantity: 1 },
-        ]);
-        if (error) { toast.error(error.message || "Lookup failed"); return; }
-        setAiResults(data || []);
-        if (!data?.length) toast.info("No results found");
-      }
+      if (local.length === 0) toast.info("No results found in catalog");
     } catch {
       toast.error("Search failed");
     } finally {
       setLoading(false);
     }
   };
+
   const handleCreateQuoteFromCatalog = (product: SupplierProduct) => {
     navigate("/dashboard/quotations", {
       state: {
@@ -139,29 +108,13 @@ const ProductLookup = () => {
     toast.success("Opening new quote with selected item");
   };
 
-  const handleCreateQuote = (result: PriceResult, supplier: Supplier) => {
-    navigate("/dashboard/quotations", {
-      state: {
-        prefillLineItem: {
-          description: result.product_name || result.model_number,
-          quantity: 1,
-          unit_price: supplier.estimated_price,
-          labour_cost: 0,
-        },
-      },
-    });
-    toast.success("Opening new quote with selected item");
-  };
-
-  const hasResults = catalogResults.length > 0 || aiResults.length > 0;
-
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Product Lookup</h1>
-            <p className="text-muted-foreground">Search trade prices across your catalog and UK suppliers</p>
+            <p className="text-muted-foreground">Search trade prices from your Huvo catalog</p>
           </div>
           <div className="flex items-center gap-2">
             {catalogCount > 0 && (
@@ -239,14 +192,13 @@ const ProductLookup = () => {
           </div>
         )}
 
-        {!loading && searched && !hasResults && (
+        {!loading && searched && catalogResults.length === 0 && (
           <div className="text-center py-8 space-y-4">
             <SearchX className="h-10 w-10 mx-auto text-muted-foreground" />
-            <p className="text-muted-foreground">No results found. Try a different search term.</p>
+            <p className="text-muted-foreground">No results found in catalog. Try a different search term.</p>
           </div>
         )}
 
-        {/* Local catalog results */}
         {!loading && catalogResults.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
@@ -288,76 +240,6 @@ const ProductLookup = () => {
             </CardContent>
           </Card>
         )}
-
-        {/* AI fallback results */}
-        {!loading && aiResults.map((result) => (
-          <Card key={result.index}>
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-base">{result.product_name}</CardTitle>
-                <Badge variant="secondary" className="text-xs">AI Estimate</Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Model: {result.model_number} · Avg Trade: £{result.estimated_trade_price.toFixed(2)}
-              </p>
-            </CardHeader>
-            <CardContent>
-              {result.suppliers?.length > 0 && (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">Supplier</TableHead>
-                        <TableHead className="text-xs">Product Code</TableHead>
-                        <TableHead className="text-xs hidden sm:table-cell">Description</TableHead>
-                        <TableHead className="text-xs text-right">Unit Cost</TableHead>
-                        <TableHead className="text-xs text-right hidden sm:table-cell">Delivery</TableHead>
-                        <TableHead className="text-xs text-center">Link</TableHead>
-                        <TableHead className="text-xs text-center">Quote</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {result.suppliers.map((supplier, si) => (
-                        <TableRow key={si}>
-                          <TableCell className="text-sm font-medium py-2">{supplier.name}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground py-2">
-                            {result.model_number && <span className="font-medium text-foreground">{result.model_number}</span>}
-                            {result.model_number && supplier.product_code && <span className="mx-1">·</span>}
-                            {supplier.product_code || (!result.model_number ? "—" : "")}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground py-2 hidden sm:table-cell max-w-[200px] truncate">
-                            {supplier.description || "—"}
-                          </TableCell>
-                          <TableCell className="text-sm text-right font-bold py-2">
-                            £{Number(supplier.estimated_price).toFixed(2)}
-                          </TableCell>
-                          <TableCell className="text-xs text-right py-2 hidden sm:table-cell">
-                            {supplier.delivery_cost || "TBC"}
-                          </TableCell>
-                          <TableCell className="text-center py-2">
-                            {supplier.url ? (
-                              <a href={supplier.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-primary hover:underline text-xs">
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </a>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center py-2">
-                            <Button variant="outline" size="sm" className="h-7 px-2 gap-1" onClick={() => handleCreateQuote(result, supplier)}>
-                              <FileSpreadsheet className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">Create Quote</span>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
       </div>
 
       <CatalogUploadDialog

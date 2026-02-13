@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ResponsiveDialog,
   ResponsiveDialogHeader,
@@ -18,10 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Loader2, Search } from "lucide-react";
+import { Plus, Trash2, Loader2, Database } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { QuotationPriceLookupDialog } from "./QuotationPriceLookupDialog";
+import { searchSupplierProducts, SupplierProduct } from "@/services/supplierProductService";
 
 interface LineItem {
   description: string;
@@ -55,8 +56,13 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
     { description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 },
   ]);
   const [saving, setSaving] = useState(false);
-  const [lookupDialogOpen, setLookupDialogOpen] = useState(false);
-  const [lookupIndex, setLookupIndex] = useState<number>(0);
+
+  // Autocomplete state per line item
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<SupplierProduct[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -70,7 +76,6 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
     };
     fetchData();
 
-    // Prefill line item if provided
     if (prefillLineItem) {
       const item = {
         description: prefillLineItem.description,
@@ -91,6 +96,59 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
     }
   }, [customerId, sites]);
 
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
+        setActiveSuggestionIndex(null);
+        setSuggestions([]);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const fetchSuggestions = useCallback(async (term: string, index: number) => {
+    if (term.trim().length < 2) {
+      setSuggestions([]);
+      setActiveSuggestionIndex(null);
+      return;
+    }
+    setSuggestionsLoading(true);
+    setActiveSuggestionIndex(index);
+    try {
+      const { data } = await searchSupplierProducts(term, 10);
+      setSuggestions(data);
+      if (data.length === 0) setActiveSuggestionIndex(null);
+    } catch {
+      setSuggestions([]);
+      setActiveSuggestionIndex(null);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }, []);
+
+  const handleDescriptionChange = (index: number, value: string) => {
+    handleItemChange(index, "description", value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchSuggestions(value, index), 250);
+  };
+
+  const selectProduct = (index: number, product: SupplierProduct) => {
+    const updated = [...lineItems];
+    const item = updated[index];
+    const desc = `${product.product_code} - ${product.description}`;
+    updated[index] = {
+      ...item,
+      description: desc,
+      unit_price: product.trade_price,
+      total_price: item.quantity * product.trade_price + (item.labour_cost || 0),
+    };
+    setLineItems(updated);
+    setActiveSuggestionIndex(null);
+    setSuggestions([]);
+  };
+
   const handleItemChange = (index: number, field: keyof LineItem, value: any) => {
     const updated = [...lineItems];
     updated[index] = { ...updated[index], [field]: value };
@@ -107,28 +165,6 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
 
   const removeItem = (i: number) => {
     setLineItems(lineItems.filter((_, idx) => idx !== i));
-  };
-
-  const openLookup = (index: number) => {
-    const item = lineItems[index];
-    if (!item.description.trim()) {
-      toast.error("Enter a part number or description first");
-      return;
-    }
-    setLookupIndex(index);
-    setLookupDialogOpen(true);
-  };
-
-  const handleAddFromLookup = (description: string, unitPrice: number) => {
-    const updated = [...lineItems];
-    const item = updated[lookupIndex];
-    updated[lookupIndex] = {
-      ...item,
-      description,
-      unit_price: unitPrice,
-      total_price: item.quantity * unitPrice + (item.labour_cost || 0),
-    };
-    setLineItems(updated);
   };
 
   const subtotal = lineItems.reduce((s, item) => s + (item.total_price || 0), 0);
@@ -211,7 +247,6 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
   };
 
   return (
-    <>
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle>New Quotation</ResponsiveDialogTitle>
@@ -282,22 +317,51 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
               <div key={index} className="border rounded-lg p-3 sm:p-4 space-y-3">
                 <div className="flex items-start gap-2 sm:gap-3">
                   <div className="flex-1 space-y-3">
-                    <div className="flex gap-2">
+                    {/* Description with catalog autocomplete */}
+                    <div className="relative" ref={activeSuggestionIndex === index ? suggestionsRef : undefined}>
                       <Input
                         value={item.description}
-                        onChange={(e) => handleItemChange(index, "description", e.target.value)}
-                        placeholder="Part number or description"
-                        className="flex-1"
+                        onChange={(e) => handleDescriptionChange(index, e.target.value)}
+                        onFocus={() => {
+                          if (item.description.trim().length >= 2) {
+                            fetchSuggestions(item.description, index);
+                          }
+                        }}
+                        placeholder="Type product code or description to search catalog…"
+                        className="w-full"
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setActiveSuggestionIndex(null);
+                            setSuggestions([]);
+                          }
+                        }}
                       />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => openLookup(index)}
-                        title="AI Price Lookup"
-                        className="shrink-0"
-                      >
-                        <Search className="h-4 w-4" />
-                      </Button>
+                      {activeSuggestionIndex === index && suggestions.length > 0 && (
+                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-[240px] overflow-y-auto">
+                          {suggestionsLoading && (
+                            <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+                              <Loader2 className="h-3 w-3 animate-spin" /> Searching…
+                            </div>
+                          )}
+                          {suggestions.map((product) => (
+                            <button
+                              key={product.id}
+                              type="button"
+                              className="w-full text-left px-3 py-2 hover:bg-accent transition-colors flex items-center justify-between gap-2 border-b border-border/50 last:border-0"
+                              onClick={() => selectProduct(index, product)}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <span className="font-mono text-xs font-semibold text-primary">{product.product_code}</span>
+                                <span className="text-xs text-muted-foreground ml-2">{product.description}</span>
+                                {product.category && (
+                                  <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0">{product.category}</Badge>
+                                )}
+                              </div>
+                              <span className="text-xs font-bold shrink-0">£{Number(product.trade_price).toFixed(2)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                       <div>
@@ -368,14 +432,5 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
         </Button>
       </ResponsiveDialogFooter>
     </ResponsiveDialog>
-
-    <QuotationPriceLookupDialog
-      open={lookupDialogOpen}
-      onOpenChange={setLookupDialogOpen}
-      searchTerm={lineItems[lookupIndex]?.description || ""}
-      quantity={lineItems[lookupIndex]?.quantity || 1}
-      onAddToQuote={handleAddFromLookup}
-    />
-    </>
   );
 }
