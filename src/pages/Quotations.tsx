@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +116,8 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 const Quotations = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefillLineItem = (location.state as any)?.prefillLineItem || null;
   const [quotations, setQuotations] = useState<QuotationWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -131,6 +133,15 @@ const Quotations = () => {
   const [emailPdfData, setEmailPdfData] = useState<QuotationData | null>(null);
   const [uploadingToSharePoint, setUploadingToSharePoint] = useState<string | null>(null);
   const [newQuoteOpen, setNewQuoteOpen] = useState(false);
+
+  // Auto-open new quote dialog when navigated with prefill data
+  useEffect(() => {
+    if (prefillLineItem) {
+      setNewQuoteOpen(true);
+      // Clear location state so it doesn't re-trigger
+      window.history.replaceState({}, document.title);
+    }
+  }, [prefillLineItem]);
 
   const fetchQuotations = async () => {
     try {
@@ -865,6 +876,7 @@ const Quotations = () => {
         open={newQuoteOpen}
         onOpenChange={setNewQuoteOpen}
         onSuccess={fetchQuotations}
+        prefillLineItem={prefillLineItem}
       />
     </DashboardLayout>
   );

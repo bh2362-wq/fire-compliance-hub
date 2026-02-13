@@ -35,9 +35,10 @@ interface NewQuotationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  prefillLineItem?: { description: string; quantity: number; unit_price: number; labour_cost: number } | null;
 }
 
-export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotationDialogProps) {
+export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineItem }: NewQuotationDialogProps) {
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null }[]>([]);
   const [filteredSites, setFilteredSites] = useState<typeof sites>([]);
@@ -68,7 +69,19 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
       setSites(siteRes.data || []);
     };
     fetchData();
-  }, [open]);
+
+    // Prefill line item if provided
+    if (prefillLineItem) {
+      const item = {
+        description: prefillLineItem.description,
+        quantity: prefillLineItem.quantity,
+        unit_price: prefillLineItem.unit_price,
+        labour_cost: prefillLineItem.labour_cost,
+        total_price: (prefillLineItem.quantity * prefillLineItem.unit_price) + prefillLineItem.labour_cost,
+      };
+      setLineItems([item]);
+    }
+  }, [open, prefillLineItem]);
 
   useEffect(() => {
     if (customerId) {
