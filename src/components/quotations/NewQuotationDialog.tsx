@@ -366,7 +366,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
                         </div>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
                       <div>
                         <Label className="text-xs">Qty</Label>
                         <Input
@@ -390,6 +390,10 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
                           onChange={(e) => handleItemChange(index, "markup_percent", parseFloat(e.target.value) || 0)}
                           className="h-9"
                         />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Sell Price (£)</Label>
+                        <Input type="number" value={(item.unit_price * (1 + (item.markup_percent || 0) / 100)).toFixed(2)} readOnly className="h-9 bg-muted" />
                       </div>
                       <div>
                         <Label className="text-xs">Labour (£)</Label>

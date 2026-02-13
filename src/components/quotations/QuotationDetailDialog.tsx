@@ -633,7 +633,7 @@ export function QuotationDetailDialog({
                               disabled={isLocked}
                             />
 
-                            <div className="grid grid-cols-8 gap-3">
+                            <div className="grid grid-cols-9 gap-3">
                               <div>
                                 <Label className="text-xs">Item/Part</Label>
                                 <Input
@@ -709,6 +709,15 @@ export function QuotationDetailDialog({
                                   }
                                   className="h-9"
                                   disabled={isLocked}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Sell Price (£)</Label>
+                                <Input
+                                  type="number"
+                                  value={(item.unit_price * (1 + (item.markup_percent || 0) / 100)).toFixed(2)}
+                                  readOnly
+                                  className="h-9 bg-muted"
                                 />
                               </div>
                               <div>
