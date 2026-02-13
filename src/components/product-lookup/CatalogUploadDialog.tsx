@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Upload, FileText, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Upload, FileText, Trash2, AlertTriangle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { insertSupplierProducts, deleteAllSupplierProducts } from "@/services/supplierProductService";
 import { toast } from "sonner";
@@ -17,8 +17,8 @@ interface CatalogUploadDialogProps {
   currentCount: number;
 }
 
-const CHUNK_SIZE = 30000; // chars per chunk - smaller for reliable AI parsing
-const CONCURRENCY = 2; // parallel chunk requests - avoid rate limits
+const CHUNK_SIZE = 30000;
+const CONCURRENCY = 2;
 
 export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCount }: CatalogUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null);
@@ -26,10 +26,17 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
   const [progress, setProgress] = useState("");
   const [progressPercent, setProgressPercent] = useState(0);
   const [clearing, setClearing] = useState(false);
+  const cancelledRef = useRef(false);
+
+  const handleCancel = () => {
+    cancelledRef.current = true;
+    setProgress("Cancelling...");
+  };
 
   const handleUpload = async () => {
     if (!file) { toast.error("Select a PDF file"); return; }
 
+    cancelledRef.current = false;
     setUploading(true);
     setProgress("Reading PDF...");
     setProgressPercent(5);
@@ -106,6 +113,13 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
 
       // Process in batches of CONCURRENCY
       for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+        if (cancelledRef.current) {
+          toast.info("Upload cancelled");
+          setProgress("");
+          setProgressPercent(0);
+          setUploading(false);
+          return;
+        }
         const batch = chunks.slice(i, i + CONCURRENCY);
         await Promise.all(batch.map((chunk, j) => processChunk(chunk, i + j)));
       }
@@ -206,7 +220,10 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
               <Progress value={progressPercent} className="h-2" />
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                <span>{progress}</span>
+                <span className="flex-1">{progress}</span>
+                <Button variant="ghost" size="sm" onClick={handleCancel} className="h-6 px-2 text-destructive hover:text-destructive">
+                  <X className="h-3 w-3 mr-1" /> Cancel
+                </Button>
               </div>
             </div>
           )}
