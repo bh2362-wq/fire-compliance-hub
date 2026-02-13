@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.accept-visit]
 verify_jwt = false
+
+[functions.search-device-prices]
+verify_jwt = false

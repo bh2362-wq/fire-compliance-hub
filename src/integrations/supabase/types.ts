@@ -704,6 +704,137 @@ export type Database = {
         }
         Relationships: []
       }
+      device_price_items: {
+        Row: {
+          ai_price_results: Json | null
+          ai_search_status: string | null
+          cost_price: number | null
+          created_at: string
+          description: string
+          device_type: string | null
+          id: string
+          labour_cost: number | null
+          location: string | null
+          markup_percent: number | null
+          merged_from: string[] | null
+          model_number: string | null
+          price_list_id: string
+          quantity: number
+          sell_price: number | null
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          ai_price_results?: Json | null
+          ai_search_status?: string | null
+          cost_price?: number | null
+          created_at?: string
+          description: string
+          device_type?: string | null
+          id?: string
+          labour_cost?: number | null
+          location?: string | null
+          markup_percent?: number | null
+          merged_from?: string[] | null
+          model_number?: string | null
+          price_list_id: string
+          quantity?: number
+          sell_price?: number | null
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ai_price_results?: Json | null
+          ai_search_status?: string | null
+          cost_price?: number | null
+          created_at?: string
+          description?: string
+          device_type?: string | null
+          id?: string
+          labour_cost?: number | null
+          location?: string | null
+          markup_percent?: number | null
+          merged_from?: string[] | null
+          model_number?: string | null
+          price_list_id?: string
+          quantity?: number
+          sell_price?: number | null
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_price_items_price_list_id_fkey"
+            columns: ["price_list_id"]
+            isOneToOne: false
+            referencedRelation: "device_price_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_price_lists: {
+        Row: {
+          created_at: string
+          created_by: string
+          customer_id: string | null
+          id: string
+          name: string
+          site_id: string | null
+          source_file_name: string | null
+          source_file_type: string | null
+          status: string
+          total_cost: number | null
+          total_items: number | null
+          total_sell: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          customer_id?: string | null
+          id?: string
+          name: string
+          site_id?: string | null
+          source_file_name?: string | null
+          source_file_type?: string | null
+          status?: string
+          total_cost?: number | null
+          total_items?: number | null
+          total_sell?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          customer_id?: string | null
+          id?: string
+          name?: string
+          site_id?: string | null
+          source_file_name?: string | null
+          source_file_type?: string | null
+          status?: string
+          total_cost?: number | null
+          total_items?: number | null
+          total_sell?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_price_lists_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_price_lists_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       devices: {
         Row: {
           address: string
@@ -2130,11 +2261,13 @@ export type Database = {
       }
       quotation_line_items: {
         Row: {
+          cost_price: number | null
           created_at: string
           description: string
           id: string
           item_name: string | null
           labour_cost: number | null
+          markup_percent: number | null
           notes: string | null
           parent_id: string | null
           priority: string | null
@@ -2149,11 +2282,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cost_price?: number | null
           created_at?: string
           description: string
           id?: string
           item_name?: string | null
           labour_cost?: number | null
+          markup_percent?: number | null
           notes?: string | null
           parent_id?: string | null
           priority?: string | null
@@ -2168,11 +2303,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cost_price?: number | null
           created_at?: string
           description?: string
           id?: string
           item_name?: string | null
           labour_cost?: number | null
+          markup_percent?: number | null
           notes?: string | null
           parent_id?: string | null
           priority?: string | null

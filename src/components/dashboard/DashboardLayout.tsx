@@ -30,7 +30,8 @@ import {
    CreditCard,
    FileSpreadsheet,
    ShoppingCart,
-   ScanSearch
+   ScanSearch,
+   Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -58,6 +59,7 @@ const mainNavigation = [
   { name: "Quotations", href: "/dashboard/quotations", icon: FileSpreadsheet },
   { name: "Purchase Orders", href: "/dashboard/purchase-orders", icon: ShoppingCart },
   { name: "Email Scanner", href: "/dashboard/email-scanner", icon: ScanSearch },
+  { name: "Device Pricing", href: "/dashboard/device-pricing", icon: Package },
 ];
 
 const qmsNavigation = [
