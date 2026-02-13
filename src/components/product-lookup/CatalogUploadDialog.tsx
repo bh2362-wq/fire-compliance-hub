@@ -34,39 +34,56 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
     for (const line of lines) {
       // Try tab-separated first (Excel copy), then comma-separated
       let cols = line.split("\t");
-      if (cols.length < 2) cols = line.split(",");
-      if (cols.length < 2) continue;
-
-      // Try to detect which column is the price (a number, possibly with £)
-      // Common formats: code | description | price  OR  code | description | category | price
-      const cleaned = cols.map(c => c.trim());
-      
-      // Find the price column (last numeric-looking column)
-      let priceIdx = -1;
-      for (let i = cleaned.length - 1; i >= 1; i--) {
-        const val = cleaned[i].replace(/[£$,]/g, "");
-        if (!isNaN(parseFloat(val)) && val.length > 0) {
-          priceIdx = i;
-          break;
+      if (cols.length >= 3) {
+        // Tab-separated path
+        const cleaned = cols.map(c => c.trim());
+        let priceIdx = -1;
+        for (let i = cleaned.length - 1; i >= 1; i--) {
+          const val = cleaned[i].replace(/[£$,]/g, "");
+          if (!isNaN(parseFloat(val)) && val.length > 0) { priceIdx = i; break; }
         }
+        const product_code = cleaned[0];
+        if (!product_code || /^(product code|code|sku)$/i.test(product_code)) continue;
+        const trade_price = priceIdx >= 0 ? parseFloat(cleaned[priceIdx].replace(/[£$,]/g, "")) || 0 : 0;
+        const descParts = cleaned.slice(1, priceIdx >= 0 ? priceIdx : cleaned.length);
+        const description = descParts.join(" ").trim() || product_code;
+        let category: string | undefined;
+        if (priceIdx > 2) category = cleaned[priceIdx - 1] || undefined;
+        products.push({ product_code, description, trade_price, category });
+        continue;
       }
 
-      const product_code = cleaned[0];
-      if (!product_code || product_code.toLowerCase() === "product code" || product_code.toLowerCase() === "code" || product_code.toLowerCase() === "sku") continue;
-
-      const trade_price = priceIdx >= 0 ? parseFloat(cleaned[priceIdx].replace(/[£$,]/g, "")) || 0 : 0;
-      
-      // Description is everything between code and price
-      const descParts = cleaned.slice(1, priceIdx >= 0 ? priceIdx : cleaned.length);
-      const description = descParts.join(" ").trim() || product_code;
-
-      // If there's a column between description and price, treat as category
-      let category: string | undefined;
-      if (priceIdx > 2) {
-        category = cleaned[priceIdx - 1] || undefined;
+      // Try comma-separated
+      cols = line.split(",");
+      if (cols.length >= 3) {
+        const cleaned = cols.map(c => c.trim());
+        let priceIdx = -1;
+        for (let i = cleaned.length - 1; i >= 1; i--) {
+          const val = cleaned[i].replace(/[£$,]/g, "");
+          if (!isNaN(parseFloat(val)) && val.length > 0) { priceIdx = i; break; }
+        }
+        const product_code = cleaned[0];
+        if (!product_code || /^(product code|code|sku)$/i.test(product_code)) continue;
+        const trade_price = priceIdx >= 0 ? parseFloat(cleaned[priceIdx].replace(/[£$,]/g, "")) || 0 : 0;
+        const descParts = cleaned.slice(1, priceIdx >= 0 ? priceIdx : cleaned.length);
+        const description = descParts.join(" ").trim() || product_code;
+        let category: string | undefined;
+        if (priceIdx > 2) category = cleaned[priceIdx - 1] || undefined;
+        products.push({ product_code, description, trade_price, category });
+        continue;
       }
 
-      products.push({ product_code, description, trade_price, category });
+      // Space-separated fallback: product_code is first token, price is last token, description is everything in between
+      const tokens = line.split(/\s+/);
+      if (tokens.length < 3) continue;
+      const product_code = tokens[0];
+      if (/^(product code|code|sku)$/i.test(product_code)) continue;
+      const lastToken = tokens[tokens.length - 1].replace(/[£$,]/g, "");
+      const trade_price = parseFloat(lastToken);
+      if (isNaN(trade_price)) continue; // last token must be a price
+      const description = tokens.slice(1, tokens.length - 1).join(" ").trim();
+      if (!description) continue;
+      products.push({ product_code, description, trade_price });
     }
 
     return products;
