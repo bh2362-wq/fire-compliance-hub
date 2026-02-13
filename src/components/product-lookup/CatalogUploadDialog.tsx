@@ -4,9 +4,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Upload, FileText, Trash2, AlertTriangle, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Upload, FileText, Trash2, AlertTriangle, ClipboardPaste } from "lucide-react";
 import { insertSupplierProducts, deleteAllSupplierProducts } from "@/services/supplierProductService";
 import { toast } from "sonner";
 
@@ -17,156 +18,134 @@ interface CatalogUploadDialogProps {
   currentCount: number;
 }
 
-// Send entire PDF to AI in one go - Gemini can handle large PDFs natively
-const CONCURRENCY = 1;
-
 export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCount }: CatalogUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [pasteText, setPasteText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState("");
   const [progressPercent, setProgressPercent] = useState(0);
   const [clearing, setClearing] = useState(false);
-  const cancelledRef = useRef(false);
+  const [tab, setTab] = useState("paste");
 
-  const handleCancel = () => {
-    cancelledRef.current = true;
-    setProgress("Cancelling...");
-  };
+  const parsePastedData = (text: string) => {
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    const products: Array<{ product_code: string; description: string; trade_price: number; category?: string }> = [];
 
-  const handleUpload = async () => {
-    if (!file) { toast.error("Select a PDF file"); return; }
+    for (const line of lines) {
+      // Try tab-separated first (Excel copy), then comma-separated
+      let cols = line.split("\t");
+      if (cols.length < 2) cols = line.split(",");
+      if (cols.length < 2) continue;
 
-    cancelledRef.current = false;
-    setUploading(true);
-    setProgress("Reading PDF file...");
-    setProgressPercent(5);
-
-    try {
-      // Step 1: Read PDF as base64
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
+      // Try to detect which column is the price (a number, possibly with £)
+      // Common formats: code | description | price  OR  code | description | category | price
+      const cleaned = cols.map(c => c.trim());
       
-      // Convert to base64
-      let binary = "";
-      const chunkSize = 8192;
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-        binary += String.fromCharCode(...chunk);
-      }
-      const pdfBase64 = btoa(binary);
-      
-      console.log(`PDF size: ${file.size} bytes, base64 length: ${pdfBase64.length}`);
-
-      if (cancelledRef.current) {
-        toast.info("Upload cancelled");
-        setProgress("");
-        setProgressPercent(0);
-        setUploading(false);
-        return;
-      }
-
-      setProgress("Sending PDF to AI for product extraction...");
-      setProgressPercent(15);
-
-      // Step 2: For large PDFs, we'll split the base64 and send in chunks
-      // But first try sending the whole thing
-      const MAX_BASE64_SIZE = 4_000_000; // ~3MB PDF limit per request
-      
-      let allProducts: Array<{ product_code: string; description: string; trade_price: number; category: string | null }> = [];
-
-      if (pdfBase64.length <= MAX_BASE64_SIZE) {
-        // Small enough to send in one go
-        setProgress("AI is reading your catalog... this may take 1-2 minutes");
-        setProgressPercent(20);
-
-        const { data, error } = await supabase.functions.invoke("parse-catalog-chunk", {
-          body: { pdfBase64, chunkIndex: 0, totalChunks: 1, pageStart: 1, pageEnd: "all" },
-        });
-
-        if (cancelledRef.current) {
-          toast.info("Upload cancelled");
-          setProgress("");
-          setProgressPercent(0);
-          setUploading(false);
-          return;
-        }
-
-        if (error) {
-          console.error("AI processing error:", error);
-          throw new Error("AI failed to process the PDF. Try again.");
-        }
-
-        allProducts = data?.products || [];
-        setProgressPercent(80);
-        setProgress(`AI found ${allProducts.length} products. Saving...`);
-      } else {
-        // PDF too large - split base64 into chunks
-        // Each chunk gets sent as a separate "page range"
-        const chunkCount = Math.ceil(pdfBase64.length / MAX_BASE64_SIZE);
-        setProgress(`Large PDF detected. Processing in ${chunkCount} parts...`);
-
-        let completedChunks = 0;
-        let failedChunks = 0;
-
-        for (let i = 0; i < chunkCount; i++) {
-          if (cancelledRef.current) {
-            toast.info("Upload cancelled");
-            setProgress("");
-            setProgressPercent(0);
-            setUploading(false);
-            return;
-          }
-
-          const start = i * MAX_BASE64_SIZE;
-          const end = Math.min((i + 1) * MAX_BASE64_SIZE, pdfBase64.length);
-          // Note: splitting base64 mid-stream won't work for PDF viewing,
-          // but we send the FULL pdf for each call - just different page instructions
-          // For truly large PDFs, we need a different approach
-          
-          setProgress(`Processing part ${i + 1}/${chunkCount}... (${allProducts.length} products found)`);
-
-          try {
-            const { data, error } = await supabase.functions.invoke("parse-catalog-chunk", {
-              body: { pdfBase64, chunkIndex: i, totalChunks: chunkCount, pageStart: 1, pageEnd: "all" },
-            });
-
-            if (!error && data?.products?.length > 0) {
-              allProducts.push(...data.products);
-            } else if (error) {
-              failedChunks++;
-              console.error(`Part ${i + 1} error:`, error);
-            }
-          } catch (err) {
-            failedChunks++;
-            console.error(`Part ${i + 1} failed:`, err);
-          }
-
-          completedChunks++;
-          setProgressPercent(15 + Math.round((completedChunks / chunkCount) * 65));
-          
-          // Only process once for now - the whole PDF is sent each time
+      // Find the price column (last numeric-looking column)
+      let priceIdx = -1;
+      for (let i = cleaned.length - 1; i >= 1; i--) {
+        const val = cleaned[i].replace(/[£$,]/g, "");
+        if (!isNaN(parseFloat(val)) && val.length > 0) {
+          priceIdx = i;
           break;
         }
       }
 
-      if (allProducts.length === 0) {
-        throw new Error("No products found in the PDF. Make sure it's a Huvo trade price list.");
+      const product_code = cleaned[0];
+      if (!product_code || product_code.toLowerCase() === "product code" || product_code.toLowerCase() === "code" || product_code.toLowerCase() === "sku") continue;
+
+      const trade_price = priceIdx >= 0 ? parseFloat(cleaned[priceIdx].replace(/[£$,]/g, "")) || 0 : 0;
+      
+      // Description is everything between code and price
+      const descParts = cleaned.slice(1, priceIdx >= 0 ? priceIdx : cleaned.length);
+      const description = descParts.join(" ").trim() || product_code;
+
+      // If there's a column between description and price, treat as category
+      let category: string | undefined;
+      if (priceIdx > 2) {
+        category = cleaned[priceIdx - 1] || undefined;
       }
 
-      // Step 3: Deduplicate
+      products.push({ product_code, description, trade_price, category });
+    }
+
+    return products;
+  };
+
+  const handlePasteUpload = async () => {
+    if (!pasteText.trim()) { toast.error("Paste your product data first"); return; }
+
+    setUploading(true);
+    setProgress("Parsing pasted data...");
+    setProgressPercent(20);
+
+    try {
+      const products = parsePastedData(pasteText);
+
+      if (products.length === 0) {
+        throw new Error("No products found. Make sure each row has at least a product code and description, separated by tabs or commas.");
+      }
+
+      // Deduplicate
       const seen = new Set<string>();
-      const unique = allProducts.filter(p => {
+      const unique = products.filter(p => {
         if (seen.has(p.product_code)) return false;
         seen.add(p.product_code);
         return true;
       });
 
-      setProgress(`Saving ${unique.length} unique products to database...`);
-      setProgressPercent(90);
+      setProgress(`Saving ${unique.length} products to database...`);
+      setProgressPercent(60);
 
-      // Step 4: Insert into database
-      const { count, error: insertError } = await insertSupplierProducts(unique);
-      if (insertError) throw insertError;
+      const { count, error } = await insertSupplierProducts(unique);
+      if (error) throw error;
+
+      setProgressPercent(100);
+      toast.success(`Imported ${count} products`);
+      setPasteText("");
+      setProgress("");
+      setProgressPercent(0);
+      onSuccess();
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message || "Import failed");
+      setProgress("");
+      setProgressPercent(0);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCsvUpload = async () => {
+    if (!file) { toast.error("Select a CSV file"); return; }
+
+    setUploading(true);
+    setProgress("Reading file...");
+    setProgressPercent(10);
+
+    try {
+      const text = await file.text();
+      setProgressPercent(30);
+      setProgress("Parsing products...");
+
+      const products = parsePastedData(text);
+
+      if (products.length === 0) {
+        throw new Error("No products found in file. Ensure columns: product code, description, price.");
+      }
+
+      const seen = new Set<string>();
+      const unique = products.filter(p => {
+        if (seen.has(p.product_code)) return false;
+        seen.add(p.product_code);
+        return true;
+      });
+
+      setProgress(`Saving ${unique.length} products...`);
+      setProgressPercent(70);
+
+      const { count, error } = await insertSupplierProducts(unique);
+      if (error) throw error;
 
       setProgressPercent(100);
       toast.success(`Imported ${count} products from ${file.name}`);
@@ -176,7 +155,6 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
       onSuccess();
       onOpenChange(false);
     } catch (err: any) {
-      console.error("Catalog upload error:", err);
       toast.error(err.message || "Upload failed");
       setProgress("");
       setProgressPercent(0);
@@ -201,10 +179,10 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Upload Supplier Catalog</DialogTitle>
-          <DialogDescription>Upload a Huvo PDF price list to populate your product database.</DialogDescription>
+          <DialogTitle>Import Supplier Catalog</DialogTitle>
+          <DialogDescription>Add products by pasting from a spreadsheet or uploading a CSV file.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -220,25 +198,59 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
             </div>
           )}
 
-          <div className="border-2 border-dashed rounded-lg p-6 text-center space-y-3">
-            <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Upload Huvo price list PDF</p>
-            <Input
-              type="file"
-              accept=".pdf"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="max-w-xs mx-auto"
-              disabled={uploading}
-            />
-          </div>
+          <Tabs value={tab} onValueChange={setTab}>
+            <TabsList className="w-full">
+              <TabsTrigger value="paste" className="flex-1 gap-1.5">
+                <ClipboardPaste className="h-3.5 w-3.5" /> Paste Data
+              </TabsTrigger>
+              <TabsTrigger value="csv" className="flex-1 gap-1.5">
+                <FileText className="h-3.5 w-3.5" /> Upload CSV
+              </TabsTrigger>
+            </TabsList>
 
-          {file && !uploading && (
-            <div className="flex items-center gap-2 text-sm">
-              <FileText className="h-4 w-4 text-primary" />
-              <span className="truncate flex-1">{file.name}</span>
-              <span className="text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
-            </div>
-          )}
+            <TabsContent value="paste" className="space-y-3 mt-3">
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>Copy rows from Excel/Google Sheets and paste below. Expected columns:</p>
+                <p className="font-mono bg-muted px-2 py-1 rounded">Product Code | Description | Price</p>
+              </div>
+              <Textarea
+                placeholder={"S4-34805EP\tAutomatic detector\t45.50\nHFC-WSR-03\tWall sounder red\t32.00\n..."}
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                rows={8}
+                className="font-mono text-xs"
+                disabled={uploading}
+              />
+              {pasteText.trim() && !uploading && (
+                <p className="text-xs text-muted-foreground">
+                  {pasteText.split("\n").filter(l => l.trim()).length} rows detected
+                </p>
+              )}
+            </TabsContent>
+
+            <TabsContent value="csv" className="space-y-3 mt-3">
+              <div className="text-xs text-muted-foreground">
+                <p>Upload a CSV file with columns: Product Code, Description, Price (optional: Category)</p>
+              </div>
+              <div className="border-2 border-dashed rounded-lg p-6 text-center space-y-3">
+                <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
+                <Input
+                  type="file"
+                  accept=".csv,.tsv,.txt"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  className="max-w-xs mx-auto"
+                  disabled={uploading}
+                />
+              </div>
+              {file && !uploading && (
+                <div className="flex items-center gap-2 text-sm">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <span className="truncate flex-1">{file.name}</span>
+                  <span className="text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</span>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
 
           {uploading && (
             <div className="space-y-2">
@@ -246,9 +258,6 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin shrink-0" />
                 <span className="flex-1">{progress}</span>
-                <Button variant="ghost" size="sm" onClick={handleCancel} className="h-6 px-2 text-destructive hover:text-destructive">
-                  <X className="h-3 w-3 mr-1" /> Cancel
-                </Button>
               </div>
             </div>
           )}
@@ -256,16 +265,22 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
           {currentCount > 0 && !uploading && (
             <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded">
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <span>Uploading a new catalog will add to existing products. Use "Clear All" first to replace the catalog entirely.</span>
+              <span>New imports will add to existing products. Use "Clear All" first to replace.</span>
             </div>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>Cancel</Button>
-          <Button onClick={handleUpload} disabled={uploading || !file}>
-            {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : <><Upload className="mr-2 h-4 w-4" /> Upload & Parse</>}
-          </Button>
+          {tab === "paste" ? (
+            <Button onClick={handlePasteUpload} disabled={uploading || !pasteText.trim()}>
+              {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importing...</> : <><ClipboardPaste className="mr-2 h-4 w-4" /> Import Products</>}
+            </Button>
+          ) : (
+            <Button onClick={handleCsvUpload} disabled={uploading || !file}>
+              {uploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importing...</> : <><Upload className="mr-2 h-4 w-4" /> Upload & Import</>}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
