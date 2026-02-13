@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,6 @@ import { searchDevicePrices } from "@/services/devicePricingService";
 import { searchSupplierProducts, getSupplierProductCount, SupplierProduct } from "@/services/supplierProductService";
 import { CatalogUploadDialog } from "@/components/product-lookup/CatalogUploadDialog";
 import { useNavigate } from "react-router-dom";
-
 interface Supplier {
   name: string;
   url?: string;
@@ -42,8 +41,22 @@ const ProductLookup = () => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const navigate = useNavigate();
 
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<SupplierProduct[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     refreshCount();
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const refreshCount = async () => {
@@ -51,8 +64,42 @@ const ProductLookup = () => {
     setCatalogCount(count);
   };
 
+  const fetchSuggestions = useCallback(async (term: string) => {
+    if (term.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    setSuggestionsLoading(true);
+    try {
+      const { data } = await searchSupplierProducts(term, 15);
+      setSuggestions(data);
+      setShowSuggestions(data.length > 0);
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }, []);
+
+  const handleInputChange = (value: string) => {
+    setSearchTerm(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchSuggestions(value), 250);
+  };
+
+  const selectSuggestion = (product: SupplierProduct) => {
+    setSearchTerm(product.product_code);
+    setShowSuggestions(false);
+    // Show this product directly as the result
+    setCatalogResults([product]);
+    setAiResults([]);
+    setSearched(true);
+  };
+
   const doSearch = async (term: string) => {
     if (!term.trim()) { toast.error("Enter a search term"); return; }
+    setShowSuggestions(false);
     setLoading(true);
     setSearched(true);
     setCatalogResults([]);
@@ -78,7 +125,6 @@ const ProductLookup = () => {
       setLoading(false);
     }
   };
-
   const handleCreateQuoteFromCatalog = (product: SupplierProduct) => {
     navigate("/dashboard/quotations", {
       state: {
@@ -136,13 +182,48 @@ const ProductLookup = () => {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Enter product code or description…"
-                className="flex-1"
-                onKeyDown={(e) => e.key === "Enter" && doSearch(searchTerm)}
-              />
+              <div className="relative flex-1" ref={wrapperRef}>
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                  placeholder="Enter product code or description…"
+                  className="w-full"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setShowSuggestions(false);
+                      doSearch(searchTerm);
+                    }
+                    if (e.key === "Escape") setShowSuggestions(false);
+                  }}
+                />
+                {showSuggestions && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg max-h-[320px] overflow-y-auto">
+                    {suggestionsLoading && (
+                      <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Searching catalog…
+                      </div>
+                    )}
+                    {suggestions.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-accent transition-colors flex items-center justify-between gap-2 border-b border-border/50 last:border-0"
+                        onClick={() => selectSuggestion(product)}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="font-mono text-sm font-semibold text-primary">{product.product_code}</span>
+                          <span className="text-sm text-muted-foreground ml-2 truncate">{product.description}</span>
+                          {product.category && (
+                            <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0">{product.category}</Badge>
+                          )}
+                        </div>
+                        <span className="text-sm font-bold shrink-0">£{Number(product.trade_price).toFixed(2)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <Button onClick={() => doSearch(searchTerm)} disabled={loading || !searchTerm.trim()}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
                 Search
