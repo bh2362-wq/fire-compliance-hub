@@ -25,6 +25,9 @@ interface Supplier {
   name: string;
   url?: string;
   estimated_price: number;
+  product_code?: string;
+  description?: string;
+  delivery_cost?: string;
 }
 
 interface PriceResult {
@@ -159,7 +162,10 @@ export function QuotationPriceLookupDialog({
                     <TableHeader>
                       <TableRow>
                         <TableHead className="text-xs">Supplier</TableHead>
+                        <TableHead className="text-xs">Product Code</TableHead>
+                        <TableHead className="text-xs hidden sm:table-cell">Description</TableHead>
                         <TableHead className="text-xs text-right">Unit Cost</TableHead>
+                        <TableHead className="text-xs text-right hidden sm:table-cell">Delivery</TableHead>
                         <TableHead className="text-xs text-center">Link</TableHead>
                         <TableHead className="text-xs text-center">Add</TableHead>
                       </TableRow>
@@ -171,9 +177,12 @@ export function QuotationPriceLookupDialog({
                         return (
                           <TableRow key={si}>
                             <TableCell className="text-sm font-medium py-2">{supplier.name}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground py-2">{supplier.product_code || "—"}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground py-2 hidden sm:table-cell max-w-[200px] truncate">{supplier.description || "—"}</TableCell>
                             <TableCell className="text-sm text-right font-bold py-2">
                               £{Number(supplier.estimated_price).toFixed(2)}
                             </TableCell>
+                            <TableCell className="text-xs text-right py-2 hidden sm:table-cell">{supplier.delivery_cost || "TBC"}</TableCell>
                             <TableCell className="text-center py-2">
                               {supplier.url ? (
                                 <a

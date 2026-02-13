@@ -28,7 +28,7 @@ serve(async (req) => {
       .map((d: any, i: number) => `${i + 1}. ${d.model_number || d.description} (qty: ${d.quantity || 1})`)
       .join("\n");
 
-    const systemPrompt = `You are a UK fire and security product pricing specialist. You have expert knowledge of suppliers like:
+const systemPrompt = `You are a UK fire and security product pricing specialist. You have expert knowledge of suppliers like:
 - Acorn Fire & Security (acornfiresecurity.com)
 - Huvo (huvo.co.uk)
 - The Safety Centre (thesafetycentre.co.uk)
@@ -42,12 +42,26 @@ serve(async (req) => {
 
 For each product, provide realistic UK trade/wholesale pricing based on your knowledge of these products. Gent/Honeywell fire alarm products are your specialty. If you recognise a model number, provide the accurate product name and a realistic trade price range.
 
-IMPORTANT: Always provide your best estimate based on known UK market pricing. If a model number is not recognised, suggest the closest equivalent Gent/Honeywell product.`;
+IMPORTANT: 
+- Always provide your best estimate based on known UK market pricing.
+- If a model number is not recognised, suggest the closest equivalent Gent/Honeywell product.
+- For EACH supplier, provide a DIRECT product page URL where possible (not just the supplier homepage). Use realistic product page URL patterns for each supplier.
+- Always return UP TO 5 suppliers per product, not just 2.
+- Include the supplier's own product code/SKU if known.
+- Include a short product description for each supplier entry.
+- Include estimated delivery cost (or "Free" / "TBC") for each supplier.`;
 
-    const userPrompt = `Find UK trade prices for these fire alarm devices. For each device, return the product name, estimated trade price (GBP), and up to 3 likely UK suppliers with their estimated prices.
+    const userPrompt = `Find UK trade prices for these fire alarm devices. For each device, return the product name, estimated trade price (GBP), and UP TO 5 likely UK suppliers with their estimated prices.
 
 Devices:
 ${deviceList}
+
+IMPORTANT for each supplier entry:
+- "url" MUST be a direct product page URL (not the supplier homepage). Use realistic URL patterns like https://acornfiresecurity.com/product/gent-s4-711 or https://discountfiresupplies.co.uk/gent-s-quad-optical-detector. If you don't know the exact URL, construct a plausible product page URL using the supplier's domain and product name.
+- "product_code" should be the supplier's own SKU or product reference if known
+- "description" should be a short 1-line product description
+- "delivery_cost" should be estimated delivery cost in GBP or "Free" or "TBC"
+- Return UP TO 5 suppliers, not just 2-3
 
 Return results as a JSON array with this structure for each device:
 [
@@ -57,9 +71,9 @@ Return results as a JSON array with this structure for each device:
     "product_name": "Gent S4-711 Optical Smoke Detector",
     "estimated_trade_price": 45.00,
     "suppliers": [
-      { "name": "Acorn Fire & Security", "url": "https://acornfiresecurity.com", "estimated_price": 42.50 },
-      { "name": "ADI Global", "url": "https://adiglobal.com", "estimated_price": 46.00 },
-      { "name": "Discount Fire Supplies", "url": "https://discountfiresupplies.co.uk", "estimated_price": 48.50 }
+      { "name": "Acorn Fire & Security", "url": "https://acornfiresecurity.com/product/gent-s4-711", "estimated_price": 42.50, "product_code": "GEN-S4711", "description": "Gent S-Quad Optical Smoke Detector Head", "delivery_cost": "Free over £100" },
+      { "name": "ADI Global", "url": "https://adiglobal.com/product/gent-s4-711-optical", "estimated_price": 46.00, "product_code": "S4-711", "description": "S-Quad Optical Detector for Vigilon Systems", "delivery_cost": "5.95" },
+      { "name": "Discount Fire Supplies", "url": "https://discountfiresupplies.co.uk/gent-s4-711", "estimated_price": 48.50, "product_code": "DFS-S4711", "description": "Gent S4-711 Optical Smoke Detector", "delivery_cost": "Free" }
     ],
     "notes": "Standard Gent S-Quad optical detector, widely available"
   }
@@ -103,6 +117,9 @@ Return results as a JSON array with this structure for each device:
                               name: { type: "string" },
                               url: { type: "string" },
                               estimated_price: { type: "number" },
+                              product_code: { type: "string" },
+                              description: { type: "string" },
+                              delivery_cost: { type: "string" },
                             },
                             required: ["name", "estimated_price"],
                             additionalProperties: false,
