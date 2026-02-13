@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ExternalLink, Plus, Loader2, SearchX, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -56,6 +56,7 @@ export function QuotationPriceLookupDialog({
   const [searched, setSearched] = useState(false);
   const [refinedSearch, setRefinedSearch] = useState("");
   const [addedIndices, setAddedIndices] = useState<Set<string>>(new Set());
+  const lastSearchRef = useRef("");
 
   const doSearch = async (term: string) => {
     if (!term.trim()) {
@@ -66,6 +67,7 @@ export function QuotationPriceLookupDialog({
     setSearched(true);
     setResults([]);
     setAddedIndices(new Set());
+    lastSearchRef.current = term;
 
     try {
       const { results: data, error } = await searchDevicePrices([
@@ -88,24 +90,19 @@ export function QuotationPriceLookupDialog({
     }
   };
 
-  // Auto-search on open
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen && searchTerm.trim() && !searched) {
+  // Auto-search when dialog opens
+  useEffect(() => {
+    if (open && searchTerm.trim() && lastSearchRef.current !== searchTerm) {
       doSearch(searchTerm);
     }
-    if (!isOpen) {
+    if (!open) {
       setResults([]);
       setSearched(false);
       setRefinedSearch("");
       setAddedIndices(new Set());
+      lastSearchRef.current = "";
     }
-    onOpenChange(isOpen);
-  };
-
-  // Trigger search on first open
-  if (open && !searched && !loading && searchTerm.trim()) {
-    doSearch(searchTerm);
-  }
+  }, [open, searchTerm]);
 
   const handleAdd = (result: PriceResult, supplier?: Supplier) => {
     const price = supplier?.estimated_price ?? result.estimated_trade_price;
@@ -118,7 +115,7 @@ export function QuotationPriceLookupDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl w-[95vw] max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>AI Price Lookup</DialogTitle>
@@ -238,7 +235,7 @@ export function QuotationPriceLookupDialog({
         </div>
 
         <DialogFooter className="pt-3 border-t">
-          <Button variant="outline" onClick={() => handleOpenChange(false)} className="w-full sm:w-auto">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
             Close
           </Button>
         </DialogFooter>

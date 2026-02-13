@@ -54,7 +54,6 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess }: NewQuotati
     { description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 },
   ]);
   const [saving, setSaving] = useState(false);
-  const [searchingIndex, setSearchingIndex] = useState<number | null>(null);
   const [lookupDialogOpen, setLookupDialogOpen] = useState(false);
   const [lookupIndex, setLookupIndex] = useState<number>(0);
 
