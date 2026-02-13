@@ -45,7 +45,7 @@ IMPORTANT: Return ONLY the JSON array, no other text.
 Catalog text:
 ${text.substring(0, 100000)}`;
 
-    const response = await fetch("https://api.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
