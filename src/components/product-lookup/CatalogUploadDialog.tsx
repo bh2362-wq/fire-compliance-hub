@@ -4,10 +4,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Loader2, Upload, FileText, Trash2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { insertSupplierProducts, deleteAllSupplierProducts, getSupplierProductCount } from "@/services/supplierProductService";
+import { insertSupplierProducts, deleteAllSupplierProducts } from "@/services/supplierProductService";
 import { toast } from "sonner";
 
 interface CatalogUploadDialogProps {
@@ -17,10 +17,14 @@ interface CatalogUploadDialogProps {
   currentCount: number;
 }
 
+const CHUNK_SIZE = 60000; // chars per chunk
+const CONCURRENCY = 3; // parallel chunk requests
+
 export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCount }: CatalogUploadDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState("");
+  const [progressPercent, setProgressPercent] = useState(0);
   const [clearing, setClearing] = useState(false);
 
   const handleUpload = async () => {
@@ -28,9 +32,10 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
 
     setUploading(true);
     setProgress("Reading PDF...");
+    setProgressPercent(5);
 
     try {
-      // Step 1: Parse PDF to text using direct fetch (supabase.functions.invoke doesn't handle FormData)
+      // Step 1: Parse PDF to text
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
       if (!token) throw new Error("You must be signed in");
@@ -56,37 +61,86 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
         throw new Error("Could not extract text from PDF. Try a different file.");
       }
 
-      setProgress(`Extracted ${text.length.toLocaleString()} characters. Parsing products with AI (this may take a few minutes for large catalogs)...`);
+      setProgress(`Extracted ${text.length.toLocaleString()} characters. Splitting into chunks...`);
+      setProgressPercent(10);
 
-      // Step 2: Send text to AI parser (handles chunking internally)
-      const { data: parseData, error: parseError } = await supabase.functions.invoke("parse-catalog-pdf", {
-        body: { text },
-      });
-
-      if (parseError) throw parseError;
-      if (parseData?.error) throw new Error(parseData.error);
-
-      const products = parseData?.products || [];
-      const chunksProcessed = parseData?.chunks_processed || 1;
-      if (products.length === 0) {
-        throw new Error("No products found in the PDF. Check the file format.");
+      // Step 2: Split text into chunks client-side
+      const chunks: string[] = [];
+      for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+        chunks.push(text.substring(i, i + CHUNK_SIZE));
       }
 
-      setProgress(`Found ${products.length} products across ${chunksProcessed} sections. Saving to database...`);
+      setProgress(`Processing ${chunks.length} sections with AI...`);
 
-      // Step 3: Insert into database
-      const { count, error: insertError } = await insertSupplierProducts(products);
+      // Step 3: Process chunks with concurrency limit
+      const allProducts: Array<{ product_code: string; description: string; trade_price: number; category: string | null }> = [];
+      let completedChunks = 0;
+      let failedChunks = 0;
+
+      const processChunk = async (chunkText: string, chunkIndex: number) => {
+        try {
+          const { data, error } = await supabase.functions.invoke("parse-catalog-chunk", {
+            body: { text: chunkText, chunkIndex, totalChunks: chunks.length },
+          });
+
+          if (error) {
+            console.error(`Chunk ${chunkIndex + 1} error:`, error);
+            failedChunks++;
+            return;
+          }
+
+          const products = data?.products || [];
+          if (products.length > 0) {
+            allProducts.push(...products);
+          }
+        } catch (err) {
+          console.error(`Chunk ${chunkIndex + 1} failed:`, err);
+          failedChunks++;
+        } finally {
+          completedChunks++;
+          const pct = 10 + Math.round((completedChunks / chunks.length) * 75);
+          setProgressPercent(pct);
+          setProgress(`Processing: ${completedChunks}/${chunks.length} sections done (${allProducts.length} products found)${failedChunks > 0 ? ` · ${failedChunks} failed` : ''}`);
+        }
+      };
+
+      // Process in batches of CONCURRENCY
+      for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+        const batch = chunks.slice(i, i + CONCURRENCY);
+        await Promise.all(batch.map((chunk, j) => processChunk(chunk, i + j)));
+      }
+
+      if (allProducts.length === 0) {
+        throw new Error(`No products found in ${chunks.length} sections (${failedChunks} failed). Check the file format.`);
+      }
+
+      // Step 4: Deduplicate
+      const seen = new Set<string>();
+      const unique = allProducts.filter(p => {
+        if (seen.has(p.product_code)) return false;
+        seen.add(p.product_code);
+        return true;
+      });
+
+      setProgress(`Saving ${unique.length} unique products to database...`);
+      setProgressPercent(90);
+
+      // Step 5: Insert into database
+      const { count, error: insertError } = await insertSupplierProducts(unique);
       if (insertError) throw insertError;
 
-      toast.success(`Imported ${count} products from ${file.name}`);
+      setProgressPercent(100);
+      toast.success(`Imported ${count} products from ${file.name}${failedChunks > 0 ? ` (${failedChunks} sections failed)` : ''}`);
       setFile(null);
       setProgress("");
+      setProgressPercent(0);
       onSuccess();
       onOpenChange(false);
     } catch (err: any) {
       console.error("Catalog upload error:", err);
       toast.error(err.message || "Upload failed");
       setProgress("");
+      setProgressPercent(0);
     } finally {
       setUploading(false);
     }
@@ -139,22 +193,25 @@ export function CatalogUploadDialog({ open, onOpenChange, onSuccess, currentCoun
             />
           </div>
 
-          {file && (
+          {file && !uploading && (
             <div className="flex items-center gap-2 text-sm">
               <FileText className="h-4 w-4 text-primary" />
               <span className="truncate flex-1">{file.name}</span>
-              <Badge variant="secondary">{(file.size / 1024 / 1024).toFixed(1)} MB</Badge>
+              <span className="text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
             </div>
           )}
 
-          {progress && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-              <span>{progress}</span>
+          {uploading && (
+            <div className="space-y-2">
+              <Progress value={progressPercent} className="h-2" />
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                <span>{progress}</span>
+              </div>
             </div>
           )}
 
-          {currentCount > 0 && (
+          {currentCount > 0 && !uploading && (
             <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded">
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <span>Uploading a new catalog will add to existing products. Use "Clear All" first to replace the catalog entirely.</span>
