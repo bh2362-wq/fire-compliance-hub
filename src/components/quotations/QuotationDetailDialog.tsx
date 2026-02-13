@@ -39,6 +39,7 @@ interface LineItem {
   source_section: string | null;
   quantity: number;
   unit_price: number;
+  markup_percent: number;
   labour_cost: number;
   total_price: number;
   notes: string | null;
@@ -207,7 +208,7 @@ export function QuotationDetailDialog({
         .order("sort_order", { ascending: true });
 
       if (itemsError) throw itemsError;
-      setLineItems(itemsData || []);
+      setLineItems((itemsData || []).map(item => ({ ...item, markup_percent: (item as any).markup_percent || 0 })));
     } catch (error) {
       console.error("Error fetching quotation:", error);
       toast.error("Failed to load quotation");
@@ -220,8 +221,9 @@ export function QuotationDetailDialog({
     const updated = [...lineItems];
     updated[index] = { ...updated[index], [field]: value };
 
-    if (field === "quantity" || field === "unit_price" || field === "labour_cost") {
-      updated[index].total_price = (updated[index].quantity * updated[index].unit_price) + (updated[index].labour_cost || 0);
+    if (field === "quantity" || field === "unit_price" || field === "labour_cost" || field === "markup_percent") {
+      const i = updated[index];
+      updated[index].total_price = (i.quantity * i.unit_price * (1 + (i.markup_percent || 0) / 100)) + (i.labour_cost || 0);
     }
 
     setLineItems(updated);
@@ -239,6 +241,7 @@ export function QuotationDetailDialog({
       source_section: null,
       quantity: 1,
       unit_price: 0,
+      markup_percent: 0,
       labour_cost: 0,
       total_price: 0,
       notes: null,
@@ -630,7 +633,7 @@ export function QuotationDetailDialog({
                               disabled={isLocked}
                             />
 
-                            <div className="grid grid-cols-7 gap-3">
+                            <div className="grid grid-cols-8 gap-3">
                               <div>
                                 <Label className="text-xs">Item/Part</Label>
                                 <Input
@@ -683,6 +686,24 @@ export function QuotationDetailDialog({
                                     handleItemChange(
                                       index,
                                       "unit_price",
+                                      parseFloat(e.target.value) || 0
+                                    )
+                                  }
+                                  className="h-9"
+                                  disabled={isLocked}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Markup (%)</Label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={item.markup_percent || 0}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "markup_percent",
                                       parseFloat(e.target.value) || 0
                                     )
                                   }

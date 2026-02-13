@@ -28,6 +28,7 @@ interface LineItem {
   description: string;
   quantity: number;
   unit_price: number;
+  markup_percent: number;
   labour_cost: number;
   total_price: number;
 }
@@ -53,7 +54,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
   const [terms, setTerms] = useState("");
   const [notes, setNotes] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 },
+    { description: "", quantity: 1, unit_price: 0, markup_percent: 0, labour_cost: 0, total_price: 0 },
   ]);
   const [saving, setSaving] = useState(false);
 
@@ -81,6 +82,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
         description: prefillLineItem.description,
         quantity: prefillLineItem.quantity,
         unit_price: prefillLineItem.unit_price,
+        markup_percent: 0,
         labour_cost: prefillLineItem.labour_cost,
         total_price: (prefillLineItem.quantity * prefillLineItem.unit_price) + prefillLineItem.labour_cost,
       };
@@ -142,7 +144,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
       ...item,
       description: desc,
       unit_price: product.trade_price,
-      total_price: item.quantity * product.trade_price + (item.labour_cost || 0),
+      total_price: item.quantity * product.trade_price * (1 + (item.markup_percent || 0) / 100) + (item.labour_cost || 0),
     };
     setLineItems(updated);
     setActiveSuggestionIndex(null);
@@ -152,15 +154,16 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
   const handleItemChange = (index: number, field: keyof LineItem, value: any) => {
     const updated = [...lineItems];
     updated[index] = { ...updated[index], [field]: value };
-    if (field === "quantity" || field === "unit_price" || field === "labour_cost") {
+    if (field === "quantity" || field === "unit_price" || field === "labour_cost" || field === "markup_percent") {
+      const i = updated[index];
       updated[index].total_price =
-        updated[index].quantity * updated[index].unit_price + (updated[index].labour_cost || 0);
+        i.quantity * i.unit_price * (1 + (i.markup_percent || 0) / 100) + (i.labour_cost || 0);
     }
     setLineItems(updated);
   };
 
   const addItem = () => {
-    setLineItems([...lineItems, { description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }]);
+    setLineItems([...lineItems, { description: "", quantity: 1, unit_price: 0, markup_percent: 0, labour_cost: 0, total_price: 0 }]);
   };
 
   const removeItem = (i: number) => {
@@ -243,7 +246,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
     setSummary("");
     setTerms("");
     setNotes("");
-    setLineItems([{ description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }]);
+    setLineItems([{ description: "", quantity: 1, unit_price: 0, markup_percent: 0, labour_cost: 0, total_price: 0 }]);
   };
 
   return (
@@ -363,7 +366,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
                         </div>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
                       <div>
                         <Label className="text-xs">Qty</Label>
                         <Input
@@ -377,6 +380,14 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
                         <Input
                           type="number" min={0} step={0.01} value={item.unit_price}
                           onChange={(e) => handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Markup (%)</Label>
+                        <Input
+                          type="number" min={0} step={1} value={item.markup_percent}
+                          onChange={(e) => handleItemChange(index, "markup_percent", parseFloat(e.target.value) || 0)}
                           className="h-9"
                         />
                       </div>
