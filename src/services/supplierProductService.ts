@@ -67,3 +67,47 @@ export async function insertSupplierProducts(
 
   return { count: inserted, error: null };
 }
+
+export async function getSupplierProducts(
+  page = 1,
+  pageSize = 50,
+  search = ""
+): Promise<{ data: SupplierProduct[]; total: number; error: Error | null }> {
+  let query = supabase
+    .from("supplier_products")
+    .select("*", { count: "exact" });
+
+  if (search.trim()) {
+    const s = search.trim();
+    query = query.or(`product_code.ilike.%${s}%,description.ilike.%${s}%`);
+  }
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, count, error } = await query
+    .order("product_code")
+    .range(from, to);
+
+  if (error) return { data: [], total: 0, error };
+  return { data: (data || []) as SupplierProduct[], total: count || 0, error: null };
+}
+
+export async function updateSupplierProduct(
+  id: string,
+  updates: Partial<Pick<SupplierProduct, "product_code" | "description" | "trade_price" | "category">>
+): Promise<{ error: Error | null }> {
+  const { error } = await supabase
+    .from("supplier_products")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  return { error };
+}
+
+export async function deleteSupplierProduct(id: string): Promise<{ error: Error | null }> {
+  const { error } = await supabase
+    .from("supplier_products")
+    .delete()
+    .eq("id", id);
+  return { error };
+}

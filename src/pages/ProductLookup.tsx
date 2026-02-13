@@ -11,6 +11,7 @@ import { Loader2, Search, SearchX, FileSpreadsheet, Upload, Database } from "luc
 import { toast } from "sonner";
 import { searchSupplierProducts, getSupplierProductCount, SupplierProduct } from "@/services/supplierProductService";
 import { CatalogUploadDialog } from "@/components/product-lookup/CatalogUploadDialog";
+import { CatalogBrowser } from "@/components/product-lookup/CatalogBrowser";
 import { useNavigate } from "react-router-dom";
 
 const ProductLookup = () => {
@@ -20,6 +21,7 @@ const ProductLookup = () => {
   const [searched, setSearched] = useState(false);
   const [catalogCount, setCatalogCount] = useState(0);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [browserRefreshKey, setBrowserRefreshKey] = useState(0);
   const navigate = useNavigate();
 
   // Autocomplete state
@@ -43,6 +45,7 @@ const ProductLookup = () => {
   const refreshCount = async () => {
     const count = await getSupplierProductCount();
     setCatalogCount(count);
+    setBrowserRefreshKey((k) => k + 1);
   };
 
   const fetchSuggestions = useCallback(async (term: string) => {
@@ -240,6 +243,8 @@ const ProductLookup = () => {
             </CardContent>
           </Card>
         )}
+
+        <CatalogBrowser refreshKey={browserRefreshKey} />
       </div>
 
       <CatalogUploadDialog
