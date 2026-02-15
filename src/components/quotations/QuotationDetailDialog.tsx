@@ -230,14 +230,14 @@ export function QuotationDetailDialog({
     setHasChanges(true);
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = (parentId?: string) => {
     const newItem: LineItem = {
       id: `temp-${Date.now()}`,
       description: "",
       regulation_reference: null,
       priority: "medium",
       item_name: null,
-      parent_id: null,
+      parent_id: parentId || null,
       source_section: null,
       quantity: 1,
       unit_price: 0,
@@ -247,7 +247,19 @@ export function QuotationDetailDialog({
       notes: null,
       sort_order: lineItems.length,
     };
-    setLineItems([...lineItems, newItem]);
+    if (parentId) {
+      // Insert after the last child of this parent (or after parent itself)
+      const parentIndex = lineItems.findIndex(i => i.id === parentId);
+      let insertAt = parentIndex + 1;
+      while (insertAt < lineItems.length && lineItems[insertAt].parent_id === parentId) {
+        insertAt++;
+      }
+      const updated = [...lineItems];
+      updated.splice(insertAt, 0, newItem);
+      setLineItems(updated);
+    } else {
+      setLineItems([...lineItems, newItem]);
+    }
     setHasChanges(true);
   };
 
@@ -288,29 +300,70 @@ export function QuotationDetailDialog({
 
       if (deleteError) throw deleteError;
 
-      // Insert updated line items
+      // Insert updated line items - first parents, then children
       if (lineItems.length > 0) {
-        const itemsToInsert = lineItems.map((item, index) => ({
-          quotation_id: quotationId,
-          description: item.description,
-          regulation_reference: item.regulation_reference,
-          priority: item.priority,
-          item_name: item.item_name,
-          parent_id: null,
-          source_section: item.source_section,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          labour_cost: item.labour_cost || 0,
-          total_price: item.total_price,
-          notes: item.notes,
-          sort_order: index,
-        }));
+        const parentItems = lineItems.filter(i => !i.parent_id);
+        const childItems = lineItems.filter(i => !!i.parent_id);
 
-        const { error: insertError } = await supabase
-          .from("quotation_line_items")
-          .insert(itemsToInsert);
+        // Insert parents first
+        const idMap = new Map<string, string>(); // old temp id -> new db id
+        if (parentItems.length > 0) {
+          const parentsToInsert = parentItems.map((item, idx) => ({
+            quotation_id: quotationId,
+            description: item.description,
+            regulation_reference: item.regulation_reference,
+            priority: item.priority,
+            item_name: item.item_name,
+            parent_id: null,
+            source_section: item.source_section,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            labour_cost: item.labour_cost || 0,
+            total_price: item.total_price,
+            notes: item.notes,
+            sort_order: lineItems.indexOf(item),
+          }));
 
-        if (insertError) throw insertError;
+          const { data: insertedParents, error: parentError } = await supabase
+            .from("quotation_line_items")
+            .insert(parentsToInsert)
+            .select("id");
+
+          if (parentError) throw parentError;
+
+          // Map old IDs to new IDs
+          parentItems.forEach((item, idx) => {
+            if (insertedParents?.[idx]) {
+              idMap.set(item.id, insertedParents[idx].id);
+            }
+          });
+        }
+
+        // Insert children with resolved parent_id
+        if (childItems.length > 0) {
+          const childrenToInsert = childItems.map((item) => ({
+            quotation_id: quotationId,
+            description: item.description,
+            regulation_reference: item.regulation_reference,
+            priority: item.priority,
+            item_name: item.item_name,
+            parent_id: idMap.get(item.parent_id!) || item.parent_id,
+            source_section: item.source_section,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            labour_cost: item.labour_cost || 0,
+            total_price: item.total_price,
+            notes: item.notes,
+            sort_order: lineItems.indexOf(item),
+          }));
+
+          const { error: childError } = await supabase
+            .from("quotation_line_items")
+            .insert(childrenToInsert);
+
+          if (childError) throw childError;
+        }
+
       }
 
       toast.success("Quotation saved");
@@ -596,11 +649,16 @@ export function QuotationDetailDialog({
                       No line items. Click "Add Item" to add one.
                     </p>
                   ) : (
-                    lineItems.map((item, index) => (
-                      <div key={item.id} className="border rounded-lg p-4 space-y-3">
+                    lineItems.map((item, index) => {
+                      const isSubItem = !!item.parent_id;
+                      return (
+                      <div key={item.id} className={`border rounded-lg p-4 space-y-3 ${isSubItem ? 'ml-8 border-dashed border-muted-foreground/30' : ''}`}>
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 space-y-3">
                             <div className="flex items-center gap-2">
+                              {isSubItem && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">Sub</Badge>
+                              )}
                               {columnOptions.showPriority && (
                               <Select
                                 value={item.priority}
@@ -753,18 +811,32 @@ export function QuotationDetailDialog({
                           </div>
 
                           {!isLocked && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveItem(index)}
-                              className="text-muted-foreground hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex flex-col gap-1">
+                              {!isSubItem && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleAddItem(item.id)}
+                                  className="text-muted-foreground hover:text-primary"
+                                  title="Add sub item"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveItem(index)}
+                                className="text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </div>
-                    ))
+                    );
+                    })
                   )}
 
                   {/* Totals */}
