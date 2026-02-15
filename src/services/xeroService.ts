@@ -93,7 +93,7 @@ export async function saveXeroConnection(
 
 export async function getXeroConnection(userId: string): Promise<XeroConnection | null> {
   const { data, error } = await supabase
-    .from("xero_connections")
+    .from("xero_connections_safe")
     .select("id, user_id, tenant_id, tenant_name, expires_at, created_at")
     .eq("user_id", userId)
     .maybeSingle();
