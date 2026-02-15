@@ -13,13 +13,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
@@ -112,7 +116,44 @@ const statusConfig: Record<string, { label: string; className: string }> = {
     label: "Invoiced",
     className: "bg-primary/10 text-primary border-primary/20",
   },
+  on_hold: {
+    label: "On Hold",
+    className: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+  },
+  awaiting_parts: {
+    label: "Awaiting Parts",
+    className: "bg-purple-500/10 text-purple-600 border-purple-500/20",
+  },
+  further_works_required: {
+    label: "Further Works Required",
+    className: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+  },
+  quote_needed: {
+    label: "Quote Needed",
+    className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
+  },
 };
+
+const CHANGEABLE_STATUSES = [
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'on_hold', label: 'On Hold' },
+  { value: 'awaiting_parts', label: 'Awaiting Parts' },
+  { value: 'further_works_required', label: 'Further Works Required' },
+  { value: 'quote_needed', label: 'Quote Needed' },
+];
+
+// Group order for sub-list sections
+const STATUS_GROUP_ORDER = [
+  'confirmed',
+  'in_progress',
+  'scheduled',
+  'on_hold',
+  'awaiting_parts',
+  'further_works_required',
+  'quote_needed',
+  'pending_review',
+];
 
 const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitialVisitOpened }: VisitsTableProps) => {
   const navigate = useNavigate();
@@ -611,7 +652,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   // Sort confirmed visits to the top, then by date
   const statusPriority: Record<string, number> = { confirmed: 0, scheduled: 1, in_progress: 2, pending_review: 3 };
   const activeVisits = visits
-    .filter(v => !invoiceMap[v.id] && v.status !== 'invoiced' && v.status !== 'completed')
+    .filter(v => !invoiceMap[v.id] && v.status !== 'invoiced' && v.status !== 'completed' && v.status !== 'cancelled')
     .sort((a, b) => {
       const pa = statusPriority[a.status || ''] ?? 99;
       const pb = statusPriority[b.status || ''] ?? 99;
@@ -744,6 +785,38 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 <Pencil className="w-4 h-4 mr-2" />
                 Edit Visit
               </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <ArrowRight className="w-4 h-4 mr-2" />
+                  Change Status
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent>
+                    {CHANGEABLE_STATUSES.map((s) => (
+                      <DropdownMenuItem
+                        key={s.value}
+                        disabled={visit.status === s.value}
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from("visits")
+                            .update({ status: s.value })
+                            .eq("id", visit.id);
+                          if (error) {
+                            toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+                          } else {
+                            toast({ title: "Status updated", description: `Visit set to ${s.label}` });
+                            onRefresh?.();
+                          }
+                        }}
+                      >
+                        <Badge variant="outline" className={`${statusConfig[s.value]?.className || ''} mr-2 text-[10px]`}>
+                          {s.label}
+                        </Badge>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
               {reportInfo?.status === "completed" && (
               <DropdownMenuItem onClick={() => handleEmailReport(visit)}>
                   <Mail className="w-4 h-4 mr-2" />
@@ -924,22 +997,50 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
 
   return (
     <div className="space-y-6">
-      {/* Active Visits */}
-      {activeVisits.length > 0 && (
-        <div className="bg-card rounded-xl border border-border">
-          <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 text-sm font-medium text-muted-foreground border-b border-border">
-            <div className="col-span-3">Site</div>
-            <div className="col-span-2">Date / Type</div>
-            <div className="col-span-2">Devices</div>
-            <div className="col-span-1">Coverage</div>
-            <div className="col-span-2">Smoke Spray</div>
-            <div className="col-span-2">Actions</div>
+      {/* Active Visits - Grouped by Status */}
+      {activeVisits.length > 0 && (() => {
+        // Group visits by status
+        const grouped: Record<string, Visit[]> = {};
+        activeVisits.forEach((visit) => {
+          const status = visit.status || 'scheduled';
+          if (!grouped[status]) grouped[status] = [];
+          grouped[status].push(visit);
+        });
+
+        // Sort groups by STATUS_GROUP_ORDER
+        const orderedGroups = STATUS_GROUP_ORDER
+          .filter((s) => grouped[s] && grouped[s].length > 0)
+          .map((s) => ({ status: s, visits: grouped[s] }));
+
+        // Add any remaining statuses not in the order
+        Object.keys(grouped).forEach((s) => {
+          if (!STATUS_GROUP_ORDER.includes(s) && grouped[s].length > 0) {
+            orderedGroups.push({ status: s, visits: grouped[s] });
+          }
+        });
+
+        return orderedGroups.map((group) => (
+          <div key={group.status} className="bg-card rounded-xl border border-border">
+            <div className="px-6 py-3 border-b border-border flex items-center gap-2">
+              <Badge variant="outline" className={statusConfig[group.status]?.className || ''}>
+                {statusConfig[group.status]?.label || group.status}
+              </Badge>
+              <span className="text-xs text-muted-foreground">({group.visits.length})</span>
+            </div>
+            <div className="grid grid-cols-12 gap-4 px-6 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border">
+              <div className="col-span-3">Site</div>
+              <div className="col-span-2">Date / Type</div>
+              <div className="col-span-2">Devices</div>
+              <div className="col-span-1">Coverage</div>
+              <div className="col-span-2">Smoke Spray</div>
+              <div className="col-span-2">Actions</div>
+            </div>
+            <div className="divide-y divide-border">
+              {group.visits.map((visit) => renderVisitRow(visit, false))}
+            </div>
           </div>
-          <div className="divide-y divide-border">
-            {activeVisits.map((visit) => renderVisitRow(visit, false))}
-          </div>
-        </div>
-      )}
+        ));
+      })()}
 
       {activeVisits.length === 0 && invoicedVisits.length > 0 && (
         <div className="bg-card rounded-xl border border-border p-12 text-center">
