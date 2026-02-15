@@ -8,7 +8,8 @@ const corsHeaders = {
 
 interface RewriteRequest {
   text: string;
-  type: "defects" | "recommendations" | "works" | "comments";
+  type: "defects" | "recommendations" | "works" | "comments" | "quotation_items";
+  context?: string;
   generateRecommendations?: boolean;
 }
 
@@ -56,6 +57,9 @@ STRICT RULES:
         break;
       case "comments":
         systemPrompt = `You are a professional fire safety engineer. Rewrite these comments using proper fire safety terminology. Keep it concise - don't add details that weren't in the original. Separate different points with blank lines.${formatRules}`;
+        break;
+      case "quotation_items":
+        systemPrompt = `You are a professional fire safety engineer preparing a quotation. Improve the grammar, spelling and professional presentation of these numbered quotation line item descriptions. Keep the same numbering format (1. 2. 3. etc). Use proper fire safety and engineering terminology. Make descriptions clear, professional and suitable for a formal quotation document. Do NOT add information that wasn't in the original.${formatRules}`;
         break;
       default:
         systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise. Separate different topics with blank lines.${formatRules}`;
