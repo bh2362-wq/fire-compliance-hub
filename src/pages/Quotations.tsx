@@ -112,6 +112,10 @@ const statusConfig: Record<string, { label: string; className: string }> = {
     label: "Expired",
     className: "bg-warning/10 text-warning border-warning/20",
   },
+  recalled: {
+    label: "Recalled",
+    className: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+  },
 };
 
 const Quotations = () => {
@@ -464,6 +468,7 @@ const Quotations = () => {
               <SelectItem value="accepted">Scheduled</SelectItem>
               <SelectItem value="declined">Declined</SelectItem>
               <SelectItem value="expired">Expired</SelectItem>
+              <SelectItem value="recalled">Recalled</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -722,12 +727,32 @@ const Quotations = () => {
 
                             <DropdownMenuSeparator />
 
-                            {quotation.status === "draft" && (
+                            {(quotation.status === "draft" || quotation.status === "recalled") && (
                               <DropdownMenuItem
                                 onClick={() => handleStatusChange(quotation.id, "sent")}
                               >
                                 <Send className="w-4 h-4 mr-2" />
                                 Mark as Sent
+                              </DropdownMenuItem>
+                            )}
+
+                            {quotation.status === "sent" && (
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  try {
+                                    await supabase
+                                      .from("quotations")
+                                      .update({ status: "recalled", locked_at: null, locked_by: null })
+                                      .eq("id", quotation.id);
+                                    toast.success(`${quotation.quotation_number} recalled for editing`);
+                                    fetchQuotations();
+                                  } catch (err: any) {
+                                    toast.error("Failed to recall quotation");
+                                  }
+                                }}
+                              >
+                                <Undo2 className="w-4 h-4 mr-2" />
+                                Recall for Editing
                               </DropdownMenuItem>
                             )}
 
