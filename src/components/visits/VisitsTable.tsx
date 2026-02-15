@@ -13,7 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +50,7 @@ import { getCompanySettings } from "@/services/companySettingsService";
 import { VisitRequirementsDialog } from "./VisitRequirementsDialog";
 import { VisitRequirementsBadges } from "./VisitRequirementsBadges";
 import { SendVisitConfirmationDialog } from "./SendVisitConfirmationDialog";
+import { BulkEmailJobsDialog } from "./BulkEmailJobsDialog";
 import { getVisitTypeLabel } from "@/constants/visitTypes";
 
 interface ASDAsset {
@@ -132,6 +134,10 @@ const statusConfig: Record<string, { label: string; className: string }> = {
     label: "Quote Needed",
     className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
   },
+  awaiting_po: {
+    label: "Awaiting PO",
+    className: "bg-pink-500/10 text-pink-600 border-pink-500/20",
+  },
 };
 
 const CHANGEABLE_STATUSES = [
@@ -141,6 +147,7 @@ const CHANGEABLE_STATUSES = [
   { value: 'awaiting_parts', label: 'Awaiting Parts' },
   { value: 'further_works_required', label: 'Further Works Required' },
   { value: 'quote_needed', label: 'Quote Needed' },
+  { value: 'awaiting_po', label: 'Awaiting PO' },
 ];
 
 // Group order for sub-list sections
@@ -152,6 +159,7 @@ const STATUS_GROUP_ORDER = [
   'awaiting_parts',
   'further_works_required',
   'quote_needed',
+  'awaiting_po',
   'pending_review',
 ];
 
@@ -176,6 +184,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [requirementsVisit, setRequirementsVisit] = useState<Visit | null>(null);
   const [requirementsRefreshKey, setRequirementsRefreshKey] = useState(0);
   const [confirmationVisit, setConfirmationVisit] = useState<Visit | null>(null);
+  const [selectedVisitIds, setSelectedVisitIds] = useState<Set<string>>(new Set());
+  const [showBulkEmail, setShowBulkEmail] = useState(false);
 
   const [emailVisit, setEmailVisit] = useState<Visit | null>(null);
   const [emailVisitData, setEmailVisitData] = useState<{
@@ -677,6 +687,18 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       >
         <div className="col-span-3">
           <div className="flex items-center gap-3">
+            <Checkbox
+              checked={selectedVisitIds.has(visit.id)}
+              onCheckedChange={(checked) => {
+                setSelectedVisitIds((prev) => {
+                  const next = new Set(prev);
+                  if (checked) next.add(visit.id);
+                  else next.delete(visit.id);
+                  return next;
+                });
+              }}
+              className="shrink-0"
+            />
             <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
               <Building2 className="w-5 h-5 text-muted-foreground" />
             </div>
@@ -995,8 +1017,29 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     );
   }
 
+  const selectedVisits = visits.filter((v) => selectedVisitIds.has(v.id));
+
   return (
     <div className="space-y-6">
+      {/* Selection toolbar */}
+      {selectedVisitIds.size > 0 && (
+        <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckSquare className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">{selectedVisitIds.size} job{selectedVisitIds.size > 1 ? "s" : ""} selected</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSelectedVisitIds(new Set())}>
+              Clear
+            </Button>
+            <Button size="sm" onClick={() => setShowBulkEmail(true)}>
+              <Mail className="w-4 h-4 mr-2" />
+              Email to Client
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Active Visits - Grouped by Status */}
       {activeVisits.length > 0 && (() => {
         // Group visits by status
@@ -1349,6 +1392,15 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           onSuccess={onRefresh}
         />
       )}
+      <BulkEmailJobsDialog
+        open={showBulkEmail}
+        onOpenChange={setShowBulkEmail}
+        selectedVisits={selectedVisits}
+        onSuccess={() => {
+          setSelectedVisitIds(new Set());
+          onRefresh?.();
+        }}
+      />
     </div>
   );
 };
