@@ -1,0 +1,1 @@
+ALTER TABLE public.visits ADD COLUMN quoted_price numeric DEFAULT NULL;

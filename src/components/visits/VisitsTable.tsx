@@ -747,10 +747,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             </Badge>
           </div>
         </div>
-        <div className="col-span-2">
+        <div className="col-span-1">
           <div className="space-y-1">
             <p className="text-sm text-foreground">
-              {visit.devices_tested || 0} / {visit.total_devices || 0} tested
+              {visit.devices_tested || 0} / {visit.total_devices || 0}
             </p>
             {(visit.issues_count || 0) > 0 && (
               <p className="text-xs text-destructive">{visit.issues_count} issues</p>
@@ -758,25 +758,46 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           </div>
         </div>
         <div className="col-span-1">
-          <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${
-                    coverage >= 95
-                      ? "bg-success"
-                      : coverage >= 80
-                      ? "bg-warning"
-                      : "bg-destructive"
-                  }`}
-                  style={{ width: `${coverage}%` }}
-                />
-              </div>
-              <span className="text-xs font-medium text-foreground w-8">
-                {coverage}%
-              </span>
+          <div className="flex items-center gap-1">
+            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${
+                  coverage >= 95
+                    ? "bg-success"
+                    : coverage >= 80
+                    ? "bg-warning"
+                    : "bg-destructive"
+                }`}
+                style={{ width: `${coverage}%` }}
+              />
             </div>
+            <span className="text-xs font-medium text-foreground w-8">
+              {coverage}%
+            </span>
           </div>
+        </div>
+        <div className="col-span-1">
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="—"
+            className="w-full bg-transparent border border-border rounded px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            defaultValue={visit.quoted_price ?? ""}
+            onBlur={async (e) => {
+              const val = e.target.value ? parseFloat(e.target.value) : null;
+              if (val === (visit.quoted_price ?? null)) return;
+              const { error } = await supabase
+                .from("visits")
+                .update({ quoted_price: val })
+                .eq("id", visit.id);
+              if (error) {
+                toast({ title: "Error", description: "Failed to save cost", variant: "destructive" });
+              } else {
+                onRefresh?.();
+              }
+            }}
+          />
         </div>
         <div className="col-span-2">
           <SmokeSprayEstimate siteId={visit.site_id} visitType={visit.visit_type} />
@@ -1073,8 +1094,9 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             <div className="grid grid-cols-12 gap-4 px-6 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border">
               <div className="col-span-3">Site</div>
               <div className="col-span-2">Date / Type</div>
-              <div className="col-span-2">Devices</div>
+              <div className="col-span-1">Devices</div>
               <div className="col-span-1">Coverage</div>
+              <div className="col-span-1">Cost</div>
               <div className="col-span-2">Smoke Spray</div>
               <div className="col-span-2">Actions</div>
             </div>

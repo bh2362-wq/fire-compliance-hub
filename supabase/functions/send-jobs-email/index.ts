@@ -16,6 +16,7 @@ interface JobInfo {
   visitType: string;
   status: string;
   notes?: string;
+  price?: number;
 }
 
 interface SendJobsEmailRequest {
@@ -23,6 +24,7 @@ interface SendJobsEmailRequest {
   customerName: string;
   jobs: JobInfo[];
   message?: string;
+  includePrices?: boolean;
 }
 
 const statusLabels: Record<string, string> = {
@@ -89,7 +91,7 @@ const handler = async (req: Request): Promise<Response> => {
     );
     if (authError || !user) throw new Error("Unauthorized");
 
-    const { to, customerName, jobs, message }: SendJobsEmailRequest = await req.json();
+    const { to, customerName, jobs, message, includePrices }: SendJobsEmailRequest = await req.json();
 
     if (!to || !jobs || jobs.length === 0) {
       throw new Error("Missing required fields: to, jobs");
@@ -106,6 +108,8 @@ const handler = async (req: Request): Promise<Response> => {
     const companyPhone = companySettings?.phone || "";
     const logoUrl = companySettings?.report_logo_url || "";
 
+    const hasAnyPrice = includePrices && jobs.some((j) => j.price != null);
+
     const jobRows = jobs.map((job) => {
       const color = statusColors[job.status] || "#6b7280";
       const label = statusLabels[job.status] || job.status;
@@ -118,10 +122,13 @@ const handler = async (req: Request): Promise<Response> => {
           <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
             <span style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; color: white; background: ${color};">${label}</span>
           </td>
+          ${hasAnyPrice ? `<td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-size: 14px; font-weight: 600;">${job.price != null ? "£" + Number(job.price).toFixed(2) : "—"}</td>` : ""}
           ${job.notes ? `<td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; color: #6b7280;">${job.notes}</td>` : `<td style="padding: 12px; border-bottom: 1px solid #e5e7eb;"></td>`}
         </tr>
       `;
     }).join("");
+
+    const totalPrice = hasAnyPrice ? jobs.reduce((sum, j) => sum + (j.price || 0), 0) : 0;
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -146,6 +153,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <th style="padding: 12px; text-align: left; font-size: 13px; color: #475569; border-bottom: 2px solid #e5e7eb;">Date</th>
                   <th style="padding: 12px; text-align: left; font-size: 13px; color: #475569; border-bottom: 2px solid #e5e7eb;">Type</th>
                   <th style="padding: 12px; text-align: left; font-size: 13px; color: #475569; border-bottom: 2px solid #e5e7eb;">Status</th>
+                  ${hasAnyPrice ? `<th style="padding: 12px; text-align: left; font-size: 13px; color: #475569; border-bottom: 2px solid #e5e7eb;">Cost (ex. VAT)</th>` : ""}
                   <th style="padding: 12px; text-align: left; font-size: 13px; color: #475569; border-bottom: 2px solid #e5e7eb;">Notes</th>
                 </tr>
               </thead>
@@ -153,6 +161,13 @@ const handler = async (req: Request): Promise<Response> => {
                 ${jobRows}
               </tbody>
             </table>
+
+            ${hasAnyPrice ? `
+            <div style="text-align: right; margin: 0 0 16px; padding: 12px 16px; background: #f1f5f9; border-radius: 8px;">
+              <span style="font-size: 14px; color: #475569;">Total (ex. VAT): </span>
+              <span style="font-size: 18px; font-weight: 700; color: #1e293b;">£${totalPrice.toFixed(2)}</span>
+            </div>
+            ` : ""}
 
             <p>If you have any queries or would like to provide PO numbers, please reply to this email or contact us directly.</p>
             <p>Kind regards,<br><strong>${companyName}</strong></p>
