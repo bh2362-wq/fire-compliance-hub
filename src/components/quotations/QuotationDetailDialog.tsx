@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Plus, Save, PoundSterling, FileDown, Mail, User, Sparkles } from "lucide-react";
+import { Loader2, Trash2, Plus, Save, PoundSterling, FileDown, Mail, User, Sparkles, Merge } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
@@ -106,6 +106,7 @@ export function QuotationDetailDialog({
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   
   // Editable fields
   const [quotationNumber, setQuotationNumber] = useState("");
@@ -267,6 +268,42 @@ export function QuotationDetailDialog({
   const handleRemoveItem = (index: number) => {
     setLineItems(lineItems.filter((_, i) => i !== index));
     setHasChanges(true);
+  };
+
+  const handleMergeItems = () => {
+    if (selectedItemIds.size < 2) {
+      toast.error("Select at least 2 items to merge");
+      return;
+    }
+    const selectedIndices = lineItems
+      .map((item, idx) => ({ item, idx }))
+      .filter(({ item }) => selectedItemIds.has(item.id));
+    
+    if (selectedIndices.length < 2) return;
+
+    const first = selectedIndices[0];
+    const mergedDescription = selectedIndices.map(({ item }) => item.description).filter(Boolean).join("\n");
+    const mergedQty = selectedIndices.reduce((sum, { item }) => sum + item.quantity, 0);
+    const mergedLabour = selectedIndices.reduce((sum, { item }) => sum + (item.labour_cost || 0), 0);
+    
+    // Keep first item's pricing, sum quantities and labour
+    const mergedItem: LineItem = {
+      ...first.item,
+      description: mergedDescription,
+      quantity: mergedQty,
+      labour_cost: mergedLabour,
+      total_price: (mergedQty * first.item.unit_price * (1 + (first.item.markup_percent || 0) / 100)) + mergedLabour,
+    };
+
+    const idsToRemove = new Set(selectedIndices.slice(1).map(({ item }) => item.id));
+    const updated = lineItems
+      .map((item) => (item.id === first.item.id ? mergedItem : item))
+      .filter((item) => !idsToRemove.has(item.id));
+
+    setLineItems(updated);
+    setSelectedItemIds(new Set());
+    setHasChanges(true);
+    toast.success(`Merged ${selectedIndices.length} items`);
   };
 
   const handleImproveWithAI = async () => {
@@ -665,19 +702,32 @@ export function QuotationDetailDialog({
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">Quotation Items ({lineItems.length})</h3>
                     {!isLocked && (
-                      <Button 
-                        type="button"
-                        variant="outline" 
-                        size="sm" 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleAddItem();
-                        }}
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Item
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {selectedItemIds.size >= 2 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleMergeItems}
+                          >
+                            <Merge className="mr-2 h-4 w-4" />
+                            Merge ({selectedItemIds.size})
+                          </Button>
+                        )}
+                        <Button 
+                          type="button"
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleAddItem();
+                          }}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Item
+                        </Button>
+                      </div>
                     )}
                   </div>
 
@@ -690,7 +740,19 @@ export function QuotationDetailDialog({
                       const isSubItem = !!item.parent_id;
                       return (
                       <div key={item.id} className={`border rounded-lg p-4 space-y-3 ${isSubItem ? 'ml-8 border-dashed border-muted-foreground/30' : ''}`}>
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          {!isLocked && (
+                            <Checkbox
+                              checked={selectedItemIds.has(item.id)}
+                              onCheckedChange={(checked) => {
+                                const next = new Set(selectedItemIds);
+                                if (checked) next.add(item.id);
+                                else next.delete(item.id);
+                                setSelectedItemIds(next);
+                              }}
+                              className="mt-1"
+                            />
+                          )}
                           <div className="flex-1 space-y-3">
                             <div className="flex items-center gap-2">
                               {isSubItem && (
