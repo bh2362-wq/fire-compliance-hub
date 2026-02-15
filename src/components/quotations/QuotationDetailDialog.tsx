@@ -512,7 +512,7 @@ export function QuotationDetailDialog({
   const profitMargin = totalAmount - totalCost;
   const vatAmount = totalAmount * (vatRate / 100);
   const grandTotal = totalAmount + vatAmount;
-  const isLocked = !!quotation?.locked_at;
+  const isLocked = !!quotation?.locked_at && quotation?.status !== "recalled";
 
   return (
     <>
