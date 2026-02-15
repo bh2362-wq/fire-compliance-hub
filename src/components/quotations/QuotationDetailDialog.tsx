@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Plus, Save, PoundSterling, FileDown, Mail, User } from "lucide-react";
+import { Loader2, Trash2, Plus, Save, PoundSterling, FileDown, Mail, User, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
@@ -101,6 +101,7 @@ export function QuotationDetailDialog({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [improving, setImproving] = useState(false);
   const [quotation, setQuotation] = useState<QuotationFull | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -266,6 +267,42 @@ export function QuotationDetailDialog({
   const handleRemoveItem = (index: number) => {
     setLineItems(lineItems.filter((_, i) => i !== index));
     setHasChanges(true);
+  };
+
+  const handleImproveWithAI = async () => {
+    if (lineItems.length === 0) return;
+    setImproving(true);
+    try {
+      const descriptions = lineItems.map((item, i) => `${i + 1}. ${item.description}`).join("\n");
+      const { data, error } = await supabase.functions.invoke("rewrite-text", {
+        body: {
+          text: descriptions,
+          type: "quotation_items",
+        },
+      });
+      if (error) throw error;
+      if (data?.rewrittenText) {
+        const improvedLines = data.rewrittenText.split("\n").filter((l: string) => l.trim());
+        const updated = [...lineItems];
+        improvedLines.forEach((line: string) => {
+          const match = line.match(/^(\d+)\.\s*(.*)/);
+          if (match) {
+            const idx = parseInt(match[1]) - 1;
+            if (idx >= 0 && idx < updated.length) {
+              updated[idx] = { ...updated[idx], description: match[2].trim() };
+            }
+          }
+        });
+        setLineItems(updated);
+        setHasChanges(true);
+        toast.success("Descriptions improved with AI");
+      }
+    } catch (error) {
+      console.error("AI improve error:", error);
+      toast.error("Failed to improve descriptions");
+    } finally {
+      setImproving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -676,11 +713,6 @@ export function QuotationDetailDialog({
                                 </SelectContent>
                               </Select>
                               )}
-                              {item.regulation_reference && (
-                                <Badge variant="outline" className="text-xs">
-                                  {item.regulation_reference}
-                                </Badge>
-                              )}
                             </div>
 
                             <Textarea
@@ -693,7 +725,7 @@ export function QuotationDetailDialog({
                               disabled={isLocked}
                             />
 
-                            <div className="grid grid-cols-9 gap-3">
+                            <div className="grid grid-cols-8 gap-3">
                               <div>
                                 <Label className="text-xs">Item/Part</Label>
                                 <Input
@@ -702,18 +734,6 @@ export function QuotationDetailDialog({
                                     handleItemChange(index, "item_name", e.target.value || null)
                                   }
                                   placeholder="e.g. Smoke detector"
-                                  className="h-9"
-                                  disabled={isLocked}
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-xs">Regulation Ref</Label>
-                                <Input
-                                  value={item.regulation_reference || ""}
-                                  onChange={(e) =>
-                                    handleItemChange(index, "regulation_reference", e.target.value || null)
-                                  }
-                                  placeholder="BS 5839-1"
                                   className="h-9"
                                   disabled={isLocked}
                                 />
@@ -880,6 +900,30 @@ export function QuotationDetailDialog({
                       </span>
                     </div>
                   </div>
+
+                  {/* AI Improve Button */}
+                  {!isLocked && lineItems.length > 0 && (
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleImproveWithAI}
+                        disabled={improving}
+                      >
+                        {improving ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Improving...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Improve with AI
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="customer" className="space-y-4 mt-0">
@@ -1077,16 +1121,6 @@ export function QuotationDetailDialog({
                           }
                         />
                         <label htmlFor="col-desc" className="text-sm">Description</label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="col-ref"
-                          checked={columnOptions.showRegulationRef}
-                          onCheckedChange={(checked) =>
-                            setColumnOptions({ ...columnOptions, showRegulationRef: !!checked })
-                          }
-                        />
-                        <label htmlFor="col-ref" className="text-sm">Regulation Ref</label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox
