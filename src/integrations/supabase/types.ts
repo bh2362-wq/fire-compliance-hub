@@ -3319,7 +3319,57 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      microsoft_tokens_safe: {
+        Row: {
+          connected_at: string | null
+          connected_by: string | null
+          id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          connected_at?: string | null
+          connected_by?: string | null
+          id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          connected_at?: string | null
+          connected_by?: string | null
+          id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      xero_connections_safe: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string | null
+          tenant_id: string | null
+          tenant_name: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          tenant_id?: string | null
+          tenant_name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          tenant_id?: string | null
+          tenant_name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_next_po_number: { Args: never; Returns: string }

@@ -14,7 +14,7 @@ export function SharePointConnectionCard() {
   const checkConnection = async () => {
     try {
       const { data } = await supabase
-        .from("microsoft_tokens")
+        .from("microsoft_tokens_safe")
         .select("id, connected_at")
         .limit(1)
         .maybeSingle();
@@ -35,7 +35,7 @@ export function SharePointConnectionCard() {
     if (!connecting) return;
     const interval = setInterval(async () => {
       const { data } = await supabase
-        .from("microsoft_tokens")
+        .from("microsoft_tokens_safe")
         .select("id")
         .limit(1)
         .maybeSingle();

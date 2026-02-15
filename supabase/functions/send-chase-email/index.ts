@@ -2,7 +2,16 @@
  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "resend";
  
- const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
  
  const corsHeaders = {
    "Access-Control-Allow-Origin": "*",
@@ -85,13 +94,13 @@ import { Resend } from "resend";
              ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" class="logo" />` : `<h2>${companyName}</h2>`}
            </div>
            <div class="content">
-             ${message.replace(/\n/g, "<br>")}
+             ${escapeHtml(message).replace(/\n/g, "<br>")}
              
              ${invoice_number || amount_due ? `
              <div class="invoice-details">
-               ${invoice_number ? `<p><strong>Invoice Number:</strong> ${invoice_number}</p>` : ""}
-               ${amount_due ? `<p><strong>Amount Due:</strong> £${amount_due.toFixed(2)}</p>` : ""}
-               ${days_overdue ? `<p class="urgent">Days Overdue: ${days_overdue}</p>` : ""}
+                ${invoice_number ? `<p><strong>Invoice Number:</strong> ${escapeHtml(String(invoice_number))}</p>` : ""}
+                ${amount_due ? `<p><strong>Amount Due:</strong> £${Number(amount_due).toFixed(2)}</p>` : ""}
+                ${days_overdue ? `<p class="urgent">Days Overdue: ${Number(days_overdue)}</p>` : ""}
              </div>
              ` : ""}
              
