@@ -1053,6 +1053,39 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             <Button variant="outline" size="sm" onClick={() => setSelectedVisitIds(new Set())}>
               Clear
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <ArrowRight className="w-4 h-4 mr-2" />
+                  Change Status
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {CHANGEABLE_STATUSES.map((s) => (
+                  <DropdownMenuItem
+                    key={s.value}
+                    onClick={async () => {
+                      const ids = Array.from(selectedVisitIds);
+                      const { error } = await supabase
+                        .from("visits")
+                        .update({ status: s.value })
+                        .in("id", ids);
+                      if (error) {
+                        toast({ title: "Error", description: "Failed to update statuses", variant: "destructive" });
+                      } else {
+                        toast({ title: "Status updated", description: `${ids.length} job(s) set to ${s.label}` });
+                        setSelectedVisitIds(new Set());
+                        onRefresh?.();
+                      }
+                    }}
+                  >
+                    <Badge variant="outline" className={`${statusConfig[s.value]?.className || ''} mr-2 text-[10px]`}>
+                      {s.label}
+                    </Badge>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button size="sm" onClick={() => setShowBulkEmail(true)}>
               <Mail className="w-4 h-4 mr-2" />
               Email to Client
