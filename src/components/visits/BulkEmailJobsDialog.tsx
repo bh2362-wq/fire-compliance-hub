@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Mail, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +38,7 @@ export function BulkEmailJobsDialog({ open, onOpenChange, selectedVisits, onSucc
   const [email, setEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [message, setMessage] = useState("");
+  const [includePrices, setIncludePrices] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -93,15 +95,17 @@ export function BulkEmailJobsDialog({ open, onOpenChange, selectedVisits, onSucc
           visitType: v.visit_type,
           status: v.status || "scheduled",
           notes,
+          ...(includePrices && v.quoted_price ? { price: v.quoted_price } : {}),
         };
       });
 
       const { error } = await supabase.functions.invoke("send-jobs-email", {
-        body: {
+          body: {
           to: email.trim(),
           customerName: customerName || "Customer",
           jobs,
           message: message || undefined,
+          includePrices,
         },
       });
 
@@ -148,9 +152,14 @@ export function BulkEmailJobsDialog({ open, onOpenChange, selectedVisits, onSucc
                     {format(new Date(v.visit_date + "T00:00:00"), "dd MMM yyyy")}
                   </span>
                 </div>
-                <Badge variant="outline" className="text-[10px] shrink-0">
-                  {statusLabels[v.status || "scheduled"] || v.status}
-                </Badge>
+                <div className="flex items-center gap-2 shrink-0">
+                  {v.quoted_price != null && (
+                    <span className="text-xs font-medium text-foreground">£{v.quoted_price.toFixed(2)}</span>
+                  )}
+                  <Badge variant="outline" className="text-[10px]">
+                    {statusLabels[v.status || "scheduled"] || v.status}
+                  </Badge>
+                </div>
               </div>
             ))}
           </div>
@@ -177,6 +186,17 @@ export function BulkEmailJobsDialog({ open, onOpenChange, selectedVisits, onSucc
               onChange={(e) => setCustomerName(e.target.value)}
               disabled={loading}
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="include-prices"
+              checked={includePrices}
+              onCheckedChange={(checked) => setIncludePrices(!!checked)}
+            />
+            <Label htmlFor="include-prices" className="text-sm font-normal cursor-pointer">
+              Include visit costs in email
+            </Label>
           </div>
 
           <div className="space-y-2">

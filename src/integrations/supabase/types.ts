@@ -3167,6 +3167,7 @@ export type Database = {
           issues_count: number | null
           notes: string | null
           quotation_id: string | null
+          quoted_price: number | null
           site_id: string
           status: string | null
           total_devices: number | null
@@ -3187,6 +3188,7 @@ export type Database = {
           issues_count?: number | null
           notes?: string | null
           quotation_id?: string | null
+          quoted_price?: number | null
           site_id: string
           status?: string | null
           total_devices?: number | null
@@ -3207,6 +3209,7 @@ export type Database = {
           issues_count?: number | null
           notes?: string | null
           quotation_id?: string | null
+          quoted_price?: number | null
           site_id?: string
           status?: string | null
           total_devices?: number | null
