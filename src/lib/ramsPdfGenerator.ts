@@ -4,13 +4,42 @@ import { format } from "date-fns";
 import { RamsDocument } from "@/services/ramsService";
 import { supabase } from "@/integrations/supabase/client";
 
-const CHARCOAL = "#1C1C20";
-const RED_ACCENT = "#B91C1C";
-const LIGHT_GRAY = "#F5F5F5";
-const MID_GRAY = "#6B7280";
-const BORDER_GRAY = "#D1D5DB";
+// ─── Uniform Color Palette (matches Quotations / POs / Service Reports) ────
+const COLORS = {
+  charcoal: [28, 28, 32] as [number, number, number],
+  accent: [185, 28, 28] as [number, number, number],
+  accentLight: [220, 38, 38] as [number, number, number],
+  textPrimary: [17, 24, 39] as [number, number, number],
+  textSecondary: [55, 65, 81] as [number, number, number],
+  textMuted: [107, 114, 128] as [number, number, number],
+  bgLight: [249, 250, 251] as [number, number, number],
+  bgSubtle: [243, 244, 246] as [number, number, number],
+  border: [229, 231, 235] as [number, number, number],
+  borderDark: [209, 213, 219] as [number, number, number],
+  white: [255, 255, 255] as [number, number, number],
+  riskLow: [22, 163, 74] as [number, number, number],
+  riskMedium: [202, 138, 4] as [number, number, number],
+  riskHigh: [234, 88, 12] as [number, number, number],
+  riskVeryHigh: [220, 38, 38] as [number, number, number],
+};
 
-async function loadCompanySettings() {
+interface CompanySettings {
+  company_name: string;
+  address?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  company_logo_url?: string | null;
+  report_logo_url?: string | null;
+  vat_number?: string | null;
+  registration_number?: string | null;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async function loadCompanySettings(): Promise<CompanySettings | null> {
   const { data } = await supabase
     .from("company_settings")
     .select("*")
@@ -34,152 +63,223 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
   }
 }
 
-/** Strip literal backslash-n sequences that may have leaked from DB/LLM output */
 function sanitize(text: string | null | undefined): string {
   if (!text) return "";
   return text.replace(/\\n/g, "\n").trim();
 }
 
-/** Convert newline-separated text into bullet-pointed lines */
-function toBulletLines(text: string): string[] {
+function toBulletItems(text: string): string[] {
   return sanitize(text)
     .split("\n")
     .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => `  -  ${l}`);
+    .filter(Boolean);
 }
 
-export async function generateRamsPDF(document: RamsDocument): Promise<void> {
-  const [company, logoBase64] = await Promise.all([
-    loadCompanySettings(),
-    loadCompanySettings().then(async (c) => {
-      if (c?.report_logo_url) return loadImageAsBase64(c.report_logo_url);
-      if (c?.company_logo_url) return loadImageAsBase64(c.company_logo_url);
-      return null;
-    }),
-  ]);
+function riskColor(level: string): [number, number, number] {
+  const l = level.toLowerCase();
+  if (l === "low") return COLORS.riskLow;
+  if (l === "medium") return COLORS.riskMedium;
+  if (l === "high") return COLORS.riskHigh;
+  return COLORS.riskVeryHigh;
+}
 
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pw = doc.internal.pageSize.getWidth();
-  const ph = doc.internal.pageSize.getHeight();
+// ─── Main Generator ──────────────────────────────────────────────────────────
+
+export async function generateRamsPDF(document: RamsDocument): Promise<void> {
+  const company = await loadCompanySettings();
+  const logoUrl = company?.report_logo_url || company?.company_logo_url || null;
+  const logoBase64 = logoUrl ? await loadImageAsBase64(logoUrl) : null;
+
+  // Landscape A4
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pw = doc.internal.pageSize.getWidth(); // ~297
+  const ph = doc.internal.pageSize.getHeight(); // ~210
   const ml = 15;
   const mr = 15;
-  const cw = pw - ml - mr; // content width
+  const cw = pw - ml - mr;
   let y = 0;
 
-  // ── HELPERS ──────────────────────────────────────────────────
-  function checkPage(need = 40) {
+  // ─── REUSABLE DRAWING HELPERS ──────────────────────────────
+
+  function checkPage(need = 30) {
     if (y > ph - need) {
       doc.addPage();
       y = 20;
     }
   }
 
-  function sectionHeader(label: string, fillColor = CHARCOAL) {
-    checkPage(25);
-    doc.setFillColor(fillColor);
-    doc.rect(ml, y, cw, 9, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(11);
+  function sectionHeader(label: string, isAlert = false) {
+    checkPage(22);
+    y += 3;
+
+    // Highlight bar
+    const fillColor = isAlert ? COLORS.accent : COLORS.charcoal;
+    doc.setFillColor(...fillColor);
+    doc.roundedRect(ml, y, cw, 8, 1, 1, "F");
+
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(label.toUpperCase(), ml + 4, y + 6.5);
-    y += 13;
-    doc.setTextColor(CHARCOAL);
+    doc.text(label.toUpperCase(), ml + 5, y + 5.5);
+    y += 12;
+    doc.setTextColor(...COLORS.textPrimary);
   }
 
-  function keyValue(key: string, value: string, indent = ml) {
-    checkPage(12);
+  function subHeader(label: string) {
+    checkPage(14);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text(key, indent, y);
-    doc.setFont("helvetica", "normal");
-    const valX = indent + 45;
-    const lines = doc.splitTextToSize(sanitize(value), pw - mr - valX);
-    doc.text(lines, valX, y);
-    y += Math.max(lines.length * 4.5, 5) + 1.5;
+    doc.setTextColor(...COLORS.charcoal);
+    doc.text(label, ml, y);
+    y += 5;
   }
 
   function bodyText(text: string) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(CHARCOAL);
-    const lines = doc.splitTextToSize(sanitize(text), cw);
+    doc.setTextColor(...COLORS.textSecondary);
+    const lines = doc.splitTextToSize(sanitize(text), cw - 4);
     for (const line of lines) {
-      checkPage(8);
-      doc.text(line, ml, y);
-      y += 4.5;
+      checkPage(7);
+      doc.text(line, ml + 2, y);
+      y += 4.2;
     }
-    y += 3;
+    y += 2;
   }
 
   function bulletList(text: string) {
-    const items = toBulletLines(text);
+    const items = toBulletItems(text);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(CHARCOAL);
+    doc.setTextColor(...COLORS.textSecondary);
     for (const item of items) {
-      const wrapped = doc.splitTextToSize(item, cw - 4);
-      for (const wl of wrapped) {
-        checkPage(8);
-        doc.text(wl, ml + 2, y);
-        y += 4.5;
+      checkPage(7);
+      // Bullet dot
+      doc.setFillColor(...COLORS.accent);
+      doc.circle(ml + 4, y - 1.2, 0.8, "F");
+      // Text
+      const wrapped = doc.splitTextToSize(item, cw - 12);
+      for (let i = 0; i < wrapped.length; i++) {
+        if (i > 0) checkPage(7);
+        doc.text(wrapped[i], ml + 8, y);
+        y += 4.2;
       }
     }
-    y += 3;
+    y += 2;
   }
 
-  function thinLine() {
-    doc.setDrawColor(BORDER_GRAY);
-    doc.setLineWidth(0.3);
-    doc.line(ml, y, pw - mr, y);
-    y += 4;
+  function keyValue(key: string, value: string | undefined | null, indent = ml + 2) {
+    if (!value) return;
+    checkPage(10);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COLORS.textMuted);
+    doc.text(key, indent, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.textPrimary);
+    const valX = indent + 40;
+    const lines = doc.splitTextToSize(sanitize(value), pw - mr - valX);
+    doc.text(lines, valX, y);
+    y += Math.max(lines.length * 4.2, 5) + 1;
   }
 
-  // ── PAGE 1: COVER / HEADER ──────────────────────────────────
-  // Top red accent stripe
-  doc.setFillColor(RED_ACCENT);
+  // ═══════════════════════════════════════════════════════════════
+  // PAGE 1: HEADER (matches quotation/PO style)
+  // ═══════════════════════════════════════════════════════════════
+
+  // Top accent stripe
+  doc.setFillColor(...COLORS.accent);
   doc.rect(0, 0, pw, 4, "F");
+  doc.setFillColor(200, 28, 28);
+  doc.rect(0, 4, pw, 1, "F");
 
-  // Header bar
-  doc.setFillColor(CHARCOAL);
-  doc.rect(0, 4, pw, 38, "F");
+  y = 14;
 
-  // Logo or company name
+  // Logo (left) — same pattern as quotations
   if (logoBase64) {
     try {
-      doc.addImage(logoBase64, "PNG", ml, 8, 30, 30, undefined, "FAST");
+      doc.addImage(logoBase64, "PNG", ml, y - 2, 32, 28, undefined, "FAST");
     } catch {
-      // fallback to text
+      doc.setTextColor(...COLORS.charcoal);
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text(company?.company_name || "Company", ml, y + 10);
+    }
+  } else {
+    doc.setTextColor(...COLORS.charcoal);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(company?.company_name || "Company", ml, y + 10);
+  }
+
+  // Company details (right) — matches quotation style exactly
+  const rightX = pw - mr;
+  let contactY = y;
+
+  if (company) {
+    doc.setTextColor(...COLORS.textSecondary);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(company.company_name, rightX, contactY, { align: "right" });
+    contactY += 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.textMuted);
+    if (company.address) {
+      doc.text(company.address, rightX, contactY, { align: "right" });
+      contactY += 4;
+    }
+    if (company.city || company.postcode) {
+      doc.text(`${company.city || ""} ${company.postcode || ""}`.trim(), rightX, contactY, { align: "right" });
+      contactY += 4;
+    }
+    if (company.phone) {
+      doc.text(`T: ${company.phone}`, rightX, contactY, { align: "right" });
+      contactY += 4;
+    }
+    if (company.email) {
+      doc.text(`E: ${company.email}`, rightX, contactY, { align: "right" });
     }
   }
 
-  const titleX = logoBase64 ? ml + 35 : ml;
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text("RISK ASSESSMENT &", titleX, 17);
-  doc.text("METHOD STATEMENT", titleX, 25);
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(document.rams_number, titleX, 33);
-  doc.text(`Version ${document.version}`, pw - mr, 33, { align: "right" });
-
-  // Bottom red accent stripe under header
-  doc.setFillColor(RED_ACCENT);
-  doc.rect(0, 42, pw, 2, "F");
-
-  y = 50;
+  // Separator line
+  y = 48;
+  doc.setDrawColor(...COLORS.border);
+  doc.setLineWidth(0.5);
+  doc.line(ml, y, pw - mr, y);
+  y += 6;
 
   // Document title
-  doc.setTextColor(CHARCOAL);
-  doc.setFontSize(14);
+  doc.setTextColor(...COLORS.charcoal);
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("RISK ASSESSMENT & METHOD STATEMENT", ml, y + 2);
+
+  doc.setTextColor(...COLORS.accent);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text(document.rams_number, ml, y + 9);
+
+  doc.setTextColor(...COLORS.textMuted);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Version ${document.version}`, ml + 50, y + 9);
+
+  y += 16;
+
+  // Title
+  doc.setTextColor(...COLORS.textPrimary);
+  doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   const titleLines = doc.splitTextToSize(document.title, cw);
   doc.text(titleLines, ml, y);
-  y += titleLines.length * 6 + 4;
+  y += titleLines.length * 5.5 + 4;
 
-  // ── DOCUMENT INFORMATION TABLE ──────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // DOCUMENT INFORMATION
+  // ═══════════════════════════════════════════════════════════════
+
   sectionHeader("Document Information");
 
   const infoRows: string[][] = [];
@@ -187,8 +287,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     infoRows.push(["Site:", document.site.name]);
     if (document.site.address) infoRows.push(["Address:", document.site.address]);
   }
-  const statusLabel = document.status.replace(/_/g, " ").toUpperCase();
-  infoRows.push(["Status:", statusLabel]);
+  infoRows.push(["Status:", document.status.replace(/_/g, " ").toUpperCase()]);
   if (document.review_date) {
     infoRows.push(["Review Date:", format(new Date(document.review_date), "dd/MM/yyyy")]);
   }
@@ -199,28 +298,37 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     startY: y,
     body: infoRows,
     theme: "plain",
-    styles: { fontSize: 9, cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 }, textColor: [28, 28, 32] },
+    styles: { fontSize: 9, cellPadding: { top: 1.8, bottom: 1.8, left: 3, right: 3 }, textColor: COLORS.textPrimary },
     columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 35, textColor: [28, 28, 32] },
+      0: { fontStyle: "bold", cellWidth: 35, textColor: COLORS.textMuted },
       1: { cellWidth: "auto" },
     },
     margin: { left: ml, right: mr },
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── SITE-SPECIFIC HAZARDS ───────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // SITE-SPECIFIC HAZARDS
+  // ═══════════════════════════════════════════════════════════════
+
   if (document.site_specific_hazards) {
-    sectionHeader("Site-Specific Hazards", RED_ACCENT);
+    sectionHeader("Site-Specific Hazards", true);
     bulletList(document.site_specific_hazards);
   }
 
-  // ── SITE ACCESS NOTES ───────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // SITE ACCESS NOTES
+  // ═══════════════════════════════════════════════════════════════
+
   if (document.site_access_notes) {
     sectionHeader("Site Access Notes");
     bulletList(document.site_access_notes);
   }
 
-  // ── RISK ASSESSMENT ─────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // RISK ASSESSMENT TABLE
+  // ═══════════════════════════════════════════════════════════════
+
   sectionHeader("Risk Assessment");
 
   const hazardHead = [
@@ -230,11 +338,11 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     String(i + 1),
     sanitize(h.hazard),
     sanitize(h.who_affected).replace(/\n/g, ", "),
-    sanitize(h.existing_controls).replace(/\n/g, "; "),
+    sanitize(h.existing_controls).replace(/\n/g, "\n"),
     String(h.likelihood),
     String(h.severity),
     h.risk_level,
-    sanitize(h.additional_controls).replace(/\n/g, "; "),
+    sanitize(h.additional_controls).replace(/\n/g, "\n"),
     String(h.residual_likelihood),
     String(h.residual_severity),
     h.residual_risk,
@@ -246,42 +354,48 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     body: hazardRows,
     theme: "grid",
     headStyles: {
-      fillColor: [28, 28, 32],
-      textColor: [255, 255, 255],
-      fontSize: 7,
+      fillColor: COLORS.charcoal,
+      textColor: COLORS.white,
+      fontSize: 7.5,
       fontStyle: "bold",
       halign: "center",
-      cellPadding: 1.5,
+      cellPadding: 2,
     },
-    styles: { fontSize: 7, cellPadding: 1.5, textColor: [28, 28, 32], lineColor: [209, 213, 219], lineWidth: 0.2 },
-    alternateRowStyles: { fillColor: [245, 245, 245] },
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 2,
+      textColor: COLORS.textPrimary,
+      lineColor: COLORS.borderDark,
+      lineWidth: 0.2,
+    },
+    alternateRowStyles: { fillColor: COLORS.bgLight },
     columnStyles: {
-      0: { cellWidth: 7, halign: "center", fontStyle: "bold" },
-      1: { cellWidth: 22 },
-      2: { cellWidth: 18 },
-      3: { cellWidth: 30 },
-      4: { cellWidth: 7, halign: "center" },
-      5: { cellWidth: 7, halign: "center" },
-      6: { cellWidth: 14, halign: "center", fontStyle: "bold" },
-      7: { cellWidth: 30 },
-      8: { cellWidth: 7, halign: "center" },
-      9: { cellWidth: 7, halign: "center" },
-      10: { cellWidth: 14, halign: "center", fontStyle: "bold" },
+      0: { cellWidth: 8, halign: "center", fontStyle: "bold" },
+      1: { cellWidth: 32 },
+      2: { cellWidth: 24 },
+      3: { cellWidth: 45 },
+      4: { cellWidth: 8, halign: "center" },
+      5: { cellWidth: 8, halign: "center" },
+      6: { cellWidth: 16, halign: "center", fontStyle: "bold" },
+      7: { cellWidth: 45 },
+      8: { cellWidth: 8, halign: "center" },
+      9: { cellWidth: 8, halign: "center" },
+      10: { cellWidth: 16, halign: "center", fontStyle: "bold" },
     },
     margin: { left: ml, right: mr },
     didParseCell: (data) => {
       if ((data.column.index === 6 || data.column.index === 10) && data.section === "body") {
         const val = String(data.cell.raw);
-        if (val === "Low") data.cell.styles.textColor = [22, 163, 74];
-        else if (val === "Medium") data.cell.styles.textColor = [202, 138, 4];
-        else if (val === "High") data.cell.styles.textColor = [234, 88, 12];
-        else if (val === "Very High") data.cell.styles.textColor = [220, 38, 38];
+        data.cell.styles.textColor = riskColor(val);
       }
     },
   });
   y = (doc as any).lastAutoTable.finalY + 8;
 
-  // ── METHOD STATEMENT ────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // METHOD STATEMENT
+  // ═══════════════════════════════════════════════════════════════
+
   sectionHeader("Method Statement");
 
   const methodHead = [["Step", "Description", "Responsible Person", "Equipment Required"]];
@@ -298,81 +412,115 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     body: methodRows,
     theme: "grid",
     headStyles: {
-      fillColor: [28, 28, 32],
-      textColor: [255, 255, 255],
-      fontSize: 8,
+      fillColor: COLORS.charcoal,
+      textColor: COLORS.white,
+      fontSize: 8.5,
       fontStyle: "bold",
-      cellPadding: 2,
+      cellPadding: 2.5,
     },
-    styles: { fontSize: 8, cellPadding: 2, textColor: [28, 28, 32], lineColor: [209, 213, 219], lineWidth: 0.2 },
-    alternateRowStyles: { fillColor: [245, 245, 245] },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 2.5,
+      textColor: COLORS.textPrimary,
+      lineColor: COLORS.borderDark,
+      lineWidth: 0.2,
+    },
+    alternateRowStyles: { fillColor: COLORS.bgLight },
     columnStyles: {
-      0: { cellWidth: 12, halign: "center", fontStyle: "bold" },
+      0: { cellWidth: 14, halign: "center", fontStyle: "bold" },
       1: { cellWidth: "auto" },
-      2: { cellWidth: 32 },
-      3: { cellWidth: 35 },
+      2: { cellWidth: 45 },
+      3: { cellWidth: 50 },
     },
     margin: { left: ml, right: mr },
   });
   y = (doc as any).lastAutoTable.finalY + 8;
 
-  // ── PPE REQUIREMENTS ────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // PPE REQUIREMENTS
+  // ═══════════════════════════════════════════════════════════════
+
   if (document.ppe_requirements.length > 0) {
     sectionHeader("Personal Protective Equipment (PPE)");
 
-    // Render as a neat grid
-    const ppePerRow = 4;
+    const ppePerRow = 5; // landscape gives more width
     const ppeColW = cw / ppePerRow;
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(CHARCOAL);
+    doc.setTextColor(...COLORS.textPrimary);
+
     for (let i = 0; i < document.ppe_requirements.length; i++) {
       const col = i % ppePerRow;
-      const row = Math.floor(i / ppePerRow);
-      if (col === 0 && i > 0) y += 6;
+      if (col === 0 && i > 0) y += 7;
       if (col === 0) checkPage(12);
       const x = ml + col * ppeColW;
-      doc.text(`[x]  ${document.ppe_requirements[i]}`, x, y);
+
+      // Checkbox style
+      doc.setDrawColor(...COLORS.borderDark);
+      doc.setLineWidth(0.3);
+      doc.rect(x, y - 3.5, 4, 4);
+      doc.setFillColor(...COLORS.accent);
+      // Tick mark
+      doc.setDrawColor(...COLORS.accent);
+      doc.setLineWidth(0.6);
+      doc.line(x + 0.8, y - 1.5, x + 1.6, y - 0.5);
+      doc.line(x + 1.6, y - 0.5, x + 3.2, y - 2.8);
+
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...COLORS.textPrimary);
+      doc.text(document.ppe_requirements[i], x + 6, y);
     }
     y += 10;
   }
 
-  // ── EMERGENCY PROCEDURES ────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // EMERGENCY PROCEDURES
+  // ═══════════════════════════════════════════════════════════════
+
   if (document.emergency_procedures) {
-    sectionHeader("Emergency Procedures", RED_ACCENT);
+    sectionHeader("Emergency Procedures", true);
     bodyText(document.emergency_procedures);
   }
 
-  // ── SIGNATURES ──────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // SIGNATURES
+  // ═══════════════════════════════════════════════════════════════
+
   sectionHeader("Signatures & Approval");
 
-  const sigW = (cw - 10) / 3;
-  const sigH = 28;
+  const sigW = (cw - 20) / 3;
+  const sigH = 26;
 
-  const sigLabels = ["Prepared By", "Reviewed By", document.client_name ? `Client (${document.client_name})` : "Client"];
+  const sigLabels = [
+    "Prepared By",
+    "Reviewed By",
+    document.client_name ? `Client (${document.client_name})` : "Client",
+  ];
   const sigs = [document.preparer_signature, document.reviewer_signature, document.client_signature];
   const sigDates = [document.preparer_signed_at, document.reviewer_signed_at, document.client_signed_at];
 
-  checkPage(sigH + 20);
+  checkPage(sigH + 22);
 
   for (let i = 0; i < 3; i++) {
-    const x = ml + i * (sigW + 5);
+    const x = ml + i * (sigW + 10);
 
     // Label
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(CHARCOAL);
+    doc.setTextColor(...COLORS.textMuted);
     doc.text(sigLabels[i], x, y);
 
-    // Box
-    doc.setDrawColor(BORDER_GRAY);
+    // Box with subtle fill
+    doc.setFillColor(...COLORS.bgLight);
+    doc.setDrawColor(...COLORS.borderDark);
     doc.setLineWidth(0.3);
-    doc.rect(x, y + 2, sigW, sigH);
+    doc.roundedRect(x, y + 2, sigW, sigH, 1, 1, "FD");
 
     // Signature image
     if (sigs[i]) {
       try {
-        doc.addImage(sigs[i]!, "PNG", x + 2, y + 4, sigW - 4, sigH - 10, undefined, "FAST");
+        doc.addImage(sigs[i]!, "PNG", x + 3, y + 4, sigW - 6, sigH - 10, undefined, "FAST");
       } catch {
         // skip
       }
@@ -382,7 +530,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     if (sigDates[i]) {
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(MID_GRAY);
+      doc.setTextColor(...COLORS.textMuted);
       doc.text(
         `Signed: ${format(new Date(sigDates[i]!), "dd/MM/yyyy HH:mm")}`,
         x,
@@ -393,35 +541,43 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
 
   y += sigH + 12;
 
-  // ── FOOTER ON ALL PAGES ─────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // FOOTER ON ALL PAGES (uniform with quotations/POs)
+  // ═══════════════════════════════════════════════════════════════
+
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
 
-    // Bottom red stripe
-    doc.setFillColor(RED_ACCENT);
-    doc.rect(0, ph - 14, pw, 2, "F");
+    // Bottom accent stripe
+    doc.setFillColor(...COLORS.accent);
+    doc.rect(0, ph - 12, pw, 1.5, "F");
 
-    // Footer text
+    // Footer separator
+    doc.setDrawColor(...COLORS.border);
+    doc.setLineWidth(0.2);
+    doc.line(ml, ph - 14, pw - mr, ph - 14);
+
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(MID_GRAY);
+    doc.setTextColor(...COLORS.textMuted);
 
-    const footerLeft = `${document.rams_number}  |  Version ${document.version}  |  Generated ${format(new Date(), "dd/MM/yyyy HH:mm")}`;
-    const footerRight = `Page ${i} of ${totalPages}`;
-
-    doc.text(footerLeft, ml, ph - 6);
-    doc.text(footerRight, pw - mr, ph - 6, { align: "right" });
-
-    // Company details
-    if (company) {
-      const companyLine = [company.company_name, company.phone, company.email, company.website]
-        .filter(Boolean)
-        .join("  |  ");
-      doc.text(companyLine, pw / 2, ph - 6, { align: "center" });
+    // Left: registration
+    const regLine = [company?.registration_number ? `Reg: ${company.registration_number}` : null, company?.vat_number ? `VAT: ${company.vat_number}` : null]
+      .filter(Boolean)
+      .join("  |  ");
+    if (regLine) {
+      doc.text(regLine, ml, ph - 7);
     }
+
+    // Centre: doc ref
+    const centreLine = `${document.rams_number}  |  Version ${document.version}  |  Generated ${format(new Date(), "dd/MM/yyyy HH:mm")}`;
+    doc.text(centreLine, pw / 2, ph - 7, { align: "center" });
+
+    // Right: page number
+    doc.text(`Page ${i} of ${totalPages}`, pw - mr, ph - 7, { align: "right" });
   }
 
-  // ── SAVE ────────────────────────────────────────────────────
+  // ─── SAVE ──────────────────────────────────────────────────────
   doc.save(`${document.rams_number}.pdf`);
 }
