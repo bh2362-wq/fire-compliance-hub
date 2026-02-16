@@ -416,7 +416,13 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className="cursor-pointer hover:border-destructive/50 transition-colors"
+            onClick={() => {
+              setFilters({ customer: "", status: "overdue", search: "" });
+              setFiltersOpen(true);
+            }}
+          >
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -442,7 +448,13 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className="cursor-pointer hover:border-destructive/50 transition-colors"
+            onClick={() => {
+              setFilters({ customer: "", status: "overdue", search: "" });
+              setFiltersOpen(true);
+            }}
+          >
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
