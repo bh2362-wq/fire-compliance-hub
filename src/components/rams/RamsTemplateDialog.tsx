@@ -72,6 +72,8 @@ export function RamsTemplateDialog({ open, onOpenChange, template }: RamsTemplat
   const [methodStatements, setMethodStatements] = useState<MethodStatement[]>([]);
   const [ppeRequirements, setPpeRequirements] = useState<string[]>([]);
   const [emergencyProcedures, setEmergencyProcedures] = useState("");
+  const [siteSpecificHazards, setSiteSpecificHazards] = useState("");
+  const [siteAccessNotes, setSiteAccessNotes] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -83,6 +85,8 @@ export function RamsTemplateDialog({ open, onOpenChange, template }: RamsTemplat
         setMethodStatements(template.method_statements.length > 0 ? template.method_statements : [{ ...emptyMethod }]);
         setPpeRequirements(template.ppe_requirements);
         setEmergencyProcedures(template.emergency_procedures || "");
+        setSiteSpecificHazards(template.site_specific_hazards || "");
+        setSiteAccessNotes(template.site_access_notes || "");
       } else {
         setName("");
         setDescription("");
@@ -91,6 +95,8 @@ export function RamsTemplateDialog({ open, onOpenChange, template }: RamsTemplat
         setMethodStatements([{ ...emptyMethod }]);
         setPpeRequirements([]);
         setEmergencyProcedures("");
+        setSiteSpecificHazards("");
+        setSiteAccessNotes("");
       }
     }
   }, [open, template]);
@@ -131,6 +137,8 @@ export function RamsTemplateDialog({ open, onOpenChange, template }: RamsTemplat
       method_statements: methodStatements.map((m, i) => ({ ...m, step_number: i + 1 })),
       ppe_requirements: ppeRequirements,
       emergency_procedures: emergencyProcedures.trim() || null,
+      site_specific_hazards: siteSpecificHazards.trim() || null,
+      site_access_notes: siteAccessNotes.trim() || null,
       created_by: user.id,
     };
 
@@ -375,6 +383,24 @@ export function RamsTemplateDialog({ open, onOpenChange, template }: RamsTemplat
                   onChange={(e) => setEmergencyProcedures(e.target.value)}
                   placeholder="Describe emergency procedures..."
                   rows={6}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Default Site-Specific Hazards</Label>
+                <Textarea
+                  value={siteSpecificHazards}
+                  onChange={(e) => setSiteSpecificHazards(e.target.value)}
+                  placeholder="Default site-specific hazards to pre-fill..."
+                  rows={4}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Default Site Access Notes</Label>
+                <Textarea
+                  value={siteAccessNotes}
+                  onChange={(e) => setSiteAccessNotes(e.target.value)}
+                  placeholder="Default site access notes to pre-fill..."
+                  rows={4}
                 />
               </div>
             </TabsContent>
