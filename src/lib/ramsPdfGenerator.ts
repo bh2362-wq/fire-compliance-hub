@@ -135,35 +135,37 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
   }
 
   function bodyText(text: string) {
-    doc.setFontSize(9);
+    doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...COLORS.textSecondary);
-    const lines = doc.splitTextToSize(sanitize(text), cw - 4);
+    const lines = doc.splitTextToSize(sanitize(text), cw - 6);
     for (const line of lines) {
-      checkPage(7);
-      doc.text(line, ml + 2, y);
-      y += 4.2;
+      checkPage(9);
+      doc.text(line, ml + 4, y);
+      y += 5.5;
     }
-    y += 2;
+    y += 3;
   }
 
   function bulletList(text: string) {
     const items = toBulletItems(text);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...COLORS.textSecondary);
     for (const item of items) {
-      checkPage(7);
-      // Bullet dot
-      doc.setFillColor(...COLORS.accent);
-      doc.circle(ml + 4, y - 1.2, 0.8, "F");
-      // Text
-      const wrapped = doc.splitTextToSize(item, cw - 12);
+      checkPage(10);
+      // Black filled bullet disc
+      doc.setFillColor(0, 0, 0);
+      doc.circle(ml + 5, y - 1.5, 1, "F");
+      // 12pt Arial text
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...COLORS.textPrimary);
+      const wrapped = doc.splitTextToSize(item, cw - 14);
       for (let i = 0; i < wrapped.length; i++) {
-        if (i > 0) checkPage(7);
-        doc.text(wrapped[i], ml + 8, y);
-        y += 4.2;
+        if (i > 0) checkPage(9);
+        doc.text(wrapped[i], ml + 10, y);
+        y += 5.5;
       }
+      // Spacing after each bullet point
+      y += 3;
     }
     y += 2;
   }
