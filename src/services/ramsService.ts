@@ -33,6 +33,8 @@ export interface RamsTemplate {
   method_statements: MethodStatement[];
   ppe_requirements: string[];
   emergency_procedures: string | null;
+  site_specific_hazards: string | null;
+  site_access_notes: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -149,6 +151,8 @@ export async function createRamsTemplate(
       method_statements: template.method_statements as unknown as Json,
       ppe_requirements: template.ppe_requirements,
       emergency_procedures: template.emergency_procedures,
+      site_specific_hazards: template.site_specific_hazards,
+      site_access_notes: template.site_access_notes,
       created_by: template.created_by,
     })
     .select()

@@ -2603,6 +2603,8 @@ export type Database = {
           name: string
           ppe_requirements: string[] | null
           service_type: string | null
+          site_access_notes: string | null
+          site_specific_hazards: string | null
           updated_at: string
         }
         Insert: {
@@ -2616,6 +2618,8 @@ export type Database = {
           name: string
           ppe_requirements?: string[] | null
           service_type?: string | null
+          site_access_notes?: string | null
+          site_specific_hazards?: string | null
           updated_at?: string
         }
         Update: {
@@ -2629,6 +2633,8 @@ export type Database = {
           name?: string
           ppe_requirements?: string[] | null
           service_type?: string | null
+          site_access_notes?: string | null
+          site_specific_hazards?: string | null
           updated_at?: string
         }
         Relationships: []

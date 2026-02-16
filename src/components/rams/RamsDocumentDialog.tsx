@@ -157,8 +157,8 @@ export function RamsDocumentDialog({
         setMethodStatements(templateToUse.method_statements.length > 0 ? templateToUse.method_statements : [{ ...emptyMethod }]);
         setPpeRequirements(templateToUse.ppe_requirements);
         setEmergencyProcedures(templateToUse.emergency_procedures || "");
-        setSiteSpecificHazards("");
-        setSiteAccessNotes("");
+        setSiteSpecificHazards(templateToUse.site_specific_hazards || "");
+        setSiteAccessNotes(templateToUse.site_access_notes || "");
         setStatus("draft");
         setReviewDate(format(addMonths(new Date(), 12), "yyyy-MM-dd"));
         setPreparerSignature(null);
@@ -196,6 +196,8 @@ export function RamsDocumentDialog({
       setMethodStatements(template.method_statements.length > 0 ? template.method_statements : [{ ...emptyMethod }]);
       setPpeRequirements(template.ppe_requirements);
       setEmergencyProcedures(template.emergency_procedures || "");
+      setSiteSpecificHazards(template.site_specific_hazards || "");
+      setSiteAccessNotes(template.site_access_notes || "");
       if (!title) setTitle(template.name);
     }
   };
