@@ -19,7 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Building2, MapPin, Cpu, MoreHorizontal, Plus, Pencil, Trash2, Upload, Loader2, Eye } from "lucide-react";
+import { Building2, MapPin, Cpu, MoreHorizontal, Plus, Pencil, Trash2, Upload, Loader2, Eye, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Site, getSites, deleteSite } from "@/services/siteService";
 import SiteFormDialog from "./SiteFormDialog";
 import DeviceImportDialog from "./DeviceImportDialog";
@@ -34,6 +35,7 @@ const statusConfig = {
 
 const SitesTable = () => {
   const [sites, setSites] = useState<Site[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -105,10 +107,21 @@ const SitesTable = () => {
               {sites.length} site{sites.length !== 1 ? "s" : ""} managed
             </p>
           </div>
-          <Button variant="hero" size="sm" onClick={handleAddSite}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Site
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search sites..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-64"
+              />
+            </div>
+            <Button variant="hero" size="sm" onClick={handleAddSite}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Site
+            </Button>
+          </div>
         </div>
 
         {sites.length === 0 ? (
@@ -136,7 +149,19 @@ const SitesTable = () => {
 
             {/* Table body */}
             <div className="divide-y divide-border">
-              {sites.map((site) => {
+              {sites
+                .filter((site) => {
+                  if (!searchQuery.trim()) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    site.name.toLowerCase().includes(q) ||
+                    site.address?.toLowerCase().includes(q) ||
+                    site.city?.toLowerCase().includes(q) ||
+                    site.postcode?.toLowerCase().includes(q) ||
+                    site.contact_name?.toLowerCase().includes(q)
+                  );
+                })
+                .map((site) => {
                 const status = statusConfig[site.status as keyof typeof statusConfig] || statusConfig.active;
                 return (
                   <div
