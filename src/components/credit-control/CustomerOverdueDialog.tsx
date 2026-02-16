@@ -322,8 +322,8 @@ export function CustomerOverdueDialog({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="invoices" className="flex-1 min-h-0 overflow-y-auto mt-4">
-              <div className="border rounded-md">
+            <TabsContent value="invoices" className="flex-1 min-h-0 mt-4">
+              <div className="border rounded-md overflow-auto max-h-[50vh]">
                 <Table>
                   <TableHeader>
                     <TableRow>
