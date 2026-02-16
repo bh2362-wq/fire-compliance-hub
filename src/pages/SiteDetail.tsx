@@ -7,6 +7,7 @@ import SiteReconciliationHistory from "@/components/sites/SiteReconciliationHist
 import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
 import { SiteServiceReports } from "@/components/sites/SiteServiceReports";
 import { SiteAssets } from "@/components/sites/SiteAssets";
+import { SiteRamsDocuments } from "@/components/sites/SiteRamsDocuments";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
@@ -266,6 +267,11 @@ const SiteDetail = () => {
         {/* Device Inventory */}
         <CollapsibleSection title="Device Inventory" icon={Cpu} defaultOpen={false}>
           <DeviceInventory siteId={site.id} onImportClick={() => setImportOpen(true)} />
+        </CollapsibleSection>
+
+        {/* RAMS Documents */}
+        <CollapsibleSection title="RAMS Documents" icon={HardHat} defaultOpen={false}>
+          <SiteRamsDocuments siteId={site.id} />
         </CollapsibleSection>
 
         {/* Service Reports */}
