@@ -216,14 +216,14 @@ export const FeedbackFormDialog = ({ open, onOpenChange, feedback }: FeedbackFor
             <div className="space-y-2">
               <Label>Channel</Label>
               <Select
-                value={formData.channel}
-                onValueChange={(value) => setFormData({ ...formData, channel: value })}
+                value={formData.channel || "none"}
+                onValueChange={(value) => setFormData({ ...formData, channel: value === "none" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="How was it received?" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Not specified</SelectItem>
+                  <SelectItem value="none">Not specified</SelectItem>
                   {CHANNELS.map((channel) => (
                     <SelectItem key={channel.value} value={channel.value}>
                       {channel.label}
@@ -258,14 +258,14 @@ export const FeedbackFormDialog = ({ open, onOpenChange, feedback }: FeedbackFor
             <div className="space-y-2">
               <Label>Customer</Label>
               <Select
-                value={formData.customer_id}
-                onValueChange={(value) => setFormData({ ...formData, customer_id: value, site_id: "" })}
+                value={formData.customer_id || "none"}
+                onValueChange={(value) => setFormData({ ...formData, customer_id: value === "none" ? "" : value, site_id: "" })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No customer</SelectItem>
+                  <SelectItem value="none">No customer</SelectItem>
                   {customers.map((customer) => (
                     <SelectItem key={customer.id} value={customer.id}>
                       {customer.name}
@@ -278,14 +278,14 @@ export const FeedbackFormDialog = ({ open, onOpenChange, feedback }: FeedbackFor
             <div className="space-y-2">
               <Label>Site</Label>
               <Select
-                value={formData.site_id}
-                onValueChange={(value) => setFormData({ ...formData, site_id: value })}
+                value={formData.site_id || "none"}
+                onValueChange={(value) => setFormData({ ...formData, site_id: value === "none" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select site" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No site</SelectItem>
+                  <SelectItem value="none">No site</SelectItem>
                   {filteredSites.map((site) => (
                     <SelectItem key={site.id} value={site.id}>
                       {site.name}

@@ -541,14 +541,14 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                       <div className="space-y-2">
                         <Label>Customer</Label>
                         <Select
-                          value={filters.customer}
-                          onValueChange={(value) => setFilters({ ...filters, customer: value })}
+                          value={filters.customer || "all"}
+                          onValueChange={(value) => setFilters({ ...filters, customer: value === "all" ? "" : value })}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="All customers" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">All customers</SelectItem>
+                            <SelectItem value="all">All customers</SelectItem>
                             {uniqueCustomers.map((customer) => (
                               <SelectItem key={customer} value={customer}>
                                 {customer}
@@ -560,14 +560,14 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                       <div className="space-y-2">
                         <Label>Status</Label>
                         <Select
-                          value={filters.status}
-                          onValueChange={(value) => setFilters({ ...filters, status: value })}
+                          value={filters.status || "all"}
+                          onValueChange={(value) => setFilters({ ...filters, status: value === "all" ? "" : value })}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="All statuses" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">All statuses</SelectItem>
+                            <SelectItem value="all">All statuses</SelectItem>
                             <SelectItem value="overdue">Overdue</SelectItem>
                             <SelectItem value="current">Current</SelectItem>
                             <SelectItem value="AUTHORISED">Authorised</SelectItem>

@@ -172,14 +172,14 @@ export const AuditFormDialog = ({ open, onOpenChange, audit }: AuditFormDialogPr
           <div className="space-y-2">
             <Label>Department/Area</Label>
             <Select
-              value={formData.auditee_department}
-              onValueChange={(value) => setFormData({ ...formData, auditee_department: value })}
+              value={formData.auditee_department || "none"}
+              onValueChange={(value) => setFormData({ ...formData, auditee_department: value === "none" ? "" : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select department (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Departments</SelectItem>
+                <SelectItem value="none">All Departments</SelectItem>
                 {DEPARTMENTS.map((dept) => (
                   <SelectItem key={dept} value={dept}>
                     {dept}
