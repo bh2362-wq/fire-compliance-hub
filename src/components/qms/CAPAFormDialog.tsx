@@ -193,14 +193,14 @@ export const CAPAFormDialog = ({
           <div className="space-y-2">
             <Label>Linked NCR</Label>
             <Select
-              value={formData.ncr_id}
-              onValueChange={(value) => setFormData({ ...formData, ncr_id: value })}
+              value={formData.ncr_id || "none"}
+              onValueChange={(value) => setFormData({ ...formData, ncr_id: value === "none" ? "" : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select NCR (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No linked NCR</SelectItem>
+                <SelectItem value="none">No linked NCR</SelectItem>
                 {ncrs?.filter(n => n.status !== 'closed').map((ncr) => (
                   <SelectItem key={ncr.id} value={ncr.id}>
                     {ncr.ncr_number} - {ncr.title}
