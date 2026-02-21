@@ -286,7 +286,7 @@ export function CustomerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden p-0">
+      <DialogContent className="max-w-lg max-h-[90vh] !flex !flex-col overflow-hidden p-0">
         <div className="px-6 pt-6 pb-2">
           <DialogHeader>
             <DialogTitle>
