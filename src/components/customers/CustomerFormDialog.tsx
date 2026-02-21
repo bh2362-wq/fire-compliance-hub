@@ -286,19 +286,20 @@ export function CustomerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
-        <ScrollArea className="flex-1 overflow-y-auto pr-4">
-          <div className="space-y-4">
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Edit Customer" : "Add Customer"}
-          </DialogTitle>
-          <DialogDescription>
-            {isEditing 
-              ? "Update the customer details below." 
-              : "Enter customer details or import from Xero."}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden p-0">
+        <div className="px-6 pt-6 pb-2">
+          <DialogHeader>
+            <DialogTitle>
+              {isEditing ? "Edit Customer" : "Add Customer"}
+            </DialogTitle>
+            <DialogDescription>
+              {isEditing 
+                ? "Update the customer details below." 
+                : "Enter customer details or import from Xero."}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
 
         {/* Xero Sync Section */}
         {!isEditing && hasXeroConnection && (
@@ -610,8 +611,7 @@ export function CustomerFormDialog({
             </div>
           </form>
         </Form>
-          </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
