@@ -34,6 +34,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Loader2, Users, Link2, Plus, Check, ChevronsUpDown, PoundSterling } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Customer, createCustomer, updateCustomer, createXeroContact } from "@/services/customerService";
 import { fetchXeroContacts, getXeroConnection, XeroContact } from "@/services/xeroService";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
@@ -285,7 +286,9 @@ export function CustomerFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+        <ScrollArea className="flex-1 overflow-y-auto pr-4">
+          <div className="space-y-4">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Edit Customer" : "Add Customer"}
@@ -607,6 +610,8 @@ export function CustomerFormDialog({
             </div>
           </form>
         </Form>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
