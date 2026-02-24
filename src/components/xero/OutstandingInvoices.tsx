@@ -24,7 +24,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck, Pencil, ExternalLink, MoreHorizontal } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck, Pencil, ExternalLink, MoreHorizontal, FileSpreadsheet } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -118,6 +120,9 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
   const [isApproving, setIsApproving] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<EditInvoiceData | null>(null);
   const [fetchingEditInvoice, setFetchingEditInvoice] = useState<string | null>(null);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
+  const [showBulkApproveConfirm, setShowBulkApproveConfirm] = useState(false);
   const [filters, setFilters] = useState<InvoiceFilters>({
     customer: "",
     status: "",
@@ -316,6 +321,78 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
     setFilters({ customer: "", status: "", search: "" });
   };
 
+  // Bulk selection helpers
+  const draftInvoices = useMemo(() => filteredInvoices.filter(inv => inv.status === "DRAFT"), [filteredInvoices]);
+
+  const toggleSelectInvoice = (invoiceId: string) => {
+    setSelectedInvoiceIds(prev => {
+      const next = new Set(prev);
+      if (next.has(invoiceId)) next.delete(invoiceId);
+      else next.add(invoiceId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedInvoiceIds.size === draftInvoices.length && draftInvoices.length > 0) {
+      setSelectedInvoiceIds(new Set());
+    } else {
+      setSelectedInvoiceIds(new Set(draftInvoices.map(inv => inv.invoiceId)));
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    setIsBulkApproving(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const invoiceId of selectedInvoiceIds) {
+      try {
+        await approveInvoice(invoiceId);
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+
+    toast({
+      title: "Bulk Approve Complete",
+      description: `${successCount} approved${failCount > 0 ? `, ${failCount} failed` : ""}`,
+      variant: failCount > 0 ? "destructive" : "default",
+    });
+
+    setSelectedInvoiceIds(new Set());
+    setShowBulkApproveConfirm(false);
+    setIsBulkApproving(false);
+    fetchOutstandingInvoices();
+  };
+
+  const handleExportExcel = () => {
+    if (filteredInvoices.length === 0) {
+      toast({ title: "No data to export", variant: "destructive" });
+      return;
+    }
+
+    const rows = filteredInvoices.map((inv) => ({
+      "Invoice #": inv.invoiceNumber,
+      "Customer": inv.contactName,
+      "Reference": inv.reference || "",
+      "Date": formatDate(inv.date),
+      "Due Date": formatDate(inv.dueDate),
+      "Total": inv.total,
+      "Amount Due": inv.amountDue,
+      "Amount Paid": inv.amountPaid,
+      "Status": inv.isOverdue ? "Overdue" : inv.status,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Invoices");
+    XLSX.writeFile(wb, `invoices-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+
+    toast({ title: "Export Complete", description: `Exported ${filteredInvoices.length} invoices to Excel` });
+  };
+
   const handleExport = () => {
     if (filteredInvoices.length === 0) {
       toast({
@@ -504,6 +581,17 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                 </TabsList>
 
                 <div className="flex items-center gap-2">
+                  {selectedInvoiceIds.size > 0 && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => setShowBulkApproveConfirm(true)}
+                      className="gap-2"
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      Approve Selected ({selectedInvoiceIds.size})
+                    </Button>
+                  )}
                   <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
                     <CollapsibleTrigger asChild>
                       <Button variant="outline" size="sm" className="gap-2">
@@ -518,9 +606,13 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                       </Button>
                     </CollapsibleTrigger>
                   </Collapsible>
+                  <Button variant="outline" size="sm" onClick={handleExportExcel} className="gap-2">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Excel
+                  </Button>
                   <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
                     <Download className="h-4 w-4" />
-                    Export
+                    CSV
                   </Button>
                 </div>
               </div>
@@ -599,6 +691,13 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-[40px]">
+                            <Checkbox
+                              checked={draftInvoices.length > 0 && selectedInvoiceIds.size === draftInvoices.length}
+                              onCheckedChange={toggleSelectAll}
+                              aria-label="Select all draft invoices"
+                            />
+                          </TableHead>
                           <TableHead>Invoice #</TableHead>
                           <TableHead>Customer</TableHead>
                           <TableHead>Reference</TableHead>
@@ -612,6 +711,15 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                       <TableBody>
                         {filteredInvoices.map((invoice) => (
                           <TableRow key={invoice.invoiceId}>
+                            <TableCell>
+                              {invoice.status === "DRAFT" ? (
+                                <Checkbox
+                                  checked={selectedInvoiceIds.has(invoice.invoiceId)}
+                                  onCheckedChange={() => toggleSelectInvoice(invoice.invoiceId)}
+                                  aria-label={`Select invoice ${invoice.invoiceNumber}`}
+                                />
+                              ) : null}
+                            </TableCell>
                             <TableCell className="font-medium">
                               {invoice.invoiceNumber}
                             </TableCell>
@@ -899,6 +1007,39 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                 <>
                   <ShieldCheck className="mr-2 h-4 w-4" />
                   Approve & Send
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Approve Confirmation Dialog */}
+      <AlertDialog open={showBulkApproveConfirm} onOpenChange={setShowBulkApproveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bulk Approve Invoices</AlertDialogTitle>
+            <AlertDialogDescription>
+              Approve and send <strong>{selectedInvoiceIds.size}</strong> draft invoice{selectedInvoiceIds.size !== 1 ? "s" : ""}?
+              <br /><br />
+              Each invoice will be authorised in Xero and automatically emailed to the customer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkApproving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkApprove}
+              disabled={isBulkApproving}
+            >
+              {isBulkApproving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Approve All ({selectedInvoiceIds.size})
                 </>
               )}
             </AlertDialogAction>
