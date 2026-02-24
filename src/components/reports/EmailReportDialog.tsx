@@ -278,6 +278,39 @@ export function EmailReportDialog({
         toast.success(
           `Report sent to ${summary.sent} recipient${summary.sent > 1 ? "s" : ""}`
         );
+
+        // Save any new emails back to customer for future use
+        if (customerId) {
+          try {
+            const { data: custData } = await supabase
+              .from("customers")
+              .select("report_email_recipients, email_recipients")
+              .eq("id", customerId)
+              .single();
+
+            if (custData) {
+              const existingEmails = (custData.report_email_recipients || custData.email_recipients || "")
+                .split(",")
+                .map((e: string) => e.trim().toLowerCase())
+                .filter(Boolean);
+
+              const newEmails = recipients
+                .map(e => e.trim().toLowerCase())
+                .filter(e => e && !existingEmails.includes(e));
+
+              if (newEmails.length > 0) {
+                const updatedList = [...existingEmails, ...newEmails].join(", ");
+                await supabase
+                  .from("customers")
+                  .update({ report_email_recipients: updatedList })
+                  .eq("id", customerId);
+                console.log("Saved new email recipients to customer:", newEmails);
+              }
+            }
+          } catch (saveErr) {
+            console.log("Could not save new emails to customer:", saveErr);
+          }
+        }
       }
       if (summary.failed > 0) {
         toast.error(
