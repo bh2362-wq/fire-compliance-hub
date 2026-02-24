@@ -371,7 +371,8 @@ export function QuotationDetailDialog({
     try {
       const totalAmount = lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
 
-      // Update quotation with all fields
+      // Update quotation with all fields and re-lock it
+      const { data: { user } } = await supabase.auth.getUser();
       const { error: quotationError } = await supabase
         .from("quotations")
         .update({ 
@@ -383,6 +384,9 @@ export function QuotationDetailDialog({
           terms,
           vat_rate: vatRate,
           valid_until: validUntil || null,
+          status: "sent",
+          locked_at: new Date().toISOString(),
+          locked_by: user?.id || null,
         })
         .eq("id", quotationId);
 
