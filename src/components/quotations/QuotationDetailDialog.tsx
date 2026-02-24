@@ -470,6 +470,70 @@ export function QuotationDetailDialog({
       setHasChanges(false);
       onUpdate?.();
       fetchQuotation();
+
+      // Sync PDF to SharePoint in background
+      try {
+        const companySettings = await getCompanySettings();
+        const pdfData = buildPDFData();
+        
+        let baseFolderPath: string | null = null;
+
+        // Try report-linked folder first
+        const { data: reportLink } = await supabase
+          .from("quotations")
+          .select("report_id")
+          .eq("id", quotationId)
+          .single();
+
+        if (reportLink?.report_id) {
+          const { data: report } = await supabase
+            .from("service_reports")
+            .select("sharepoint_folder, report_number, visits(visit_date)")
+            .eq("id", reportLink.report_id)
+            .single();
+          if (report?.sharepoint_folder) {
+            const visitDate = (report as any).visits?.visit_date;
+            const reportNum = report.report_number || "DRAFT";
+            const dateStr = visitDate ? format(new Date(visitDate), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
+            baseFolderPath = `${report.sharepoint_folder}/${reportNum}_${dateStr}/Quotations`;
+          }
+        }
+
+        // Fallback to site-level folder
+        if (!baseFolderPath) {
+          const { data: siteData } = await supabase
+            .from("sites")
+            .select("sharepoint_folder, name, address")
+            .eq("id", quotation.site_id)
+            .single();
+          if (siteData?.sharepoint_folder) {
+            baseFolderPath = `${siteData.sharepoint_folder}/Quotations`;
+          } else if (siteData && quotation.customers?.name) {
+            const siteLabel = [siteData.name, siteData.address].filter(Boolean).join(" ");
+            const siteFolderPath = `Customers/${quotation.customers.name}/${siteLabel}`;
+            const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
+              body: { folderPath: `${siteFolderPath}/Quotations`, entityType: "folder_only", entityId: quotation.site_id },
+            });
+            if (!spError && spData?.success) {
+              await supabase.from("sites").update({ sharepoint_folder: siteFolderPath }).eq("id", quotation.site_id);
+              baseFolderPath = `${siteFolderPath}/Quotations`;
+            }
+          }
+        }
+
+        if (baseFolderPath) {
+          const pdfBase64 = await generateQuotationPDF(pdfData, companySettings || undefined, true, columnOptions);
+          if (pdfBase64) {
+            const pdfFileName = `${quotation.quotation_number} - ${quotation.sites?.name || 'Site'}.pdf`;
+            await supabase.functions.invoke("upload-to-sharepoint", {
+              body: { folderPath: baseFolderPath, fileName: pdfFileName, fileBase64: pdfBase64, contentType: "application/pdf" },
+            });
+            console.log("Quotation PDF synced to SharePoint after save:", baseFolderPath);
+          }
+        }
+      } catch (spErr) {
+        console.log("SharePoint sync after save skipped:", spErr);
+      }
     } catch (error) {
       console.error("Error saving quotation:", error);
       toast.error("Failed to save quotation");

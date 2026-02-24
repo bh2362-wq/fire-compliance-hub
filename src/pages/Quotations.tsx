@@ -221,6 +221,20 @@ const Quotations = () => {
     if (!quotationToDelete) return;
     setDeleting(true);
     try {
+      // Delete SharePoint file if it exists
+      if (quotationToDelete.sharepoint_folder) {
+        try {
+          const fileName = `${quotationToDelete.quotation_number} - ${quotationToDelete.sites?.name || "Site"}.pdf`;
+          // Delete the specific file from SharePoint by path
+          await supabase.functions.invoke("sharepoint-delete-folder", {
+            body: { folderPath: `${quotationToDelete.sharepoint_folder}/${fileName}` },
+          });
+          console.log("Deleted quotation PDF from SharePoint");
+        } catch (spErr) {
+          console.log("SharePoint delete skipped:", spErr);
+        }
+      }
+
       const { error } = await supabase
         .from("quotations")
         .delete()
