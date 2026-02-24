@@ -116,7 +116,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         )}
       </div>
 
-      {/* Navigation */}
+      {/* Navigation - categorized */}
       <nav className="p-3 space-y-1 pb-20">
         {/* Core */}
         {coreNavigation.map((item) => (
