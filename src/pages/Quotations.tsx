@@ -83,7 +83,7 @@ interface QuotationWithDetails {
   sharepoint_url: string | null;
   sharepoint_folder: string | null;
   sites: { name: string; address?: string | null; city?: string | null; postcode?: string | null; customer_id?: string | null } | null;
-  customers: { name: string; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; address?: string | null; city?: string | null; postcode?: string | null } | null;
+  customers: { name: string; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; address?: string | null; city?: string | null; postcode?: string | null; quote_email_recipients?: string | null; email_recipients?: string | null } | null;
   service_reports: { report_number: string } | null;
 }
 
@@ -154,7 +154,7 @@ const Quotations = () => {
         .select(`
           *,
           sites:site_id(name, address, city, postcode, customer_id),
-          customers:customer_id(name, contact_name, contact_email, contact_phone, address, city, postcode),
+          customers:customer_id(name, contact_name, contact_email, contact_phone, address, city, postcode, quote_email_recipients, email_recipients),
           service_reports:report_id(report_number)
         `)
         .order("created_at", { ascending: false });
@@ -252,7 +252,7 @@ const Quotations = () => {
       if (!customer && quotation.sites?.customer_id) {
         const { data: custData } = await supabase
           .from("customers")
-          .select("name, contact_name, contact_email, contact_phone, address, city, postcode")
+          .select("name, contact_name, contact_email, contact_phone, address, city, postcode, quote_email_recipients, email_recipients")
           .eq("id", quotation.sites.customer_id)
           .single();
         customer = custData;
@@ -878,6 +878,7 @@ const Quotations = () => {
             acceptance_token: (quotationToEmail as any).acceptance_token || null,
           }}
           customerEmail={quotationToEmail.customers?.contact_email || ""}
+          defaultRecipients={quotationToEmail.customers?.quote_email_recipients || quotationToEmail.customers?.email_recipients || ""}
           customerName={quotationToEmail.customers?.contact_name || quotationToEmail.customers?.name || ""}
           pdfData={emailPdfData}
           columnOptions={{

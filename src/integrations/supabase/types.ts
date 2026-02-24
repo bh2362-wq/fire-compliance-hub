@@ -620,9 +620,12 @@ export type Database = {
           created_at: string
           email_recipients: string | null
           id: string
+          invoice_email_recipients: string | null
           name: string
           notes: string | null
           postcode: string | null
+          quote_email_recipients: string | null
+          report_email_recipients: string | null
           sharepoint_folder: string | null
           sharepoint_url: string | null
           status: string | null
@@ -640,9 +643,12 @@ export type Database = {
           created_at?: string
           email_recipients?: string | null
           id?: string
+          invoice_email_recipients?: string | null
           name: string
           notes?: string | null
           postcode?: string | null
+          quote_email_recipients?: string | null
+          report_email_recipients?: string | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
           status?: string | null
@@ -660,9 +666,12 @@ export type Database = {
           created_at?: string
           email_recipients?: string | null
           id?: string
+          invoice_email_recipients?: string | null
           name?: string
           notes?: string | null
           postcode?: string | null
+          quote_email_recipients?: string | null
+          report_email_recipients?: string | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
           status?: string | null
