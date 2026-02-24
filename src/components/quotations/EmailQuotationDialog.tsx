@@ -307,6 +307,40 @@ export function EmailQuotationDialog({
         .eq("id", quotation.id);
 
       toast.success(`Quotation sent to ${recipientList.length} recipient(s)`);
+
+      // Save any new emails back to customer for future use
+      if (quotation.customer_id) {
+        try {
+          const { data: custData } = await supabase
+            .from("customers")
+            .select("quote_email_recipients, email_recipients")
+            .eq("id", quotation.customer_id)
+            .single();
+
+          if (custData) {
+            const existingEmails = (custData.quote_email_recipients || custData.email_recipients || "")
+              .split(",")
+              .map((e: string) => e.trim().toLowerCase())
+              .filter(Boolean);
+
+            const newEmails = recipientList
+              .map(e => e.trim().toLowerCase())
+              .filter(e => e && !existingEmails.includes(e));
+
+            if (newEmails.length > 0) {
+              const updatedList = [...existingEmails, ...newEmails].join(", ");
+              await supabase
+                .from("customers")
+                .update({ quote_email_recipients: updatedList })
+                .eq("id", quotation.customer_id);
+              console.log("Saved new quote email recipients to customer:", newEmails);
+            }
+          }
+        } catch (saveErr) {
+          console.log("Could not save new emails to customer:", saveErr);
+        }
+      }
+
       onSuccess?.();
       onOpenChange(false);
     } catch (error) {
