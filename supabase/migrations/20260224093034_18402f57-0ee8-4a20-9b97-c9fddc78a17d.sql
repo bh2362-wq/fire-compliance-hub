@@ -1,0 +1,1 @@
+UPDATE company_settings SET address = 'St Georges Business Park, Castle Rd', city = 'Sittingbourne', postcode = 'ME10 3TB';

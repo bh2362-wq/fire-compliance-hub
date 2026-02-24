@@ -11,6 +11,7 @@ interface RewriteRequest {
   type: "defects" | "recommendations" | "works" | "comments" | "quotation_items";
   context?: string;
   generateRecommendations?: boolean;
+  generateQuotationMeta?: boolean;
 }
 
 serve(async (req) => {
@@ -24,7 +25,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const { text, type, generateRecommendations } = (await req.json()) as RewriteRequest;
+    const { text, type, generateRecommendations, generateQuotationMeta } = (await req.json()) as RewriteRequest;
 
     if (!text || !text.trim()) {
       return new Response(
@@ -146,8 +147,52 @@ ${text}`;
       }
     }
 
+    // Generate quotation title and summary from line items
+    let suggestedTitle: string | null = null;
+    let suggestedSummary: string | null = null;
+    if (generateQuotationMeta && type === "quotation_items") {
+      const metaPrompt = `You are a professional fire safety engineer at BHO Fire Ltd. Based on the following quotation line items, generate:
+1. A concise quotation title (max 8 words) - use terminology like: Fire Alarm Service & Maintenance, Emergency Lighting Installation, Fire Detection System Upgrade, Detector Replacement Works, Fire Alarm Remedial Works, Panel Upgrade & Commissioning, Weekly Fire Alarm Testing, Fire Risk Assessment Remedial Works, Smoke Detection System Installation, etc.
+2. A professional scope of works summary (2-3 sentences) describing the works - use fire safety engineering terminology consistent with BS5839 standards.
+
+STRICT RULES:
+- Title should be short and descriptive, like a job sheet title
+- Summary should read like a professional scope of works
+- NO markdown or special formatting
+- Return ONLY valid JSON in this exact format: {"title": "...", "summary": "..."}
+
+Line Items:
+${rewrittenText}`;
+
+      const metaResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [{ role: "user", content: metaPrompt }],
+          max_tokens: 200,
+        }),
+      });
+
+      if (metaResponse.ok) {
+        const metaData = await metaResponse.json();
+        const metaText = metaData.choices?.[0]?.message?.content?.trim() || "";
+        try {
+          const cleaned = metaText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+          const parsed = JSON.parse(cleaned);
+          suggestedTitle = parsed.title || null;
+          suggestedSummary = parsed.summary || null;
+        } catch {
+          console.error("Failed to parse meta JSON:", metaText);
+        }
+      }
+    }
+
     return new Response(
-      JSON.stringify({ rewrittenText, generatedRecommendations }),
+      JSON.stringify({ rewrittenText, generatedRecommendations, suggestedTitle, suggestedSummary }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

@@ -315,6 +315,7 @@ export function QuotationDetailDialog({
         body: {
           text: descriptions,
           type: "quotation_items",
+          generateQuotationMeta: true,
         },
       });
       if (error) throw error;
@@ -332,7 +333,16 @@ export function QuotationDetailDialog({
         });
         setLineItems(updated);
         setHasChanges(true);
-        toast.success("Descriptions improved with AI");
+
+        // Auto-fill title and summary if empty or update them
+        if (data.suggestedTitle) {
+          setTitle(data.suggestedTitle);
+        }
+        if (data.suggestedSummary) {
+          setSummary(data.suggestedSummary);
+        }
+
+        toast.success("Descriptions, title and scope improved with AI");
       }
     } catch (error) {
       console.error("AI improve error:", error);
