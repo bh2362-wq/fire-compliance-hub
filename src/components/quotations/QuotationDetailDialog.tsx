@@ -8,7 +8,17 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Plus, Save, PoundSterling, FileDown, Mail, User, Sparkles, Merge } from "lucide-react";
+import { Loader2, Trash2, Plus, Save, PoundSterling, FileDown, Mail, User, Sparkles, Merge, LockOpen } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
@@ -107,6 +117,8 @@ export function QuotationDetailDialog({
   const [hasChanges, setHasChanges] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
   
   // Editable fields
   const [quotationNumber, setQuotationNumber] = useState("");
@@ -522,6 +534,43 @@ export function QuotationDetailDialog({
     }
   };
 
+  const handleUnlockQuotation = async () => {
+    if (!quotation) return;
+    setUnlocking(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      await supabase
+        .from("quotations")
+        .update({ 
+          locked_at: null,
+          locked_by: null,
+          status: "recalled",
+        })
+        .eq("id", quotationId);
+
+      // Log the unlock action
+      if (user) {
+        await supabase.from("audit_logs").insert({
+          user_id: user.id,
+          entity_type: "quotation",
+          entity_id: quotationId,
+          action: "unlock_quotation",
+          details: { quotation_number: quotation.quotation_number },
+        });
+      }
+
+      setQuotation(prev => prev ? { ...prev, locked_at: null, locked_by: null, status: "recalled" } : null);
+      toast.success("Quotation unlocked for editing");
+      setUnlockDialogOpen(false);
+    } catch (error) {
+      console.error("Error unlocking quotation:", error);
+      toast.error("Failed to unlock quotation");
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
   const handleGeneratePDF = async () => {
     if (!quotation) return;
 
@@ -673,9 +722,15 @@ export function QuotationDetailDialog({
                     {quotation.status}
                   </Badge>
                   {isLocked && (
-                    <Badge variant="secondary">
-                      🔒 Locked
-                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => setUnlockDialogOpen(true)}
+                    >
+                      <LockOpen className="h-3 w-3" />
+                      🔒 Unlock Quote
+                    </Button>
                   )}
                 </>
               )}
@@ -1334,6 +1389,33 @@ export function QuotationDetailDialog({
           }}
         />
       )}
+
+      <AlertDialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unlock Quotation</AlertDialogTitle>
+            <AlertDialogDescription>
+              This quotation is currently locked. Unlocking it will set the status to "recalled" and allow you to make changes. You can re-lock it by sending or downloading the PDF.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUnlockQuotation} disabled={unlocking}>
+              {unlocking ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Unlocking...
+                </>
+              ) : (
+                <>
+                  <LockOpen className="mr-2 h-4 w-4" />
+                  Unlock Quote
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
