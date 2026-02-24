@@ -44,6 +44,7 @@ interface EmailQuotationDialogProps {
     acceptance_token?: string | null;
   };
   customerEmail: string;
+  defaultRecipients?: string;
   customerName?: string;
   pdfData: QuotationData;
   columnOptions: PDFColumnOptions;
@@ -55,6 +56,7 @@ export function EmailQuotationDialog({
   onOpenChange,
   quotation,
   customerEmail,
+  defaultRecipients,
   customerName,
   pdfData,
   columnOptions,
@@ -72,10 +74,11 @@ export function EmailQuotationDialog({
 
   useEffect(() => {
     if (open) {
-      setRecipients(customerEmail);
+      const allRecipients = [customerEmail, defaultRecipients].filter(Boolean).join(", ");
+      setRecipients(allRecipients || "");
       loadTemplatesAndDefaults();
     }
-  }, [open, customerEmail, quotation]);
+  }, [open, customerEmail, defaultRecipients, quotation]);
 
   const loadTemplatesAndDefaults = async () => {
     setLoadingTemplates(true);

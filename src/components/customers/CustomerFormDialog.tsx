@@ -53,6 +53,9 @@ const customerSchema = z.object({
   postcode: z.string().optional(),
   notes: z.string().optional(),
   email_recipients: z.string().optional(),
+  invoice_email_recipients: z.string().optional(),
+  quote_email_recipients: z.string().optional(),
+  report_email_recipients: z.string().optional(),
 });
 
 type CustomerFormData = z.infer<typeof customerSchema>;
@@ -94,6 +97,9 @@ export function CustomerFormDialog({
       postcode: customer?.postcode || "",
       notes: customer?.notes || "",
       email_recipients: (customer as any)?.email_recipients || "",
+      invoice_email_recipients: (customer as any)?.invoice_email_recipients || "",
+      quote_email_recipients: (customer as any)?.quote_email_recipients || "",
+      report_email_recipients: (customer as any)?.report_email_recipients || "",
     },
   });
 
@@ -134,6 +140,9 @@ export function CustomerFormDialog({
         postcode: customer?.postcode || "",
         notes: customer?.notes || "",
         email_recipients: (customer as any)?.email_recipients || "",
+        invoice_email_recipients: (customer as any)?.invoice_email_recipients || "",
+        quote_email_recipients: (customer as any)?.quote_email_recipients || "",
+        report_email_recipients: (customer as any)?.report_email_recipients || "",
       });
       setSelectedXeroContact("");
       setSearchQuery("");
@@ -251,6 +260,9 @@ export function CustomerFormDialog({
       postcode: data.postcode || null,
       notes: data.notes || null,
       email_recipients: data.email_recipients || null,
+      invoice_email_recipients: data.invoice_email_recipients || null,
+      quote_email_recipients: data.quote_email_recipients || null,
+      report_email_recipients: data.report_email_recipients || null,
       status: "active",
       ...(xeroContactId && { xero_contact_id: xeroContactId }),
     };
@@ -558,25 +570,84 @@ export function CustomerFormDialog({
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="email_recipients"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Default Report Recipients</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="email1@company.com, email2@company.com"
-                      {...field}
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Comma-separated email addresses for automatic report delivery
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Default Email Recipients by Type */}
+            <div className="border border-border rounded-lg p-4 space-y-4">
+              <p className="text-sm font-medium text-foreground">Default Email Recipients</p>
+              <p className="text-xs text-muted-foreground -mt-2">
+                Set default recipients per document type. These will pre-populate the "To" field when sending.
+              </p>
+
+              <FormField
+                control={form.control}
+                name="invoice_email_recipients"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Invoice Emails</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="accounts@company.com, finance@company.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="quote_email_recipients"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quotation Emails</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="procurement@company.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="report_email_recipients"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Job Report Emails</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="facilities@company.com, manager@company.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="email_recipients"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>General / Fallback Recipients</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="info@company.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Used when no type-specific recipients are set
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}

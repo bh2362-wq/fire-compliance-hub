@@ -151,12 +151,12 @@ export function DisabledRefugeReportDialog({
       // Load site with customer info including stored signature
       const { data: siteData } = await supabase
         .from("sites")
-         .select("id, name, address, city, contact_email, customer_id, customers(id, name, client_signature, contact_name, contact_email, email_recipients, xero_contact_id)")
+         .select("id, name, address, city, contact_email, customer_id, customers(id, name, client_signature, contact_name, contact_email, email_recipients, report_email_recipients, xero_contact_id)")
         .eq("id", visit.site_id)
         .maybeSingle();
 
       if (siteData?.customers) {
-         const customer = siteData.customers as { id: string; name: string; client_signature: string | null; contact_name: string | null; contact_email: string | null; email_recipients: string | null; xero_contact_id: string | null };
+         const customer = siteData.customers as { id: string; name: string; client_signature: string | null; contact_name: string | null; contact_email: string | null; email_recipients: string | null; report_email_recipients: string | null; xero_contact_id: string | null };
         setCustomerId(customer.id);
         if (customer.client_signature) {
           setCustomerSignature(customer.client_signature);
@@ -164,8 +164,8 @@ export function DisabledRefugeReportDialog({
         if (customer.contact_name && !clientName) {
           setClientName(customer.contact_name);
         }
-        if (customer.email_recipients) {
-          setCustomerEmailRecipients(customer.email_recipients);
+        if (customer.report_email_recipients || customer.email_recipients) {
+          setCustomerEmailRecipients(customer.report_email_recipients || customer.email_recipients || "");
         }
          
          // Set customer info for invoice

@@ -53,13 +53,14 @@ export function BulkEmailJobsDialog({ open, onOpenChange, selectedVisits, onSucc
       // Get customer from first visit's site
       const { data: site } = await supabase
         .from("sites")
-        .select("customer_id, customers(name, contact_email, contact_name, email_recipients)")
+        .select("customer_id, customers(name, contact_email, contact_name, email_recipients, report_email_recipients)")
         .eq("id", selectedVisits[0].site_id)
         .maybeSingle();
 
       const customer = site?.customers as any;
       if (customer) {
-        const recipients = [customer.contact_email, customer.email_recipients].filter(Boolean).join(", ");
+        const typedRecipients = customer.report_email_recipients || customer.email_recipients;
+        const recipients = [customer.contact_email, typedRecipients].filter(Boolean).join(", ");
         setEmail(recipients || "");
         setCustomerName(customer.contact_name || customer.name || "");
       }

@@ -13,6 +13,9 @@ export interface Customer {
   status: string | null;
   xero_contact_id: string | null;
   email_recipients: string | null;
+  invoice_email_recipients: string | null;
+  quote_email_recipients: string | null;
+  report_email_recipients: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -83,6 +86,9 @@ export interface CreateCustomerData {
   status?: string;
   xero_contact_id?: string | null;
   email_recipients?: string | null;
+  invoice_email_recipients?: string | null;
+  quote_email_recipients?: string | null;
+  report_email_recipients?: string | null;
 }
 
 export async function createCustomer(customer: CreateCustomerData): Promise<{ customer: Customer | null; error: Error | null }> {

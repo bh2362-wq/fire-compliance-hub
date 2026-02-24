@@ -239,6 +239,36 @@ const CustomerDetail = () => {
                 !customer.address && (
                   <p className="text-sm text-muted-foreground">No contact details added</p>
                 )}
+              {/* Default Email Recipients */}
+              {((customer as any).invoice_email_recipients || (customer as any).quote_email_recipients || (customer as any).report_email_recipients || customer.email_recipients) && (
+                <div className="pt-3 mt-3 border-t border-border space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Default Email Recipients</p>
+                  {(customer as any).invoice_email_recipients && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Invoices:</span>{" "}
+                      <span className="text-foreground">{(customer as any).invoice_email_recipients}</span>
+                    </div>
+                  )}
+                  {(customer as any).quote_email_recipients && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Quotes:</span>{" "}
+                      <span className="text-foreground">{(customer as any).quote_email_recipients}</span>
+                    </div>
+                  )}
+                  {(customer as any).report_email_recipients && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Reports:</span>{" "}
+                      <span className="text-foreground">{(customer as any).report_email_recipients}</span>
+                    </div>
+                  )}
+                  {customer.email_recipients && !(customer as any).invoice_email_recipients && !(customer as any).quote_email_recipients && !(customer as any).report_email_recipients && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">General:</span>{" "}
+                      <span className="text-foreground">{customer.email_recipients}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 

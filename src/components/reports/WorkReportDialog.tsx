@@ -322,13 +322,13 @@ export function WorkReportDialog({
       // Fetch site info with customer details
       const { data: site } = await supabase
         .from("sites")
-        .select("id, name, address, city, postcode, contact_name, contact_email, customer_id, customers(id, name, xero_contact_id, contact_email, email_recipients)")
+        .select("id, name, address, city, postcode, contact_name, contact_email, customer_id, customers(id, name, xero_contact_id, contact_email, email_recipients, report_email_recipients)")
         .eq("id", visit.site_id)
         .maybeSingle();
 
       if (site) {
         // Get customer contact email if site doesn't have one
-        const customerData = site.customers as { id: string; name: string; xero_contact_id: string | null; contact_email?: string | null; email_recipients?: string | null } | null;
+        const customerData = site.customers as { id: string; name: string; xero_contact_id: string | null; contact_email?: string | null; email_recipients?: string | null; report_email_recipients?: string | null } | null;
         const contactEmail = site.contact_email || customerData?.contact_email || "";
         
         setSiteInfo({
@@ -347,7 +347,7 @@ export function WorkReportDialog({
             id: customerData.id,
             name: customerData.name,
             xero_contact_id: customerData.xero_contact_id,
-            email_recipients: customerData.email_recipients,
+            email_recipients: customerData.report_email_recipients || customerData.email_recipients,
           });
         }
       }
