@@ -175,8 +175,9 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) throw new Error("Not authenticated");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error("Not authenticated");
+      const user = session.user;
 
       let customerId = matchedCustomerId;
       let siteId = selectedSiteId;
@@ -226,7 +227,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
         vat_rate: vatRate,
         total_amount: total || 0,
         status: "draft",
-        created_by: userData.user.id,
+        created_by: user.id,
       }).select().single();
       if (quoteErr) throw quoteErr;
 
