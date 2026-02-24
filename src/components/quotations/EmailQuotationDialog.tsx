@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,12 @@ import {
   getDefaultTemplate,
   applyTemplate,
 } from "@/services/emailTemplateService";
+
+interface ContactSuggestion {
+  email: string;
+  name: string;
+  source: string;
+}
 
 interface EmailQuotationDialogProps {
   open: boolean;
@@ -72,13 +78,110 @@ export function EmailQuotationDialog({
   const [companyNameVal, setCompanyNameVal] = useState("");
   const [includeAcceptLink, setIncludeAcceptLink] = useState(!!quotation.acceptance_token);
 
+  // Email autocomplete state
+  const [allContacts, setAllContacts] = useState<ContactSuggestion[]>([]);
+  const [emailSuggestions, setEmailSuggestions] = useState<ContactSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (open) {
       const allRecipients = [customerEmail, defaultRecipients].filter(Boolean).join(", ");
       setRecipients(allRecipients || "");
       loadTemplatesAndDefaults();
+      loadContactEmails();
     }
   }, [open, customerEmail, defaultRecipients, quotation]);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node) &&
+          inputRef.current && !inputRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const loadContactEmails = async () => {
+    try {
+      const { data: customers } = await supabase
+        .from("customers")
+        .select("name, contact_name, contact_email, email_recipients, quote_email_recipients, invoice_email_recipients, report_email_recipients")
+        .order("name");
+
+      const contacts: ContactSuggestion[] = [];
+      const seen = new Set<string>();
+
+      for (const c of customers || []) {
+        if (c.contact_email && !seen.has(c.contact_email.toLowerCase())) {
+          seen.add(c.contact_email.toLowerCase());
+          contacts.push({ email: c.contact_email, name: c.contact_name || c.name, source: c.name });
+        }
+        // Parse comma-separated recipient fields
+        const recipientFields = [c.email_recipients, c.quote_email_recipients, c.invoice_email_recipients, c.report_email_recipients];
+        for (const field of recipientFields) {
+          if (field) {
+            for (const email of field.split(/[,;\s]+/).map((e: string) => e.trim()).filter(Boolean)) {
+              if (!seen.has(email.toLowerCase())) {
+                seen.add(email.toLowerCase());
+                contacts.push({ email, name: "", source: c.name });
+              }
+            }
+          }
+        }
+      }
+
+      // Also add site contacts
+      const { data: sites } = await supabase
+        .from("sites")
+        .select("name, contact_name, contact_email")
+        .not("contact_email", "is", null);
+
+      for (const s of sites || []) {
+        if (s.contact_email && !seen.has(s.contact_email.toLowerCase())) {
+          seen.add(s.contact_email.toLowerCase());
+          contacts.push({ email: s.contact_email, name: s.contact_name || "", source: s.name });
+        }
+      }
+
+      setAllContacts(contacts);
+    } catch (err) {
+      console.error("Failed to load contacts:", err);
+    }
+  };
+
+  const handleRecipientsChange = (value: string) => {
+    setRecipients(value);
+
+    // Get the current "word" being typed (after last comma/semicolon)
+    const parts = value.split(/[,;]/);
+    const currentPart = parts[parts.length - 1].trim().toLowerCase();
+
+    if (currentPart.length >= 2) {
+      const filtered = allContacts.filter(
+        (c) =>
+          c.email.toLowerCase().includes(currentPart) ||
+          c.name.toLowerCase().includes(currentPart) ||
+          c.source.toLowerCase().includes(currentPart)
+      );
+      setEmailSuggestions(filtered.slice(0, 8));
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectSuggestion = (suggestion: ContactSuggestion) => {
+    const parts = recipients.split(/[,;]/);
+    parts[parts.length - 1] = " " + suggestion.email;
+    setRecipients(parts.join(",").replace(/^,\s*/, "").trim() + ", ");
+    setShowSuggestions(false);
+    inputRef.current?.focus();
+  };
 
   const loadTemplatesAndDefaults = async () => {
     setLoadingTemplates(true);
@@ -250,16 +353,58 @@ export function EmailQuotationDialog({
             </div>
           )}
 
-          <div>
+          <div className="relative">
             <Label>Recipients</Label>
             <Input
+              ref={inputRef}
               value={recipients}
-              onChange={(e) => setRecipients(e.target.value)}
-              placeholder="email@company.com, email2@company.com"
+              onChange={(e) => handleRecipientsChange(e.target.value)}
+              onFocus={() => {
+                const parts = recipients.split(/[,;]/);
+                const currentPart = parts[parts.length - 1].trim().toLowerCase();
+                if (currentPart.length >= 2) {
+                  const filtered = allContacts.filter(
+                    (c) =>
+                      c.email.toLowerCase().includes(currentPart) ||
+                      c.name.toLowerCase().includes(currentPart) ||
+                      c.source.toLowerCase().includes(currentPart)
+                  );
+                  setEmailSuggestions(filtered.slice(0, 8));
+                  setShowSuggestions(filtered.length > 0);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowSuggestions(false);
+              }}
+              placeholder="email@company.com — start typing a name or email to search"
             />
             <p className="text-xs text-muted-foreground mt-1">
               Separate multiple emails with commas
             </p>
+
+            {showSuggestions && emailSuggestions.length > 0 && (
+              <div
+                ref={suggestionsRef}
+                className="absolute z-50 top-[calc(100%-1.25rem)] left-0 right-0 bg-popover border border-border rounded-md shadow-lg max-h-[200px] overflow-y-auto"
+              >
+                {emailSuggestions.map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="w-full text-left px-3 py-2 hover:bg-accent transition-colors flex items-center justify-between gap-2 border-b border-border/50 last:border-0"
+                    onClick={() => selectSuggestion(suggestion)}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium">{suggestion.email}</span>
+                      {suggestion.name && (
+                        <span className="text-xs text-muted-foreground ml-2">{suggestion.name}</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">{suggestion.source}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
