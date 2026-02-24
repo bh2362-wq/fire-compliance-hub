@@ -18,20 +18,29 @@ interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-const mainNavigation = [
+const coreNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Schedule", href: "/dashboard/schedule", icon: CalendarDays },
+  { name: "Visits", href: "/dashboard/visits", icon: ClipboardList },
+  { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
+  { name: "Uploads", href: "/dashboard/upload", icon: Upload },
+];
+
+const customersNavigation = [
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Sites", href: "/sites", icon: Building2 },
-  { name: "Visits", href: "/dashboard/visits", icon: ClipboardList },
-  { name: "Invoices", href: "/dashboard/invoices", icon: Receipt },
-  { name: "Uploads", href: "/dashboard/upload", icon: Upload },
-  { name: "Reconciliation", href: "/dashboard/reconciliation", icon: GitCompare },
-  { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
   { name: "Email Logs", href: "/dashboard/email-logs", icon: Mail },
-  { name: "Credit Control", href: "/dashboard/credit-control", icon: CreditCard },
+];
+
+const financeNavigation = [
+  { name: "Invoices", href: "/dashboard/invoices", icon: Receipt },
   { name: "Quotations", href: "/dashboard/quotations", icon: FileSpreadsheet },
+  { name: "Credit Control", href: "/dashboard/credit-control", icon: CreditCard },
   { name: "Purchase Orders", href: "/dashboard/purchase-orders", icon: ShoppingCart },
+  { name: "Reconciliation", href: "/dashboard/reconciliation", icon: GitCompare },
+];
+
+const toolsNavigation = [
   { name: "Email Scanner", href: "/dashboard/email-scanner", icon: ScanSearch },
   { name: "Device Pricing", href: "/dashboard/device-pricing", icon: Package },
   { name: "Product Lookup", href: "/dashboard/product-lookup", icon: Search },
@@ -55,6 +64,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [qmsOpen, setQmsOpen] = useState(false);
+  const [customersOpen, setCustomersOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
@@ -65,6 +77,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   }, [location.pathname]);
 
   const isQmsRoute = location.pathname.startsWith('/qms');
+  const isCustomersRoute = ['/customers', '/sites', '/dashboard/email-logs'].some(p => location.pathname.startsWith(p));
+  const isFinanceRoute = ['/dashboard/invoices', '/dashboard/quotations', '/dashboard/credit-control', '/dashboard/purchase-orders', '/dashboard/reconciliation'].some(p => location.pathname.startsWith(p));
+  const isToolsRoute = ['/dashboard/email-scanner', '/dashboard/device-pricing', '/dashboard/product-lookup'].some(p => location.pathname.startsWith(p));
   
   const handleSignOut = async () => {
     await signOut();
@@ -102,8 +117,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       </div>
 
       {/* Navigation */}
-      <nav className="p-3 space-y-1">
-        {mainNavigation.map((item) => (
+      <nav className="p-3 space-y-1 pb-20">
+        {/* Core */}
+        {coreNavigation.map((item) => (
           <NavLink
             key={item.name}
             to={item.href}
@@ -117,6 +133,111 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             {(!collapsed || isMobile) && <span>{item.name}</span>}
           </NavLink>
         ))}
+
+        {/* Customers & Sites */}
+        {(!collapsed || isMobile) ? (
+          <Collapsible open={customersOpen || isCustomersRoute} onOpenChange={setCustomersOpen}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all">
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 flex-shrink-0" />
+                <span>Customers</span>
+              </div>
+              <ChevronDown className={cn("w-4 h-4 transition-transform", (customersOpen || isCustomersRoute) && "rotate-180")} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pl-4 space-y-1 mt-1">
+              {customersNavigation.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.href}
+                  className={({ isActive }) => cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                    isActive ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                  )}
+                >
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
+                  <span>{item.name}</span>
+                </NavLink>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <NavLink to="/customers" className={({ isActive }) => cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+            isActive || isCustomersRoute ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          )}>
+            <Users className="w-5 h-5 flex-shrink-0" />
+          </NavLink>
+        )}
+
+        {/* Finance */}
+        {(!collapsed || isMobile) ? (
+          <Collapsible open={financeOpen || isFinanceRoute} onOpenChange={setFinanceOpen}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all">
+              <div className="flex items-center gap-3">
+                <Receipt className="w-5 h-5 flex-shrink-0" />
+                <span>Finance</span>
+              </div>
+              <ChevronDown className={cn("w-4 h-4 transition-transform", (financeOpen || isFinanceRoute) && "rotate-180")} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pl-4 space-y-1 mt-1">
+              {financeNavigation.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.href}
+                  className={({ isActive }) => cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                    isActive ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                  )}
+                >
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
+                  <span>{item.name}</span>
+                </NavLink>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <NavLink to="/dashboard/invoices" className={({ isActive }) => cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+            isActive || isFinanceRoute ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          )}>
+            <Receipt className="w-5 h-5 flex-shrink-0" />
+          </NavLink>
+        )}
+
+        {/* Tools */}
+        {(!collapsed || isMobile) ? (
+          <Collapsible open={toolsOpen || isToolsRoute} onOpenChange={setToolsOpen}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all">
+              <div className="flex items-center gap-3">
+                <Search className="w-5 h-5 flex-shrink-0" />
+                <span>Tools</span>
+              </div>
+              <ChevronDown className={cn("w-4 h-4 transition-transform", (toolsOpen || isToolsRoute) && "rotate-180")} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pl-4 space-y-1 mt-1">
+              {toolsNavigation.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.href}
+                  className={({ isActive }) => cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                    isActive ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                  )}
+                >
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
+                  <span>{item.name}</span>
+                </NavLink>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <NavLink to="/dashboard/email-scanner" className={({ isActive }) => cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+            isActive || isToolsRoute ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          )}>
+            <Search className="w-5 h-5 flex-shrink-0" />
+          </NavLink>
+        )}
 
         {/* QMS Section */}
         {(!collapsed || isMobile) ? (
@@ -146,13 +267,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </CollapsibleContent>
           </Collapsible>
         ) : (
-          <NavLink
-            to="/qms"
-            className={({ isActive }) => cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-              isActive || isQmsRoute ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-            )}
-          >
+          <NavLink to="/qms" className={({ isActive }) => cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+            isActive || isQmsRoute ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          )}>
             <Shield className="w-5 h-5 flex-shrink-0" />
           </NavLink>
         )}
