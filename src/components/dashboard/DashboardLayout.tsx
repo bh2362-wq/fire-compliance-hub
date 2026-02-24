@@ -96,7 +96,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const sidebarWidth = isMobile ? "w-72" : (collapsed ? "w-16" : "w-64");
 
   const sidebarContent = (
-    <>
+    <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border sticky top-0 bg-sidebar z-10">
         <div className="flex items-center gap-2">
@@ -117,7 +117,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       </div>
 
       {/* Navigation - categorized */}
-      <nav className="p-3 space-y-1 pb-20">
+      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
         {/* Core */}
         {coreNavigation.map((item) => (
           <NavLink
@@ -289,7 +289,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       </nav>
 
       {/* User section */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-sidebar-border">
+      <div className="shrink-0 p-3 border-t border-sidebar-border bg-sidebar">
         <div className={cn("flex items-center gap-3 p-2 rounded-lg", (collapsed && !isMobile) ? "justify-center" : "")}>
           <div className="w-9 h-9 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
             <span className="text-sm font-semibold text-sidebar-foreground">{userInitials}</span>
@@ -307,7 +307,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 
   return (
