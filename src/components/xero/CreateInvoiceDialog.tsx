@@ -198,7 +198,7 @@ export function CreateInvoiceDialog({
   const [selectedContact, setSelectedContact] = useState<string>("");
   const [poNumber, setPoNumber] = useState("");
   const [reference, setReference] = useState("");
-  const [dueDate, setDueDate] = useState<Date | undefined>(addDays(new Date(), 30));
+  const [dueDate, setDueDate] = useState<Date | undefined>(addDays(new Date(), 28));
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([
     { description: "", quantity: 1, unitAmount: 0 },
   ]);
@@ -209,7 +209,7 @@ export function CreateInvoiceDialog({
       loadContacts();
       loadServiceContract();
       // Reset due date to 30 days from now
-      setDueDate(addDays(new Date(), 30));
+      setDueDate(addDays(new Date(), 28));
       // Reset selected contact - will be auto-selected after contacts load
       setSelectedContact("");
     }
@@ -472,7 +472,7 @@ export function CreateInvoiceDialog({
                   {dueDate ? format(dueDate, "dd/MM/yyyy") : "Select date"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start" sideOffset={4}>
                 <Calendar
                   mode="single"
                   selected={dueDate}

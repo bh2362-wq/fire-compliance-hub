@@ -157,7 +157,7 @@ export function ManualInvoiceDialog({
   const [serviceType, setServiceType] = useState<string>("quarterly_service");
   const [poNumber, setPoNumber] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [dueDate, setDueDate] = useState<Date | undefined>(addDays(new Date(), 30));
+  const [dueDate, setDueDate] = useState<Date | undefined>(addDays(new Date(), 28));
   const [loadingInvoiceNumber, setLoadingInvoiceNumber] = useState(false);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
     SERVICE_TYPE_LINE_ITEMS.quarterly_service
@@ -200,7 +200,7 @@ export function ManualInvoiceDialog({
         setSelectedSite("");
         setPoNumber(editInvoice.reference || "");
         setInvoiceNumber(editInvoice.invoiceNumber);
-        setDueDate(editInvoice.dueDate ? new Date(editInvoice.dueDate) : addDays(new Date(), 30));
+        setDueDate(editInvoice.dueDate ? new Date(editInvoice.dueDate) : addDays(new Date(), 28));
         setLineItems(editInvoice.lineItems.length > 0 ? editInvoice.lineItems : SERVICE_TYPE_LINE_ITEMS.quarterly_service);
       } else {
         // New invoice mode
@@ -213,7 +213,7 @@ export function ManualInvoiceDialog({
           setServiceType(draft.serviceType);
           setPoNumber(draft.poNumber);
           setInvoiceNumber(draft.invoiceNumber);
-          setDueDate(draft.dueDate ? new Date(draft.dueDate) : addDays(new Date(), 30));
+          setDueDate(draft.dueDate ? new Date(draft.dueDate) : addDays(new Date(), 28));
           setLineItems(draft.lineItems.length > 0 ? draft.lineItems : SERVICE_TYPE_LINE_ITEMS.quarterly_service);
         } else {
           setHasDraft(false);
@@ -222,7 +222,7 @@ export function ManualInvoiceDialog({
           setSelectedSite("");
           setServiceType("quarterly_service");
           setPoNumber("");
-          setDueDate(addDays(new Date(), 30));
+          setDueDate(addDays(new Date(), 28));
           setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
           fetchNextInvoiceNumber();
         }
@@ -432,7 +432,7 @@ export function ManualInvoiceDialog({
     setSelectedSite("");
     setServiceType("quarterly_service");
     setPoNumber("");
-    setDueDate(addDays(new Date(), 30));
+    setDueDate(addDays(new Date(), 28));
     setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
     setInvoiceNumber("");
     fetchNextInvoiceNumber();
@@ -589,7 +589,7 @@ export function ManualInvoiceDialog({
                     {dueDate ? format(dueDate, "dd/MM/yyyy") : "Select date"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start" sideOffset={4}>
                   <Calendar
                     mode="single"
                     selected={dueDate}
