@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -345,6 +346,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </h1>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
+            <GlobalSearch />
             <button className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
               <Bell className="w-5 h-5" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
