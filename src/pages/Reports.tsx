@@ -79,6 +79,10 @@ const statusConfig: Record<string, { label: string; className: string }> = {
     label: "Completed",
     className: "bg-success/10 text-success border-success/20",
   },
+  locked: {
+    label: "Locked",
+    className: "bg-destructive/10 text-destructive border-destructive/20",
+  },
   draft: {
     label: "Draft",
     className: "bg-warning/10 text-warning border-warning/20",
@@ -954,7 +958,7 @@ const Reports = () => {
                             <ReceiptText className="w-4 h-4 mr-2" />
                             {(report as any).invoiced ? "Mark as Not Invoiced" : "Mark as Invoiced"}
                           </DropdownMenuItem>
-                          {report.status === "completed" ? (
+                          {(report.status === "completed" || report.status === "locked") ? (
                             <DropdownMenuItem
                               onClick={() => {
                                 setReportToUnlock(report);
