@@ -13,7 +13,7 @@ serve(async (req) => {
   try {
     const { emailContent, mode } = await req.json();
 
-    if (!emailContent || typeof emailContent !== 'string' || emailContent.length > 50000) {
+    if (!emailContent || typeof emailContent !== 'string' || emailContent.length > 200000) {
       return new Response(
         JSON.stringify({ error: 'Invalid email content' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
