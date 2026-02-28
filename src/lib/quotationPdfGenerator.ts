@@ -751,6 +751,13 @@ export async function generateQuotationPDF(
     return row;
   });
 
+  // Ensure enough room for section header + at least a few table rows
+  const pageHeightCheck = doc.internal.pageSize.getHeight();
+  if (yPos + 30 > pageHeightCheck - footerReserve) {
+    doc.addPage();
+    yPos = 15;
+  }
+
   // Line items section
   yPos = addSectionHeader(doc, "SCOPE OF WORKS", yPos, margin, pageWidth);
 
