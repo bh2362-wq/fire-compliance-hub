@@ -2276,6 +2276,7 @@ export type Database = {
           id: string
           item_name: string | null
           labour_cost: number | null
+          labour_included: boolean | null
           markup_percent: number | null
           notes: string | null
           parent_id: string | null
@@ -2297,6 +2298,7 @@ export type Database = {
           id?: string
           item_name?: string | null
           labour_cost?: number | null
+          labour_included?: boolean | null
           markup_percent?: number | null
           notes?: string | null
           parent_id?: string | null
@@ -2318,6 +2320,7 @@ export type Database = {
           id?: string
           item_name?: string | null
           labour_cost?: number | null
+          labour_included?: boolean | null
           markup_percent?: number | null
           notes?: string | null
           parent_id?: string | null
