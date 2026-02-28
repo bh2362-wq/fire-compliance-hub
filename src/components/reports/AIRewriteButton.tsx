@@ -1,8 +1,17 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, Undo2 } from "lucide-react";
+import { Sparkles, Loader2, Undo2, Check, X, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AIRewriteButtonProps {
   text: string;
@@ -25,47 +34,71 @@ export function AIRewriteButton({
 }: AIRewriteButtonProps) {
   const [loading, setLoading] = useState(false);
   const [originalText, setOriginalText] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewText, setPreviewText] = useState("");
+  const [previewRecommendations, setPreviewRecommendations] = useState<string | null>(null);
+  const [instructions, setInstructions] = useState("");
 
-  const handleRewrite = async () => {
-    if (!text.trim()) {
-      toast.error("Please enter some text first");
-      return;
-    }
-
+  const callAI = async (customInstructions?: string) => {
     setLoading(true);
-    setOriginalText(text);
-
     try {
+      const body: any = { text, type, generateRecommendations, context };
+      if (customInstructions?.trim()) {
+        body.customInstructions = customInstructions.trim();
+      }
+
       const { data, error } = await supabase.functions.invoke("rewrite-text", {
-        body: { text, type, generateRecommendations, context },
+        body,
       });
 
-      if (error) {
-        throw error;
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
 
       if (data.rewrittenText) {
-        onRewrite(data.rewrittenText);
-        toast.success("Text improved with AI");
-      }
-
-      // If recommendations were generated and callback provided, call it
-      if (data.generatedRecommendations && onRecommendationsGenerated) {
-        onRecommendationsGenerated(data.generatedRecommendations);
-        toast.success("Further action auto-filled based on work report");
+        setPreviewText(data.rewrittenText);
+        setPreviewRecommendations(data.generatedRecommendations || null);
+        setPreviewOpen(true);
       }
     } catch (error) {
       console.error("Rewrite error:", error);
       const message = error instanceof Error ? error.message : "Failed to rewrite text";
       toast.error(message);
-      setOriginalText(null);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRewrite = () => {
+    if (!text.trim()) {
+      toast.error("Please enter some text first");
+      return;
+    }
+    setOriginalText(text);
+    setInstructions("");
+    callAI();
+  };
+
+  const handleRetry = () => {
+    callAI(instructions);
+  };
+
+  const handleAccept = () => {
+    onRewrite(previewText);
+    toast.success("Text improved with AI");
+
+    if (previewRecommendations && onRecommendationsGenerated) {
+      onRecommendationsGenerated(previewRecommendations);
+      toast.success("Further action auto-filled based on work report");
+    }
+
+    setPreviewOpen(false);
+    setInstructions("");
+  };
+
+  const handleReject = () => {
+    setPreviewOpen(false);
+    setOriginalText(null);
+    setInstructions("");
   };
 
   const handleUndo = () => {
@@ -77,34 +110,113 @@ export function AIRewriteButton({
   };
 
   return (
-    <div className="flex items-center gap-1">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={handleRewrite}
-        disabled={disabled || loading || !text.trim()}
-        className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
-      >
-        {loading ? (
-          <Loader2 className="w-3 h-3 animate-spin mr-1" />
-        ) : (
-          <Sparkles className="w-3 h-3 mr-1" />
-        )}
-        {loading ? "Rewriting..." : "Improve with AI"}
-      </Button>
-      {originalText && !loading && (
+    <>
+      <div className="flex items-center gap-1">
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          onClick={handleUndo}
-          className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+          onClick={handleRewrite}
+          disabled={disabled || loading || !text.trim()}
+          className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
         >
-          <Undo2 className="w-3 h-3 mr-1" />
-          Undo
+          {loading ? (
+            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+          ) : (
+            <Sparkles className="w-3 h-3 mr-1" />
+          )}
+          {loading ? "Improving..." : "Improve with AI"}
         </Button>
-      )}
-    </div>
+        {originalText && !loading && !previewOpen && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleUndo}
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+          >
+            <Undo2 className="w-3 h-3 mr-1" />
+            Undo
+          </Button>
+        )}
+      </div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              AI Improvement Preview
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 space-y-4">
+            {/* Original vs Improved */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Original</p>
+                <ScrollArea className="h-[180px] border rounded-md p-3 bg-muted/30">
+                  <p className="text-sm whitespace-pre-wrap">{originalText}</p>
+                </ScrollArea>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-primary mb-1">Improved</p>
+                <ScrollArea className="h-[180px] border rounded-md p-3 border-primary/30 bg-primary/5">
+                  <p className="text-sm whitespace-pre-wrap">{previewText}</p>
+                </ScrollArea>
+              </div>
+            </div>
+
+            {/* Custom instructions for retry */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                Want changes? Tell the AI how to improve it:
+              </p>
+              <Textarea
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="e.g. Make it more formal, add BS5839 references, list all devices separately, shorten it..."
+                className="min-h-[60px] text-sm"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex-row gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReject}
+              className="gap-1"
+            >
+              <X className="h-4 w-4" />
+              Reject
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRetry}
+              disabled={loading}
+              className="gap-1"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              {instructions.trim() ? "Retry with Instructions" : "Retry"}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleAccept}
+              disabled={loading}
+              className="gap-1"
+            >
+              <Check className="h-4 w-4" />
+              Accept
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

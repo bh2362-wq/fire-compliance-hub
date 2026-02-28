@@ -10,6 +10,7 @@ interface RewriteRequest {
   text: string;
   type: "defects" | "recommendations" | "works" | "comments" | "quotation_items" | "quotation_title" | "quotation_summary";
   context?: string;
+  customInstructions?: string;
   generateRecommendations?: boolean;
   generateQuotationMeta?: boolean;
 }
@@ -25,7 +26,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const { text, type, context, generateRecommendations, generateQuotationMeta } = (await req.json()) as RewriteRequest;
+    const { text, type, context, customInstructions, generateRecommendations, generateQuotationMeta } = (await req.json()) as RewriteRequest;
 
     if (!text || !text.trim()) {
       return new Response(
@@ -90,6 +91,11 @@ Return ONLY the formatted summary text.`;
         break;
       default:
         systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise. Separate different topics with blank lines.${formatRules}`;
+    }
+
+    // Append custom instructions if provided
+    if (customInstructions) {
+      systemPrompt += `\n\nADDITIONAL USER INSTRUCTIONS: ${customInstructions}`;
     }
 
     // First, rewrite the text
