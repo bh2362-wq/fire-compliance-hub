@@ -401,8 +401,20 @@ function addSummary(
   const contentWidth = pageWidth - margin * 2;
   const lineHeight = 4.2;
   const bulletIndent = 4;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const footerReserve = 18;
+  const maxY = pageHeight - footerReserve;
+
+  const checkPageBreak = (currentY: number, needed: number): number => {
+    if (currentY + needed > maxY) {
+      doc.addPage();
+      return 15; // top margin on new page
+    }
+    return currentY;
+  };
 
   // Add "SCOPE OF WORKS" heading
+  yPos = checkPageBreak(yPos, 10);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(...COLORS.primary);
@@ -423,19 +435,22 @@ function addSummary(
     const xStart = isBullet ? margin + bulletIndent : margin;
     const textWidth = isBullet ? contentWidth - bulletIndent : contentWidth;
 
+    // Parse inline formatting: **bold**, __underline__
+    const segments = parseRichText(bulletText);
+
+    // Pre-calculate how many lines this paragraph will need
+    yPos = checkPageBreak(yPos, lineHeight + 1);
+
     // Draw bullet marker
     if (isBullet) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(...COLORS.textPrimary);
-      doc.text("\u2022", margin + 1, yPos);
+      doc.text("-", margin + 1, yPos);
     }
 
-    // Parse inline formatting: **bold**, __underline__
-    const segments = parseRichText(bulletText);
-
-    // Render segments with word wrapping
-    yPos = renderRichTextLine(doc, segments, xStart, yPos, textWidth, lineHeight);
+    // Render segments with word wrapping and page break support
+    yPos = renderRichTextLine(doc, segments, xStart, yPos, textWidth, lineHeight, maxY);
     yPos += 1; // inter-paragraph spacing
   }
 
@@ -508,7 +523,8 @@ function renderRichTextLine(
   x: number,
   y: number,
   maxWidth: number,
-  lineHeight: number
+  lineHeight: number,
+  maxY: number
 ): number {
   // Flatten all segments into words with their formatting
   const words: { word: string; bold: boolean; underline: boolean }[] = [];
@@ -533,6 +549,12 @@ function renderRichTextLine(
     if (curX + wordWidth > x + maxWidth && curX > x) {
       curX = x;
       curY += lineHeight;
+
+      // Page break check
+      if (curY > maxY) {
+        doc.addPage();
+        curY = 15;
+      }
     }
 
     doc.text(word, curX, curY);
