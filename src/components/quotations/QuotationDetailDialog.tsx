@@ -222,7 +222,22 @@ export function QuotationDetailDialog({
         .order("sort_order", { ascending: true });
 
       if (itemsError) throw itemsError;
-      setLineItems((itemsData || []).map(item => ({ ...item, markup_percent: (item as any).markup_percent || 0 })));
+      const mappedItems = (itemsData || []).map(item => ({ ...item, markup_percent: (item as any).markup_percent || 0 }));
+      setLineItems(mappedItems);
+
+      // Auto-detect which columns have data
+      const parents = mappedItems.filter(i => !i.parent_id);
+      const hasRegRef = parents.some(i => i.regulation_reference && i.regulation_reference.trim() !== "");
+      const hasPriority = parents.some(i => i.priority && i.priority !== "standard");
+      const hasItem = parents.some(i => i.item_name && i.item_name.trim() !== "");
+      const hasLabour = parents.some(i => (i.labour_cost || 0) > 0);
+      setColumnOptions(prev => ({
+        ...prev,
+        showRegulationRef: hasRegRef,
+        showPriority: hasPriority,
+        showItem: hasItem,
+        showLabour: hasLabour,
+      }));
     } catch (error) {
       console.error("Error fetching quotation:", error);
       toast.error("Failed to load quotation");
@@ -575,6 +590,7 @@ export function QuotationDetailDialog({
         parent_id: item.parent_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
+        markup_percent: item.markup_percent || 0,
         labour_cost: item.labour_cost || 0,
         total_price: item.total_price,
       })),

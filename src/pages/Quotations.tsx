@@ -304,21 +304,29 @@ const Quotations = () => {
           parent_id: item.parent_id,
           quantity: item.quantity,
           unit_price: item.unit_price,
+          markup_percent: (item as any).markup_percent || 0,
           labour_cost: item.labour_cost || 0,
           total_price: item.total_price,
         })),
         vat_rate: quotation.vat_rate || 20,
       };
 
+      // Auto-detect which columns have data and hide empty ones
+      const items = pdfData.line_items.filter(i => !i.parent_id);
+      const hasRegRef = items.some(i => i.regulation_reference && i.regulation_reference.trim() !== "");
+      const hasPriority = items.some(i => i.priority && i.priority !== "standard");
+      const hasItem = items.some(i => i.item_name && i.item_name.trim() !== "");
+      const hasLabour = items.some(i => (i.labour_cost || 0) > 0);
+
       const columnOptions: PDFColumnOptions = {
         showItemNumber: true,
         showDescription: true,
-        showRegulationRef: true,
-        showPriority: false,
-        showItem: true,
+        showRegulationRef: hasRegRef,
+        showPriority: hasPriority,
+        showItem: hasItem,
         showQuantity: true,
         showUnitPrice: true,
-        showLabour: true,
+        showLabour: hasLabour,
         showTotal: true,
       };
 
