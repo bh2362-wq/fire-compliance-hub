@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AIRewriteButtonProps {
   text: string;
-  type: "defects" | "recommendations" | "works" | "comments" | "quotation_title" | "quotation_summary";
+  type: "defects" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_title" | "quotation_summary";
   onRewrite: (newText: string) => void;
   disabled?: boolean;
   generateRecommendations?: boolean;

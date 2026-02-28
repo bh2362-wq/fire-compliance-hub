@@ -855,7 +855,14 @@ export function ServiceReportDialog({
 
             <TabsContent value="notes" className="mt-0 space-y-4">
               <div className="space-y-2">
-                <Label>Work Carried Out</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Work Carried Out</Label>
+                  <AIRewriteButton
+                    text={workCarriedOut}
+                    type="works"
+                    onRewrite={setWorkCarriedOut}
+                  />
+                </div>
                 <Textarea
                   value={workCarriedOut}
                   onChange={(e) => setWorkCarriedOut(e.target.value)}
@@ -865,7 +872,14 @@ export function ServiceReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Parts Used</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Parts Used</Label>
+                  <AIRewriteButton
+                    text={partsUsed}
+                    type="parts"
+                    onRewrite={setPartsUsed}
+                  />
+                </div>
                 <Textarea
                   value={partsUsed}
                   onChange={(e) => setPartsUsed(e.target.value)}
@@ -875,7 +889,14 @@ export function ServiceReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Additional Notes</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Additional Notes</Label>
+                  <AIRewriteButton
+                    text={notes}
+                    type="notes"
+                    onRewrite={setNotes}
+                  />
+                </div>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}

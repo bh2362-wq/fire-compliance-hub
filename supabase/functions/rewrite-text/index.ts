@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface RewriteRequest {
   text: string;
-  type: "defects" | "recommendations" | "works" | "comments" | "quotation_items" | "quotation_title" | "quotation_summary";
+  type: "defects" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary";
   context?: string;
   customInstructions?: string;
   generateRecommendations?: boolean;
@@ -59,6 +59,13 @@ STRICT RULES:
         break;
       case "comments":
         systemPrompt = `You are a professional fire safety engineer. Rewrite these comments using proper fire safety terminology. Keep it concise - don't add details that weren't in the original. Separate different points with blank lines.${formatRules}`;
+        break;
+      case "parts":
+        systemPrompt = `You are a professional fire safety engineer. Rewrite this list of parts and materials used, ensuring correct product names, model numbers, and fire safety terminology. Keep it concise and well-structured. Separate different items with blank lines.${formatRules}`;
+        break;
+      case "notes":
+        systemPrompt = `You are a professional fire safety engineer. Rewrite these additional notes using proper fire safety terminology. Keep it concise and professional. Separate different observations with blank lines.${formatRules}`;
+        break;
         break;
       case "quotation_items":
         systemPrompt = `You are a professional fire safety engineer preparing a quotation. Improve the grammar, spelling and professional presentation of these numbered quotation line item descriptions. Keep the same numbering format (1. 2. 3. etc). Use proper fire safety and engineering terminology. Make descriptions clear, professional and suitable for a formal quotation document. Do NOT add information that wasn't in the original.${formatRules}`;

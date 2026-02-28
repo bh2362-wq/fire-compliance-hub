@@ -14,6 +14,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import {
   Select,
   SelectContent,
@@ -755,7 +756,16 @@ export function ASDReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Defects Found</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Defects Found</Label>
+                  {!isLocked && (
+                    <AIRewriteButton
+                      text={defectsFound}
+                      type="defects"
+                      onRewrite={setDefectsFound}
+                    />
+                  )}
+                </div>
                 <Textarea
                   value={defectsFound}
                   onChange={(e) => setDefectsFound(e.target.value)}
@@ -766,7 +776,16 @@ export function ASDReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Recommendations</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Recommendations</Label>
+                  {!isLocked && (
+                    <AIRewriteButton
+                      text={recommendations}
+                      type="recommendations"
+                      onRewrite={setRecommendations}
+                    />
+                  )}
+                </div>
                 <Textarea
                   value={recommendations}
                   onChange={(e) => setRecommendations(e.target.value)}
@@ -779,7 +798,16 @@ export function ASDReportDialog({
 
             <TabsContent value="notes" className="mt-0 space-y-4">
               <div className="space-y-2">
-                <Label>Work Carried Out</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Work Carried Out</Label>
+                  {!isLocked && (
+                    <AIRewriteButton
+                      text={workCarriedOut}
+                      type="works"
+                      onRewrite={setWorkCarriedOut}
+                    />
+                  )}
+                </div>
                 <Textarea
                   value={workCarriedOut}
                   onChange={(e) => setWorkCarriedOut(e.target.value)}
@@ -790,7 +818,16 @@ export function ASDReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Parts Used</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Parts Used</Label>
+                  {!isLocked && (
+                    <AIRewriteButton
+                      text={partsUsed}
+                      type="parts"
+                      onRewrite={setPartsUsed}
+                    />
+                  )}
+                </div>
                 <Textarea
                   value={partsUsed}
                   onChange={(e) => setPartsUsed(e.target.value)}
@@ -801,7 +838,16 @@ export function ASDReportDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Additional Notes</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Additional Notes</Label>
+                  {!isLocked && (
+                    <AIRewriteButton
+                      text={notes}
+                      type="notes"
+                      onRewrite={setNotes}
+                    />
+                  )}
+                </div>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
