@@ -1263,8 +1263,11 @@ export function QuotationDetailDialog({
                       <div className="flex items-center justify-between">
                         <Label>Summary / Introduction</Label>
                         <AIRewriteButton
-                          text={summary}
+                          text={summary || title || "Scope of works"}
                           type={"quotation_summary" as any}
+                          context={lineItems.map((item, i) => 
+                            `${i + 1}. ${item.description}${item.quantity > 1 ? ` (Qty: ${item.quantity})` : ''}`
+                          ).join("\n")}
                           onRewrite={(newText) => {
                             setSummary(newText);
                             setHasChanges(true);
@@ -1279,7 +1282,7 @@ export function QuotationDetailDialog({
                           setHasChanges(true);
                         }}
                         placeholder="Brief description of the quotation scope..."
-                        className="min-h-[80px]"
+                        className="min-h-[150px] font-mono text-sm"
                       />
                     </div>
 

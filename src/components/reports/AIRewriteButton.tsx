@@ -11,6 +11,7 @@ interface AIRewriteButtonProps {
   disabled?: boolean;
   generateRecommendations?: boolean;
   onRecommendationsGenerated?: (recommendations: string) => void;
+  context?: string;
 }
 
 export function AIRewriteButton({
@@ -20,6 +21,7 @@ export function AIRewriteButton({
   disabled = false,
   generateRecommendations = false,
   onRecommendationsGenerated,
+  context,
 }: AIRewriteButtonProps) {
   const [loading, setLoading] = useState(false);
   const [originalText, setOriginalText] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export function AIRewriteButton({
 
     try {
       const { data, error } = await supabase.functions.invoke("rewrite-text", {
-        body: { text, type, generateRecommendations },
+        body: { text, type, generateRecommendations, context },
       });
 
       if (error) {

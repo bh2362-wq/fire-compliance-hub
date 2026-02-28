@@ -388,7 +388,7 @@ function addSiteBar(
   return yPos + 22;
 }
 
-// Summary section
+// Rich text summary section with bold, underline, and bullet support
 function addSummary(
   doc: jsPDF,
   pageWidth: number,
@@ -397,14 +397,157 @@ function addSummary(
   summary: string
 ): number {
   if (!summary) return yPos;
-  
-  doc.setTextColor(...COLORS.textSecondary);
+
+  const contentWidth = pageWidth - margin * 2;
+  const lineHeight = 4.2;
+  const bulletIndent = 4;
+
+  // Add "SCOPE OF WORKS" heading
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...COLORS.primary);
+  doc.text("SCOPE OF WORKS", margin, yPos);
+  yPos += 6;
+
+  const paragraphs = summary.split("\n");
+
+  for (const paragraph of paragraphs) {
+    const trimmed = paragraph.trim();
+    if (!trimmed) {
+      yPos += 2; // blank line spacing
+      continue;
+    }
+
+    const isBullet = trimmed.startsWith("- ") || trimmed.startsWith("* ");
+    const bulletText = isBullet ? trimmed.slice(2) : trimmed;
+    const xStart = isBullet ? margin + bulletIndent : margin;
+    const textWidth = isBullet ? contentWidth - bulletIndent : contentWidth;
+
+    // Draw bullet marker
+    if (isBullet) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(...COLORS.textPrimary);
+      doc.text("\u2022", margin + 1, yPos);
+    }
+
+    // Parse inline formatting: **bold**, __underline__
+    const segments = parseRichText(bulletText);
+
+    // Render segments with word wrapping
+    yPos = renderRichTextLine(doc, segments, xStart, yPos, textWidth, lineHeight);
+    yPos += 1; // inter-paragraph spacing
+  }
+
+  return yPos + 3;
+}
+
+interface TextSegment {
+  text: string;
+  bold: boolean;
+  underline: boolean;
+}
+
+function parseRichText(text: string): TextSegment[] {
+  const segments: TextSegment[] = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    // Find the next formatting marker
+    const boldIdx = remaining.indexOf("**");
+    const underlineIdx = remaining.indexOf("__");
+
+    let nextIdx = -1;
+    let marker = "";
+
+    if (boldIdx >= 0 && (underlineIdx < 0 || boldIdx <= underlineIdx)) {
+      nextIdx = boldIdx;
+      marker = "**";
+    } else if (underlineIdx >= 0) {
+      nextIdx = underlineIdx;
+      marker = "__";
+    }
+
+    if (nextIdx < 0) {
+      // No more markers
+      if (remaining) segments.push({ text: remaining, bold: false, underline: false });
+      break;
+    }
+
+    // Text before marker
+    if (nextIdx > 0) {
+      segments.push({ text: remaining.slice(0, nextIdx), bold: false, underline: false });
+    }
+
+    // Find closing marker
+    const afterOpen = remaining.slice(nextIdx + 2);
+    const closeIdx = afterOpen.indexOf(marker);
+
+    if (closeIdx < 0) {
+      // No closing marker, treat as plain text
+      segments.push({ text: remaining.slice(nextIdx), bold: false, underline: false });
+      break;
+    }
+
+    const innerText = afterOpen.slice(0, closeIdx);
+    segments.push({
+      text: innerText,
+      bold: marker === "**",
+      underline: marker === "__",
+    });
+
+    remaining = afterOpen.slice(closeIdx + 2);
+  }
+
+  return segments;
+}
+
+function renderRichTextLine(
+  doc: jsPDF,
+  segments: TextSegment[],
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number
+): number {
+  // Flatten all segments into words with their formatting
+  const words: { word: string; bold: boolean; underline: boolean }[] = [];
+  for (const seg of segments) {
+    const segWords = seg.text.split(/(\s+)/);
+    for (const w of segWords) {
+      if (w) words.push({ word: w, bold: seg.bold, underline: seg.underline });
+    }
+  }
+
+  let curX = x;
+  let curY = y;
   doc.setFontSize(9);
-  doc.setFont("helvetica", "italic");
-  const summaryLines = doc.splitTextToSize(summary, pageWidth - margin * 2);
-  doc.text(summaryLines, margin, yPos);
-  
-  return yPos + summaryLines.length * 4.5 + 4;
+
+  for (const { word, bold, underline } of words) {
+    const fontStyle = bold ? "bold" : "normal";
+    doc.setFont("helvetica", fontStyle);
+    doc.setTextColor(...COLORS.textPrimary);
+    const wordWidth = doc.getTextWidth(word);
+
+    // Wrap to next line if needed
+    if (curX + wordWidth > x + maxWidth && curX > x) {
+      curX = x;
+      curY += lineHeight;
+    }
+
+    doc.text(word, curX, curY);
+
+    if (underline) {
+      const textHeight = 0.3;
+      doc.setDrawColor(...COLORS.textPrimary);
+      doc.setLineWidth(0.2);
+      doc.line(curX, curY + textHeight + 0.5, curX + wordWidth, curY + textHeight + 0.5);
+    }
+
+    curX += wordWidth;
+  }
+
+  return curY + lineHeight;
 }
 
 // Section header with accent
