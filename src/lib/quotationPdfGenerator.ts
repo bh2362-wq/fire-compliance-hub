@@ -462,12 +462,12 @@ function addFooter(doc: jsPDF, pageWidth: number, margin: number) {
 const defaultColumnOptions: PDFColumnOptions = {
   showItemNumber: true,
   showDescription: true,
-  showRegulationRef: true,
+  showRegulationRef: false,
   showPriority: false,
-  showItem: true,
+  showItem: false,
   showQuantity: true,
   showUnitPrice: true,
-  showLabour: true,
+  showLabour: false,
   showTotal: true,
 };
 

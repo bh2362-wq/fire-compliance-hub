@@ -272,11 +272,19 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
               customer: { name: selectedCustomer.name, contact_name: null, contact_email: null, contact_phone: null, address: null, city: null, postcode: null },
               line_items: lineItems.filter(i => i.description.trim()).map(item => ({
                 description: item.description, priority: "medium", quantity: item.quantity,
-                unit_price: item.unit_price, labour_cost: item.labour_cost, total_price: item.total_price,
+                unit_price: item.unit_price, markup_percent: item.markup_percent || 0, labour_cost: item.labour_cost, total_price: item.total_price,
               })),
               vat_rate: vatRate,
             };
-            const pdfBase64 = await generateQuotationPDF(pdfData, companySettings || undefined, true);
+            // Auto-detect unused columns
+            const parentItems = pdfData.line_items;
+            const hasLabour = parentItems.some(i => (i.labour_cost || 0) > 0);
+            const autoColumnOptions: PDFColumnOptions = {
+              showItemNumber: true, showDescription: true, showRegulationRef: false,
+              showPriority: false, showItem: false, showQuantity: true,
+              showUnitPrice: true, showLabour: hasLabour, showTotal: true,
+            };
+            const pdfBase64 = await generateQuotationPDF(pdfData, companySettings || undefined, true, autoColumnOptions);
             if (pdfBase64) {
               const pdfFileName = `${quotationNumber} - ${selectedSite.name}.pdf`;
               await supabase.functions.invoke("upload-to-sharepoint", {
