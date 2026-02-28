@@ -413,6 +413,15 @@ function addSummary(
     return currentY;
   };
 
+  // Sanitise summary: replace Unicode bullets and special chars with ASCII equivalents
+  const sanitised = summary
+    .replace(/[\u2022\u2023\u25E6\u2043\u2219\u25CF\u25CB]/g, "-")  // bullet variants -> dash
+    .replace(/[\u2013\u2014]/g, "-")   // en/em dash -> hyphen
+    .replace(/[\u2018\u2019\u201A]/g, "'")  // smart single quotes
+    .replace(/[\u201C\u201D\u201E]/g, '"')  // smart double quotes
+    .replace(/[\u2026]/g, "...")  // ellipsis
+    .replace(/[^\x00-\x7F]/g, "");  // strip any remaining non-ASCII
+
   // Add "SCOPE OF WORKS" heading
   yPos = checkPageBreak(yPos, 10);
   doc.setFont("helvetica", "bold");
@@ -421,7 +430,7 @@ function addSummary(
   doc.text("SCOPE OF WORKS", margin, yPos);
   yPos += 6;
 
-  const paragraphs = summary.split("\n");
+  const paragraphs = sanitised.split("\n");
 
   for (const paragraph of paragraphs) {
     const trimmed = paragraph.trim();
