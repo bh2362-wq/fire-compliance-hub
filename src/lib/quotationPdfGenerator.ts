@@ -55,6 +55,7 @@ export interface QuotationLineItem {
   parent_id?: string | null;
   quantity: number;
   unit_price: number;
+  markup_percent?: number;
   labour_cost?: number;
   total_price: number;
 }
@@ -558,13 +559,15 @@ export async function generateQuotationPDF(
   const parentItems = data.line_items.filter(item => !item.parent_id);
   const tableData = parentItems.map((item, index) => {
     const row: string[] = [];
+    // Calculate sell price per unit (trade price with markup applied) - this is what the customer sees
+    const sellPricePerUnit = item.unit_price * (1 + (item.markup_percent || 0) / 100);
     if (columnOptions.showItemNumber) row.push((index + 1).toString());
     if (columnOptions.showDescription) row.push(item.description);
     if (columnOptions.showRegulationRef) row.push(item.regulation_reference || "-");
     if (columnOptions.showPriority) row.push(item.priority.charAt(0).toUpperCase() + item.priority.slice(1));
     if (columnOptions.showItem) row.push(item.item_name || "-");
     if (columnOptions.showQuantity) row.push(item.quantity.toString());
-    if (columnOptions.showUnitPrice) row.push(`£${item.unit_price.toFixed(2)}`);
+    if (columnOptions.showUnitPrice) row.push(`£${sellPricePerUnit.toFixed(2)}`);
     if (columnOptions.showLabour) row.push(item.labour_cost ? `£${item.labour_cost.toFixed(2)}` : "-");
     if (columnOptions.showTotal) row.push(`£${item.total_price.toFixed(2)}`);
     return row;
