@@ -228,13 +228,13 @@ export function QuotationDetailDialog({
       // Auto-detect which columns have data
       const parents = mappedItems.filter(i => !i.parent_id);
       const hasRegRef = parents.some(i => i.regulation_reference && i.regulation_reference.trim() !== "");
-      const hasPriority = parents.some(i => i.priority && i.priority !== "standard");
+      
       const hasItem = parents.some(i => i.item_name && i.item_name.trim() !== "");
       const hasLabour = parents.some(i => (i.labour_cost || 0) > 0);
       setColumnOptions(prev => ({
         ...prev,
         showRegulationRef: hasRegRef,
-        showPriority: hasPriority,
+        
         showItem: hasItem,
         showLabour: hasLabour,
       }));
@@ -909,23 +909,8 @@ export function QuotationDetailDialog({
                               {isSubItem && (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0">Sub</Badge>
                               )}
-                              {columnOptions.showPriority && (
-                              <Select
-                                value={item.priority}
-                                onValueChange={(value) => handleItemChange(index, "priority", value)}
-                                disabled={isLocked}
-                              >
-                                <SelectTrigger className="w-[130px] h-8">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-popover z-[200]">
-                                  <SelectItem value="low">Low</SelectItem>
-                                  <SelectItem value="medium">Medium</SelectItem>
-                                  <SelectItem value="high">High</SelectItem>
-                                  <SelectItem value="labour">Labour Only</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              )}
+
+
                             </div>
 
                             <Textarea
@@ -1345,16 +1330,8 @@ export function QuotationDetailDialog({
                         />
                         <label htmlFor="col-item" className="text-sm">Item</label>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="col-priority"
-                          checked={columnOptions.showPriority}
-                          onCheckedChange={(checked) =>
-                            setColumnOptions({ ...columnOptions, showPriority: !!checked })
-                          }
-                        />
-                        <label htmlFor="col-priority" className="text-sm">Priority</label>
-                      </div>
+
+
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="col-qty"
