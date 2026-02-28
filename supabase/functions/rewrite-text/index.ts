@@ -25,7 +25,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const { text, type, generateRecommendations, generateQuotationMeta } = (await req.json()) as RewriteRequest;
+    const { text, type, context, generateRecommendations, generateQuotationMeta } = (await req.json()) as RewriteRequest;
 
     if (!text || !text.trim()) {
       return new Response(
@@ -66,7 +66,27 @@ STRICT RULES:
         systemPrompt = `You are a professional fire safety engineer at a UK fire safety company. Rewrite this quotation title to be grammatically correct, properly capitalised, and use professional UK English fire safety terminology consistent with BS5839 standards. Keep it concise (max 10 words). Return ONLY the improved title text, nothing else. Use UK English spelling (e.g. organisation, recognised, defence).`;
         break;
       case "quotation_summary":
-        systemPrompt = `You are a professional fire safety engineer at a UK fire safety company. Rewrite this quotation scope of works summary to be grammatically correct, professional, and use proper UK English fire safety terminology consistent with BS5839 standards. Fix any spelling or grammar errors. Use UK English spelling throughout (e.g. organisation, recognised, defence, colour, centre). Keep a similar length to the original. Write as flowing professional prose suitable for a formal quotation document. Return ONLY the improved summary text, nothing else.`;
+        systemPrompt = `You are a professional fire safety engineer at a UK fire safety company preparing a formal quotation scope of works for a client.
+
+Based on the existing summary text AND the line items provided below, generate a comprehensive, professionally formatted scope of works summary.
+
+FORMATTING RULES:
+- Use **bold text** (wrapped in double asterisks) for headings and key terms e.g. **Scope of Works**, **Fire Detection Devices**
+- Use __underline__ (wrapped in double underscores) for important standards or references e.g. __BS 5839-1__
+- Use bullet points starting with "- " for listing devices, locations or key items
+- Group devices by type with quantities
+- Include device model numbers where available from the line items
+- Mention locations if evident from the descriptions
+- Reference relevant British Standards where applicable (e.g. __BS 5839-1__, __BS 5266__)
+- Use UK English spelling throughout (organisation, recognised, defence, colour, centre)
+- Keep it professional, clear and suitable for a formal client-facing quotation
+- Start with a brief introductory paragraph, then list the scope items
+- End with a brief note about compliance or standards if relevant
+
+LINE ITEMS FOR CONTEXT:
+${context || "No line items provided"}
+
+Return ONLY the formatted summary text.`;
         break;
       default:
         systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise. Separate different topics with blank lines.${formatRules}`;
@@ -85,7 +105,7 @@ STRICT RULES:
           { role: "system", content: systemPrompt },
           { role: "user", content: text },
         ],
-        max_tokens: 350,
+        max_tokens: type === "quotation_summary" ? 800 : 350,
       }),
     });
 
