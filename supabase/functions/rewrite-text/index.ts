@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface RewriteRequest {
   text: string;
-  type: "defects" | "recommendations" | "works" | "comments" | "quotation_items";
+  type: "defects" | "recommendations" | "works" | "comments" | "quotation_items" | "quotation_title" | "quotation_summary";
   context?: string;
   generateRecommendations?: boolean;
   generateQuotationMeta?: boolean;
@@ -61,6 +61,12 @@ STRICT RULES:
         break;
       case "quotation_items":
         systemPrompt = `You are a professional fire safety engineer preparing a quotation. Improve the grammar, spelling and professional presentation of these numbered quotation line item descriptions. Keep the same numbering format (1. 2. 3. etc). Use proper fire safety and engineering terminology. Make descriptions clear, professional and suitable for a formal quotation document. Do NOT add information that wasn't in the original.${formatRules}`;
+        break;
+      case "quotation_title":
+        systemPrompt = `You are a professional fire safety engineer at a UK fire safety company. Rewrite this quotation title to be grammatically correct, properly capitalised, and use professional UK English fire safety terminology consistent with BS5839 standards. Keep it concise (max 10 words). Return ONLY the improved title text, nothing else. Use UK English spelling (e.g. organisation, recognised, defence).`;
+        break;
+      case "quotation_summary":
+        systemPrompt = `You are a professional fire safety engineer at a UK fire safety company. Rewrite this quotation scope of works summary to be grammatically correct, professional, and use proper UK English fire safety terminology consistent with BS5839 standards. Fix any spelling or grammar errors. Use UK English spelling throughout (e.g. organisation, recognised, defence, colour, centre). Keep a similar length to the original. Write as flowing professional prose suitable for a formal quotation document. Return ONLY the improved summary text, nothing else.`;
         break;
       default:
         systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise. Separate different topics with blank lines.${formatRules}`;

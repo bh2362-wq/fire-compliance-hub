@@ -38,6 +38,7 @@ import { format } from "date-fns";
 import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { EmailQuotationDialog } from "./EmailQuotationDialog";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 interface LineItem {
   id: string;
@@ -1236,7 +1237,18 @@ export function QuotationDetailDialog({
                 <TabsContent value="details" className="space-y-4 mt-0">
                   <div className="space-y-4">
                     <div>
-                      <Label>Quotation Title</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Quotation Title</Label>
+                        <AIRewriteButton
+                          text={title}
+                          type={"quotation_title" as any}
+                          onRewrite={(newText) => {
+                            setTitle(newText);
+                            setHasChanges(true);
+                          }}
+                          disabled={isLocked}
+                        />
+                      </div>
                       <Input
                         value={title}
                         onChange={(e) => {
@@ -1248,7 +1260,18 @@ export function QuotationDetailDialog({
                     </div>
 
                     <div>
-                      <Label>Summary / Introduction</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Summary / Introduction</Label>
+                        <AIRewriteButton
+                          text={summary}
+                          type={"quotation_summary" as any}
+                          onRewrite={(newText) => {
+                            setSummary(newText);
+                            setHasChanges(true);
+                          }}
+                          disabled={isLocked}
+                        />
+                      </div>
                       <Textarea
                         value={summary}
                         onChange={(e) => {
