@@ -559,8 +559,11 @@ export async function generateQuotationPDF(
   const parentItems = data.line_items.filter(item => !item.parent_id);
   const tableData = parentItems.map((item, index) => {
     const row: string[] = [];
-    // Calculate sell price per unit (trade price with markup applied) - this is what the customer sees
-    const sellPricePerUnit = item.unit_price * (1 + (item.markup_percent || 0) / 100);
+    // Calculate sell price per unit: derive from total to ensure consistency
+    // total_price = (qty * sellPricePerUnit) + labour
+    const labour = item.labour_cost || 0;
+    const qty = item.quantity || 1;
+    const sellPricePerUnit = qty > 0 ? (item.total_price - labour) / qty : item.unit_price * (1 + (item.markup_percent || 0) / 100);
     if (columnOptions.showItemNumber) row.push((index + 1).toString());
     if (columnOptions.showDescription) row.push(item.description);
     if (columnOptions.showRegulationRef) row.push(item.regulation_reference || "-");
@@ -568,7 +571,7 @@ export async function generateQuotationPDF(
     if (columnOptions.showItem) row.push(item.item_name || "-");
     if (columnOptions.showQuantity) row.push(item.quantity.toString());
     if (columnOptions.showUnitPrice) row.push(`£${sellPricePerUnit.toFixed(2)}`);
-    if (columnOptions.showLabour) row.push(item.labour_cost ? `£${item.labour_cost.toFixed(2)}` : "-");
+    if (columnOptions.showLabour) row.push(labour > 0 ? `£${labour.toFixed(2)}` : "-");
     if (columnOptions.showTotal) row.push(`£${item.total_price.toFixed(2)}`);
     return row;
   });
