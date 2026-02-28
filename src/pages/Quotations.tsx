@@ -135,6 +135,7 @@ const Quotations = () => {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [quotationToEmail, setQuotationToEmail] = useState<QuotationWithDetails | null>(null);
   const [emailPdfData, setEmailPdfData] = useState<QuotationData | null>(null);
+  const [emailColumnOptions, setEmailColumnOptions] = useState<PDFColumnOptions | null>(null);
   const [uploadingToSharePoint, setUploadingToSharePoint] = useState<string | null>(null);
   const [newQuoteOpen, setNewQuoteOpen] = useState(false);
 
@@ -338,6 +339,7 @@ const Quotations = () => {
     }
   };
 
+
   const handleEmailQuotation = async (quotation: QuotationWithDetails) => {
     const result = await buildPDFDataForQuotation(quotation);
     if (!result) {
@@ -345,6 +347,7 @@ const Quotations = () => {
       return;
     }
     setEmailPdfData(result.pdfData);
+    setEmailColumnOptions(result.columnOptions);
     setQuotationToEmail(quotation);
     setEmailDialogOpen(true);
   };
@@ -904,15 +907,15 @@ const Quotations = () => {
           defaultRecipients={quotationToEmail.customers?.quote_email_recipients || quotationToEmail.customers?.email_recipients || ""}
           customerName={quotationToEmail.customers?.contact_name || quotationToEmail.customers?.name || ""}
           pdfData={emailPdfData}
-          columnOptions={{
+          columnOptions={emailColumnOptions || {
             showItemNumber: true,
             showDescription: true,
-            showRegulationRef: true,
+            showRegulationRef: false,
             showPriority: false,
-            showItem: true,
+            showItem: false,
             showQuantity: true,
             showUnitPrice: true,
-            showLabour: true,
+            showLabour: false,
             showTotal: true,
           }}
           onSuccess={() => {
