@@ -51,6 +51,7 @@ interface LineItem {
   unit_price: number;
   markup_percent: number;
   labour_cost: number;
+  labour_included: boolean;
   total_price: number;
   notes: string | null;
   sort_order: number;
@@ -222,7 +223,7 @@ export function QuotationDetailDialog({
         .order("sort_order", { ascending: true });
 
       if (itemsError) throw itemsError;
-      const mappedItems = (itemsData || []).map(item => ({ ...item, markup_percent: (item as any).markup_percent || 0 }));
+      const mappedItems = (itemsData || []).map(item => ({ ...item, markup_percent: (item as any).markup_percent || 0, labour_included: !!(item as any).labour_included }));
       setLineItems(mappedItems);
 
       // Auto-detect which columns have data
@@ -230,7 +231,7 @@ export function QuotationDetailDialog({
       const hasRegRef = parents.some(i => i.regulation_reference && i.regulation_reference.trim() !== "");
       
       const hasItem = parents.some(i => i.item_name && i.item_name.trim() !== "");
-      const hasLabour = parents.some(i => (i.labour_cost || 0) > 0);
+      const hasLabour = parents.some(i => (i.labour_cost || 0) > 0 || i.labour_included);
       setColumnOptions(prev => ({
         ...prev,
         showRegulationRef: hasRegRef,
@@ -272,6 +273,7 @@ export function QuotationDetailDialog({
       unit_price: 0,
       markup_percent: 0,
       labour_cost: 0,
+      labour_included: false,
       total_price: 0,
       notes: null,
       sort_order: lineItems.length,
@@ -435,6 +437,7 @@ export function QuotationDetailDialog({
             unit_price: item.unit_price,
             markup_percent: item.markup_percent || 0,
             labour_cost: item.labour_cost || 0,
+            labour_included: item.labour_included || false,
             total_price: item.total_price,
             notes: item.notes,
             sort_order: lineItems.indexOf(item),
@@ -469,6 +472,7 @@ export function QuotationDetailDialog({
             unit_price: item.unit_price,
             markup_percent: item.markup_percent || 0,
             labour_cost: item.labour_cost || 0,
+            labour_included: item.labour_included || false,
             total_price: item.total_price,
             notes: item.notes,
             sort_order: lineItems.indexOf(item),
@@ -594,6 +598,7 @@ export function QuotationDetailDialog({
         unit_price: item.unit_price,
         markup_percent: item.markup_percent || 0,
         labour_cost: item.labour_cost || 0,
+        labour_included: item.labour_included || false,
         total_price: item.total_price,
       })),
       vat_rate: vatRate,
@@ -1015,6 +1020,19 @@ export function QuotationDetailDialog({
                                   className="h-9"
                                   disabled={isLocked}
                                 />
+                                <div className="flex items-center gap-1.5 mt-1.5">
+                                  <Checkbox
+                                    id={`labour-inc-${index}`}
+                                    checked={item.labour_included || false}
+                                    onCheckedChange={(checked) =>
+                                      handleItemChange(index, "labour_included", !!checked)
+                                    }
+                                    disabled={isLocked}
+                                  />
+                                  <label htmlFor={`labour-inc-${index}`} className="text-[10px] text-muted-foreground cursor-pointer">
+                                    Labour Included
+                                  </label>
+                                </div>
                               </div>
                               <div>
                                 <Label className="text-xs">Total (£)</Label>

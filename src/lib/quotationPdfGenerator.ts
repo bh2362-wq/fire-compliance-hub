@@ -57,6 +57,7 @@ export interface QuotationLineItem {
   unit_price: number;
   markup_percent?: number;
   labour_cost?: number;
+  labour_included?: boolean;
   total_price: number;
 }
 
@@ -571,7 +572,7 @@ export async function generateQuotationPDF(
     if (columnOptions.showItem) row.push(item.item_name || "-");
     if (columnOptions.showQuantity) row.push(item.quantity.toString());
     if (columnOptions.showUnitPrice) row.push(`£${sellPricePerUnit.toFixed(2)}`);
-    if (columnOptions.showLabour) row.push(labour > 0 ? `£${labour.toFixed(2)}` : "-");
+    if (columnOptions.showLabour) row.push(item.labour_included ? "Included" : (labour > 0 ? `£${labour.toFixed(2)}` : "-"));
     if (columnOptions.showTotal) row.push(`£${item.total_price.toFixed(2)}`);
     return row;
   });

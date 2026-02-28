@@ -1,0 +1,1 @@
+ALTER TABLE public.quotation_line_items ADD COLUMN labour_included boolean DEFAULT false;

@@ -306,6 +306,7 @@ const Quotations = () => {
           unit_price: item.unit_price,
           markup_percent: (item as any).markup_percent || 0,
           labour_cost: item.labour_cost || 0,
+          labour_included: !!(item as any).labour_included,
           total_price: item.total_price,
         })),
         vat_rate: quotation.vat_rate || 20,
@@ -316,7 +317,7 @@ const Quotations = () => {
       const hasRegRef = items.some(i => i.regulation_reference && i.regulation_reference.trim() !== "");
       const hasPriority = items.some(i => i.priority && i.priority !== "standard");
       const hasItem = items.some(i => i.item_name && i.item_name.trim() !== "");
-      const hasLabour = items.some(i => (i.labour_cost || 0) > 0);
+      const hasLabour = items.some(i => (i.labour_cost || 0) > 0 || i.labour_included);
 
       const columnOptions: PDFColumnOptions = {
         showItemNumber: true,
