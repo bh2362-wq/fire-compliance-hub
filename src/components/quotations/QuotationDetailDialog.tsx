@@ -142,12 +142,12 @@ export function QuotationDetailDialog({
   const [columnOptions, setColumnOptions] = useState<PDFColumnOptions>({
     showItemNumber: true,
     showDescription: true,
-    showRegulationRef: true,
+    showRegulationRef: false,
     showPriority: false,
-    showItem: true,
+    showItem: false,
     showQuantity: true,
     showUnitPrice: true,
-    showLabour: true,
+    showLabour: false,
     showTotal: true,
   });
 

@@ -322,7 +322,7 @@ const Quotations = () => {
         showItemNumber: true,
         showDescription: true,
         showRegulationRef: hasRegRef,
-        showPriority: hasPriority,
+        showPriority: false,
         showItem: hasItem,
         showQuantity: true,
         showUnitPrice: true,
