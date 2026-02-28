@@ -220,6 +220,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
           description: item.description,
           quantity: item.quantity,
           unit_price: item.unit_price,
+          markup_percent: item.markup_percent || 0,
           labour_cost: item.labour_cost || 0,
           total_price: item.total_price,
           sort_order: index,
