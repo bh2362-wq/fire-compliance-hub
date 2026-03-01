@@ -941,35 +941,37 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 <CalendarPlus className="w-4 h-4 mr-2" />
                 Add to Schedule
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {!isInvoiced && (
+                <DropdownMenuItem onClick={() => navigate(`/dashboard/reconciliation?siteId=${visit.site_id}&visitId=${visit.id}`)}>
+                  <GitCompare className="w-4 h-4 mr-2" />
+                  Reconcile
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={async () => {
+                const { data: siteData } = await supabase
+                  .from("sites")
+                  .select("customer_id")
+                  .eq("id", visit.site_id)
+                  .maybeSingle();
+                
+                if (siteData?.customer_id) {
+                  const { data: customerData } = await supabase
+                    .from("customers")
+                    .select("xero_contact_id")
+                    .eq("id", siteData.customer_id)
+                    .maybeSingle();
+                  setInvoiceContactId(customerData?.xero_contact_id || null);
+                } else {
+                  setInvoiceContactId(null);
+                }
+                setInvoiceVisit(visit);
+              }}>
+                <FileText className="w-4 h-4 mr-2" />
+                {isInvoiced ? "Create Additional Invoice" : "Create Invoice"}
+              </DropdownMenuItem>
               {!isInvoiced && (
                 <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate(`/dashboard/reconciliation?siteId=${visit.site_id}&visitId=${visit.id}`)}>
-                    <GitCompare className="w-4 h-4 mr-2" />
-                    Reconcile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    const { data: siteData } = await supabase
-                      .from("sites")
-                      .select("customer_id")
-                      .eq("id", visit.site_id)
-                      .maybeSingle();
-                    
-                    if (siteData?.customer_id) {
-                      const { data: customerData } = await supabase
-                        .from("customers")
-                        .select("xero_contact_id")
-                        .eq("id", siteData.customer_id)
-                        .maybeSingle();
-                      setInvoiceContactId(customerData?.xero_contact_id || null);
-                    } else {
-                      setInvoiceContactId(null);
-                    }
-                    setInvoiceVisit(visit);
-                  }}>
-                    <FileText className="w-4 h-4 mr-2" />
-                    Create Invoice
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   {visit.status !== 'cancelled' && visit.status !== 'completed' && (
                     <DropdownMenuItem
