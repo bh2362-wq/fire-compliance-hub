@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Download, ExternalLink, Loader2, Package, Copy, Trash2, Ban } from "lucide-react";
+import { Send, Download, ExternalLink, Loader2, Package, Copy, Trash2, Ban, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -41,6 +41,7 @@ import {
 import { downloadPurchaseOrderPDF } from "@/lib/purchaseOrderPdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { EmailPurchaseOrderDialog } from "@/components/purchase-orders/EmailPurchaseOrderDialog";
 
 interface PurchaseOrderDetailDialogProps {
   open: boolean;
@@ -66,6 +67,7 @@ const PurchaseOrderDetailDialog = ({
   const [voiding, setVoiding] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
 
   useEffect(() => {
     if (open && purchaseOrderId) {
@@ -397,6 +399,12 @@ const PurchaseOrderDetailDialog = ({
                 Download PDF
               </Button>
 
+              {/* Email PO */}
+              <Button variant="outline" onClick={() => setShowEmailDialog(true)}>
+                <Mail className="w-4 h-4 mr-2" />
+                Email
+              </Button>
+
               {/* Mark as Received */}
               {purchaseOrder.status === "sent" && (
                 <Button
@@ -518,6 +526,19 @@ const PurchaseOrderDetailDialog = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {purchaseOrder && (
+        <EmailPurchaseOrderDialog
+          open={showEmailDialog}
+          onOpenChange={setShowEmailDialog}
+          purchaseOrder={purchaseOrder}
+          onSuccess={() => {
+            setShowEmailDialog(false);
+            loadPurchaseOrder();
+            onUpdate();
+          }}
+        />
+      )}
     </Dialog>
   );
 };
