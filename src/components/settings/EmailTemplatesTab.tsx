@@ -55,6 +55,7 @@ const TEMPLATE_TYPES = [
   { value: "report", label: "Service Report" },
   { value: "quotation", label: "Quotation" },
   { value: "invoice", label: "Invoice" },
+  { value: "purchase_order", label: "Purchase Order" },
 ];
 
 const DEFAULT_TEMPLATE: EmailTemplateInput = {
