@@ -16,13 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Sparkles, Loader2, Undo2 } from "lucide-react";
+import { Plus, Trash2, Sparkles, Loader2, Undo2, Save, Send } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   fetchSuppliers,
   createPurchaseOrder,
   updatePurchaseOrder,
+  syncPurchaseOrderToXero,
+  fetchPurchaseOrderById,
   Supplier,
   PurchaseOrder,
   PurchaseOrderLineItem,
@@ -193,33 +195,39 @@ const PurchaseOrderFormDialog = ({
     }
   };
 
-  const handleSubmit = async () => {
+  const validateForm = () => {
     if (!supplierId) {
       toast.error("Please select a supplier");
-      return;
+      return false;
     }
-
     if (!lineItems.some((item) => item.description.trim())) {
       toast.error("Please add at least one line item");
-      return;
+      return false;
     }
-
     if (!user?.id) {
       toast.error("You must be logged in");
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const getFormattedLineItems = (): Partial<PurchaseOrderLineItem>[] => {
+    return lineItems
+      .filter((item) => item.description.trim())
+      .map((item) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.quantity * item.unit_price,
+      }));
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) return;
 
     try {
       setLoading(true);
-
-      const formattedLineItems: Partial<PurchaseOrderLineItem>[] = lineItems
-        .filter((item) => item.description.trim())
-        .map((item) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.quantity * item.unit_price,
-        }));
+      const formattedLineItems = getFormattedLineItems();
 
       if (isEditing && editPurchaseOrder) {
         await updatePurchaseOrder(
@@ -245,15 +253,71 @@ const PurchaseOrderFormDialog = ({
             vat_rate: vatRate,
           },
           formattedLineItems,
-          user.id
+          user!.id
         );
-        toast.success("Purchase order created");
+        toast.success("Purchase order saved as draft");
       }
 
       onSuccess();
     } catch (error) {
       console.error("Error saving purchase order:", error);
       toast.error(isEditing ? "Failed to update purchase order" : "Failed to create purchase order");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveAndSendToXero = async () => {
+    if (!validateForm()) return;
+
+    try {
+      setLoading(true);
+      const formattedLineItems = getFormattedLineItems();
+
+      let savedPO: PurchaseOrder;
+
+      if (isEditing && editPurchaseOrder) {
+        savedPO = await updatePurchaseOrder(
+          editPurchaseOrder.id,
+          {
+            order_date: orderDate,
+            expected_delivery_date: expectedDeliveryDate || null,
+            reference: reference || null,
+            notes: notes || null,
+            vat_rate: vatRate,
+          },
+          formattedLineItems
+        );
+        savedPO = (await fetchPurchaseOrderById(editPurchaseOrder.id))!;
+      } else {
+        savedPO = await createPurchaseOrder(
+          {
+            supplier_id: supplierId,
+            order_date: orderDate,
+            expected_delivery_date: expectedDeliveryDate || null,
+            reference: reference || null,
+            notes: notes || null,
+            vat_rate: vatRate,
+          },
+          formattedLineItems,
+          user!.id
+        );
+        savedPO = (await fetchPurchaseOrderById(savedPO.id))!;
+      }
+
+      // Sync to Xero
+      try {
+        await syncPurchaseOrderToXero(savedPO);
+        toast.success("Purchase order saved and sent to Xero");
+      } catch (xeroError: any) {
+        console.error("Xero sync error:", xeroError);
+        toast.warning("Purchase order saved locally but failed to sync to Xero: " + (xeroError.message || "Unknown error"));
+      }
+
+      onSuccess();
+    } catch (error) {
+      console.error("Error saving purchase order:", error);
+      toast.error("Failed to save purchase order");
     } finally {
       setLoading(false);
     }
@@ -448,9 +512,16 @@ const PurchaseOrderFormDialog = ({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={loading}>
-              {loading ? (isEditing ? "Updating..." : "Creating...") : (isEditing ? "Update Purchase Order" : "Create Purchase Order")}
+            <Button variant="secondary" onClick={handleSave} disabled={loading}>
+              <Save className="w-4 h-4 mr-2" />
+              {loading ? "Saving..." : (isEditing ? "Save Changes" : "Save as Draft")}
             </Button>
+            {!isEditing && (
+              <Button onClick={handleSaveAndSendToXero} disabled={loading}>
+                <Send className="w-4 h-4 mr-2" />
+                {loading ? "Sending..." : "Save & Send to Xero"}
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>
