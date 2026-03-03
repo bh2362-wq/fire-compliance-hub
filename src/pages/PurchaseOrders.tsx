@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -33,6 +34,7 @@ import {
   PO_STATUS_CONFIG,
 } from "@/services/purchaseOrderService";
 import { useAuth } from "@/contexts/AuthContext";
+import { downloadPurchaseOrderPDF } from "@/lib/purchaseOrderPdfGenerator";
 import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderFormDialog";
 import PurchaseOrderDetailDialog from "@/components/purchase-orders/PurchaseOrderDetailDialog";
 import SuppliersDialog from "@/components/purchase-orders/SuppliersDialog";
@@ -175,6 +177,25 @@ const PurchaseOrders = () => {
     }
   };
 
+  const handleDownloadPDF = async (po: PurchaseOrder) => {
+    try {
+      setActionLoading(po.id);
+      const fullPO = await fetchPurchaseOrderById(po.id);
+      if (!fullPO) throw new Error("Purchase order not found");
+      const { data: companySettings } = await supabase
+        .from("company_settings")
+        .select("*")
+        .single();
+      await downloadPurchaseOrderPDF(fullPO, companySettings);
+      toast.success("PDF downloaded");
+    } catch (error: any) {
+      console.error("Error downloading PDF:", error);
+      toast.error("Failed to download PDF");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleViewDetail = (po: PurchaseOrder) => {
     setSelectedPO(po);
     setShowDetail(true);
@@ -262,6 +283,12 @@ const PurchaseOrders = () => {
                         </DropdownMenuItem>
                       )}
                       
+                      {/* Download PDF */}
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownloadPDF(po); }}>
+                        <Download className="w-4 h-4 mr-2" />
+                        Download PDF
+                      </DropdownMenuItem>
+
                       {/* Copy to Draft - available for all */}
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCopyToDraft(po); }}>
                         <Copy className="w-4 h-4 mr-2" />
