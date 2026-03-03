@@ -261,6 +261,7 @@ export function EmailPurchaseOrderDialog({
           siteName: "",
           reportNumber: purchaseOrder.po_number,
           reportDate: purchaseOrder.order_date,
+          documentType: "Purchase Order",
         },
       });
 
@@ -275,6 +276,14 @@ export function EmailPurchaseOrderDialog({
         status: "sent",
         created_by: user?.id,
       });
+
+      // Mark PO as sent
+      if (purchaseOrder.status === "draft") {
+        await supabase
+          .from("purchase_orders")
+          .update({ status: "sent" })
+          .eq("id", purchaseOrder.id);
+      }
 
       toast.success(`Purchase order sent to ${recipientList.length} recipient(s)`);
       onSuccess?.();

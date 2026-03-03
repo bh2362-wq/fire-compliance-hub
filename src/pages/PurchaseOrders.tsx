@@ -3,6 +3,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -19,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, MoreVertical, Eye, Trash2, Send, Users, Download, Ban, Copy, Pencil, CheckCircle, Mail } from "lucide-react";
+import { Plus, MoreVertical, Eye, Trash2, Send, Users, Download, Ban, Copy, Pencil, CheckCircle, Mail, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -34,7 +35,8 @@ import {
   PO_STATUS_CONFIG,
 } from "@/services/purchaseOrderService";
 import { useAuth } from "@/contexts/AuthContext";
-import { downloadPurchaseOrderPDF } from "@/lib/purchaseOrderPdfGenerator";
+import { downloadPurchaseOrderPDF, generatePurchaseOrderPDF } from "@/lib/purchaseOrderPdfGenerator";
+import { getCompanySettings } from "@/services/companySettingsService";
 import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderFormDialog";
 import PurchaseOrderDetailDialog from "@/components/purchase-orders/PurchaseOrderDetailDialog";
 import SuppliersDialog from "@/components/purchase-orders/SuppliersDialog";
@@ -63,6 +65,8 @@ const PurchaseOrders = () => {
   const [poToDelete, setPoToDelete] = useState<PurchaseOrder | null>(null);
   const [poToVoid, setPoToVoid] = useState<PurchaseOrder | null>(null);
   const [poToEmail, setPoToEmail] = useState<PurchaseOrder | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkSending, setBulkSending] = useState(false);
 
   const loadPurchaseOrders = async () => {
     try {
@@ -210,6 +214,103 @@ const PurchaseOrders = () => {
     }
   };
 
+  const handleBulkSend = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkSending(true);
+    let sentCount = 0;
+    let failCount = 0;
+
+    try {
+      const companySettings = await getCompanySettings();
+      const compName = companySettings?.company_name || "BHO Fire";
+
+      for (const poId of selectedIds) {
+        try {
+          const fullPO = await fetchPurchaseOrderById(poId);
+          if (!fullPO) continue;
+
+          const supplierEmail = fullPO.supplier?.email;
+          if (!supplierEmail) {
+            toast.error(`${fullPO.po_number}: No supplier email`);
+            failCount++;
+            continue;
+          }
+
+          const doc = await generatePurchaseOrderPDF(fullPO, companySettings || null);
+          const pdfBase64 = doc.output("datauristring").split(",")[1];
+
+          const supplierName = fullPO.supplier?.name || "Supplier";
+          const emailSubject = `Purchase Order ${fullPO.po_number}${fullPO.reference ? ` - ${fullPO.reference}` : ""}`;
+          const emailBody = `Dear ${supplierName},\n\nPlease find attached our purchase order ${fullPO.po_number}.\n\nPlease confirm receipt and expected delivery date at your earliest convenience.\n\nKind regards,\n${compName}`;
+
+          const { data, error } = await supabase.functions.invoke("send-report-email", {
+            body: {
+              to: [supplierEmail],
+              subject: emailSubject,
+              emailBody,
+              pdfBase64,
+              siteName: "",
+              reportNumber: fullPO.po_number,
+              reportDate: fullPO.order_date,
+              documentType: "Purchase Order",
+            },
+          });
+
+          if (error || data?.error) throw new Error(data?.error || "Send failed");
+
+          // Mark as sent
+          await updatePurchaseOrder(fullPO.id, { status: "sent" });
+
+          // Log email
+          await supabase.from("email_logs").insert({
+            email_type: "purchase_order",
+            recipients: [supplierEmail],
+            subject: emailSubject,
+            status: "sent",
+            created_by: user?.id,
+          });
+
+          sentCount++;
+        } catch (err) {
+          console.error(`Failed to send PO ${poId}:`, err);
+          failCount++;
+        }
+      }
+
+      if (sentCount > 0) toast.success(`${sentCount} purchase order(s) sent successfully`);
+      if (failCount > 0) toast.error(`${failCount} purchase order(s) failed to send`);
+
+      setSelectedIds(new Set());
+      loadPurchaseOrders();
+    } catch (error) {
+      console.error("Bulk send error:", error);
+      toast.error("Bulk send failed");
+    } finally {
+      setBulkSending(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (orders: PurchaseOrder[]) => {
+    const allSelected = orders.every((po) => selectedIds.has(po.id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      orders.forEach((po) => {
+        if (allSelected) next.delete(po.id);
+        else next.add(po.id);
+      });
+      return next;
+    });
+  };
+
   const draftOrders = purchaseOrders.filter((po) => po.status === "draft");
   const sentOrders = purchaseOrders.filter((po) => po.status === "sent");
   const receivedOrders = purchaseOrders.filter((po) => po.status === "received");
@@ -220,6 +321,12 @@ const PurchaseOrders = () => {
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-[40px]">
+            <Checkbox
+              checked={orders.length > 0 && orders.every((po) => selectedIds.has(po.id))}
+              onCheckedChange={() => toggleSelectAll(orders)}
+            />
+          </TableHead>
           <TableHead>PO Number</TableHead>
           <TableHead>Supplier</TableHead>
           <TableHead>Date</TableHead>
@@ -232,7 +339,7 @@ const PurchaseOrders = () => {
       <TableBody>
         {orders.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+            <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
               No purchase orders found
             </TableCell>
           </TableRow>
@@ -245,6 +352,12 @@ const PurchaseOrders = () => {
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleViewDetail(po)}
               >
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedIds.has(po.id)}
+                    onCheckedChange={() => toggleSelect(po.id)}
+                  />
+                </TableCell>
                 <TableCell className="font-medium">{po.po_number}</TableCell>
                 <TableCell>{po.supplier?.name || "Unknown"}</TableCell>
                 <TableCell>{format(new Date(po.order_date), "dd MMM yyyy")}</TableCell>
@@ -352,6 +465,20 @@ const PurchaseOrders = () => {
             <p className="text-muted-foreground">Manage supplier orders and sync to Xero</p>
           </div>
           <div className="flex items-center gap-3">
+            {selectedIds.size > 0 && (
+              <Button
+                variant="default"
+                onClick={handleBulkSend}
+                disabled={bulkSending}
+              >
+                {bulkSending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4 mr-2" />
+                )}
+                Send {selectedIds.size} PO{selectedIds.size > 1 ? "s" : ""}
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setShowSuppliers(true)}>
               <Users className="w-4 h-4 mr-2" />
               Suppliers
