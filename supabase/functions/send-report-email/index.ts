@@ -19,7 +19,8 @@ interface SendReportRequest {
   customerName?: string;
   companyName?: string;
   logoUrl?: string;
-   emailBody?: string; // Custom email body from template
+  emailBody?: string; // Custom email body from template
+  documentType?: string; // e.g. "Purchase Order", "Service Report", "Quotation"
 }
 
 // Helper to delay execution
@@ -42,7 +43,8 @@ serve(async (req) => {
       customerName,
       companyName,
       logoUrl,
-       emailBody,
+      emailBody,
+      documentType,
     }: SendReportRequest = await req.json();
 
     // Normalize to array of recipients and filter out empty/whitespace strings
@@ -120,7 +122,7 @@ serve(async (req) => {
         </div>
         ` : ''}
         <div style="padding: 30px 20px;">
-          <h2 style="color: #1f2937; margin-top: 0;">Service Report</h2>
+           <h2 style="color: #1f2937; margin-top: 0;">${documentType || "Service Report"}</h2>
            ${bodyHtml}
         </div>
         <div style="background-color: #1f2937; color: #9ca3af; padding: 20px; text-align: center; font-size: 12px;">
