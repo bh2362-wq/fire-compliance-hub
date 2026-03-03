@@ -50,54 +50,53 @@ export async function generatePurchaseOrderPDF(
   // HEADER SECTION
   // ═══════════════════════════════════════════════════════════════
 
-  // Company Logo (left side, preserve aspect ratio)
-  let logoEndX = margin;
-  if (companySettings?.company_logo_url) {
+  // Company Logo (left side, fixed size matching quotation PDFs)
+  const logoUrl = companySettings?.company_logo_url;
+  if (logoUrl) {
     try {
-      const img = await loadImage(companySettings.company_logo_url);
-      const logoHeight = 22;
-      const ratio = img.width > 0 && img.height > 0 ? img.width / img.height : 2;
-      const logoWidth = Math.min(75, Math.max(35, logoHeight * ratio));
-      doc.addImage(img.dataUrl, "PNG", margin, yPos, logoWidth, logoHeight);
-      logoEndX = margin + logoWidth + 10;
+      const img = await loadImage(logoUrl);
+      doc.addImage(img.dataUrl, "PNG", margin, yPos - 2, 32, 28);
     } catch (e) {
       console.warn("Could not load company logo");
     }
   }
 
-  // Company details (right-aligned, professional typography)
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COLORS.mediumSlate);
+  // Company details (right-aligned, matching quotation PDF style)
+  const rightX = pageWidth - margin;
+  let contactY = yPos;
 
-  const companyLines: string[] = [];
-  
-  // Build address lines
-  const addressLines = sanitizeAddressLines(
-    companySettings?.address ?? null,
-    companySettings?.company_name ?? null
-  );
-  companyLines.push(...addressLines);
+  doc.setTextColor(...COLORS.mediumSlate);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  if (companySettings?.company_name) {
+    doc.text(companySettings.company_name, rightX, contactY, { align: "right" });
+    contactY += 5;
+  }
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...COLORS.lightSlate);
+
+  if (companySettings?.address) {
+    doc.text(companySettings.address, rightX, contactY, { align: "right" });
+    contactY += 4;
+  }
 
   const cityPostLine = `${companySettings?.city || ""} ${companySettings?.postcode || ""}`.trim();
-  if (cityPostLine && !addressLines.some((l) => includesIgnoreCase(l, cityPostLine))) {
-    companyLines.push(cityPostLine);
+  if (cityPostLine) {
+    doc.text(cityPostLine, rightX, contactY, { align: "right" });
+    contactY += 4;
   }
 
   if (companySettings?.phone) {
-    companyLines.push(`Tel: ${companySettings.phone}`);
+    doc.text(`T: ${companySettings.phone}`, rightX, contactY, { align: "right" });
+    contactY += 4;
   }
   if (companySettings?.email) {
-    companyLines.push(companySettings.email);
+    doc.text(`E: ${companySettings.email}`, rightX, contactY, { align: "right" });
   }
 
-  let companyInfoY = yPos + 2;
-  for (const line of companyLines) {
-    doc.text(line, pageWidth - margin, companyInfoY, { align: "right" });
-    companyInfoY += 4;
-  }
-
-  yPos = 52;
+  yPos = 48;
 
   // ═══════════════════════════════════════════════════════════════
   // DOCUMENT TITLE WITH ACCENT BAR
