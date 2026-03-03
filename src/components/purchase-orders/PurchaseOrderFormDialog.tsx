@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Sparkles, Loader2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -29,6 +29,7 @@ import {
 } from "@/services/purchaseOrderService";
 import { useAuth } from "@/contexts/AuthContext";
 import SupplierFormDialog from "./SupplierFormDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PurchaseOrderFormDialogProps {
   open: boolean;
@@ -64,6 +65,8 @@ const PurchaseOrderFormDialog = ({
   const [lineItems, setLineItems] = useState<LineItemInput[]>([
     { description: "", quantity: 1, unit_price: 0 },
   ]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [preAiLineItems, setPreAiLineItems] = useState<LineItemInput[] | null>(null);
 
   const isEditing = !!editPurchaseOrder;
 
@@ -139,6 +142,55 @@ const PurchaseOrderFormDialog = ({
 
   const calculateTotal = () => {
     return calculateSubtotal() + calculateVat();
+  };
+
+  const handleAiImprove = async () => {
+    const descriptions = lineItems.filter(i => i.description.trim()).map(i => i.description);
+    if (descriptions.length === 0) {
+      toast.error("Add some line item descriptions first");
+      return;
+    }
+    setAiLoading(true);
+    setPreAiLineItems([...lineItems.map(i => ({ ...i }))]);
+    try {
+      const combinedText = descriptions.map((d, i) => `${i + 1}. ${d}`).join("\n");
+      const { data, error } = await supabase.functions.invoke("rewrite-text", {
+        body: { text: combinedText, type: "po_line_items" },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      if (data.rewrittenText) {
+        const improvedLines = data.rewrittenText
+          .split("\n")
+          .map((l: string) => l.replace(/^\d+\.\s*/, "").trim())
+          .filter((l: string) => l.length > 0);
+        
+        const updated = [...lineItems];
+        let descIdx = 0;
+        for (let i = 0; i < updated.length; i++) {
+          if (updated[i].description.trim() && descIdx < improvedLines.length) {
+            updated[i] = { ...updated[i], description: improvedLines[descIdx] };
+            descIdx++;
+          }
+        }
+        setLineItems(updated);
+        toast.success("Line items improved with AI");
+      }
+    } catch (err: any) {
+      console.error("AI improve error:", err);
+      toast.error(err.message || "Failed to improve line items");
+      setPreAiLineItems(null);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleAiUndo = () => {
+    if (preAiLineItems) {
+      setLineItems(preAiLineItems);
+      setPreAiLineItems(null);
+      toast.info("Restored original descriptions");
+    }
   };
 
   const handleSubmit = async () => {
@@ -273,7 +325,36 @@ const PurchaseOrderFormDialog = ({
           {/* Line items */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Line Items</Label>
+              <div className="flex items-center gap-1">
+                <Label>Line Items</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAiImprove}
+                  disabled={aiLoading || !lineItems.some(i => i.description.trim())}
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
+                >
+                  {aiLoading ? (
+                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                  ) : (
+                    <Sparkles className="w-3 h-3 mr-1" />
+                  )}
+                  {aiLoading ? "Improving..." : "Improve with AI"}
+                </Button>
+                {preAiLineItems && !aiLoading && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleAiUndo}
+                    className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                  >
+                    <Undo2 className="w-3 h-3 mr-1" />
+                    Undo
+                  </Button>
+                )}
+              </div>
               <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Item
