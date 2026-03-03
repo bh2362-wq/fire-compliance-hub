@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Download, ExternalLink, Loader2 } from "lucide-react";
+import { Plus, Download, ExternalLink, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import {
   fetchSuppliers,
@@ -40,6 +40,7 @@ const SuppliersDialog = ({ open, onOpenChange }: SuppliersDialogProps) => {
   const [loadingXero, setLoadingXero] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -94,7 +95,13 @@ const SuppliersDialog = ({ open, onOpenChange }: SuppliersDialogProps) => {
   };
 
   const handleSupplierAdded = (supplier: Supplier) => {
-    setSuppliers((prev) => [...prev, supplier]);
+    setSuppliers((prev) => {
+      const exists = prev.find((s) => s.id === supplier.id);
+      if (exists) {
+        return prev.map((s) => (s.id === supplier.id ? supplier : s));
+      }
+      return [...prev, supplier];
+    });
   };
 
   return (
@@ -130,18 +137,19 @@ const SuppliersDialog = ({ open, onOpenChange }: SuppliersDialogProps) => {
                       <TableHead>Email</TableHead>
                       <TableHead>Phone</TableHead>
                       <TableHead>Xero Linked</TableHead>
+                      <TableHead className="w-[60px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8">
+                        <TableCell colSpan={6} className="text-center py-8">
                           Loading...
                         </TableCell>
                       </TableRow>
                     ) : suppliers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           No suppliers yet. Add one or import from Xero.
                         </TableCell>
                       </TableRow>
@@ -161,6 +169,15 @@ const SuppliersDialog = ({ open, onOpenChange }: SuppliersDialogProps) => {
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingSupplier(supplier)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))
@@ -238,6 +255,13 @@ const SuppliersDialog = ({ open, onOpenChange }: SuppliersDialogProps) => {
         open={showAddForm}
         onOpenChange={setShowAddForm}
         onSuccess={handleSupplierAdded}
+      />
+
+      <SupplierFormDialog
+        open={!!editingSupplier}
+        onOpenChange={(open) => { if (!open) setEditingSupplier(null); }}
+        onSuccess={handleSupplierAdded}
+        supplier={editingSupplier}
       />
     </>
   );

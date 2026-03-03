@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,14 +22,17 @@ interface SupplierFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (supplier: Supplier) => void;
+  supplier?: Supplier | null;
 }
 
 const SupplierFormDialog = ({
   open,
   onOpenChange,
   onSuccess,
+  supplier,
 }: SupplierFormDialogProps) => {
   const { user } = useAuth();
+  const isEditing = !!supplier;
   const [loading, setLoading] = useState(false);
   const [syncToXero, setSyncToXero] = useState(true);
   
@@ -81,6 +84,36 @@ const SupplierFormDialog = ({
     setSyncToXero(true);
   };
 
+  // Populate form when editing
+  useEffect(() => {
+    if (supplier && open) {
+      setFormData({
+        name: supplier.name || "",
+        contact_name: supplier.contact_name || "",
+        first_name: "",
+        last_name: "",
+        email: supplier.email || "",
+        phone: supplier.phone || "",
+        mobile: "",
+        address: supplier.address || "",
+        address_line_2: "",
+        city: supplier.city || "",
+        region: "",
+        postcode: supplier.postcode || "",
+        country: "United Kingdom",
+        tax_number: "",
+        bank_account_name: "",
+        bank_account_number: "",
+        bank_sort_code: "",
+        default_currency: "GBP",
+        notes: supplier.notes || "",
+      });
+      setSyncToXero(false);
+    } else if (!open) {
+      resetForm();
+    }
+  }, [supplier, open]);
+
   const handleAddressSelect = (details: {
     address: string;
     city: string;
@@ -109,6 +142,32 @@ const SupplierFormDialog = ({
 
     try {
       setLoading(true);
+
+      if (isEditing && supplier) {
+        // Update existing supplier
+        const { data: updated, error } = await supabase
+          .from("suppliers")
+          .update({
+            name: formData.name,
+            contact_name: formData.contact_name || `${formData.first_name} ${formData.last_name}`.trim() || null,
+            email: formData.email || null,
+            phone: formData.phone || null,
+            address: formData.address || null,
+            city: formData.city || null,
+            postcode: formData.postcode || null,
+            notes: formData.notes || null,
+          })
+          .eq("id", supplier.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        toast.success("Supplier updated");
+        onOpenChange(false);
+        onSuccess(updated as Supplier);
+        return;
+      }
+
       let xeroContactId: string | null = null;
       let xeroSyncFailed = false;
 
@@ -125,7 +184,6 @@ const SupplierFormDialog = ({
           if (xeroError) {
             console.error("Xero sync error:", xeroError);
             xeroSyncFailed = true;
-            // Check for specific error types
             const errorMessage = xeroError.message || "";
             if (errorMessage.includes("Load failed") || errorMessage.includes("timeout") || errorMessage.includes("Failed to fetch")) {
               toast.warning("Xero sync unavailable. Creating supplier locally only.");
@@ -147,7 +205,7 @@ const SupplierFormDialog = ({
       }
 
       // Create in local database
-      const supplier = await createSupplier(
+      const newSupplier = await createSupplier(
         {
           name: formData.name,
           contact_name: formData.contact_name || `${formData.first_name} ${formData.last_name}`.trim() || null,
@@ -172,7 +230,7 @@ const SupplierFormDialog = ({
       
       resetForm();
       onOpenChange(false);
-      onSuccess(supplier);
+      onSuccess(newSupplier);
     } catch (error: any) {
       console.error("Error adding supplier:", error);
       toast.error(error.message || "Failed to add supplier");
@@ -188,11 +246,12 @@ const SupplierFormDialog = ({
     }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Supplier</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Supplier" : "Add New Supplier"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Xero Sync Toggle */}
+          {/* Xero Sync Toggle - only show for new suppliers */}
+          {!isEditing && (
           <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
             <div>
               <p className="font-medium">Sync to Xero</p>
@@ -202,8 +261,7 @@ const SupplierFormDialog = ({
             </div>
             <Switch checked={syncToXero} onCheckedChange={setSyncToXero} />
           </div>
-
-          {/* Company Details */}
+          )}
           <div className="space-y-4">
             <h4 className="font-medium text-sm text-muted-foreground">Company Details</h4>
             
@@ -414,10 +472,10 @@ const SupplierFormDialog = ({
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {syncToXero ? "Creating in Xero..." : "Creating..."}
+                  {isEditing ? "Saving..." : syncToXero ? "Creating in Xero..." : "Creating..."}
                 </>
               ) : (
-                "Add Supplier"
+                isEditing ? "Save Changes" : "Add Supplier"
               )}
             </Button>
           </div>
