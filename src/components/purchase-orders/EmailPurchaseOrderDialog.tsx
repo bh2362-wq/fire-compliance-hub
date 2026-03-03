@@ -167,14 +167,9 @@ export function EmailPurchaseOrderDialog({
   const loadTemplatesAndDefaults = async () => {
     setLoadingTemplates(true);
     try {
-      // Try purchase_order templates first, fall back to invoice templates
+      // Only use purchase_order templates - no fallback to invoice
       let templatesList = await getEmailTemplates("purchase_order");
       let defaultTemplate = await getDefaultTemplate("purchase_order");
-
-      if (templatesList.length === 0) {
-        templatesList = await getEmailTemplates("invoice");
-        defaultTemplate = await getDefaultTemplate("invoice");
-      }
 
       const settings = await getCompanySettings().catch(() => null);
       setTemplates(templatesList);
