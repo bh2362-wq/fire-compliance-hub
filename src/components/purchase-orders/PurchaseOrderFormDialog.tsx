@@ -28,6 +28,7 @@ import {
   PurchaseOrderLineItem,
 } from "@/services/purchaseOrderService";
 import { useAuth } from "@/contexts/AuthContext";
+import SupplierFormDialog from "./SupplierFormDialog";
 
 interface PurchaseOrderFormDialogProps {
   open: boolean;
@@ -42,6 +43,8 @@ interface LineItemInput {
   unit_price: number;
 }
 
+const NEW_SUPPLIER_VALUE = "__new__";
+
 const PurchaseOrderFormDialog = ({
   open,
   onOpenChange,
@@ -52,6 +55,7 @@ const PurchaseOrderFormDialog = ({
   const [loading, setLoading] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierId, setSupplierId] = useState("");
+  const [showAddSupplier, setShowAddSupplier] = useState(false);
   const [orderDate, setOrderDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
   const [reference, setReference] = useState("");
@@ -204,6 +208,7 @@ const PurchaseOrderFormDialog = ({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -215,7 +220,13 @@ const PurchaseOrderFormDialog = ({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Supplier *</Label>
-              <Select value={supplierId} onValueChange={setSupplierId} disabled={isEditing}>
+              <Select value={supplierId} onValueChange={(val) => {
+                if (val === NEW_SUPPLIER_VALUE) {
+                  setShowAddSupplier(true);
+                } else {
+                  setSupplierId(val);
+                }
+              }} disabled={isEditing}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select supplier" />
                 </SelectTrigger>
@@ -225,6 +236,11 @@ const PurchaseOrderFormDialog = ({
                       {supplier.name}
                     </SelectItem>
                   ))}
+                  <SelectItem value={NEW_SUPPLIER_VALUE} className="text-primary font-medium">
+                    <span className="flex items-center gap-1">
+                      <Plus className="w-3 h-3" /> Add New Supplier
+                    </span>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -358,6 +374,16 @@ const PurchaseOrderFormDialog = ({
         </div>
       </DialogContent>
     </Dialog>
+
+    <SupplierFormDialog
+      open={showAddSupplier}
+      onOpenChange={setShowAddSupplier}
+      onSuccess={(supplier) => {
+        setSuppliers((prev) => [...prev, supplier]);
+        setSupplierId(supplier.id);
+      }}
+    />
+    </>
   );
 };
 
