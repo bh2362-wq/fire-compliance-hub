@@ -41,6 +41,7 @@ import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderF
 import PurchaseOrderDetailDialog from "@/components/purchase-orders/PurchaseOrderDetailDialog";
 import SuppliersDialog from "@/components/purchase-orders/SuppliersDialog";
 import { EmailPurchaseOrderDialog } from "@/components/purchase-orders/EmailPurchaseOrderDialog";
+import { BulkSendPODialog } from "@/components/purchase-orders/BulkSendPODialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +68,7 @@ const PurchaseOrders = () => {
   const [poToEmail, setPoToEmail] = useState<PurchaseOrder | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSending, setBulkSending] = useState(false);
+  const [showBulkSend, setShowBulkSend] = useState(false);
 
   const loadPurchaseOrders = async () => {
     try {
@@ -214,81 +216,7 @@ const PurchaseOrders = () => {
     }
   };
 
-  const handleBulkSend = async () => {
-    if (selectedIds.size === 0) return;
-    setBulkSending(true);
-    let sentCount = 0;
-    let failCount = 0;
-
-    try {
-      const companySettings = await getCompanySettings();
-      const compName = companySettings?.company_name || "BHO Fire";
-
-      for (const poId of selectedIds) {
-        try {
-          const fullPO = await fetchPurchaseOrderById(poId);
-          if (!fullPO) continue;
-
-          const supplierEmail = fullPO.supplier?.email;
-          if (!supplierEmail) {
-            toast.error(`${fullPO.po_number}: No supplier email`);
-            failCount++;
-            continue;
-          }
-
-          const doc = await generatePurchaseOrderPDF(fullPO, companySettings || null);
-          const pdfBase64 = doc.output("datauristring").split(",")[1];
-
-          const supplierName = fullPO.supplier?.name || "Supplier";
-          const emailSubject = `Purchase Order ${fullPO.po_number}${fullPO.reference ? ` - ${fullPO.reference}` : ""}`;
-          const emailBody = `Dear ${supplierName},\n\nPlease find attached our purchase order ${fullPO.po_number}.\n\nPlease confirm receipt and expected delivery date at your earliest convenience.\n\nKind regards,\n${compName}`;
-
-          const { data, error } = await supabase.functions.invoke("send-report-email", {
-            body: {
-              to: [supplierEmail],
-              subject: emailSubject,
-              emailBody,
-              pdfBase64,
-              siteName: "",
-              reportNumber: fullPO.po_number,
-              reportDate: fullPO.order_date,
-              documentType: "Purchase Order",
-            },
-          });
-
-          if (error || data?.error) throw new Error(data?.error || "Send failed");
-
-          // Mark as sent
-          await updatePurchaseOrder(fullPO.id, { status: "sent" });
-
-          // Log email
-          await supabase.from("email_logs").insert({
-            email_type: "purchase_order",
-            recipients: [supplierEmail],
-            subject: emailSubject,
-            status: "sent",
-            created_by: user?.id,
-          });
-
-          sentCount++;
-        } catch (err) {
-          console.error(`Failed to send PO ${poId}:`, err);
-          failCount++;
-        }
-      }
-
-      if (sentCount > 0) toast.success(`${sentCount} purchase order(s) sent successfully`);
-      if (failCount > 0) toast.error(`${failCount} purchase order(s) failed to send`);
-
-      setSelectedIds(new Set());
-      loadPurchaseOrders();
-    } catch (error) {
-      console.error("Bulk send error:", error);
-      toast.error("Bulk send failed");
-    } finally {
-      setBulkSending(false);
-    }
-  };
+  // Bulk send is now handled by BulkSendPODialog
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -468,14 +396,9 @@ const PurchaseOrders = () => {
             {selectedIds.size > 0 && (
               <Button
                 variant="default"
-                onClick={handleBulkSend}
-                disabled={bulkSending}
+                onClick={() => setShowBulkSend(true)}
               >
-                {bulkSending ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4 mr-2" />
-                )}
+                <Send className="w-4 h-4 mr-2" />
                 Send {selectedIds.size} PO{selectedIds.size > 1 ? "s" : ""}
               </Button>
             )}
@@ -568,6 +491,17 @@ const PurchaseOrders = () => {
           }}
         />
       )}
+
+      <BulkSendPODialog
+        open={showBulkSend}
+        onOpenChange={setShowBulkSend}
+        selectedIds={selectedIds}
+        purchaseOrders={purchaseOrders}
+        onSuccess={() => {
+          setSelectedIds(new Set());
+          loadPurchaseOrders();
+        }}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!poToDelete} onOpenChange={() => setPoToDelete(null)}>
