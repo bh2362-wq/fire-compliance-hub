@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, MoreVertical, Eye, Trash2, Send, Users, Download, Ban, Copy, Pencil, CheckCircle } from "lucide-react";
+import { Plus, MoreVertical, Eye, Trash2, Send, Users, Download, Ban, Copy, Pencil, CheckCircle, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -38,6 +38,7 @@ import { downloadPurchaseOrderPDF } from "@/lib/purchaseOrderPdfGenerator";
 import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderFormDialog";
 import PurchaseOrderDetailDialog from "@/components/purchase-orders/PurchaseOrderDetailDialog";
 import SuppliersDialog from "@/components/purchase-orders/SuppliersDialog";
+import { EmailPurchaseOrderDialog } from "@/components/purchase-orders/EmailPurchaseOrderDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +62,7 @@ const PurchaseOrders = () => {
   const [showSuppliers, setShowSuppliers] = useState(false);
   const [poToDelete, setPoToDelete] = useState<PurchaseOrder | null>(null);
   const [poToVoid, setPoToVoid] = useState<PurchaseOrder | null>(null);
+  const [poToEmail, setPoToEmail] = useState<PurchaseOrder | null>(null);
 
   const loadPurchaseOrders = async () => {
     try {
@@ -201,6 +203,13 @@ const PurchaseOrders = () => {
     setShowDetail(true);
   };
 
+  const handleEmailPO = async (po: PurchaseOrder) => {
+    const fullPO = await fetchPurchaseOrderById(po.id);
+    if (fullPO) {
+      setPoToEmail(fullPO);
+    }
+  };
+
   const draftOrders = purchaseOrders.filter((po) => po.status === "draft");
   const sentOrders = purchaseOrders.filter((po) => po.status === "sent");
   const receivedOrders = purchaseOrders.filter((po) => po.status === "received");
@@ -287,6 +296,12 @@ const PurchaseOrders = () => {
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownloadPDF(po); }}>
                         <Download className="w-4 h-4 mr-2" />
                         Download PDF
+                      </DropdownMenuItem>
+
+                      {/* Email PO */}
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEmailPO(po); }}>
+                        <Mail className="w-4 h-4 mr-2" />
+                        Email PO
                       </DropdownMenuItem>
 
                       {/* Copy to Draft - available for all */}
@@ -414,6 +429,18 @@ const PurchaseOrders = () => {
         open={showSuppliers}
         onOpenChange={setShowSuppliers}
       />
+
+      {poToEmail && (
+        <EmailPurchaseOrderDialog
+          open={!!poToEmail}
+          onOpenChange={(open) => { if (!open) setPoToEmail(null); }}
+          purchaseOrder={poToEmail}
+          onSuccess={() => {
+            setPoToEmail(null);
+            loadPurchaseOrders();
+          }}
+        />
+      )}
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!poToDelete} onOpenChange={() => setPoToDelete(null)}>
