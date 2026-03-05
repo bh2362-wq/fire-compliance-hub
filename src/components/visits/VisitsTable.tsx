@@ -545,7 +545,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             appointmentDate: (parsedNotes.appointmentDate as string) || undefined,
             systemStatusArrival: (parsedNotes.systemStatusArrival as string) || "",
             systemStatusDeparture: (parsedNotes.systemStatusDeparture as string) || "",
-            workCompleted: (parsedNotes.workCompleted as boolean) || false,
+            workCompleted: (parsedNotes.workCompleted as boolean) || fullReport.status === "completed" || fullReport.status === "locked",
             returnRequired: (parsedNotes.returnRequired as boolean) || false,
             surveyRequired: (parsedNotes.surveyRequired as boolean) || false,
             quotationRequired: (parsedNotes.quotationRequired as boolean) || false,

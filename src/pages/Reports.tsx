@@ -206,7 +206,7 @@ const Reports = () => {
         const parsed = JSON.parse(fullReport.notes || "{}");
         base64 = await generateWorkReportPDF({
           certificateNo: fullReport.report_number || "", jobNumber: parsed.jobNumber || "", jobType: parsed.jobType || "", appointmentDate: parsed.appointmentDate || "",
-          systemStatusArrival: parsed.systemStatusArrival || "", systemStatusDeparture: parsed.systemStatusDeparture || "", workCompleted: parsed.workCompleted || false, returnRequired: parsed.returnRequired || false,
+          systemStatusArrival: parsed.systemStatusArrival || "", systemStatusDeparture: parsed.systemStatusDeparture || "", workCompleted: parsed.workCompleted || fullReport.status === "completed" || fullReport.status === "locked", returnRequired: parsed.returnRequired || false,
           surveyRequired: parsed.surveyRequired || false, quotationRequired: parsed.quotationRequired || false, ramsCompleted: parsed.ramsCompleted || false, logBookEntry: parsed.logBookEntry || false,
           worksReport: fullReport.work_carried_out || "", furtherAction: fullReport.recommendations || "", numEngineers: parsed.numEngineers || 1, workDays: parsed.workDays || [],
           totalHours: parsed.totalHours || "", startTime: parsed.startTime || "", finishTime: parsed.finishTime || "", travelTime: parsed.travelTime || "", duration: parsed.duration || "",
@@ -432,7 +432,7 @@ const Reports = () => {
           appointmentDate: parsed.appointmentDate || "",
           systemStatusArrival: parsed.systemStatusArrival || "",
           systemStatusDeparture: parsed.systemStatusDeparture || "",
-          workCompleted: parsed.workCompleted || false,
+          workCompleted: parsed.workCompleted || fullReport.status === "completed" || fullReport.status === "locked",
           returnRequired: parsed.returnRequired || false,
           surveyRequired: parsed.surveyRequired || false,
           quotationRequired: parsed.quotationRequired || false,
