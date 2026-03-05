@@ -18,66 +18,81 @@ export async function generateStatementPDF({
   const doc = new jsPDF("p", "mm", "a4");
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
-  let y = margin;
 
-  // Load company logo if available
-  let logoImg: HTMLImageElement | null = null;
+  // ═══════════════════════════════════════════════════════════════
+  // HEADER — matches PO style
+  // ═══════════════════════════════════════════════════════════════
+  let yPos = 20;
+
+  // Company logo — left side (32x28, matching PO)
   const logoUrl = companySettings?.report_logo_url || companySettings?.company_logo_url;
   if (logoUrl) {
     try {
-      logoImg = await loadImage(logoUrl);
+      const logoImg = await loadImage(logoUrl);
+      doc.addImage(logoImg, "PNG", margin, yPos - 2, 32, 28);
     } catch {
-      // Skip logo if it can't be loaded
+      // Skip logo
     }
   }
 
-  // Header with logo
-  if (logoImg) {
-    const maxLogoH = 18;
-    const ratio = logoImg.width / logoImg.height;
-    const logoH = maxLogoH;
-    const logoW = logoH * ratio;
-    doc.addImage(logoImg, "PNG", margin, y, Math.min(logoW, 50), logoH);
-    y += logoH + 4;
+  // Company details — right-aligned (matching PO style)
+  const rightX = pageWidth - margin;
+  let contactY = yPos;
+
+  const companyName2 = companySettings?.company_name || "Company";
+  doc.setTextColor(74, 85, 104);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text(companyName2, rightX, contactY, { align: "right" });
+  contactY += 5;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(113, 128, 150);
+
+  if (companySettings?.address) {
+    doc.text(companySettings.address, rightX, contactY, { align: "right" });
+    contactY += 4;
+  }
+  const cityPostLine = `${companySettings?.city || ""} ${companySettings?.postcode || ""}`.trim();
+  if (cityPostLine) {
+    doc.text(cityPostLine, rightX, contactY, { align: "right" });
+    contactY += 4;
+  }
+  if (companySettings?.phone) {
+    doc.text(`T: ${companySettings.phone}`, rightX, contactY, { align: "right" });
+    contactY += 4;
+  }
+  if (companySettings?.email) {
+    doc.text(`E: ${companySettings.email}`, rightX, contactY, { align: "right" });
   }
 
-  // Company details
-  const companyName = companySettings?.company_name || "Company";
-  doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  const companyLines: string[] = [companyName];
-  if (companySettings?.address) companyLines.push(companySettings.address);
-  const cityPostcode = [companySettings?.city, companySettings?.postcode].filter(Boolean).join(", ");
-  if (cityPostcode) companyLines.push(cityPostcode);
-  if (companySettings?.phone) companyLines.push(`Tel: ${companySettings.phone}`);
-  if (companySettings?.email) companyLines.push(companySettings.email);
+  yPos = 48;
 
-  companyLines.forEach((line) => {
-    doc.text(line, margin, y);
-    y += 4.5;
-  });
+  // ═══════════════════════════════════════════════════════════════
+  // DOCUMENT TITLE WITH ACCENT BAR — matches PO style
+  // ═══════════════════════════════════════════════════════════════
+  doc.setFillColor(185, 28, 28);
+  doc.rect(margin, yPos, 4, 16, "F");
 
-  y += 6;
-
-  // Statement title
-  doc.setFontSize(18);
-  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
-  doc.text("STATEMENT OF ACCOUNT", margin, y);
+  doc.setTextColor(28, 28, 32);
+  doc.text("STATEMENT OF ACCOUNT", margin + 10, yPos + 7);
 
-  // Date on right
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Date: ${format(new Date(), "dd MMMM yyyy")}`, pageWidth - margin, y, { align: "right" });
-  y += 10;
+  doc.setTextColor(113, 128, 150);
+  doc.text(format(new Date(), "dd MMMM yyyy"), margin + 10, yPos + 14);
+
+  yPos += 28;
 
   // Customer name
   doc.setFontSize(12);
-  doc.setTextColor(30, 30, 30);
+  doc.setTextColor(28, 28, 32);
   doc.setFont("helvetica", "bold");
-  doc.text(customerName, margin, y);
-  y += 8;
+  doc.text(customerName, margin, yPos);
+  let y = yPos + 8;
 
   // Summary bar
   const totalDue = invoices.reduce((sum, inv) => sum + inv.amountDue, 0);
@@ -187,13 +202,29 @@ export async function generateStatementPDF({
     headStyles: { fillColor: [80, 80, 80], textColor: 255 },
   });
 
-  // Footer
-  const footerY = doc.internal.pageSize.getHeight() - 12;
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(140, 140, 140);
-  const footerText = companySettings?.report_footer_text || `${companyName} - Statement generated ${format(new Date(), "dd/MM/yyyy")}`;
-  doc.text(footerText, pageWidth / 2, footerY, { align: "center" });
+  // Professional footer — matches PO style
+  const totalPages = doc.getNumberOfPages();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  for (let pg = 1; pg <= totalPages; pg++) {
+    doc.setPage(pg);
+    const footerY2 = pageHeight - 18;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(margin, footerY2, pageWidth - margin, footerY2);
+
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(113, 128, 150);
+
+    const footerParts: string[] = [];
+    if (companySettings?.company_name) footerParts.push(companySettings.company_name);
+    if (companySettings?.registration_number) footerParts.push(`Reg: ${companySettings.registration_number}`);
+    if (companySettings?.vat_number) footerParts.push(`VAT: ${companySettings.vat_number}`);
+    if (footerParts.length > 0) doc.text(footerParts.join("  |  "), margin, footerY2 + 5);
+
+    doc.text(`Generated ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pageWidth - margin, footerY2 + 5, { align: "right" });
+    doc.text(`Page ${pg} of ${totalPages}`, pageWidth / 2, footerY2 + 10, { align: "center" });
+  }
 
   return doc;
 }

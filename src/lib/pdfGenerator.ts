@@ -87,38 +87,52 @@ function drawStatusBox(
   return x + boxSize + (showLabel ? 20 : 7);
 }
 
-// Compact branded header for Service Reports
+// Compact branded header for Service Reports — matches PO style
 function addCompactHeader(doc: jsPDF, pageWidth: number, margin: number, logoImg: HTMLImageElement | null) {
-  doc.setFillColor(...COLORS.red);
-  doc.rect(0, 0, pageWidth, 2, "F");
+  let yPos = 14;
 
+  // Company logo — left side (32x28 matching PO)
   if (logoImg) {
     try {
-      doc.addImage(logoImg, "PNG", margin, 4, 18, 16);
+      doc.addImage(logoImg, "PNG", margin, yPos - 2, 32, 28);
     } catch {
       doc.setTextColor(...COLORS.charcoal);
-      doc.setFontSize(12);
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("BHO FIRE", margin, 14);
+      doc.text(COMPANY.name, margin, yPos + 10);
     }
   }
 
-  doc.setTextColor(...COLORS.darkGrey);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
+  // Company details — right-aligned (matching PO style)
   const rightX = pageWidth - margin;
-  doc.text(`T: ${COMPANY.phone}  E: ${COMPANY.email}`, rightX, 8, { align: "right" });
-  doc.text(COMPANY.address, rightX, 12, { align: "right" });
-  doc.text(`${COMPANY.website}`, rightX, 16, { align: "right" });
+  let contactY = yPos;
 
+  doc.setTextColor(...COLORS.darkGrey);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text(COMPANY.name, rightX, contactY, { align: "right" });
+  contactY += 5;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...COLORS.mediumGrey);
+  doc.text(COMPANY.address, rightX, contactY, { align: "right" });
+  contactY += 4;
+
+  doc.text(`T: ${COMPANY.phone}`, rightX, contactY, { align: "right" });
+  contactY += 4;
+  doc.text(`E: ${COMPANY.email}`, rightX, contactY, { align: "right" });
+
+  // Separator line
+  yPos = 44;
   doc.setDrawColor(...COLORS.borderGrey);
   doc.setLineWidth(0.3);
-  doc.line(margin, 22, pageWidth - margin, 22);
+  doc.line(margin, yPos, pageWidth - margin, yPos);
 
-  return 26;
+  return yPos + 4;
 }
 
-// Compact footer
+// Professional footer — matches PO style
 function addCompactFooter(doc: jsPDF, pageWidth: number, margin: number) {
   const pageCount = doc.getNumberOfPages();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -126,15 +140,32 @@ function addCompactFooter(doc: jsPDF, pageWidth: number, margin: number) {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
 
+    const footerY = pageHeight - 18;
+
     doc.setDrawColor(...COLORS.borderGrey);
-    doc.setLineWidth(0.2);
-    doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
+    doc.setLineWidth(0.3);
+    doc.line(margin, footerY, pageWidth - margin, footerY);
 
     doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(...COLORS.mediumGrey);
-    doc.text(`${COMPANY.country} | ${COMPANY.registration}`, margin, pageHeight - 6);
-    doc.text(`Page ${i}/${pageCount}`, pageWidth / 2, pageHeight - 6, { align: "center" });
-    doc.text(`Generated: ${format(new Date(), "dd/MM/yy HH:mm")}`, pageWidth - margin, pageHeight - 6, { align: "right" });
+
+    const footerParts = [COMPANY.name, COMPANY.registration].filter(Boolean);
+    doc.text(footerParts.join("  |  "), margin, footerY + 5);
+
+    doc.text(
+      `Generated ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
+      pageWidth - margin,
+      footerY + 5,
+      { align: "right" }
+    );
+
+    doc.text(
+      `Page ${i} of ${pageCount}`,
+      pageWidth / 2,
+      footerY + 10,
+      { align: "center" }
+    );
   }
 }
 

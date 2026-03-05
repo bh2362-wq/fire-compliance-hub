@@ -118,7 +118,7 @@ async function loadLogo(url: string | null | undefined): Promise<HTMLImageElemen
   });
 }
 
-// Premium header with elegant branding
+// Premium header — matches PO style
 function addHeader(
   doc: jsPDF,
   pageWidth: number,
@@ -127,65 +127,63 @@ function addHeader(
   settings?: CompanySettings,
   quotationNumber?: string
 ): number {
-  const pageHeight = doc.internal.pageSize.getHeight();
-  
-  // Elegant top accent line
-  doc.setFillColor(...COLORS.accent);
-  doc.rect(0, 0, pageWidth, 4, "F");
-  
-  // Subtle gradient effect (simulated with rectangles)
-  doc.setFillColor(200, 28, 28);
-  doc.rect(0, 4, pageWidth, 1, "F");
-  
-  let yPos = 14;
+  let yPos = 20;
 
-  // Logo section - left aligned
+  // Company logo — left side (32x28, matching PO)
   if (logoImg) {
     try {
       doc.addImage(logoImg, "PNG", margin, yPos - 2, 32, 28);
     } catch {
-      // Fallback to text
       doc.setTextColor(...COLORS.primary);
-      doc.setFontSize(20);
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text(settings?.company_name || COMPANY.name, margin, yPos + 10);
     }
   } else {
     doc.setTextColor(...COLORS.primary);
-    doc.setFontSize(20);
+    doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text(settings?.company_name || COMPANY.name, margin, yPos + 10);
   }
 
-  // Company contact details - right aligned with refined typography
+  // Company contact details — right-aligned (matching PO style)
   const rightX = pageWidth - margin;
   let contactY = yPos;
-  
+
   doc.setTextColor(...COLORS.textSecondary);
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text(settings?.company_name || COMPANY.name, rightX, contactY, { align: "right" });
-  contactY += 5;
-  
+  if (settings?.company_name || COMPANY.name) {
+    doc.text(settings?.company_name || COMPANY.name, rightX, contactY, { align: "right" });
+    contactY += 5;
+  }
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...COLORS.textMuted);
-  doc.text(settings?.address || COMPANY.address, rightX, contactY, { align: "right" });
-  contactY += 4;
-  
-  if (settings?.city || settings?.postcode) {
-    doc.text(`${settings?.city || ""} ${settings?.postcode || ""}`.trim(), rightX, contactY, { align: "right" });
+
+  if (settings?.address || COMPANY.address) {
+    doc.text(settings?.address || COMPANY.address, rightX, contactY, { align: "right" });
     contactY += 4;
   }
-  
-  doc.text(`T: ${settings?.phone || COMPANY.phone}`, rightX, contactY, { align: "right" });
-  contactY += 4;
-  doc.text(`E: ${settings?.email || COMPANY.email}`, rightX, contactY, { align: "right" });
 
-  // Elegant separator
+  const cityPostLine = `${settings?.city || ""} ${settings?.postcode || ""}`.trim();
+  if (cityPostLine) {
+    doc.text(cityPostLine, rightX, contactY, { align: "right" });
+    contactY += 4;
+  }
+
+  if (settings?.phone || COMPANY.phone) {
+    doc.text(`T: ${settings?.phone || COMPANY.phone}`, rightX, contactY, { align: "right" });
+    contactY += 4;
+  }
+  if (settings?.email || COMPANY.email) {
+    doc.text(`E: ${settings?.email || COMPANY.email}`, rightX, contactY, { align: "right" });
+  }
+
   yPos = 48;
   doc.setDrawColor(...COLORS.border);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.3);
   doc.line(margin, yPos, pageWidth - margin, yPos);
 
   return yPos + 8;
@@ -607,30 +605,43 @@ function addSectionHeader(
   return yPos + 10;
 }
 
-// Premium footer
-function addFooter(doc: jsPDF, pageWidth: number, margin: number) {
+// Professional footer — matches PO style
+function addFooter(doc: jsPDF, pageWidth: number, margin: number, settings?: CompanySettings) {
   const pageCount = doc.getNumberOfPages();
   const pageHeight = doc.internal.pageSize.getHeight();
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
 
-    // Footer separator
+    const footerY = pageHeight - 18;
+
     doc.setDrawColor(...COLORS.border);
     doc.setLineWidth(0.3);
-    doc.line(margin, pageHeight - 14, pageWidth - margin, pageHeight - 14);
-    
-    // Accent line
-    doc.setDrawColor(...COLORS.accent);
-    doc.setLineWidth(1);
-    doc.line(margin, pageHeight - 13.5, margin + 25, pageHeight - 13.5);
+    doc.line(margin, footerY, pageWidth - margin, footerY);
 
     doc.setFontSize(7);
-    doc.setTextColor(...COLORS.textLight);
     doc.setFont("helvetica", "normal");
-    doc.text(`${COMPANY.country} | ${COMPANY.registration}`, margin, pageHeight - 8);
-    doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 8, { align: "center" });
-    doc.text(`Generated: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pageWidth - margin, pageHeight - 8, { align: "right" });
+    doc.setTextColor(...COLORS.textLight);
+
+    const footerParts: string[] = [];
+    footerParts.push(settings?.company_name || COMPANY.name);
+    footerParts.push(COMPANY.registration);
+    if (settings?.vat_number) footerParts.push(`VAT: ${settings.vat_number}`);
+    doc.text(footerParts.join("  |  "), margin, footerY + 5);
+
+    doc.text(
+      `Generated ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
+      pageWidth - margin,
+      footerY + 5,
+      { align: "right" }
+    );
+
+    doc.text(
+      `Page ${i} of ${pageCount}`,
+      pageWidth / 2,
+      footerY + 10,
+      { align: "center" }
+    );
   }
 }
 
@@ -964,7 +975,7 @@ export async function generateQuotationPDF(
   });
 
   // Footer
-  addFooter(doc, pageWidth, margin);
+  addFooter(doc, pageWidth, margin, companySettings);
 
   // Output
   if (returnBase64) {
