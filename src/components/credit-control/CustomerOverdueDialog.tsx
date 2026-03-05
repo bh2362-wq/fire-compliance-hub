@@ -42,7 +42,7 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Mail, Send, Loader2, FileText, Plus, X, BarChart3,
-  MoreHorizontal, Pencil, ShieldCheck, CheckCircle, Trash2, Eye,
+  MoreHorizontal, Pencil, ShieldCheck, CheckCircle, Trash2, Eye, Download,
 } from "lucide-react";
 import {
   XeroOutstandingInvoice,
@@ -54,6 +54,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { CustomerPaymentInsights, computeInsights } from "./CustomerPaymentInsights";
 import { ManualInvoiceDialog, EditInvoiceData } from "@/components/xero/ManualInvoiceDialog";
+import { generateStatementPDF } from "@/lib/statementPdfGenerator";
+import { getCompanySettings } from "@/services/companySettingsService";
 
 interface CustomerOverdueDialogProps {
   open: boolean;
@@ -500,6 +502,36 @@ export function CustomerOverdueDialog({
             <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Close
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    toast.loading("Generating PDF...", { id: "stmt-pdf" });
+                    const settings = await getCompanySettings();
+                    const doc = await generateStatementPDF({
+                      customerName,
+                      invoices,
+                      companySettings: settings,
+                    });
+                    const blob = doc.output("blob");
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `Statement - ${customerName} - ${format(new Date(), "dd-MM-yyyy")}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    toast.success("Statement PDF downloaded", { id: "stmt-pdf" });
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Failed to generate PDF", { id: "stmt-pdf" });
+                  }
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Save as PDF
               </Button>
               <Button onClick={() => setShowEmailForm(true)}>
                 <Mail className="mr-2 h-4 w-4" />
