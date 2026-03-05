@@ -275,7 +275,7 @@ export function ReportPreviewDialog({
           appointmentDate: parsedNotes.appointmentDate || "",
           systemStatusArrival: parsedNotes.systemStatusArrival || "",
           systemStatusDeparture: parsedNotes.systemStatusDeparture || "",
-          workCompleted: !!parsedNotes.workCompleted,
+          workCompleted: !!parsedNotes.workCompleted || src.status === "completed" || src.status === "locked",
           returnRequired: !!parsedNotes.returnRequired,
           surveyRequired: !!parsedNotes.surveyRequired,
           quotationRequired: !!parsedNotes.quotationRequired,
@@ -518,7 +518,7 @@ export function ReportPreviewDialog({
                 const checklist = report.checklist as Record<string, unknown>;
                 
                 // Get data from either notes (WorkReportDialog) or checklist (ServiceReportDialog)
-                const workCompleted = parsedNotes.workCompleted ?? checklist?.workCompleted;
+                const workCompleted = parsedNotes.workCompleted || checklist?.workCompleted || report.status === "completed" || report.status === "locked";
                 const startTime = parsedNotes.startTime ?? checklist?.arrivalTime;
                 const finishTime = parsedNotes.finishTime ?? checklist?.departureTime;
                 const duration = parsedNotes.duration;

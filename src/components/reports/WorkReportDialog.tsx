@@ -482,7 +482,7 @@ export function WorkReportDialog({
         const parsedNotes = JSON.parse(r.notes);
         setJobNumber(parsedNotes.jobNumber || "");
         setJobType(parsedNotes.jobType || "");
-        setWorkCompleted(parsedNotes.workCompleted || false);
+        setWorkCompleted(parsedNotes.workCompleted || r.status === "completed" || r.status === "locked");
         setReturnRequired(parsedNotes.returnRequired || false);
         setSurveyRequired(parsedNotes.surveyRequired || false);
         setQuotationRequired(parsedNotes.quotationRequired || false);
@@ -545,11 +545,11 @@ export function WorkReportDialog({
   };
 
   // Build notes data object - centralized to avoid duplication
-  const buildNotesData = () => {
+  const buildNotesData = (forceCompleted = false) => {
     return JSON.stringify({
       jobNumber,
       jobType,
-      workCompleted,
+      workCompleted: forceCompleted || workCompleted,
       returnRequired,
       surveyRequired,
       quotationRequired,
@@ -684,7 +684,7 @@ export function WorkReportDialog({
 
     setSaving(true);
     try {
-      const notesData = buildNotesData();
+      const notesData = buildNotesData(true);
       
       // If completing and no report number yet, assign one now
       let finalReportNumber = certificateNo;
@@ -708,6 +708,8 @@ export function WorkReportDialog({
       });
 
       setHasUnsavedChanges(false);
+      setWorkCompleted(true);
+      setReport((prev) => (prev ? { ...prev, status: "completed" } : prev));
 
       // Create or update calendar appointment if appointment date is set
       if (appointmentDate && user) {
@@ -798,7 +800,7 @@ export function WorkReportDialog({
 
     setSaving(true);
     try {
-      const notesData = buildNotesData();
+      const notesData = buildNotesData(true);
       
       // If no report number yet, assign one now
       let finalReportNumber = certificateNo;
@@ -822,6 +824,8 @@ export function WorkReportDialog({
       });
 
       setHasUnsavedChanges(false);
+      setWorkCompleted(true);
+      setReport((prev) => (prev ? { ...prev, status: "completed" } : prev));
 
       // Update calendar appointment to completed if it exists
       if (user) {
@@ -971,7 +975,7 @@ export function WorkReportDialog({
     appointmentDate: appointmentDate?.toISOString(),
     systemStatusArrival,
     systemStatusDeparture,
-    workCompleted,
+    workCompleted: workCompleted || report?.status === "completed" || report?.status === "locked",
     returnRequired,
     surveyRequired,
     quotationRequired,

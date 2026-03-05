@@ -780,6 +780,7 @@ export interface WorkReportData {
   systemStatusArrival: string;
   systemStatusDeparture: string;
   workCompleted: boolean;
+  reportStatus?: string;
   returnRequired: boolean;
   surveyRequired: boolean;
   quotationRequired: boolean;
@@ -1180,8 +1181,10 @@ export async function generateWorkReportPDF(
   doc.text("SIGN-OFF & COMPLETION", margin + 3, yPos + 5.5);
   
   // Completion status badge
-  const statusText = data.workCompleted ? "WORKS COMPLETED" : "WORKS IN PROGRESS";
-  const statusColor: [number, number, number] = data.workCompleted ? COLORS.yes : [200, 150, 0];
+  const isWorkCompleted =
+    data.workCompleted || data.reportStatus === "completed" || data.reportStatus === "locked";
+  const statusText = isWorkCompleted ? "WORKS COMPLETED" : "WORKS IN PROGRESS";
+  const statusColor: [number, number, number] = isWorkCompleted ? COLORS.yes : [200, 150, 0];
   doc.setFillColor(...statusColor);
   doc.rect(pageWidth - margin - 42, yPos + 1.5, 40, 5, "F");
   doc.setTextColor(...COLORS.white);
