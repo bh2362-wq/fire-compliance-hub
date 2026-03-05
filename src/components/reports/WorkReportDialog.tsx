@@ -704,7 +704,7 @@ export function WorkReportDialog({
         work_carried_out: worksReport,
         recommendations: furtherAction,
         notes: notesData,
-        status: complete ? "completed" : "draft",
+        status: "completed",
       });
 
       setHasUnsavedChanges(false);
