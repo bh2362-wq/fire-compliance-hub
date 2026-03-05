@@ -383,7 +383,7 @@ export function ServiceReportDialog({
         work_carried_out: workCarriedOut,
         parts_used: partsUsed,
         notes: notesValue,
-        status: complete ? "completed" : "draft",
+        status: "completed",
       });
 
       toast.success(complete ? `Service report ${finalReportNumber || ""} completed` : "Service report saved");

@@ -374,7 +374,7 @@ export function ASDReportDialog({
           work_carried_out: workCarriedOut,
           parts_used: partsUsed,
           notes: notesJson,
-          status: complete ? "completed" : "draft",
+          status: "completed",
         })
         .eq("id", reportId);
 
