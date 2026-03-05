@@ -772,6 +772,12 @@ export function WorkReportDialog({
           onSuccess?.();
         }
       } else {
+        // Mark the visit as completed when report is saved
+        await supabase
+          .from("visits")
+          .update({ status: "completed" })
+          .eq("id", visit.id);
+
         toast.success("Work report saved");
         // Sync PDF to SharePoint on every save so folder stays current
         syncPdfToSharePoint();
