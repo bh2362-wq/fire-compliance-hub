@@ -204,6 +204,7 @@ export default function FormFillerDialog({
               type="date"
               value={(formData[field.id] as string) || ""}
               onChange={(e) => updateField(field.id, e.target.value)}
+              disabled={readOnly}
             />
           </div>
         );
