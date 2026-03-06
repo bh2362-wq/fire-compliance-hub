@@ -240,7 +240,7 @@ export default function CustomerForms() {
       {selectedTemplate && (
         <FormFillerDialog
           open={fillerOpen}
-          onOpenChange={setFillerOpen}
+          onOpenChange={(o) => { setFillerOpen(o); if (!o) setViewMode(false); }}
           template={selectedTemplate}
           existingData={editSubmission ? {
             id: editSubmission.id,
@@ -249,6 +249,7 @@ export default function CustomerForms() {
             status: editSubmission.status,
           } : undefined}
           onSaved={loadData}
+          readOnly={viewMode}
         />
       )}
     </DashboardLayout>
