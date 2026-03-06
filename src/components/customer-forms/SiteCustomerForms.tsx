@@ -183,7 +183,7 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
       {selectedTemplate && (
         <FormFillerDialog
           open={fillerOpen}
-          onOpenChange={setFillerOpen}
+          onOpenChange={(o) => { setFillerOpen(o); if (!o) setViewMode(false); }}
           template={selectedTemplate}
           existingData={editSubmission ? {
             id: editSubmission.id,
@@ -194,6 +194,7 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
           siteId={siteId}
           customerId={customerId}
           onSaved={loadData}
+          readOnly={viewMode}
         />
       )}
     </div>
