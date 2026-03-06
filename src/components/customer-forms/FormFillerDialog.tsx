@@ -79,11 +79,11 @@ export default function FormFillerDialog({
   // Load visits when site is selected
   useEffect(() => {
     if (!selectedSiteId) { setVisits([]); return; }
-    supabase.from("visits").select("id, visit_type, scheduled_date")
+    supabase.from("visits").select("id, visit_type, visit_date")
       .eq("site_id", selectedSiteId)
-      .order("scheduled_date", { ascending: false })
+      .order("visit_date", { ascending: false })
       .limit(20)
-      .then(({ data }) => setVisits(data || []));
+      .then(({ data }) => setVisits((data || []).map(v => ({ id: v.id, visit_type: v.visit_type, scheduled_date: v.visit_date }))));
 
     // Auto-set customer from site
     const site = sites.find(s => s.id === selectedSiteId);
