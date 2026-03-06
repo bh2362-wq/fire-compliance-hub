@@ -274,7 +274,21 @@ export async function seedChurchesFireTemplates(userId: string) {
     (t) => !existingCodes.includes(t.form_code)
   );
 
-  if (toCreate.length === 0) return existing;
+  // Update existing templates with latest field schemas
+  for (const tmpl of CHURCHES_FIRE_TEMPLATES) {
+    const existingTmpl = existing.find((e) => e.form_code === tmpl.form_code);
+    if (existingTmpl) {
+      await supabase
+        .from("customer_form_templates")
+        .update({ field_schema: tmpl.field_schema as any, description: tmpl.description, page_count: tmpl.page_count } as any)
+        .eq("id", existingTmpl.id);
+    }
+  }
+
+  if (toCreate.length === 0) {
+    // Re-fetch to get updated schemas
+    return await getFormTemplates();
+  }
 
   const { data, error } = await supabase
     .from("customer_form_templates")
@@ -282,7 +296,7 @@ export async function seedChurchesFireTemplates(userId: string) {
     .select();
 
   if (error) throw error;
-  return [...existing, ...(data as unknown as FormTemplate[])];
+  return await getFormTemplates();
 }
 
 export async function getFormSubmissions(templateId?: string) {
