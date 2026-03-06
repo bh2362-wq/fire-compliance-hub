@@ -231,6 +231,7 @@ export default function FormFillerDialog({
               id={field.id}
               checked={!!formData[field.id]}
               onCheckedChange={(checked) => updateField(field.id, checked)}
+              disabled={readOnly}
             />
             <Label htmlFor={field.id} className="text-sm cursor-pointer">
               {field.label}
