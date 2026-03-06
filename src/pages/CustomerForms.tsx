@@ -15,6 +15,7 @@ import {
   deleteFormSubmission,
 } from "@/services/customerFormService";
 import FormFillerDialog from "@/components/customer-forms/FormFillerDialog";
+import { downloadCustomerFormPdf } from "@/lib/customerFormPdfGenerator";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
