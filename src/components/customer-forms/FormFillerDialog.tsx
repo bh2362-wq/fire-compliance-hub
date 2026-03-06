@@ -214,8 +214,8 @@ export default function FormFillerDialog({
               {field.label} {field.required && <span className="text-destructive">*</span>}
             </Label>
             <SignaturePad
-              onSave={(sig) => setSignatures((prev) => ({ ...prev, [field.id]: sig }))}
-              initialValue={signatures[field.id]}
+              onChange={(sig) => setSignatures((prev) => ({ ...prev, [field.id]: sig }))}
+              value={signatures[field.id]}
             />
           </div>
         );
