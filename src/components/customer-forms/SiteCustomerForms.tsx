@@ -63,6 +63,7 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
     }
     setSelectedTemplate(template);
     setEditSubmission(null);
+    setViewMode(false);
     setFillerOpen(true);
   };
 
