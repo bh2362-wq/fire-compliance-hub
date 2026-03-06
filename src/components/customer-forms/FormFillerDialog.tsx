@@ -41,6 +41,7 @@ export default function FormFillerDialog({
   siteId: propSiteId,
   visitId: propVisitId,
   customerId: propCustomerId,
+  readOnly = false,
   onSaved,
 }: FormFillerDialogProps) {
   const { user } = useAuth();
