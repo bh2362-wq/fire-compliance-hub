@@ -264,10 +264,16 @@ export default function FormFillerDialog({
             <Label className="text-sm">
               {field.label} {field.required && <span className="text-destructive">*</span>}
             </Label>
-            <SignaturePad
-              onChange={(sig) => setSignatures((prev) => ({ ...prev, [field.id]: sig }))}
-              value={signatures[field.id]}
-            />
+            {readOnly && signatures[field.id] ? (
+              <img src={signatures[field.id]} alt="Signature" className="border rounded h-20 bg-white" />
+            ) : readOnly ? (
+              <p className="text-sm text-muted-foreground">[Not signed]</p>
+            ) : (
+              <SignaturePad
+                onChange={(sig) => setSignatures((prev) => ({ ...prev, [field.id]: sig }))}
+                value={signatures[field.id]}
+              />
+            )}
           </div>
         );
       case "table":
