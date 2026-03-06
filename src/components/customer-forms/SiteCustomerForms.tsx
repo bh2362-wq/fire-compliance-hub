@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, Edit, Trash2, ClipboardCheck } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, ClipboardCheck, Download, Eye } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -14,6 +14,7 @@ import {
   deleteFormSubmission,
 } from "@/services/customerFormService";
 import FormFillerDialog from "@/components/customer-forms/FormFillerDialog";
+import { downloadCustomerFormPdf } from "@/lib/customerFormPdfGenerator";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
