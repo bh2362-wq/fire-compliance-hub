@@ -156,7 +156,17 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
                     <Badge variant={sub.status === "completed" ? "default" : "secondary"}>
                       {sub.status === "completed" ? "Completed" : "Draft"}
                     </Badge>
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(sub)}>
+                    {sub.status === "completed" && (
+                      <>
+                        <Button variant="ghost" size="icon" title="View form" onClick={() => handleView(sub)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                    <Button variant="ghost" size="icon" title="Edit" onClick={() => { setViewMode(false); handleEdit(sub); }}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(sub.id)}>
