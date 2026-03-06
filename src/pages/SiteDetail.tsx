@@ -8,6 +8,7 @@ import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
 import { SiteServiceReports } from "@/components/sites/SiteServiceReports";
 import { SiteAssets } from "@/components/sites/SiteAssets";
 import { SiteRamsDocuments } from "@/components/sites/SiteRamsDocuments";
+import SiteCustomerForms from "@/components/customer-forms/SiteCustomerForms";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
@@ -17,7 +18,7 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye, FileSignature } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -277,6 +278,11 @@ const SiteDetail = () => {
         {/* Service Reports */}
         <CollapsibleSection title="Service Reports" icon={ClipboardList} defaultOpen={false}>
           <SiteServiceReports siteId={site.id} siteName={site.name} customerName={customer?.name} />
+        </CollapsibleSection>
+
+        {/* Customer Forms */}
+        <CollapsibleSection title="Customer Forms" icon={FileSignature} defaultOpen={false}>
+          <SiteCustomerForms siteId={site.id} customerId={customer?.id} />
         </CollapsibleSection>
 
         {/* Upload History */}
