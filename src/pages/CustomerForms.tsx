@@ -53,6 +53,7 @@ export default function CustomerForms() {
   const handleNewSubmission = (template: FormTemplate) => {
     setSelectedTemplate(template);
     setEditSubmission(null);
+    setViewMode(false);
     setFillerOpen(true);
   };
 
@@ -61,7 +62,29 @@ export default function CustomerForms() {
     if (!template) return;
     setSelectedTemplate(template);
     setEditSubmission(submission);
+    setViewMode(false);
     setFillerOpen(true);
+  };
+
+  const handleViewSubmission = (submission: FormSubmission) => {
+    const template = templates.find((t) => t.id === submission.template_id);
+    if (!template) return;
+    setSelectedTemplate(template);
+    setEditSubmission(submission);
+    setViewMode(true);
+    setFillerOpen(true);
+  };
+
+  const handleDownload = (submission: FormSubmission) => {
+    const template = templates.find((t) => t.id === submission.template_id);
+    if (!template) return;
+    downloadCustomerFormPdf({
+      template,
+      formData: submission.form_data as Record<string, unknown>,
+      signatures: submission.signatures as Record<string, string>,
+      completedDate: submission.completed_at ? format(new Date(submission.completed_at), "dd-MM-yyyy") : undefined,
+    });
+    toast.success("PDF downloaded");
   };
 
   const handleDelete = async (id: string) => {
