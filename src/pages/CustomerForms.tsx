@@ -75,7 +75,7 @@ export default function CustomerForms() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
-        return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Completed</Badge>;
+        return <Badge className="bg-primary/10 text-primary border-primary/20">Completed</Badge>;
       case "draft":
         return <Badge variant="secondary">Draft</Badge>;
       default:
