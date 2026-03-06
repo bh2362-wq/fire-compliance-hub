@@ -280,6 +280,11 @@ const SiteDetail = () => {
           <SiteServiceReports siteId={site.id} siteName={site.name} customerName={customer?.name} />
         </CollapsibleSection>
 
+        {/* Customer Forms */}
+        <CollapsibleSection title="Customer Forms" icon={FileSignature} defaultOpen={false}>
+          <SiteCustomerForms siteId={site.id} customerId={customer?.id} />
+        </CollapsibleSection>
+
         {/* Upload History */}
         <CollapsibleSection title="Upload History" icon={Upload} defaultOpen={false}>
           <SiteUploadHistory siteId={site.id} />
