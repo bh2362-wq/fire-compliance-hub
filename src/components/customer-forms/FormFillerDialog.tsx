@@ -245,6 +245,7 @@ export default function FormFillerDialog({
             <Select
               value={(formData[field.id] as string) || ""}
               onValueChange={(val) => updateField(field.id, val)}
+              disabled={readOnly}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select..." />
