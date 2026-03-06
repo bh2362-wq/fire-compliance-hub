@@ -83,6 +83,27 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
     }
   };
 
+  const handleDownload = (sub: FormSubmission) => {
+    const template = templates.find((t) => t.id === sub.template_id);
+    if (!template) return;
+    downloadCustomerFormPdf({
+      template,
+      formData: sub.form_data as Record<string, unknown>,
+      signatures: sub.signatures as Record<string, string>,
+      completedDate: sub.completed_at ? format(new Date(sub.completed_at), "dd-MM-yyyy") : undefined,
+    });
+    toast.success("PDF downloaded");
+  };
+
+  const handleView = (sub: FormSubmission) => {
+    const template = templates.find((t) => t.id === sub.template_id);
+    if (!template) return;
+    setSelectedTemplate(template);
+    setEditSubmission(sub);
+    setViewMode(true);
+    setFillerOpen(true);
+  };
+
   if (loading) return <div className="text-sm text-muted-foreground py-4">Loading forms...</div>;
 
   return (
