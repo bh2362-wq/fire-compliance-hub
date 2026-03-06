@@ -29,6 +29,7 @@ interface FormFillerDialogProps {
   siteId?: string;
   visitId?: string;
   customerId?: string;
+  readOnly?: boolean;
   onSaved?: () => void;
 }
 
