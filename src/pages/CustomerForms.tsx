@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Plus, ClipboardCheck, Trash2, Edit, Download } from "lucide-react";
+import { FileText, Plus, ClipboardCheck, Trash2, Edit, Download, Eye } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   FormTemplate,
@@ -15,6 +15,7 @@ import {
   deleteFormSubmission,
 } from "@/services/customerFormService";
 import FormFillerDialog from "@/components/customer-forms/FormFillerDialog";
+import { downloadCustomerFormPdf } from "@/lib/customerFormPdfGenerator";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -26,6 +27,7 @@ export default function CustomerForms() {
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
   const [editSubmission, setEditSubmission] = useState<FormSubmission | null>(null);
   const [fillerOpen, setFillerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState(false);
 
   const loadData = async () => {
     if (!user) return;
@@ -51,6 +53,7 @@ export default function CustomerForms() {
   const handleNewSubmission = (template: FormTemplate) => {
     setSelectedTemplate(template);
     setEditSubmission(null);
+    setViewMode(false);
     setFillerOpen(true);
   };
 
@@ -59,7 +62,29 @@ export default function CustomerForms() {
     if (!template) return;
     setSelectedTemplate(template);
     setEditSubmission(submission);
+    setViewMode(false);
     setFillerOpen(true);
+  };
+
+  const handleViewSubmission = (submission: FormSubmission) => {
+    const template = templates.find((t) => t.id === submission.template_id);
+    if (!template) return;
+    setSelectedTemplate(template);
+    setEditSubmission(submission);
+    setViewMode(true);
+    setFillerOpen(true);
+  };
+
+  const handleDownload = (submission: FormSubmission) => {
+    const template = templates.find((t) => t.id === submission.template_id);
+    if (!template) return;
+    downloadCustomerFormPdf({
+      template,
+      formData: submission.form_data as Record<string, unknown>,
+      signatures: submission.signatures as Record<string, string>,
+      completedDate: submission.completed_at ? format(new Date(submission.completed_at), "dd-MM-yyyy") : undefined,
+    });
+    toast.success("PDF downloaded");
   };
 
   const handleDelete = async (id: string) => {
@@ -180,6 +205,16 @@ export default function CustomerForms() {
                         </div>
                         <div className="flex items-center gap-2">
                           {getStatusBadge(sub.status)}
+                          {sub.status === "completed" && (
+                            <>
+                              <Button variant="ghost" size="icon" title="View form" onClick={() => handleViewSubmission(sub)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                           <Button variant="ghost" size="icon" onClick={() => handleEditSubmission(sub)}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -205,7 +240,7 @@ export default function CustomerForms() {
       {selectedTemplate && (
         <FormFillerDialog
           open={fillerOpen}
-          onOpenChange={setFillerOpen}
+          onOpenChange={(o) => { setFillerOpen(o); if (!o) setViewMode(false); }}
           template={selectedTemplate}
           existingData={editSubmission ? {
             id: editSubmission.id,
@@ -214,6 +249,7 @@ export default function CustomerForms() {
             status: editSubmission.status,
           } : undefined}
           onSaved={loadData}
+          readOnly={viewMode}
         />
       )}
     </DashboardLayout>

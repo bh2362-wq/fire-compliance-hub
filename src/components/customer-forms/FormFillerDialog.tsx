@@ -10,10 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { FormTemplate, FormFieldDefinition, createFormSubmission, updateFormSubmission } from "@/services/customerFormService";
+import { downloadCustomerFormPdf } from "@/lib/customerFormPdfGenerator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, CheckCircle, FileText } from "lucide-react";
+import { Save, CheckCircle, FileText, Download } from "lucide-react";
 
 interface FormFillerDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ interface FormFillerDialogProps {
   siteId?: string;
   visitId?: string;
   customerId?: string;
+  readOnly?: boolean;
   onSaved?: () => void;
 }
 
@@ -39,6 +41,7 @@ export default function FormFillerDialog({
   siteId: propSiteId,
   visitId: propVisitId,
   customerId: propCustomerId,
+  readOnly = false,
   onSaved,
 }: FormFillerDialogProps) {
   const { user } = useAuth();
@@ -170,6 +173,7 @@ export default function FormFillerDialog({
               value={(formData[field.id] as string) || ""}
               onChange={(e) => updateField(field.id, e.target.value)}
               placeholder={field.label}
+              disabled={readOnly}
             />
           </div>
         );
@@ -185,6 +189,7 @@ export default function FormFillerDialog({
               value={(formData[field.id] as string) || ""}
               onChange={(e) => updateField(field.id, e.target.value)}
               placeholder={field.label}
+              disabled={readOnly}
             />
           </div>
         );
@@ -199,6 +204,7 @@ export default function FormFillerDialog({
               type="date"
               value={(formData[field.id] as string) || ""}
               onChange={(e) => updateField(field.id, e.target.value)}
+              disabled={readOnly}
             />
           </div>
         );
@@ -214,6 +220,7 @@ export default function FormFillerDialog({
               onChange={(e) => updateField(field.id, e.target.value)}
               placeholder={field.label}
               rows={3}
+              disabled={readOnly}
             />
           </div>
         );
@@ -224,6 +231,7 @@ export default function FormFillerDialog({
               id={field.id}
               checked={!!formData[field.id]}
               onCheckedChange={(checked) => updateField(field.id, checked)}
+              disabled={readOnly}
             />
             <Label htmlFor={field.id} className="text-sm cursor-pointer">
               {field.label}
@@ -237,6 +245,7 @@ export default function FormFillerDialog({
             <Select
               value={(formData[field.id] as string) || ""}
               onValueChange={(val) => updateField(field.id, val)}
+              disabled={readOnly}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select..." />
@@ -255,10 +264,16 @@ export default function FormFillerDialog({
             <Label className="text-sm">
               {field.label} {field.required && <span className="text-destructive">*</span>}
             </Label>
-            <SignaturePad
-              onChange={(sig) => setSignatures((prev) => ({ ...prev, [field.id]: sig }))}
-              value={signatures[field.id]}
-            />
+            {readOnly && signatures[field.id] ? (
+              <img src={signatures[field.id]} alt="Signature" className="border rounded h-20 bg-white" />
+            ) : readOnly ? (
+              <p className="text-sm text-muted-foreground">[Not signed]</p>
+            ) : (
+              <SignaturePad
+                onChange={(sig) => setSignatures((prev) => ({ ...prev, [field.id]: sig }))}
+                value={signatures[field.id]}
+              />
+            )}
           </div>
         );
       case "table":
@@ -288,6 +303,7 @@ export default function FormFillerDialog({
                             className="h-7 text-xs border-0 rounded-none focus:ring-1 focus:ring-inset"
                             value={tableData[ri]?.[ci] || ""}
                             onChange={(e) => updateTableCell(field.id, ri, ci, e.target.value)}
+                            disabled={readOnly}
                           />
                         </td>
                       ))}
@@ -380,15 +396,36 @@ export default function FormFillerDialog({
         )}
 
         <div className="flex gap-2 justify-end pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
-            <Save className="h-4 w-4 mr-1" />
-            Save Draft
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {readOnly ? "Close" : "Cancel"}
           </Button>
-          <Button onClick={() => handleSave(true)} disabled={saving}>
-            <CheckCircle className="h-4 w-4 mr-1" />
-            Complete & Save
+          <Button
+            variant="outline"
+            onClick={() => {
+              downloadCustomerFormPdf({
+                template,
+                formData,
+                signatures,
+                completedDate: existingData?.status === "completed" ? new Date().toISOString().slice(0, 10) : undefined,
+              });
+              toast.success("PDF downloaded");
+            }}
+          >
+            <Download className="h-4 w-4 mr-1" />
+            Download PDF
           </Button>
+          {!readOnly && (
+            <>
+              <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+                <Save className="h-4 w-4 mr-1" />
+                Save Draft
+              </Button>
+              <Button onClick={() => handleSave(true)} disabled={saving}>
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Complete & Save
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

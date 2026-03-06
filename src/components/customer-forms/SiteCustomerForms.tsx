@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, Edit, Trash2, ClipboardCheck } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, ClipboardCheck, Download, Eye } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -14,6 +14,7 @@ import {
   deleteFormSubmission,
 } from "@/services/customerFormService";
 import FormFillerDialog from "@/components/customer-forms/FormFillerDialog";
+import { downloadCustomerFormPdf } from "@/lib/customerFormPdfGenerator";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -30,6 +31,7 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
   const [editSubmission, setEditSubmission] = useState<FormSubmission | null>(null);
   const [fillerOpen, setFillerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState(false);
   const [newFormTemplate, setNewFormTemplate] = useState("");
 
   const loadData = async () => {
@@ -61,6 +63,7 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
     }
     setSelectedTemplate(template);
     setEditSubmission(null);
+    setViewMode(false);
     setFillerOpen(true);
   };
 
@@ -80,6 +83,27 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
     } catch {
       toast.error("Failed to delete");
     }
+  };
+
+  const handleDownload = (sub: FormSubmission) => {
+    const template = templates.find((t) => t.id === sub.template_id);
+    if (!template) return;
+    downloadCustomerFormPdf({
+      template,
+      formData: sub.form_data as Record<string, unknown>,
+      signatures: sub.signatures as Record<string, string>,
+      completedDate: sub.completed_at ? format(new Date(sub.completed_at), "dd-MM-yyyy") : undefined,
+    });
+    toast.success("PDF downloaded");
+  };
+
+  const handleView = (sub: FormSubmission) => {
+    const template = templates.find((t) => t.id === sub.template_id);
+    if (!template) return;
+    setSelectedTemplate(template);
+    setEditSubmission(sub);
+    setViewMode(true);
+    setFillerOpen(true);
   };
 
   if (loading) return <div className="text-sm text-muted-foreground py-4">Loading forms...</div>;
@@ -132,7 +156,17 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
                     <Badge variant={sub.status === "completed" ? "default" : "secondary"}>
                       {sub.status === "completed" ? "Completed" : "Draft"}
                     </Badge>
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(sub)}>
+                    {sub.status === "completed" && (
+                      <>
+                        <Button variant="ghost" size="icon" title="View form" onClick={() => handleView(sub)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                    <Button variant="ghost" size="icon" title="Edit" onClick={() => { setViewMode(false); handleEdit(sub); }}>
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(sub.id)}>
@@ -149,7 +183,7 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
       {selectedTemplate && (
         <FormFillerDialog
           open={fillerOpen}
-          onOpenChange={setFillerOpen}
+          onOpenChange={(o) => { setFillerOpen(o); if (!o) setViewMode(false); }}
           template={selectedTemplate}
           existingData={editSubmission ? {
             id: editSubmission.id,
@@ -160,6 +194,7 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
           siteId={siteId}
           customerId={customerId}
           onSaved={loadData}
+          readOnly={viewMode}
         />
       )}
     </div>
