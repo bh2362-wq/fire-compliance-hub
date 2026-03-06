@@ -8,6 +8,7 @@ import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
 import { SiteServiceReports } from "@/components/sites/SiteServiceReports";
 import { SiteAssets } from "@/components/sites/SiteAssets";
 import { SiteRamsDocuments } from "@/components/sites/SiteRamsDocuments";
+import SiteCustomerForms from "@/components/customer-forms/SiteCustomerForms";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
