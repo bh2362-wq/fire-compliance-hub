@@ -220,6 +220,7 @@ export default function FormFillerDialog({
               onChange={(e) => updateField(field.id, e.target.value)}
               placeholder={field.label}
               rows={3}
+              disabled={readOnly}
             />
           </div>
         );
