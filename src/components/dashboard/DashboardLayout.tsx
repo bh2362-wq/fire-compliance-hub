@@ -45,6 +45,7 @@ const toolsNavigation = [
   { name: "Email Scanner", href: "/dashboard/email-scanner", icon: ScanSearch },
   { name: "Device Pricing", href: "/dashboard/device-pricing", icon: Package },
   { name: "Product Lookup", href: "/dashboard/product-lookup", icon: Search },
+  { name: "Customer Forms", href: "/dashboard/customer-forms", icon: FileSignature },
 ];
 
 const qmsNavigation = [
