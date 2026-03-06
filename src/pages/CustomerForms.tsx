@@ -27,6 +27,7 @@ export default function CustomerForms() {
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
   const [editSubmission, setEditSubmission] = useState<FormSubmission | null>(null);
   const [fillerOpen, setFillerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState(false);
 
   const loadData = async () => {
     if (!user) return;
