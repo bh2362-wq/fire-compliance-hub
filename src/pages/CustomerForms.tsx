@@ -205,6 +205,16 @@ export default function CustomerForms() {
                         </div>
                         <div className="flex items-center gap-2">
                           {getStatusBadge(sub.status)}
+                          {sub.status === "completed" && (
+                            <>
+                              <Button variant="ghost" size="icon" title="View form" onClick={() => handleViewSubmission(sub)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                           <Button variant="ghost" size="icon" onClick={() => handleEditSubmission(sub)}>
                             <Edit className="h-4 w-4" />
                           </Button>
