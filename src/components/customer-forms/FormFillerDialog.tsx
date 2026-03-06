@@ -11,6 +11,7 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { FormTemplate, FormFieldDefinition, createFormSubmission, updateFormSubmission } from "@/services/customerFormService";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Save, CheckCircle, FileText } from "lucide-react";
 
@@ -35,9 +36,9 @@ export default function FormFillerDialog({
   onOpenChange,
   template,
   existingData,
-  siteId,
-  visitId,
-  customerId,
+  siteId: propSiteId,
+  visitId: propVisitId,
+  customerId: propCustomerId,
   onSaved,
 }: FormFillerDialogProps) {
   const { user } = useAuth();
@@ -45,6 +46,14 @@ export default function FormFillerDialog({
   const [signatures, setSignatures] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [activePage, setActivePage] = useState("1");
+
+  // Site/Visit selectors (only when not pre-filled)
+  const [selectedSiteId, setSelectedSiteId] = useState(propSiteId || "");
+  const [selectedVisitId, setSelectedVisitId] = useState(propVisitId || "");
+  const [selectedCustomerId, setSelectedCustomerId] = useState(propCustomerId || "");
+  const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null }[]>([]);
+  const [visits, setVisits] = useState<{ id: string; visit_type: string; scheduled_date: string }[]>([]);
+  const showSelectors = !propSiteId;
 
   useEffect(() => {
     if (existingData) {
@@ -54,7 +63,36 @@ export default function FormFillerDialog({
       setFormData({});
       setSignatures({});
     }
-  }, [existingData, open]);
+    setSelectedSiteId(propSiteId || "");
+    setSelectedVisitId(propVisitId || "");
+    setSelectedCustomerId(propCustomerId || "");
+  }, [existingData, open, propSiteId, propVisitId, propCustomerId]);
+
+  // Load sites for selector
+  useEffect(() => {
+    if (!showSelectors || !open) return;
+    supabase.from("sites").select("id, name, customer_id").order("name").then(({ data }) => {
+      setSites(data || []);
+    });
+  }, [showSelectors, open]);
+
+  // Load visits when site is selected
+  useEffect(() => {
+    if (!selectedSiteId) { setVisits([]); return; }
+    supabase.from("visits").select("id, visit_type, scheduled_date")
+      .eq("site_id", selectedSiteId)
+      .order("scheduled_date", { ascending: false })
+      .limit(20)
+      .then(({ data }) => setVisits(data || []));
+
+    // Auto-set customer from site
+    const site = sites.find(s => s.id === selectedSiteId);
+    if (site?.customer_id) setSelectedCustomerId(site.customer_id);
+  }, [selectedSiteId]);
+
+  const siteId = propSiteId || selectedSiteId;
+  const visitId = propVisitId || selectedVisitId;
+  const customerId = propCustomerId || selectedCustomerId;
 
   const updateField = (fieldId: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [fieldId]: value }));
@@ -70,6 +108,10 @@ export default function FormFillerDialog({
 
   const handleSave = async (complete: boolean = false) => {
     if (!user) return;
+    if (showSelectors && !siteId) {
+      toast.error("Please select a site");
+      return;
+    }
     setSaving(true);
     try {
       if (existingData?.id) {
@@ -82,9 +124,9 @@ export default function FormFillerDialog({
       } else {
         await createFormSubmission({
           template_id: template.id,
-          site_id: siteId,
-          visit_id: visitId,
-          customer_id: customerId,
+          site_id: siteId || undefined,
+          visit_id: visitId || undefined,
+          customer_id: customerId || undefined,
           form_data: formData,
           signatures,
           status: complete ? "completed" : "draft",
@@ -271,6 +313,40 @@ export default function FormFillerDialog({
             <span className="text-sm text-muted-foreground font-normal">({template.form_code})</span>
           </DialogTitle>
         </DialogHeader>
+
+        {/* Site/Visit Selectors */}
+        {showSelectors && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-muted/30 rounded-lg border">
+            <div className="space-y-1">
+              <Label className="text-sm">Site <span className="text-destructive">*</span></Label>
+              <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a site..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {sites.map((site) => (
+                    <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Visit (optional)</Label>
+              <Select value={selectedVisitId} onValueChange={setSelectedVisitId} disabled={!selectedSiteId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={selectedSiteId ? "Link to a visit..." : "Select site first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {visits.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.visit_type} - {v.scheduled_date}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
 
         {template.page_count > 1 ? (
           <Tabs value={activePage} onValueChange={setActivePage}>
