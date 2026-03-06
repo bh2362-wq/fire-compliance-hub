@@ -31,6 +31,7 @@ export default function SiteCustomerForms({ siteId, customerId }: SiteCustomerFo
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
   const [editSubmission, setEditSubmission] = useState<FormSubmission | null>(null);
   const [fillerOpen, setFillerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState(false);
   const [newFormTemplate, setNewFormTemplate] = useState("");
 
   const loadData = async () => {
