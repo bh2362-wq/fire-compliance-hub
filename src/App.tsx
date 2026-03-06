@@ -31,6 +31,7 @@ import AcceptVisit from "./pages/AcceptVisit";
 import EmailScanner from "./pages/EmailScanner";
 import DevicePricing from "./pages/DevicePricing";
 import ProductLookup from "./pages/ProductLookup";
+import CustomerForms from "./pages/CustomerForms";
 
 // QMS Pages
 import QMSDashboard from "./pages/qms/QMSDashboard";
@@ -81,6 +82,7 @@ const App = () => (
             <Route path="/dashboard/email-scanner" element={<ProtectedRoute><EmailScanner /></ProtectedRoute>} />
             <Route path="/dashboard/device-pricing" element={<ProtectedRoute><DevicePricing /></ProtectedRoute>} />
             <Route path="/dashboard/product-lookup" element={<ProtectedRoute><ProductLookup /></ProtectedRoute>} />
+            <Route path="/dashboard/customer-forms" element={<ProtectedRoute><CustomerForms /></ProtectedRoute>} />
             
             {/* QMS Routes */}
             <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />

@@ -4,7 +4,7 @@ import {
   LogOut, ChevronLeft, ChevronDown, Bell, GitCompare, Receipt, CalendarDays, Shield,
   FileCheck, AlertTriangle, ClipboardCheck, ShieldAlert, GraduationCap, Search,
   MessageSquare, TrendingUp, HardHat, Mail, Plus, CreditCard, FileSpreadsheet,
-  ShoppingCart, ScanSearch, Package, Menu, X
+  ShoppingCart, ScanSearch, Package, Menu, X, FileSignature
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -45,6 +45,7 @@ const toolsNavigation = [
   { name: "Email Scanner", href: "/dashboard/email-scanner", icon: ScanSearch },
   { name: "Device Pricing", href: "/dashboard/device-pricing", icon: Package },
   { name: "Product Lookup", href: "/dashboard/product-lookup", icon: Search },
+  { name: "Customer Forms", href: "/dashboard/customer-forms", icon: FileSignature },
 ];
 
 const qmsNavigation = [

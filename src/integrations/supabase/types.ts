@@ -561,6 +561,136 @@ export type Database = {
           },
         ]
       }
+      customer_form_submissions: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string
+          customer_id: string | null
+          form_data: Json
+          id: string
+          signatures: Json
+          site_id: string | null
+          status: string
+          template_id: string
+          updated_at: string
+          visit_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by: string
+          customer_id?: string | null
+          form_data?: Json
+          id?: string
+          signatures?: Json
+          site_id?: string | null
+          status?: string
+          template_id: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string
+          customer_id?: string | null
+          form_data?: Json
+          id?: string
+          signatures?: Json
+          site_id?: string | null
+          status?: string
+          template_id?: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_form_submissions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_form_submissions_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_form_submissions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "customer_form_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_form_submissions_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_form_templates: {
+        Row: {
+          created_at: string
+          created_by: string
+          customer_id: string | null
+          description: string | null
+          field_schema: Json
+          form_code: string
+          id: string
+          is_active: boolean | null
+          name: string
+          page_count: number | null
+          template_pdf_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          customer_id?: string | null
+          description?: string | null
+          field_schema?: Json
+          form_code: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          page_count?: number | null
+          template_pdf_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          customer_id?: string | null
+          description?: string | null
+          field_schema?: Json
+          form_code?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          page_count?: number | null
+          template_pdf_path?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_form_templates_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_intelligence_reports: {
         Row: {
           created_at: string
