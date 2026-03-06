@@ -245,7 +245,7 @@ export async function seedChurchesFireTemplates(userId: string) {
 
   const { data, error } = await supabase
     .from("customer_form_templates")
-    .insert(toCreate.map((t) => ({ ...t, created_by: userId }) as Record<string, unknown>))
+    .insert(toCreate.map((t) => ({ ...t, created_by: userId })) as any)
     .select();
 
   if (error) throw error;
