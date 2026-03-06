@@ -31,6 +31,7 @@ import AcceptVisit from "./pages/AcceptVisit";
 import EmailScanner from "./pages/EmailScanner";
 import DevicePricing from "./pages/DevicePricing";
 import ProductLookup from "./pages/ProductLookup";
+import CustomerForms from "./pages/CustomerForms";
 
 // QMS Pages
 import QMSDashboard from "./pages/qms/QMSDashboard";
