@@ -290,7 +290,7 @@ export async function createFormSubmission(submission: {
 }) {
   const { data, error } = await supabase
     .from("customer_form_submissions")
-    .insert(submission as Record<string, unknown>)
+    .insert(submission as any)
     .select()
     .single();
 

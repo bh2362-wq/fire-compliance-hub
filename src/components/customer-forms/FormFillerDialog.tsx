@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import SignaturePad from "@/components/ui/signature-pad";
+import { SignaturePad } from "@/components/ui/signature-pad";
 import { FormTemplate, FormFieldDefinition, createFormSubmission, updateFormSubmission } from "@/services/customerFormService";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
