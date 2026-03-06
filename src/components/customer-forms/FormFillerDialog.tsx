@@ -10,10 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { FormTemplate, FormFieldDefinition, createFormSubmission, updateFormSubmission } from "@/services/customerFormService";
+import { downloadCustomerFormPdf } from "@/lib/customerFormPdfGenerator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Save, CheckCircle, FileText } from "lucide-react";
+import { Save, CheckCircle, FileText, Download } from "lucide-react";
 
 interface FormFillerDialogProps {
   open: boolean;
