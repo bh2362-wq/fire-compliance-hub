@@ -173,6 +173,7 @@ export default function FormFillerDialog({
               value={(formData[field.id] as string) || ""}
               onChange={(e) => updateField(field.id, e.target.value)}
               placeholder={field.label}
+              disabled={readOnly}
             />
           </div>
         );
