@@ -303,6 +303,7 @@ export default function FormFillerDialog({
                             className="h-7 text-xs border-0 rounded-none focus:ring-1 focus:ring-inset"
                             value={tableData[ri]?.[ci] || ""}
                             onChange={(e) => updateTableCell(field.id, ri, ci, e.target.value)}
+                            disabled={readOnly}
                           />
                         </td>
                       ))}
