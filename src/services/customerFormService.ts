@@ -225,7 +225,7 @@ export async function getFormTemplate(id: string) {
 export async function createFormTemplate(template: Omit<FormTemplate, "id" | "created_at" | "updated_at">) {
   const { data, error } = await supabase
     .from("customer_form_templates")
-    .insert(template as Record<string, unknown>)
+    .insert(template as any)
     .select()
     .single();
 
