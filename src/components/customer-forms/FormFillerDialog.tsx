@@ -396,15 +396,36 @@ export default function FormFillerDialog({
         )}
 
         <div className="flex gap-2 justify-end pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
-            <Save className="h-4 w-4 mr-1" />
-            Save Draft
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {readOnly ? "Close" : "Cancel"}
           </Button>
-          <Button onClick={() => handleSave(true)} disabled={saving}>
-            <CheckCircle className="h-4 w-4 mr-1" />
-            Complete & Save
+          <Button
+            variant="outline"
+            onClick={() => {
+              downloadCustomerFormPdf({
+                template,
+                formData,
+                signatures,
+                completedDate: existingData?.status === "completed" ? new Date().toISOString().slice(0, 10) : undefined,
+              });
+              toast.success("PDF downloaded");
+            }}
+          >
+            <Download className="h-4 w-4 mr-1" />
+            Download PDF
           </Button>
+          {!readOnly && (
+            <>
+              <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+                <Save className="h-4 w-4 mr-1" />
+                Save Draft
+              </Button>
+              <Button onClick={() => handleSave(true)} disabled={saving}>
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Complete & Save
+              </Button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
