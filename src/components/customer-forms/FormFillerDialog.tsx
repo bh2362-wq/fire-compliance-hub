@@ -63,13 +63,100 @@ export default function FormFillerDialog({
       setFormData(existingData.form_data || {});
       setSignatures(existingData.signatures || {});
     } else {
-      setFormData({});
-      setSignatures({});
+      // Auto-fill for new forms
+      autoFillFormData();
     }
     setSelectedSiteId(propSiteId || "");
     setSelectedVisitId(propVisitId || "");
     setSelectedCustomerId(propCustomerId || "");
   }, [existingData, open, propSiteId, propVisitId, propCustomerId]);
+
+  const autoFillFormData = async () => {
+    if (!open) return;
+    const prefill: Record<string, unknown> = {};
+    const today = new Date().toISOString().slice(0, 10);
+    const fields = template.field_schema || [];
+
+    // Auto-fill date fields with today's date
+    fields.forEach((f) => {
+      if (f.type === "date") prefill[f.id] = today;
+    });
+
+    // Fetch site details if we have a siteId
+    const resolvedSiteId = propSiteId || selectedSiteId;
+    if (resolvedSiteId) {
+      const { data: site } = await supabase
+        .from("sites")
+        .select("name, address, postcode, contact_name, contact_email, customer_id, customers(name, contact_name, contact_email, address, postcode)")
+        .eq("id", resolvedSiteId)
+        .single();
+
+      if (site) {
+        const customer = (site as any).customers;
+        // Map to common field IDs used across Churches Fire templates
+        const siteAddress = [site.address, site.postcode].filter(Boolean).join(", ");
+        const fieldMap: Record<string, string> = {
+          address: site.address || "",
+          postcode: site.postcode || "",
+          client_address: siteAddress,
+          client_postcode: site.postcode || "",
+          system_address: siteAddress,
+          client_name: customer?.name || "",
+          customer_name: customer?.name || "",
+          on_behalf_of: customer?.name || "",
+        };
+
+        fields.forEach((f) => {
+          if (fieldMap[f.id] && !prefill[f.id]) {
+            prefill[f.id] = fieldMap[f.id];
+          }
+        });
+      }
+    }
+
+    // Fetch company settings for engineer/company details
+    const { data: company } = await supabase
+      .from("company_settings")
+      .select("company_name")
+      .limit(1)
+      .maybeSingle();
+
+    if (company) {
+      const companyMap: Record<string, string> = {
+        company_name: company.company_name || "",
+      };
+      fields.forEach((f) => {
+        if (companyMap[f.id] && !prefill[f.id]) {
+          prefill[f.id] = companyMap[f.id];
+        }
+      });
+    }
+
+    // Fetch user profile for engineer name
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (profile?.full_name) {
+        const nameMap: Record<string, string> = {
+          engineer_name: profile.full_name,
+          test_name: profile.full_name,
+          signatory_name: profile.full_name,
+        };
+        fields.forEach((f) => {
+          if (nameMap[f.id] && !prefill[f.id]) {
+            prefill[f.id] = nameMap[f.id];
+          }
+        });
+      }
+    }
+
+    setFormData(prefill);
+    setSignatures({});
+  };
 
   // Load sites for selector
   useEffect(() => {
