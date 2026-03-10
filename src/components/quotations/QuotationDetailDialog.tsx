@@ -1456,8 +1456,8 @@ export function QuotationDetailDialog({
                 </>
               )}
             </Button>
-            {hasChanges && !isLocked && (
-              <Button onClick={handleSave} disabled={saving}>
+            {!isLocked && (
+              <Button onClick={handleSave} disabled={saving} variant={hasChanges ? "default" : "outline"}>
                 {saving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1466,7 +1466,7 @@ export function QuotationDetailDialog({
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    Save Changes
+                    Save &amp; Sync
                   </>
                 )}
               </Button>
