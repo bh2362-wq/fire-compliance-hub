@@ -488,7 +488,7 @@ export function QuotationDetailDialog({
 
       }
 
-      toast.success("Quotation saved");
+      toast.success("Quotation saved & ready to resend — SharePoint syncing...");
       setHasChanges(false);
       onUpdate?.();
       fetchQuotation();
