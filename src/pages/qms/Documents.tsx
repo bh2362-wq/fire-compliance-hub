@@ -134,9 +134,10 @@ interface DocumentListProps {
   documents: QMSDocument[];
   isLoading: boolean;
   getStatusBadge: (status: string) => React.ReactNode;
+  onSelect?: (doc: QMSDocument) => void;
 }
 
-const DocumentList = ({ documents, isLoading, getStatusBadge }: DocumentListProps) => {
+const DocumentList = ({ documents, isLoading, getStatusBadge, onSelect }: DocumentListProps) => {
   if (isLoading) {
     return (
       <div className="grid gap-4">
