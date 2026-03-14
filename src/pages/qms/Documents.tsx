@@ -21,11 +21,13 @@ import {
 import { fetchDocuments, fetchDocumentCategories, QMSDocument } from "@/services/qmsService";
 import { format } from "date-fns";
 import { DocumentFormDialog } from "@/components/qms/DocumentFormDialog";
+import { DocumentDetailDialog } from "@/components/qms/DocumentDetailDialog";
 
 const Documents = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<QMSDocument | null>(null);
 
   const { data: documents, isLoading } = useQuery({
     queryKey: ['qms-documents'],
@@ -78,6 +80,7 @@ const Documents = () => {
             New Document
           </Button>
           <DocumentFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+          <DocumentDetailDialog open={!!selectedDoc} onOpenChange={(open) => !open && setSelectedDoc(null)} document={selectedDoc} />
         </div>
 
         {/* Search and Filter */}
@@ -109,7 +112,7 @@ const Documents = () => {
           </TabsList>
 
           <TabsContent value="all" className="mt-6">
-            <DocumentList documents={filteredDocuments} isLoading={isLoading} getStatusBadge={getStatusBadge} />
+            <DocumentList documents={filteredDocuments} isLoading={isLoading} getStatusBadge={getStatusBadge} onSelect={setSelectedDoc} />
           </TabsContent>
           {categories?.map((cat) => (
             <TabsContent key={cat.id} value={cat.id} className="mt-6">
@@ -117,6 +120,7 @@ const Documents = () => {
                 documents={filteredDocuments.filter(d => d.category_id === cat.id)} 
                 isLoading={isLoading} 
                 getStatusBadge={getStatusBadge}
+                onSelect={setSelectedDoc}
               />
             </TabsContent>
           ))}
@@ -130,9 +134,10 @@ interface DocumentListProps {
   documents: QMSDocument[];
   isLoading: boolean;
   getStatusBadge: (status: string) => React.ReactNode;
+  onSelect?: (doc: QMSDocument) => void;
 }
 
-const DocumentList = ({ documents, isLoading, getStatusBadge }: DocumentListProps) => {
+const DocumentList = ({ documents, isLoading, getStatusBadge, onSelect }: DocumentListProps) => {
   if (isLoading) {
     return (
       <div className="grid gap-4">
@@ -163,7 +168,7 @@ const DocumentList = ({ documents, isLoading, getStatusBadge }: DocumentListProp
   return (
     <div className="grid gap-4">
       {documents.map((doc) => (
-        <Card key={doc.id} className="hover:shadow-md transition-shadow cursor-pointer">
+        <Card key={doc.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onSelect?.(doc)}>
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">

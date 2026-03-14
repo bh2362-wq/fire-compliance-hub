@@ -89,6 +89,17 @@ export const createDocument = async (doc: Partial<QMSDocument>): Promise<QMSDocu
   return data as unknown as QMSDocument;
 };
 
+export const fetchDocumentVersions = async (documentId: string): Promise<QMSDocumentVersion[]> => {
+  const { data, error } = await supabase
+    .from('qms_document_versions')
+    .select('*')
+    .eq('document_id', documentId)
+    .order('version_number', { ascending: false });
+  
+  if (error) throw error;
+  return data || [];
+};
+
 // ============================================
 // NON-CONFORMANCE REPORTS
 // ============================================
