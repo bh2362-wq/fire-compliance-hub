@@ -166,7 +166,7 @@ const DocumentList = ({ documents, isLoading, getStatusBadge }: DocumentListProp
   return (
     <div className="grid gap-4">
       {documents.map((doc) => (
-        <Card key={doc.id} className="hover:shadow-md transition-shadow cursor-pointer">
+        <Card key={doc.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onSelect?.(doc)}>
           <CardContent className="p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
