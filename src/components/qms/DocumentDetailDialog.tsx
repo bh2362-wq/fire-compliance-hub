@@ -57,18 +57,19 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
     try {
       const { data, error } = await supabase.storage
         .from("qms-attachments")
-        .download(fileUrl);
+        .createSignedUrl(fileUrl, 60);
 
       if (error) throw error;
+      if (!data?.signedUrl) throw new Error("No signed URL returned");
 
-      const url = URL.createObjectURL(data);
       const a = window.document.createElement("a");
-      a.href = url;
+      a.href = data.signedUrl;
       a.download = fileName || "document";
+      a.target = "_blank";
       a.click();
-      URL.revokeObjectURL(url);
       toast.success("Download started");
-    } catch {
+    } catch (err) {
+      console.error("Download error:", err);
       toast.error("Failed to download file");
     }
   };
