@@ -23,6 +23,7 @@ import {
 import { Plus, Trash2, Loader2, Database } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { searchSupplierProducts, SupplierProduct } from "@/services/supplierProductService";
 
@@ -43,6 +44,7 @@ interface NewQuotationDialogProps {
 }
 
 export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineItem }: NewQuotationDialogProps) {
+  const { user } = useAuth();
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null }[]>([]);
   const [filteredSites, setFilteredSites] = useState<typeof sites>([]);
@@ -187,7 +189,6 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
 
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const { data: quotationNumber } = await supabase.rpc("get_next_quotation_number");

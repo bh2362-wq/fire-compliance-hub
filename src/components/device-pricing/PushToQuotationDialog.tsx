@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { DevicePriceList, DevicePriceItem } from "@/services/devicePricingService";
 import { toast } from "sonner";
 
@@ -22,6 +23,7 @@ interface PushToQuotationDialogProps {
 }
 
 export function PushToQuotationDialog({ open, onOpenChange, priceList, items }: PushToQuotationDialogProps) {
+  const { user } = useAuth();
   const [title, setTitle] = useState(priceList.name || "Device Replacement Quotation");
   const [vatRate, setVatRate] = useState(20);
   const [validDays, setValidDays] = useState(30);
@@ -36,7 +38,6 @@ export function PushToQuotationDialog({ open, onOpenChange, priceList, items }: 
   const handleCreate = async () => {
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const { data: quotationNumber } = await supabase.rpc("get_next_quotation_number");
