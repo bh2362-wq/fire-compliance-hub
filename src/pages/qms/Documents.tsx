@@ -112,7 +112,7 @@ const Documents = () => {
           </TabsList>
 
           <TabsContent value="all" className="mt-6">
-            <DocumentList documents={filteredDocuments} isLoading={isLoading} getStatusBadge={getStatusBadge} />
+            <DocumentList documents={filteredDocuments} isLoading={isLoading} getStatusBadge={getStatusBadge} onSelect={setSelectedDoc} />
           </TabsContent>
           {categories?.map((cat) => (
             <TabsContent key={cat.id} value={cat.id} className="mt-6">
@@ -120,6 +120,7 @@ const Documents = () => {
                 documents={filteredDocuments.filter(d => d.category_id === cat.id)} 
                 isLoading={isLoading} 
                 getStatusBadge={getStatusBadge}
+                onSelect={setSelectedDoc}
               />
             </TabsContent>
           ))}
