@@ -80,6 +80,7 @@ const Documents = () => {
             New Document
           </Button>
           <DocumentFormDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+          <DocumentDetailDialog open={!!selectedDoc} onOpenChange={(open) => !open && setSelectedDoc(null)} document={selectedDoc} />
         </div>
 
         {/* Search and Filter */}
