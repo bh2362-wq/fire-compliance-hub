@@ -44,6 +44,7 @@ interface NewQuotationDialogProps {
 }
 
 export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineItem }: NewQuotationDialogProps) {
+  const { user } = useAuth();
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null }[]>([]);
   const [filteredSites, setFilteredSites] = useState<typeof sites>([]);
