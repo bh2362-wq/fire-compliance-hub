@@ -66,18 +66,30 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
       const separator = data.signedUrl.includes("?") ? "&" : "?";
       const forcedDownloadUrl = `${data.signedUrl}${separator}download=${encodeURIComponent(downloadName)}`;
 
-      // Preview runs in a sandboxed iframe where direct downloads can be blocked.
-      if (window.self !== window.top) {
-        await navigator.clipboard.writeText(forcedDownloadUrl);
-        toast.success("Secure download link copied — paste in a new tab to download");
+      const popup = window.open(forcedDownloadUrl, "_blank", "noopener,noreferrer");
+      if (popup) {
+        toast.success("Download started");
         return;
       }
 
-      window.open(forcedDownloadUrl, "_blank", "noopener,noreferrer");
+      const fallbackLink = window.document.createElement("a");
+      fallbackLink.href = forcedDownloadUrl;
+      fallbackLink.target = "_blank";
+      fallbackLink.rel = "noopener noreferrer";
+      window.document.body.appendChild(fallbackLink);
+      fallbackLink.click();
+      fallbackLink.remove();
+
+      if (window.self !== window.top) {
+        window.prompt("Copy this secure download link and open it in a new tab:", forcedDownloadUrl);
+        toast.info("Browser blocked auto-download; link shown to copy");
+        return;
+      }
+
       toast.success("Download started");
     } catch (err) {
       console.error("Download error:", err);
-      toast.error("Failed to download file");
+      toast.error("Failed to create download link");
     }
   };
 
