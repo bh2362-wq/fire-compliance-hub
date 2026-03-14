@@ -54,30 +54,33 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
   });
 
   const handleDownload = async (fileUrl: string, fileName: string | null) => {
+    const popup = window.open("", "_blank", "noopener,noreferrer");
+
+    if (popup) {
+      popup.document.write("Preparing download...");
+    }
+
     try {
       const { data, error } = await supabase.storage
         .from("qms-attachments")
-        .createSignedUrl(fileUrl, 60);
+        .createSignedUrl(fileUrl, 120);
 
       if (error) throw error;
       if (!data?.signedUrl) throw new Error("No signed URL returned");
 
-      const response = await fetch(data.signedUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.status}`);
+      const downloadName = fileName || fileUrl.split("/").pop() || "document";
+      const separator = data.signedUrl.includes("?") ? "&" : "?";
+      const forcedDownloadUrl = `${data.signedUrl}${separator}download=${encodeURIComponent(downloadName)}`;
+
+      if (popup) {
+        popup.location.href = forcedDownloadUrl;
+      } else {
+        window.location.href = forcedDownloadUrl;
       }
 
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = window.document.createElement("a");
-      a.href = objectUrl;
-      a.download = fileName || fileUrl.split("/").pop() || "document";
-      window.document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(objectUrl);
       toast.success("Download started");
     } catch (err) {
+      if (popup) popup.close();
       console.error("Download error:", err);
       toast.error("Failed to download file");
     }
