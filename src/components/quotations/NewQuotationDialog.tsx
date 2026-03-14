@@ -189,7 +189,6 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
 
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const { data: quotationNumber } = await supabase.rpc("get_next_quotation_number");
