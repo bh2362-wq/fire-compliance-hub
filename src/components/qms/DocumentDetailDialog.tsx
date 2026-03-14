@@ -54,16 +54,10 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
   });
 
   const handleDownload = async (fileUrl: string, fileName: string | null) => {
-    const popup = window.open("", "_blank", "noopener,noreferrer");
-
-    if (popup) {
-      popup.document.write("Preparing download...");
-    }
-
     try {
       const { data, error } = await supabase.storage
         .from("qms-attachments")
-        .createSignedUrl(fileUrl, 120);
+        .createSignedUrl(fileUrl, 300);
 
       if (error) throw error;
       if (!data?.signedUrl) throw new Error("No signed URL returned");
@@ -72,15 +66,16 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
       const separator = data.signedUrl.includes("?") ? "&" : "?";
       const forcedDownloadUrl = `${data.signedUrl}${separator}download=${encodeURIComponent(downloadName)}`;
 
-      if (popup) {
-        popup.location.href = forcedDownloadUrl;
-      } else {
-        window.location.href = forcedDownloadUrl;
+      // Preview runs in a sandboxed iframe where direct downloads can be blocked.
+      if (window.self !== window.top) {
+        await navigator.clipboard.writeText(forcedDownloadUrl);
+        toast.success("Secure download link copied — paste in a new tab to download");
+        return;
       }
 
+      window.open(forcedDownloadUrl, "_blank", "noopener,noreferrer");
       toast.success("Download started");
     } catch (err) {
-      if (popup) popup.close();
       console.error("Download error:", err);
       toast.error("Failed to download file");
     }
