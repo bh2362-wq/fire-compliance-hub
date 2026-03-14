@@ -38,7 +38,6 @@ export function PushToQuotationDialog({ open, onOpenChange, priceList, items }: 
   const handleCreate = async () => {
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const { data: quotationNumber } = await supabase.rpc("get_next_quotation_number");
