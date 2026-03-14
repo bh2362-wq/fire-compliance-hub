@@ -21,11 +21,13 @@ import {
 import { fetchDocuments, fetchDocumentCategories, QMSDocument } from "@/services/qmsService";
 import { format } from "date-fns";
 import { DocumentFormDialog } from "@/components/qms/DocumentFormDialog";
+import { DocumentDetailDialog } from "@/components/qms/DocumentDetailDialog";
 
 const Documents = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<QMSDocument | null>(null);
 
   const { data: documents, isLoading } = useQuery({
     queryKey: ['qms-documents'],
