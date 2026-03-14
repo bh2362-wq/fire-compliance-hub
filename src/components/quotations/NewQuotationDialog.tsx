@@ -23,6 +23,7 @@ import {
 import { Plus, Trash2, Loader2, Database } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { searchSupplierProducts, SupplierProduct } from "@/services/supplierProductService";
 

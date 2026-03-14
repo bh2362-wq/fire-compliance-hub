@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { DevicePriceList, DevicePriceItem } from "@/services/devicePricingService";
 import { toast } from "sonner";
 
