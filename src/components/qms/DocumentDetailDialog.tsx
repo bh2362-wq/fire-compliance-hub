@@ -62,11 +62,20 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
       if (error) throw error;
       if (!data?.signedUrl) throw new Error("No signed URL returned");
 
+      const response = await fetch(data.signedUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
       const a = window.document.createElement("a");
-      a.href = data.signedUrl;
-      a.download = fileName || "document";
-      a.target = "_blank";
+      a.href = objectUrl;
+      a.download = fileName || fileUrl.split("/").pop() || "document";
+      window.document.body.appendChild(a);
       a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
       toast.success("Download started");
     } catch (err) {
       console.error("Download error:", err);
