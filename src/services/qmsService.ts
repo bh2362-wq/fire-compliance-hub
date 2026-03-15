@@ -100,6 +100,56 @@ export const fetchDocumentVersions = async (documentId: string): Promise<QMSDocu
   return data || [];
 };
 
+export const uploadDocumentVersion = async (
+  documentId: string,
+  file: File,
+  userId: string,
+  changesSummary?: string
+): Promise<QMSDocumentVersion> => {
+  // Get current version number
+  const { data: versions } = await supabase
+    .from('qms_document_versions')
+    .select('version_number')
+    .eq('document_id', documentId)
+    .order('version_number', { ascending: false })
+    .limit(1);
+
+  const nextVersion = (versions?.[0]?.version_number || 0) + 1;
+
+  // Upload file to storage
+  const filePath = `documents/${documentId}/v${nextVersion}/${file.name}`;
+  const { error: uploadError } = await supabase.storage
+    .from('qms-attachments')
+    .upload(filePath, file, { upsert: true });
+
+  if (uploadError) throw uploadError;
+
+  // Create version record
+  const { data, error } = await supabase
+    .from('qms_document_versions')
+    .insert({
+      document_id: documentId,
+      version_number: nextVersion,
+      file_url: filePath,
+      file_name: file.name,
+      file_size: file.size,
+      changes_summary: changesSummary || null,
+      created_by: userId,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Update document current_version
+  await supabase
+    .from('qms_documents')
+    .update({ current_version: nextVersion })
+    .eq('id', documentId);
+
+  return data as unknown as QMSDocumentVersion;
+};
+
 // ============================================
 // NON-CONFORMANCE REPORTS
 // ============================================
