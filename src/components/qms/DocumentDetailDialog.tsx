@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ResponsiveDialog,
   ResponsiveDialogHeader,
@@ -8,6 +9,8 @@ import {
 } from "@/components/ui/responsive-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -19,11 +22,13 @@ import {
   Calendar,
   Hash,
   RefreshCw,
+  Upload,
 } from "lucide-react";
 import { format } from "date-fns";
-import { QMSDocument, fetchDocumentVersions } from "@/services/qmsService";
+import { QMSDocument, fetchDocumentVersions, uploadDocumentVersion } from "@/services/qmsService";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DocumentDetailDialogProps {
   open: boolean;
@@ -47,10 +52,34 @@ const getStatusBadge = (status: string) => {
 };
 
 export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentDetailDialogProps) => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [changesSummary, setChangesSummary] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   const { data: versions, isLoading: versionsLoading } = useQuery({
     queryKey: ["qms-document-versions", document?.id],
     queryFn: () => fetchDocumentVersions(document!.id),
     enabled: !!document?.id,
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedFile || !document || !user) throw new Error("Missing data");
+      return uploadDocumentVersion(document.id, selectedFile, user.id, changesSummary);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qms-document-versions", document?.id] });
+      queryClient.invalidateQueries({ queryKey: ["qms-documents"] });
+      toast.success("New version uploaded successfully");
+      setSelectedFile(null);
+      setChangesSummary("");
+    },
+    onError: (err) => {
+      console.error("Upload error:", err);
+      toast.error("Failed to upload new version");
+    },
   });
 
   const handleDownload = async (fileUrl: string, fileName: string | null) => {
@@ -159,6 +188,62 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
               </div>
             </div>
           )}
+        </div>
+
+        <Separator />
+
+        {/* Upload New Version */}
+        <div>
+          <h4 className="text-sm font-medium mb-3">Upload New Version</h4>
+          <div className="space-y-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+            />
+            {!selectedFile ? (
+              <Button
+                variant="outline"
+                className="w-full border-dashed"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Choose File to Upload
+              </Button>
+            ) : (
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{selectedFile.name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      ({(selectedFile.size / 1024).toFixed(0)} KB)
+                    </span>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedFile(null)}>
+                    Change
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Changes Summary (optional)</Label>
+                  <Input
+                    value={changesSummary}
+                    onChange={(e) => setChangesSummary(e.target.value)}
+                    placeholder="e.g., Updated risk assessment section"
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={() => uploadMutation.mutate()}
+                  disabled={uploadMutation.isPending}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploadMutation.isPending ? "Uploading..." : "Upload as New Version"}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         <Separator />
