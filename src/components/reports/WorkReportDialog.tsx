@@ -1055,6 +1055,8 @@ export function WorkReportDialog({
     typeInfo,
     zonesInfo,
     contactPhone,
+    contactPerson,
+    contactEmail: contactEmailField,
   });
 
   // Generate PDF as base64 for email attachment
