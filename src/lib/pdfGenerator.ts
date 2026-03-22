@@ -815,6 +815,8 @@ export interface WorkReportData {
   typeInfo?: string;
   zonesInfo?: string;
   contactPhone?: string;
+  contactPerson?: string;
+  contactEmail?: string;
   // Legacy system info (deprecated - use custom fields above)
   systemType?: string;
   panelManufacturer?: string;
@@ -896,11 +898,21 @@ export async function generateWorkReportPDF(
 
   // === Site & Service Details (Side by Side) ===
   const colWidth = (contentWidth - 6) / 2;
-  const boxHeight = 40;
 
-  // Left: Site Info
+  // Left: Site Info - only include populated rows
   doc.setDrawColor(...COLORS.borderGrey);
   doc.setLineWidth(0.3);
+
+  const siteAddr = [site.address, site.city, site.postcode].filter(Boolean).join(", ");
+  const siteRows: [string, string][] = [];
+  siteRows.push(["Site:", site.name]);
+  if (siteAddr) siteRows.push(["Address:", siteAddr]);
+  if (data.contactPerson || site.contact_name) siteRows.push(["Contact:", data.contactPerson || site.contact_name || ""]);
+  if (data.contactPhone || site.contact_phone) siteRows.push(["Phone:", data.contactPhone || site.contact_phone || ""]);
+  if (data.contactEmail) siteRows.push(["Email:", data.contactEmail]);
+
+  const boxHeight = Math.max(40, 8 + siteRows.length * 7 + 4);
+
   doc.rect(margin, yPos, colWidth, boxHeight);
 
   doc.setFillColor(...COLORS.charcoal);
@@ -909,14 +921,6 @@ export async function generateWorkReportPDF(
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text("SITE", margin + 3, yPos + 5.5);
-
-  const siteAddr = [site.address, site.city, site.postcode].filter(Boolean).join(", ");
-  const siteRows = [
-    ["Site:", site.name],
-    ["Address:", siteAddr || "-"],
-    ["Contact:", site.contact_name || "-"],
-    ["Phone:", site.contact_phone || "-"],
-  ];
 
   doc.setFontSize(9);
   let rowY = yPos + 14;
@@ -967,16 +971,14 @@ export async function generateWorkReportPDF(
   yPos += boxHeight + 5;
 
   // === System Info Row (only show if any custom fields are populated) ===
-  const hasCustomSystemFields = data.panelInfo || data.locationInfo || data.typeInfo || data.zonesInfo || data.contactPhone;
+  const hasCustomSystemFields = data.panelInfo || data.locationInfo || data.typeInfo || data.zonesInfo;
   
   if (hasCustomSystemFields) {
-    // Calculate how many rows we need based on populated fields
     const systemFields: string[] = [];
     if (data.panelInfo) systemFields.push(`Panel: ${data.panelInfo}`);
     if (data.locationInfo) systemFields.push(`Location: ${data.locationInfo}`);
     if (data.typeInfo) systemFields.push(`Type: ${data.typeInfo}`);
     if (data.zonesInfo) systemFields.push(`Zones: ${data.zonesInfo}`);
-    if (data.contactPhone) systemFields.push(`Phone: ${data.contactPhone}`);
 
     const boxHeight = 8 + Math.ceil(systemFields.length / 3) * 7 + 4;
     doc.rect(margin, yPos, contentWidth, boxHeight);
@@ -1003,57 +1005,61 @@ export async function generateWorkReportPDF(
     yPos += boxHeight + 4;
   }
 
-  // === WORKS CARRIED OUT (Dynamic height using autoTable) ===
-  autoTable(doc, {
-    startY: yPos,
-    head: [["WORKS CARRIED OUT"]],
-    body: [[data.worksReport || "-"]],
-    margin: { left: margin, right: margin },
-    theme: "plain",
-    styles: {
-      fontSize: 9,
-      cellPadding: 3,
-      lineColor: COLORS.borderGrey,
-      lineWidth: 0.3,
-      textColor: COLORS.charcoal,
-    },
-    headStyles: {
-      fillColor: COLORS.charcoal,
-      textColor: COLORS.white,
-      fontStyle: "bold",
-      fontSize: 10,
-    },
-    columnStyles: {
-      0: { cellWidth: contentWidth },
-    },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 4;
+  // === WORKS CARRIED OUT (only if populated) ===
+  if (data.worksReport) {
+    autoTable(doc, {
+      startY: yPos,
+      head: [["WORKS CARRIED OUT"]],
+      body: [[data.worksReport]],
+      margin: { left: margin, right: margin },
+      theme: "plain",
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        lineColor: COLORS.borderGrey,
+        lineWidth: 0.3,
+        textColor: COLORS.charcoal,
+      },
+      headStyles: {
+        fillColor: COLORS.charcoal,
+        textColor: COLORS.white,
+        fontStyle: "bold",
+        fontSize: 10,
+      },
+      columnStyles: {
+        0: { cellWidth: contentWidth },
+      },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 4;
+  }
 
-  // === RECOMMENDATIONS (Dynamic height using autoTable) ===
-  autoTable(doc, {
-    startY: yPos,
-    head: [["RECOMMENDATIONS / FURTHER WORK"]],
-    body: [[data.furtherAction || "-"]],
-    margin: { left: margin, right: margin },
-    theme: "plain",
-    styles: {
-      fontSize: 9,
-      cellPadding: 3,
-      lineColor: COLORS.borderGrey,
-      lineWidth: 0.3,
-      textColor: COLORS.charcoal,
-    },
-    headStyles: {
-      fillColor: COLORS.charcoal,
-      textColor: COLORS.white,
-      fontStyle: "bold",
-      fontSize: 10,
-    },
-    columnStyles: {
-      0: { cellWidth: contentWidth },
-    },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 5;
+  // === RECOMMENDATIONS (only if populated) ===
+  if (data.furtherAction) {
+    autoTable(doc, {
+      startY: yPos,
+      head: [["RECOMMENDATIONS / FURTHER WORK"]],
+      body: [[data.furtherAction]],
+      margin: { left: margin, right: margin },
+      theme: "plain",
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        lineColor: COLORS.borderGrey,
+        lineWidth: 0.3,
+        textColor: COLORS.charcoal,
+      },
+      headStyles: {
+        fillColor: COLORS.charcoal,
+        textColor: COLORS.white,
+        fontStyle: "bold",
+        fontSize: 10,
+      },
+      columnStyles: {
+        0: { cellWidth: contentWidth },
+      },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 5;
+  }
 
   // === PHOTOS SECTION (only if photos exist) ===
   if (data.photos && data.photos.length > 0) {

@@ -170,6 +170,8 @@ export function WorkReportDialog({
   const [typeInfo, setTypeInfo] = useState("");
   const [zonesInfo, setZonesInfo] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [contactPerson, setContactPerson] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
 
   // Form state - Works & Times
   const [worksReport, setWorksReport] = useState("");
@@ -407,7 +409,7 @@ export function WorkReportDialog({
       // Note: Legacy reports without numbers will get a number assigned when they complete
 
       setReport(existingReport);
-      populateForm(existingReport);
+      populateForm(existingReport, { contact_name: site?.contact_name, contact_email: site?.contact_email || (site?.customers as any)?.contact_email });
       
       // Set existing SharePoint folder if any
       if (existingReport.sharepoint_folder) {
@@ -469,7 +471,7 @@ export function WorkReportDialog({
     }
   };
 
-  const populateForm = (r: ServiceReport) => {
+  const populateForm = (r: ServiceReport, loadedSiteInfo?: { contact_name?: string | null; contact_email?: string | null }) => {
     setEngineerName(r.engineer_name || "");
     setCustomerName(r.client_name || "");
     setCertificateNo(r.report_number || "");
@@ -496,6 +498,8 @@ export function WorkReportDialog({
         setTypeInfo(parsedNotes.typeInfo || "");
         setZonesInfo(parsedNotes.zonesInfo || "");
         setContactPhone(parsedNotes.contactPhone || "");
+        setContactPerson(parsedNotes.contactPerson || loadedSiteInfo?.contact_name || "");
+        setContactEmail(parsedNotes.contactEmail || loadedSiteInfo?.contact_email || "");
         if (parsedNotes.appointmentDate) {
           setAppointmentDate(new Date(parsedNotes.appointmentDate));
         } else if (parsedNotes.attendanceDay) {
@@ -565,6 +569,8 @@ export function WorkReportDialog({
       typeInfo,
       zonesInfo,
       contactPhone,
+      contactPerson,
+      contactEmail,
       numEngineers,
       workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
       totalHours,
@@ -704,7 +710,7 @@ export function WorkReportDialog({
   }, [
     jobNumber, jobType, workCompleted, returnRequired, surveyRequired, quotationRequired,
     ramsCompleted, logBookEntry, systemStatusArrival, systemStatusDeparture, appointmentDate, reportDate,
-    panelInfo, locationInfo, typeInfo, zonesInfo, contactPhone,
+    panelInfo, locationInfo, typeInfo, zonesInfo, contactPhone, contactPerson, contactEmail,
     numEngineers, workDays, travelTime, materials, photos, reportFiles, worksReport, furtherAction,
     engineerName, engineerSignature, engineerSignDate, engineerSignTime,
     customerName, customerSignature, customerSignDate, customerSignTime, customerNotPresent
@@ -1049,6 +1055,8 @@ export function WorkReportDialog({
     typeInfo,
     zonesInfo,
     contactPhone,
+    contactPerson,
+    contactEmail,
   });
 
   // Generate PDF as base64 for email attachment
@@ -1280,13 +1288,30 @@ export function WorkReportDialog({
                       placeholder="e.g. 8"
                     />
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Contact Person</Label>
+                    <Input
+                      value={contactPerson}
+                      onChange={(e) => setContactPerson(e.target.value)}
+                      placeholder="e.g. John Smith"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label className="text-xs">Contact Phone</Label>
                     <Input
                       value={contactPhone}
                       onChange={(e) => setContactPhone(e.target.value)}
                       placeholder="e.g. 0123 456 7890"
                       type="tel"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label className="text-xs">Contact Email</Label>
+                    <Input
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      placeholder="e.g. contact@example.com"
+                      type="email"
                     />
                   </div>
                 </div>
