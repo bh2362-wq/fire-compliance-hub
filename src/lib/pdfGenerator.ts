@@ -815,6 +815,8 @@ export interface WorkReportData {
   typeInfo?: string;
   zonesInfo?: string;
   contactPhone?: string;
+  contactPerson?: string;
+  contactEmail?: string;
   // Legacy system info (deprecated - use custom fields above)
   systemType?: string;
   panelManufacturer?: string;

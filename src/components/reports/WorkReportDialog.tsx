@@ -710,7 +710,7 @@ export function WorkReportDialog({
   }, [
     jobNumber, jobType, workCompleted, returnRequired, surveyRequired, quotationRequired,
     ramsCompleted, logBookEntry, systemStatusArrival, systemStatusDeparture, appointmentDate, reportDate,
-    panelInfo, locationInfo, typeInfo, zonesInfo, contactPhone,
+    panelInfo, locationInfo, typeInfo, zonesInfo, contactPhone, contactPerson, contactEmail,
     numEngineers, workDays, travelTime, materials, photos, reportFiles, worksReport, furtherAction,
     engineerName, engineerSignature, engineerSignDate, engineerSignTime,
     customerName, customerSignature, customerSignDate, customerSignTime, customerNotPresent
