@@ -971,16 +971,14 @@ export async function generateWorkReportPDF(
   yPos += boxHeight + 5;
 
   // === System Info Row (only show if any custom fields are populated) ===
-  const hasCustomSystemFields = data.panelInfo || data.locationInfo || data.typeInfo || data.zonesInfo || data.contactPhone;
+  const hasCustomSystemFields = data.panelInfo || data.locationInfo || data.typeInfo || data.zonesInfo;
   
   if (hasCustomSystemFields) {
-    // Calculate how many rows we need based on populated fields
     const systemFields: string[] = [];
     if (data.panelInfo) systemFields.push(`Panel: ${data.panelInfo}`);
     if (data.locationInfo) systemFields.push(`Location: ${data.locationInfo}`);
     if (data.typeInfo) systemFields.push(`Type: ${data.typeInfo}`);
     if (data.zonesInfo) systemFields.push(`Zones: ${data.zonesInfo}`);
-    if (data.contactPhone) systemFields.push(`Phone: ${data.contactPhone}`);
 
     const boxHeight = 8 + Math.ceil(systemFields.length / 3) * 7 + 4;
     doc.rect(margin, yPos, contentWidth, boxHeight);
