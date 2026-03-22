@@ -417,6 +417,7 @@ export function CreateInvoiceDialog({
       await updateVisitStatus(visit.id, "invoiced");
 
       toast.success(`Invoice ${result.number} created successfully`);
+      localStorage.removeItem(cacheKey);
       onOpenChange(false);
       onSuccess?.();
       
@@ -425,6 +426,7 @@ export function CreateInvoiceDialog({
       setPoNumber("");
       setReference("");
       setLineItems([{ description: "", quantity: 1, unitAmount: 0 }]);
+      setRestoredFromCache(false);
     } catch (error: any) {
       console.error("Failed to create invoice:", error);
       toast.error(error.message || "Failed to create invoice");
