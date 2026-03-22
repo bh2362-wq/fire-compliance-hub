@@ -59,6 +59,7 @@ interface VisitForReport {
   visit_date: string;
   site_id: string;
   notes?: string | null;
+  client_po_number?: string | null;
   sites?: { name: string; address?: string | null; city?: string | null; postcode?: string | null; contact_name?: string | null; contact_phone?: string | null; contact_email?: string | null } | null;
 }
 
