@@ -170,6 +170,8 @@ export function WorkReportDialog({
   const [typeInfo, setTypeInfo] = useState("");
   const [zonesInfo, setZonesInfo] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [contactPerson, setContactPerson] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
 
   // Form state - Works & Times
   const [worksReport, setWorksReport] = useState("");
