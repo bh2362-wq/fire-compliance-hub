@@ -898,11 +898,21 @@ export async function generateWorkReportPDF(
 
   // === Site & Service Details (Side by Side) ===
   const colWidth = (contentWidth - 6) / 2;
-  const boxHeight = 40;
 
-  // Left: Site Info
+  // Left: Site Info - only include populated rows
   doc.setDrawColor(...COLORS.borderGrey);
   doc.setLineWidth(0.3);
+
+  const siteAddr = [site.address, site.city, site.postcode].filter(Boolean).join(", ");
+  const siteRows: [string, string][] = [];
+  siteRows.push(["Site:", site.name]);
+  if (siteAddr) siteRows.push(["Address:", siteAddr]);
+  if (data.contactPerson || site.contact_name) siteRows.push(["Contact:", data.contactPerson || site.contact_name || ""]);
+  if (data.contactPhone || site.contact_phone) siteRows.push(["Phone:", data.contactPhone || site.contact_phone || ""]);
+  if (data.contactEmail) siteRows.push(["Email:", data.contactEmail]);
+
+  const boxHeight = Math.max(40, 8 + siteRows.length * 7 + 4);
+
   doc.rect(margin, yPos, colWidth, boxHeight);
 
   doc.setFillColor(...COLORS.charcoal);
@@ -911,14 +921,6 @@ export async function generateWorkReportPDF(
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text("SITE", margin + 3, yPos + 5.5);
-
-  const siteAddr = [site.address, site.city, site.postcode].filter(Boolean).join(", ");
-  const siteRows = [
-    ["Site:", site.name],
-    ["Address:", siteAddr || "-"],
-    ["Contact:", site.contact_name || "-"],
-    ["Phone:", site.contact_phone || "-"],
-  ];
 
   doc.setFontSize(9);
   let rowY = yPos + 14;
