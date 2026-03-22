@@ -471,7 +471,7 @@ export function WorkReportDialog({
     }
   };
 
-  const populateForm = (r: ServiceReport) => {
+  const populateForm = (r: ServiceReport, loadedSiteInfo?: { contact_name?: string | null; contact_email?: string | null }) => {
     setEngineerName(r.engineer_name || "");
     setCustomerName(r.client_name || "");
     setCertificateNo(r.report_number || "");
