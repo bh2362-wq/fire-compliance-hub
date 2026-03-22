@@ -400,6 +400,8 @@ export function CustomerCreateInvoiceDialog({
       } else {
         toast.success(`Invoice ${result.number} created (email not sent - check customer has email in Xero)`);
       }
+      localStorage.removeItem(cacheKey);
+      setRestoredFromCache(false);
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
