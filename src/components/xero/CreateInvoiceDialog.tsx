@@ -202,18 +202,59 @@ export function CreateInvoiceDialog({
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([
     { description: "", quantity: 1, unitAmount: 0 },
   ]);
+  const [restoredFromCache, setRestoredFromCache] = useState(false);
 
+  const cacheKey = `invoice-draft-${visit.id}`;
+
+  // Restore cached form data on open
   useEffect(() => {
     if (open && user) {
       checkConnection();
       loadContacts();
-      loadServiceContract();
-      // Reset due date to 30 days from now
-      setDueDate(addDays(new Date(), 28));
-      // Reset selected contact - will be auto-selected after contacts load
-      setSelectedContact("");
+
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const data = JSON.parse(cached);
+          setSelectedContact(data.selectedContact || "");
+          setPoNumber(data.poNumber || "");
+          setReference(data.reference || "");
+          setDueDate(data.dueDate ? new Date(data.dueDate) : addDays(new Date(), 28));
+          setLineItems(data.lineItems?.length ? data.lineItems : [{ description: "", quantity: 1, unitAmount: 0 }]);
+          setRestoredFromCache(true);
+        } catch {
+          loadServiceContract();
+          setDueDate(addDays(new Date(), 28));
+          setSelectedContact("");
+        }
+      } else {
+        loadServiceContract();
+        setDueDate(addDays(new Date(), 28));
+        setSelectedContact("");
+      }
     }
   }, [open, user, visit]);
+
+  // Auto-save form data to localStorage
+  useEffect(() => {
+    if (!open || restoredFromCache === false) return;
+    const data = {
+      selectedContact,
+      poNumber,
+      reference,
+      dueDate: dueDate?.toISOString(),
+      lineItems,
+    };
+    localStorage.setItem(cacheKey, JSON.stringify(data));
+  }, [open, selectedContact, poNumber, reference, dueDate, lineItems, cacheKey, restoredFromCache]);
+
+  // Mark as ready for caching after initial load
+  useEffect(() => {
+    if (open && !restoredFromCache) {
+      const timer = setTimeout(() => setRestoredFromCache(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [open, restoredFromCache]);
 
   const loadServiceContract = async () => {
     // Skip contract auto-fill for callouts and remedial works
