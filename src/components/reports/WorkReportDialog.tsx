@@ -1111,9 +1111,20 @@ export function WorkReportDialog({
 
       <ResponsiveDialogBody className="py-4">
         {isLocked && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2 text-sm text-amber-800 mb-4">
-            <Lock className="w-4 h-4 flex-shrink-0" />
-            <span className="text-xs sm:text-sm">This report has been completed and is now read-only.</span>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between text-sm text-amber-800 mb-4">
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">This report has been completed and is now read-only.</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsLocked(false)}
+              className="ml-2 text-amber-800 border-amber-300 hover:bg-amber-100"
+            >
+              <LockOpen className="w-3 h-3 mr-1" />
+              Unlock
+            </Button>
           </div>
         )}
 
