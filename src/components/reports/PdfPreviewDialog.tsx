@@ -165,6 +165,8 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
             panelInfo: parsed.panelInfo || "", locationInfo: parsed.locationInfo || "",
             typeInfo: parsed.typeInfo || "", zonesInfo: parsed.zonesInfo || "",
             contactPhone: parsed.contactPhone || "",
+            contactPerson: parsed.contactPerson || "",
+            contactEmail: parsed.contactEmail || "",
             reportDate: parsed.reportDate || report.report_date,
           },
           siteInfo, visit?.visit_date || report.report_date, visit?.visit_type || "", true
