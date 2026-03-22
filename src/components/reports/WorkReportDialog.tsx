@@ -658,6 +658,44 @@ export function WorkReportDialog({
     onOpenChange(open);
   };
 
+  // Periodic auto-save every 10 seconds if there are unsaved changes
+  useEffect(() => {
+    if (!report || isLocked || !open) return;
+    
+    const interval = setInterval(() => {
+      if (hasUnsavedChanges) {
+        autoSave();
+      }
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [report, isLocked, open, hasUnsavedChanges]);
+
+  // Save when user switches browser tabs or navigates away
+  useEffect(() => {
+    if (!report || isLocked || !open) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && hasUnsavedChanges) {
+        autoSave();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      if (hasUnsavedChanges) {
+        autoSave();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [report, isLocked, open, hasUnsavedChanges]);
+
   // Mark form as having unsaved changes when any field changes
   useEffect(() => {
     if (report && !loading) {
