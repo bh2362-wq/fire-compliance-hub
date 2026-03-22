@@ -409,7 +409,7 @@ export function WorkReportDialog({
       // Note: Legacy reports without numbers will get a number assigned when they complete
 
       setReport(existingReport);
-      populateForm(existingReport);
+      populateForm(existingReport, { contact_name: site?.contact_name, contact_email: site?.contact_email || (site?.customers as any)?.contact_email });
       
       // Set existing SharePoint folder if any
       if (existingReport.sharepoint_folder) {
