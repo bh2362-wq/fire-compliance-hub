@@ -59,6 +59,7 @@ interface VisitForReport {
   visit_date: string;
   site_id: string;
   notes?: string | null;
+  client_po_number?: string | null;
   sites?: { name: string; address?: string | null; city?: string | null; postcode?: string | null; contact_name?: string | null; contact_phone?: string | null; contact_email?: string | null } | null;
 }
 
@@ -2340,7 +2341,7 @@ export function WorkReportDialog({
             jobType,
             reportDate: format(reportDate, "yyyy-MM-dd"),
             reportNumber: certificateNo,
-            poNumber: contractPoNumber || undefined,
+            poNumber: contractPoNumber || visit.client_po_number || jobNumber || undefined,
             unitPrice: contractUnitPrice || undefined,
             siteName: siteInfo.name,
           }}

@@ -1178,7 +1178,7 @@ export function ServiceReportDialog({
               jobType: visit.visit_type,
               reportDate: visit.visit_date,
               reportNumber: reportNumber,
-              poNumber: contractPoNumber || undefined,
+              poNumber: contractPoNumber || (visit as any).client_po_number || undefined,
               unitPrice: contractUnitPrice || undefined,
               siteName: siteInfoForInvoice.name,
             }}
