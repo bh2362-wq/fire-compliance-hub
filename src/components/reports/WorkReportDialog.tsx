@@ -1288,13 +1288,30 @@ export function WorkReportDialog({
                       placeholder="e.g. 8"
                     />
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Contact Person</Label>
+                    <Input
+                      value={contactPerson}
+                      onChange={(e) => setContactPerson(e.target.value)}
+                      placeholder="e.g. John Smith"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label className="text-xs">Contact Phone</Label>
                     <Input
                       value={contactPhone}
                       onChange={(e) => setContactPhone(e.target.value)}
                       placeholder="e.g. 0123 456 7890"
                       type="tel"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label className="text-xs">Contact Email</Label>
+                    <Input
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      placeholder="e.g. contact@example.com"
+                      type="email"
                     />
                   </div>
                 </div>
