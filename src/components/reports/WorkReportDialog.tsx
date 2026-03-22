@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight, Mail, Upload, Paperclip } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, LockOpen, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight, Mail, Upload, Paperclip } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
