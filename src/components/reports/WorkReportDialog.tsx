@@ -569,6 +569,8 @@ export function WorkReportDialog({
       typeInfo,
       zonesInfo,
       contactPhone,
+      contactPerson,
+      contactEmail,
       numEngineers,
       workDays: workDays.filter(d => d.date || d.startTime || d.finishTime),
       totalHours,
