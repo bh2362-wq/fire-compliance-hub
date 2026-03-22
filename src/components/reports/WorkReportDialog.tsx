@@ -498,6 +498,8 @@ export function WorkReportDialog({
         setTypeInfo(parsedNotes.typeInfo || "");
         setZonesInfo(parsedNotes.zonesInfo || "");
         setContactPhone(parsedNotes.contactPhone || "");
+        setContactPerson(parsedNotes.contactPerson || "");
+        setContactEmail(parsedNotes.contactEmail || "");
         if (parsedNotes.appointmentDate) {
           setAppointmentDate(new Date(parsedNotes.appointmentDate));
         } else if (parsedNotes.attendanceDay) {
