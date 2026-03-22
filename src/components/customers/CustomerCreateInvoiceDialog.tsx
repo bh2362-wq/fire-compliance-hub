@@ -125,11 +125,29 @@ export function CustomerCreateInvoiceDialog({
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>(
     SERVICE_TYPE_LINE_ITEMS.quarterly_service
   );
+  const [restoredFromCache, setRestoredFromCache] = useState(false);
+
+  const cacheKey = `customer-invoice-draft-${customerId}`;
 
   useEffect(() => {
     if (open && user) {
       checkConnection();
       fetchNextInvoiceNumber();
+
+      // Try restoring from cache first
+      const cached = localStorage.getItem(cacheKey);
+      if (cached && !jobReportData) {
+        try {
+          const data = JSON.parse(cached);
+          setSelectedSite(data.selectedSite || "");
+          setServiceType(data.serviceType || "quarterly_service");
+          setReference(data.reference || "");
+          setDueDate(data.dueDate ? new Date(data.dueDate) : addDays(new Date(), 30));
+          setLineItems(data.lineItems?.length ? data.lineItems : SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+          setRestoredFromCache(true);
+          return;
+        } catch { /* fall through to defaults */ }
+      }
       
       // If we have job report data, use it to auto-fill the invoice
       if (jobReportData) {
@@ -138,8 +156,6 @@ export function CustomerCreateInvoiceDialog({
           setSelectedSite(sites[0].id);
         }
         
-        // Set service type based on job type
-        // If emergency job, use emergency callout type
         if (jobReportData.jobType === "emergency") {
           setServiceType("emergency");
         } else if (jobReportData.jobType === "service") {
@@ -150,14 +166,12 @@ export function CustomerCreateInvoiceDialog({
           setServiceType("quarterly_service");
         }
         
-        // Due date is the report date (the job date)
         if (jobReportData.reportDate) {
           setDueDate(new Date(jobReportData.reportDate));
         } else {
           setDueDate(addDays(new Date(), 30));
         }
         
-        // Reference is the PO number if available, otherwise use report number
         if (jobReportData.poNumber) {
           setReference(jobReportData.poNumber);
         } else if (jobReportData.reportNumber) {
@@ -173,8 +187,22 @@ export function CustomerCreateInvoiceDialog({
         setDueDate(addDays(new Date(), 30));
         setLineItems(SERVICE_TYPE_LINE_ITEMS.quarterly_service);
       }
+      setRestoredFromCache(true);
     }
   }, [open, user, jobReportData, sites]);
+
+  // Auto-save form data to localStorage
+  useEffect(() => {
+    if (!open || !restoredFromCache) return;
+    const data = {
+      selectedSite,
+      serviceType,
+      reference,
+      dueDate: dueDate?.toISOString(),
+      lineItems,
+    };
+    localStorage.setItem(cacheKey, JSON.stringify(data));
+  }, [open, selectedSite, serviceType, reference, dueDate, lineItems, cacheKey, restoredFromCache]);
 
   const fetchNextInvoiceNumber = async () => {
     setLoadingInvoiceNumber(true);
