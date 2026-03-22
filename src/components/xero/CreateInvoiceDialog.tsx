@@ -316,8 +316,8 @@ export function CreateInvoiceDialog({
   const loadContacts = async () => {
     setLoadingContacts(true);
     try {
-      // Only fetch customers (contacts with invoice history)
-      const data = await fetchXeroContacts({ customersOnly: true });
+      // Fetch all contacts so new customers can be invoiced too
+      const data = await fetchXeroContacts();
       setContacts(data);
     } catch (error) {
       console.error("Failed to load contacts:", error);
