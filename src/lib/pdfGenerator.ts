@@ -1005,57 +1005,61 @@ export async function generateWorkReportPDF(
     yPos += boxHeight + 4;
   }
 
-  // === WORKS CARRIED OUT (Dynamic height using autoTable) ===
-  autoTable(doc, {
-    startY: yPos,
-    head: [["WORKS CARRIED OUT"]],
-    body: [[data.worksReport || "-"]],
-    margin: { left: margin, right: margin },
-    theme: "plain",
-    styles: {
-      fontSize: 9,
-      cellPadding: 3,
-      lineColor: COLORS.borderGrey,
-      lineWidth: 0.3,
-      textColor: COLORS.charcoal,
-    },
-    headStyles: {
-      fillColor: COLORS.charcoal,
-      textColor: COLORS.white,
-      fontStyle: "bold",
-      fontSize: 10,
-    },
-    columnStyles: {
-      0: { cellWidth: contentWidth },
-    },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 4;
+  // === WORKS CARRIED OUT (only if populated) ===
+  if (data.worksReport) {
+    autoTable(doc, {
+      startY: yPos,
+      head: [["WORKS CARRIED OUT"]],
+      body: [[data.worksReport]],
+      margin: { left: margin, right: margin },
+      theme: "plain",
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        lineColor: COLORS.borderGrey,
+        lineWidth: 0.3,
+        textColor: COLORS.charcoal,
+      },
+      headStyles: {
+        fillColor: COLORS.charcoal,
+        textColor: COLORS.white,
+        fontStyle: "bold",
+        fontSize: 10,
+      },
+      columnStyles: {
+        0: { cellWidth: contentWidth },
+      },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 4;
+  }
 
-  // === RECOMMENDATIONS (Dynamic height using autoTable) ===
-  autoTable(doc, {
-    startY: yPos,
-    head: [["RECOMMENDATIONS / FURTHER WORK"]],
-    body: [[data.furtherAction || "-"]],
-    margin: { left: margin, right: margin },
-    theme: "plain",
-    styles: {
-      fontSize: 9,
-      cellPadding: 3,
-      lineColor: COLORS.borderGrey,
-      lineWidth: 0.3,
-      textColor: COLORS.charcoal,
-    },
-    headStyles: {
-      fillColor: COLORS.charcoal,
-      textColor: COLORS.white,
-      fontStyle: "bold",
-      fontSize: 10,
-    },
-    columnStyles: {
-      0: { cellWidth: contentWidth },
-    },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 5;
+  // === RECOMMENDATIONS (only if populated) ===
+  if (data.furtherAction) {
+    autoTable(doc, {
+      startY: yPos,
+      head: [["RECOMMENDATIONS / FURTHER WORK"]],
+      body: [[data.furtherAction]],
+      margin: { left: margin, right: margin },
+      theme: "plain",
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        lineColor: COLORS.borderGrey,
+        lineWidth: 0.3,
+        textColor: COLORS.charcoal,
+      },
+      headStyles: {
+        fillColor: COLORS.charcoal,
+        textColor: COLORS.white,
+        fontStyle: "bold",
+        fontSize: 10,
+      },
+      columnStyles: {
+        0: { cellWidth: contentWidth },
+      },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 5;
+  }
 
   // === PHOTOS SECTION (only if photos exist) ===
   if (data.photos && data.photos.length > 0) {
