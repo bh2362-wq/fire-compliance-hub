@@ -2340,7 +2340,7 @@ export function WorkReportDialog({
             jobType,
             reportDate: format(reportDate, "yyyy-MM-dd"),
             reportNumber: certificateNo,
-            poNumber: contractPoNumber || undefined,
+            poNumber: contractPoNumber || visit.client_po_number || jobNumber || undefined,
             unitPrice: contractUnitPrice || undefined,
             siteName: siteInfo.name,
           }}
