@@ -157,9 +157,11 @@ export function CustomerCreateInvoiceDialog({
           setDueDate(addDays(new Date(), 30));
         }
         
-        // Reference is the PO number if available
+        // Reference is the PO number if available, otherwise use report number
         if (jobReportData.poNumber) {
           setReference(jobReportData.poNumber);
+        } else if (jobReportData.reportNumber) {
+          setReference(jobReportData.reportNumber);
         } else {
           setReference("");
         }
