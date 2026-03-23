@@ -102,7 +102,7 @@ function parseTemplate(data: any): RamsTemplate {
     ...data,
     hazards: (Array.isArray(data.hazards) ? data.hazards : []) as RamsHazard[],
     method_statements: (Array.isArray(data.method_statements) ? data.method_statements : []) as MethodStatement[],
-    ppe_requirements: data.ppe_requirements || [],
+    ppe_requirements: Array.isArray(data.ppe_requirements) ? data.ppe_requirements : [],
   };
 }
 
@@ -111,7 +111,7 @@ function parseDocument(data: any): RamsDocument {
     ...data,
     hazards: (Array.isArray(data.hazards) ? data.hazards : []) as RamsHazard[],
     method_statements: (Array.isArray(data.method_statements) ? data.method_statements : []) as MethodStatement[],
-    ppe_requirements: data.ppe_requirements || [],
+    ppe_requirements: Array.isArray(data.ppe_requirements) ? data.ppe_requirements : [],
   };
 }
 

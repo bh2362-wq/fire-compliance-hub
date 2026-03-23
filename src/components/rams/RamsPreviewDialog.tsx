@@ -115,7 +115,7 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
             <Separator />
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Risk Assessment</h3>
-              {document.hazards.map((hazard, index) => (
+              {(document.hazards || []).map((hazard, index) => (
                 <div key={hazard.id || index} className="border rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium">{hazard.hazard || `Hazard ${index + 1}`}</h4>
@@ -145,7 +145,7 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
             <Separator />
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Method Statement</h3>
-              {document.method_statements.map((step, index) => (
+              {(document.method_statements || []).map((step, index) => (
                 <div key={index} className="border rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <span className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-medium">
@@ -164,7 +164,7 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
             </div>
 
             {/* PPE */}
-            {document.ppe_requirements.length > 0 && (
+            {Array.isArray(document.ppe_requirements) && document.ppe_requirements.length > 0 && (
               <>
                 <Separator />
                 <div className="space-y-2">

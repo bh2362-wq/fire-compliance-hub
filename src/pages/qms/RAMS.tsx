@@ -239,8 +239,8 @@ export default function RAMS() {
                         <TableRow key={template.id}>
                           <TableCell className="font-medium">{template.name}</TableCell>
                           <TableCell>{template.service_type || "-"}</TableCell>
-                          <TableCell>{(template.hazards || []).length}</TableCell>
-                          <TableCell>{(template.method_statements || []).length}</TableCell>
+                          <TableCell>{(Array.isArray(template.hazards) ? template.hazards : []).length}</TableCell>
+                          <TableCell>{(Array.isArray(template.method_statements) ? template.method_statements : []).length}</TableCell>
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
