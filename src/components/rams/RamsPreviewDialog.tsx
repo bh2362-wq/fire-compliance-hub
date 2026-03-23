@@ -145,7 +145,7 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
             <Separator />
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Method Statement</h3>
-              {document.method_statements.map((step, index) => (
+              {(document.method_statements || []).map((step, index) => (
                 <div key={index} className="border rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <span className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-medium">
