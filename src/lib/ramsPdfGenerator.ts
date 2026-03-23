@@ -23,6 +23,8 @@ const COLORS = {
   riskVeryHigh: [220, 38, 38] as [number, number, number],
 };
 
+const FOOTER_ZONE = 18; // reserved space at bottom for footer
+
 interface CompanySettings {
   company_name: string;
   address?: string | null;
@@ -63,15 +65,31 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
   }
 }
 
+/** Strip Unicode chars that jsPDF/Helvetica cannot render */
 function sanitize(text: string | null | undefined): string {
   if (!text) return "";
-  return text.replace(/\\n/g, "\n").trim();
+  return text
+    .replace(/\\n/g, "\n")
+    // Smart quotes → straight
+    .replace(/[\u2018\u2019\u201A]/g, "'")
+    .replace(/[\u201C\u201D\u201E]/g, '"')
+    // Dashes
+    .replace(/[\u2013]/g, "-")
+    .replace(/[\u2014]/g, "--")
+    // Bullets / misc
+    .replace(/[\u2022\u2023\u25E6\u2043\u2219]/g, "-")
+    .replace(/[\u2026]/g, "...")
+    // Ellipsis, nbsp, other whitespace
+    .replace(/[\u00A0]/g, " ")
+    // Remove any remaining non-ASCII that Helvetica can't handle
+    .replace(/[^\x00-\x7F\xA3\xA9\xAE\xB0\xB1\xB2\xB3\xB5\xBC\xBD\xBE\xC0-\xFF]/g, "")
+    .trim();
 }
 
 function toBulletItems(text: string): string[] {
   return sanitize(text)
     .split("\n")
-    .map((l) => l.trim())
+    .map((l) => l.replace(/^[-*]\s*/, "").trim())
     .filter(Boolean);
 }
 
@@ -99,20 +117,27 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
   const cw = pw - ml - mr;
   let y = 0;
 
+  const safeHazards = Array.isArray(document.hazards) ? document.hazards : [];
+  const safeMethods = Array.isArray(document.method_statements) ? document.method_statements : [];
+  const safePpe = Array.isArray(document.ppe_requirements) ? document.ppe_requirements : [];
+
   // ─── REUSABLE DRAWING HELPERS ──────────────────────────────
 
-  function checkPage(need = 30) {
-    if (y > ph - need) {
+  /** Returns true if a new page was added */
+  function checkPage(need = 30): boolean {
+    if (y + need > ph - FOOTER_ZONE) {
       doc.addPage();
       y = 20;
+      return true;
     }
+    return false;
   }
 
   function sectionHeader(label: string, isAlert = false) {
-    checkPage(22);
-    y += 3;
+    // Force new page if not enough room for header + some content
+    checkPage(28);
+    y += 4;
 
-    // Highlight bar
     const fillColor = isAlert ? COLORS.accent : COLORS.charcoal;
     doc.setFillColor(...fillColor);
     doc.roundedRect(ml, y, cw, 8, 1, 1, "F");
@@ -120,73 +145,48 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     doc.setTextColor(...COLORS.white);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(label.toUpperCase(), ml + 5, y + 5.5);
+    doc.text(sanitize(label.toUpperCase()), ml + 5, y + 5.5);
     y += 12;
     doc.setTextColor(...COLORS.textPrimary);
   }
 
-  function subHeader(label: string) {
-    checkPage(14);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...COLORS.charcoal);
-    doc.text(label, ml, y);
-    y += 5;
-  }
-
   function bodyText(text: string) {
-    doc.setFontSize(12);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...COLORS.textSecondary);
     const lines = doc.splitTextToSize(sanitize(text), cw - 6);
     for (const line of lines) {
-      checkPage(9);
+      checkPage(7);
       doc.text(line, ml + 4, y);
-      y += 5.5;
+      y += 5;
     }
     y += 3;
   }
 
   function bulletList(text: string) {
     const items = toBulletItems(text);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.textPrimary);
+
     for (const item of items) {
       checkPage(10);
-      // Black filled bullet disc
+      // Filled bullet disc
       doc.setFillColor(0, 0, 0);
-      doc.circle(ml + 5, y - 1.5, 1, "F");
-      // 12pt Arial text
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...COLORS.textPrimary);
-      const wrapped = doc.splitTextToSize(item, cw - 14);
+      doc.circle(ml + 5, y - 1.2, 0.9, "F");
+      const wrapped = doc.splitTextToSize(sanitize(item), cw - 14);
       for (let i = 0; i < wrapped.length; i++) {
-        if (i > 0) checkPage(9);
+        if (i > 0) checkPage(6);
         doc.text(wrapped[i], ml + 10, y);
-        y += 5.5;
+        y += 5;
       }
-      // Spacing after each bullet point
-      y += 3;
+      y += 2;
     }
     y += 2;
   }
 
-  function keyValue(key: string, value: string | undefined | null, indent = ml + 2) {
-    if (!value) return;
-    checkPage(10);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...COLORS.textMuted);
-    doc.text(key, indent, y);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...COLORS.textPrimary);
-    const valX = indent + 40;
-    const lines = doc.splitTextToSize(sanitize(value), pw - mr - valX);
-    doc.text(lines, valX, y);
-    y += Math.max(lines.length * 4.2, 5) + 1;
-  }
-
   // ═══════════════════════════════════════════════════════════════
-  // PAGE 1: HEADER (matches quotation/PO style)
+  // PAGE 1: HEADER
   // ═══════════════════════════════════════════════════════════════
 
   // Top accent stripe
@@ -197,7 +197,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
 
   y = 14;
 
-  // Logo (left) — same pattern as quotations
+  // Logo (left)
   if (logoBase64) {
     try {
       doc.addImage(logoBase64, "PNG", ml, y - 2, 32, 28, undefined, "FAST");
@@ -205,16 +205,16 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
       doc.setTextColor(...COLORS.charcoal);
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      doc.text(company?.company_name || "Company", ml, y + 10);
+      doc.text(sanitize(company?.company_name) || "Company", ml, y + 10);
     }
   } else {
     doc.setTextColor(...COLORS.charcoal);
     doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text(company?.company_name || "Company", ml, y + 10);
+    doc.text(sanitize(company?.company_name) || "Company", ml, y + 10);
   }
 
-  // Company details (right) — matches quotation style exactly
+  // Company details (right)
   const rightX = pw - mr;
   let contactY = y;
 
@@ -222,26 +222,26 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     doc.setTextColor(...COLORS.textSecondary);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text(company.company_name, rightX, contactY, { align: "right" });
+    doc.text(sanitize(company.company_name), rightX, contactY, { align: "right" });
     contactY += 5;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...COLORS.textMuted);
     if (company.address) {
-      doc.text(company.address, rightX, contactY, { align: "right" });
+      doc.text(sanitize(company.address), rightX, contactY, { align: "right" });
       contactY += 4;
     }
     if (company.city || company.postcode) {
-      doc.text(`${company.city || ""} ${company.postcode || ""}`.trim(), rightX, contactY, { align: "right" });
+      doc.text(`${sanitize(company.city)} ${sanitize(company.postcode)}`.trim(), rightX, contactY, { align: "right" });
       contactY += 4;
     }
     if (company.phone) {
-      doc.text(`T: ${company.phone}`, rightX, contactY, { align: "right" });
+      doc.text(`T: ${sanitize(company.phone)}`, rightX, contactY, { align: "right" });
       contactY += 4;
     }
     if (company.email) {
-      doc.text(`E: ${company.email}`, rightX, contactY, { align: "right" });
+      doc.text(`E: ${sanitize(company.email)}`, rightX, contactY, { align: "right" });
     }
   }
 
@@ -261,7 +261,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
   doc.setTextColor(...COLORS.accent);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text(document.rams_number, ml, y + 9);
+  doc.text(sanitize(document.rams_number), ml, y + 9);
 
   doc.setTextColor(...COLORS.textMuted);
   doc.setFontSize(9);
@@ -274,7 +274,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
   doc.setTextColor(...COLORS.textPrimary);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  const titleLines = doc.splitTextToSize(document.title, cw);
+  const titleLines = doc.splitTextToSize(sanitize(document.title), cw);
   doc.text(titleLines, ml, y);
   y += titleLines.length * 5.5 + 4;
 
@@ -286,15 +286,15 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
 
   const infoRows: string[][] = [];
   if (document.site) {
-    infoRows.push(["Site:", document.site.name]);
-    if (document.site.address) infoRows.push(["Address:", document.site.address]);
+    infoRows.push(["Site:", sanitize(document.site.name)]);
+    if (document.site.address) infoRows.push(["Address:", sanitize(document.site.address)]);
   }
-  infoRows.push(["Status:", document.status.replace(/_/g, " ").toUpperCase()]);
+  infoRows.push(["Status:", sanitize(document.status.replace(/_/g, " ").toUpperCase())]);
   if (document.review_date) {
     infoRows.push(["Review Date:", format(new Date(document.review_date), "dd/MM/yyyy")]);
   }
   infoRows.push(["Created:", format(new Date(document.created_at), "dd/MM/yyyy")]);
-  infoRows.push(["RAMS Ref:", document.rams_number]);
+  infoRows.push(["RAMS Ref:", sanitize(document.rams_number)]);
 
   autoTable(doc, {
     startY: y,
@@ -333,66 +333,68 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
 
   sectionHeader("Risk Assessment");
 
-  const hazardHead = [
-    ["#", "Hazard", "Who Affected", "Existing Controls", "L", "S", "Risk", "Additional Controls", "L", "S", "Residual"],
-  ];
-  const hazardRows = document.hazards.map((h, i) => [
-    String(i + 1),
-    sanitize(h.hazard),
-    sanitize(h.who_affected).replace(/\n/g, ", "),
-    sanitize(h.existing_controls).replace(/\n/g, "\n"),
-    String(h.likelihood),
-    String(h.severity),
-    h.risk_level,
-    sanitize(h.additional_controls).replace(/\n/g, "\n"),
-    String(h.residual_likelihood),
-    String(h.residual_severity),
-    h.residual_risk,
-  ]);
+  if (safeHazards.length > 0) {
+    const hazardHead = [
+      ["#", "Hazard", "Who Affected", "Existing Controls", "L", "S", "Risk", "Additional Controls", "L", "S", "Residual"],
+    ];
+    const hazardRows = safeHazards.map((h, i) => [
+      String(i + 1),
+      sanitize(h.hazard),
+      sanitize(h.who_affected).replace(/\n/g, ", "),
+      sanitize(h.existing_controls).replace(/\n/g, "\n"),
+      String(h.likelihood),
+      String(h.severity),
+      sanitize(h.risk_level),
+      sanitize(h.additional_controls).replace(/\n/g, "\n"),
+      String(h.residual_likelihood),
+      String(h.residual_severity),
+      sanitize(h.residual_risk),
+    ]);
 
-  autoTable(doc, {
-    startY: y,
-    head: hazardHead,
-    body: hazardRows,
-    theme: "grid",
-    headStyles: {
-      fillColor: COLORS.charcoal,
-      textColor: COLORS.white,
-      fontSize: 7.5,
-      fontStyle: "bold",
-      halign: "center",
-      cellPadding: 2,
-    },
-    styles: {
-      fontSize: 7.5,
-      cellPadding: 2,
-      textColor: COLORS.textPrimary,
-      lineColor: COLORS.borderDark,
-      lineWidth: 0.2,
-    },
-    alternateRowStyles: { fillColor: COLORS.bgLight },
-    columnStyles: {
-      0: { cellWidth: 8, halign: "center", fontStyle: "bold" },
-      1: { cellWidth: 32 },
-      2: { cellWidth: 24 },
-      3: { cellWidth: 45 },
-      4: { cellWidth: 8, halign: "center" },
-      5: { cellWidth: 8, halign: "center" },
-      6: { cellWidth: 16, halign: "center", fontStyle: "bold" },
-      7: { cellWidth: 45 },
-      8: { cellWidth: 8, halign: "center" },
-      9: { cellWidth: 8, halign: "center" },
-      10: { cellWidth: 16, halign: "center", fontStyle: "bold" },
-    },
-    margin: { left: ml, right: mr },
-    didParseCell: (data) => {
-      if ((data.column.index === 6 || data.column.index === 10) && data.section === "body") {
-        const val = String(data.cell.raw);
-        data.cell.styles.textColor = riskColor(val);
-      }
-    },
-  });
-  y = (doc as any).lastAutoTable.finalY + 8;
+    autoTable(doc, {
+      startY: y,
+      head: hazardHead,
+      body: hazardRows,
+      theme: "grid",
+      headStyles: {
+        fillColor: COLORS.charcoal,
+        textColor: COLORS.white,
+        fontSize: 7.5,
+        fontStyle: "bold",
+        halign: "center",
+        cellPadding: 2,
+      },
+      styles: {
+        fontSize: 7.5,
+        cellPadding: 2,
+        textColor: COLORS.textPrimary,
+        lineColor: COLORS.borderDark,
+        lineWidth: 0.2,
+      },
+      alternateRowStyles: { fillColor: COLORS.bgLight },
+      columnStyles: {
+        0: { cellWidth: 8, halign: "center", fontStyle: "bold" },
+        1: { cellWidth: 32 },
+        2: { cellWidth: 24 },
+        3: { cellWidth: 45 },
+        4: { cellWidth: 8, halign: "center" },
+        5: { cellWidth: 8, halign: "center" },
+        6: { cellWidth: 16, halign: "center", fontStyle: "bold" },
+        7: { cellWidth: 45 },
+        8: { cellWidth: 8, halign: "center" },
+        9: { cellWidth: 8, halign: "center" },
+        10: { cellWidth: 16, halign: "center", fontStyle: "bold" },
+      },
+      margin: { left: ml, right: mr },
+      didParseCell: (data) => {
+        if ((data.column.index === 6 || data.column.index === 10) && data.section === "body") {
+          const val = String(data.cell.raw);
+          data.cell.styles.textColor = riskColor(val);
+        }
+      },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // METHOD STATEMENT
@@ -400,68 +402,69 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
 
   sectionHeader("Method Statement");
 
-  const methodHead = [["Step", "Description", "Responsible Person", "Equipment Required"]];
-  const methodRows = document.method_statements.map((m, i) => [
-    String(i + 1),
-    sanitize(m.description),
-    sanitize(m.responsible_person),
-    sanitize(m.equipment_required),
-  ]);
+  if (safeMethods.length > 0) {
+    const methodHead = [["Step", "Description", "Responsible Person", "Equipment Required"]];
+    const methodRows = safeMethods.map((m, i) => [
+      String(i + 1),
+      sanitize(m.description),
+      sanitize(m.responsible_person),
+      sanitize(m.equipment_required),
+    ]);
 
-  autoTable(doc, {
-    startY: y,
-    head: methodHead,
-    body: methodRows,
-    theme: "grid",
-    headStyles: {
-      fillColor: COLORS.charcoal,
-      textColor: COLORS.white,
-      fontSize: 8.5,
-      fontStyle: "bold",
-      cellPadding: 2.5,
-    },
-    styles: {
-      fontSize: 8.5,
-      cellPadding: 2.5,
-      textColor: COLORS.textPrimary,
-      lineColor: COLORS.borderDark,
-      lineWidth: 0.2,
-    },
-    alternateRowStyles: { fillColor: COLORS.bgLight },
-    columnStyles: {
-      0: { cellWidth: 14, halign: "center", fontStyle: "bold" },
-      1: { cellWidth: "auto" },
-      2: { cellWidth: 45 },
-      3: { cellWidth: 50 },
-    },
-    margin: { left: ml, right: mr },
-  });
-  y = (doc as any).lastAutoTable.finalY + 8;
+    autoTable(doc, {
+      startY: y,
+      head: methodHead,
+      body: methodRows,
+      theme: "grid",
+      headStyles: {
+        fillColor: COLORS.charcoal,
+        textColor: COLORS.white,
+        fontSize: 8.5,
+        fontStyle: "bold",
+        cellPadding: 2.5,
+      },
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 2.5,
+        textColor: COLORS.textPrimary,
+        lineColor: COLORS.borderDark,
+        lineWidth: 0.2,
+      },
+      alternateRowStyles: { fillColor: COLORS.bgLight },
+      columnStyles: {
+        0: { cellWidth: 14, halign: "center", fontStyle: "bold" },
+        1: { cellWidth: "auto" },
+        2: { cellWidth: 45 },
+        3: { cellWidth: 50 },
+      },
+      margin: { left: ml, right: mr },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // PPE REQUIREMENTS
   // ═══════════════════════════════════════════════════════════════
 
-  if (document.ppe_requirements.length > 0) {
+  if (safePpe.length > 0) {
     sectionHeader("Personal Protective Equipment (PPE)");
 
-    const ppePerRow = 5; // landscape gives more width
+    const ppePerRow = 5;
     const ppeColW = cw / ppePerRow;
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...COLORS.textPrimary);
 
-    for (let i = 0; i < document.ppe_requirements.length; i++) {
+    for (let i = 0; i < safePpe.length; i++) {
       const col = i % ppePerRow;
       if (col === 0 && i > 0) y += 7;
       if (col === 0) checkPage(12);
       const x = ml + col * ppeColW;
 
-      // Checkbox style
+      // Checkbox
       doc.setDrawColor(...COLORS.borderDark);
       doc.setLineWidth(0.3);
       doc.rect(x, y - 3.5, 4, 4);
-      doc.setFillColor(...COLORS.accent);
       // Tick mark
       doc.setDrawColor(...COLORS.accent);
       doc.setLineWidth(0.6);
@@ -471,7 +474,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...COLORS.textPrimary);
-      doc.text(document.ppe_requirements[i], x + 6, y);
+      doc.text(sanitize(safePpe[i]), x + 6, y);
     }
     y += 10;
   }
@@ -482,7 +485,29 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
 
   if (document.emergency_procedures) {
     sectionHeader("Emergency Procedures", true);
-    bodyText(document.emergency_procedures);
+
+    // Render as numbered list if multiline, otherwise body text
+    const items = toBulletItems(document.emergency_procedures);
+    if (items.length > 1) {
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...COLORS.textPrimary);
+      for (let i = 0; i < items.length; i++) {
+        checkPage(8);
+        const num = `${i + 1}. `;
+        doc.text(num, ml + 4, y);
+        const wrapped = doc.splitTextToSize(sanitize(items[i]), cw - 18);
+        for (let j = 0; j < wrapped.length; j++) {
+          if (j > 0) checkPage(6);
+          doc.text(wrapped[j], ml + 12, y);
+          y += 5;
+        }
+        y += 1.5;
+      }
+      y += 3;
+    } else {
+      bodyText(document.emergency_procedures);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -497,7 +522,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
   const sigLabels = [
     "Prepared By",
     "Reviewed By",
-    document.client_name ? `Client (${document.client_name})` : "Client",
+    document.client_name ? `Client (${sanitize(document.client_name)})` : "Client",
   ];
   const sigs = [document.preparer_signature, document.reviewer_signature, document.client_signature];
   const sigDates = [document.preparer_signed_at, document.reviewer_signed_at, document.client_signed_at];
@@ -511,7 +536,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...COLORS.textMuted);
-    doc.text(sigLabels[i], x, y);
+    doc.text(sanitize(sigLabels[i]), x, y);
 
     // Box with subtle fill
     doc.setFillColor(...COLORS.bgLight);
@@ -544,7 +569,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
   y += sigH + 12;
 
   // ═══════════════════════════════════════════════════════════════
-  // FOOTER ON ALL PAGES (uniform with quotations/POs)
+  // FOOTER ON ALL PAGES
   // ═══════════════════════════════════════════════════════════════
 
   const totalPages = doc.getNumberOfPages();
@@ -565,7 +590,10 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     doc.setTextColor(...COLORS.textMuted);
 
     // Left: registration
-    const regLine = [company?.registration_number ? `Reg: ${company.registration_number}` : null, company?.vat_number ? `VAT: ${company.vat_number}` : null]
+    const regLine = [
+      company?.registration_number ? `Reg: ${company.registration_number}` : null,
+      company?.vat_number ? `VAT: ${company.vat_number}` : null,
+    ]
       .filter(Boolean)
       .join("  |  ");
     if (regLine) {
