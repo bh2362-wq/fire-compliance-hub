@@ -710,6 +710,31 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-primary/5 text-primary border-primary/20">
                   {getVisitTypeLabel(visit.visit_type)}
                 </Badge>
+                {(() => {
+                  try {
+                    const parsed = JSON.parse(visit.notes || "{}");
+                    const assetType = parsed.asset_type;
+                    if (assetType && assetType !== "general") {
+                      const assetLabels: Record<string, { label: string; className: string }> = {
+                        fire_panel: { label: "Fire Panel", className: "bg-red-500/10 text-red-600 border-red-500/20" },
+                        fire: { label: "Fire Panel", className: "bg-red-500/10 text-red-600 border-red-500/20" },
+                        asd: { label: "ASD", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+                        aspirator: { label: "ASD", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+                        disabled_refuge: { label: "Disabled Refuge", className: "bg-violet-500/10 text-violet-600 border-violet-500/20" },
+                        intruder_alarm: { label: "Intruder Alarm", className: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
+                        nurse_call: { label: "Nurse Call", className: "bg-teal-500/10 text-teal-600 border-teal-500/20" },
+                        gas_suppression: { label: "Gas Suppression", className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20" },
+                      };
+                      const config = assetLabels[assetType] || { label: assetType.replace(/_/g, " "), className: "bg-muted/50 text-muted-foreground border-border" };
+                      return (
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${config.className}`}>
+                          {config.label}
+                        </Badge>
+                      );
+                    }
+                  } catch { /* ignore */ }
+                  return null;
+                })()}
                 {reportInfo?.report_number && (
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-muted/50">
                     {reportInfo.report_number}
