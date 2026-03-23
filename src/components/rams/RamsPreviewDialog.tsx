@@ -164,7 +164,7 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
             </div>
 
             {/* PPE */}
-            {document.ppe_requirements.length > 0 && (
+            {Array.isArray(document.ppe_requirements) && document.ppe_requirements.length > 0 && (
               <>
                 <Separator />
                 <div className="space-y-2">
