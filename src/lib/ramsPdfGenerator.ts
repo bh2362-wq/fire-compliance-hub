@@ -69,6 +69,7 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
 function sanitize(text: string | null | undefined): string {
   if (!text) return "";
   return text
+    .replace(/\\\\n/g, "\n")
     .replace(/\\n/g, "\n")
     // Smart quotes → straight
     .replace(/[\u2018\u2019\u201A]/g, "'")
