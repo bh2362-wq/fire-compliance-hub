@@ -31,6 +31,8 @@ import {
   DEFAULT_HAZARD_CATEGORIES,
   calculateRiskLevel,
 } from "@/services/ramsService";
+import { RamsActivity } from "@/services/ramsActivityService";
+import { RamsActivitySelector } from "@/components/rams/RamsActivitySelector";
 import {
   Select,
   SelectContent,
