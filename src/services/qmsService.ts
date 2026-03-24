@@ -621,6 +621,7 @@ export const fetchQMSKPIs = async (): Promise<QMSKPIData> => {
   const auditsData = audits.data || [];
   const feedbackData = feedback.data || [];
   const approvalsData = approvals.data || [];
+  const docsData = docs.data || [];
 
   return {
     openNCRs: ncrsData.filter(n => n.status !== 'closed').length,
@@ -633,6 +634,8 @@ export const fetchQMSKPIs = async (): Promise<QMSKPIData> => {
     upcomingAudits: auditsData.filter(a => a.scheduled_date >= today && a.scheduled_date <= thirtyDaysFromNow && a.status === 'planned').length,
     openFeedback: feedbackData.filter(f => !['resolved', 'closed'].includes(f.status)).length,
     complaintsThisMonth: feedbackData.filter(f => f.type === 'complaint' && f.created_at >= monthStart).length,
+    overdueDocReviews: docsData.filter(d => d.next_review_date && d.next_review_date < today && d.status !== 'archived').length,
+    autoNCRsThisMonth: ncrsData.filter(n => n.source === 'service_report' && n.created_at >= monthStart).length,
   };
 };
 
