@@ -632,3 +632,44 @@ export const fetchQMSKPIs = async (): Promise<QMSKPIData> => {
     complaintsThisMonth: feedbackData.filter(f => f.type === 'complaint' && f.created_at >= monthStart).length,
   };
 };
+
+// ============================================
+// SUPPLIER EVALUATIONS
+// ============================================
+
+export interface QMSSupplierEvaluation {
+  id: string;
+  supplier_id: string;
+  evaluation_date: string;
+  evaluation_period_start: string;
+  evaluation_period_end: string;
+  delivery_score: number;
+  quality_score: number;
+  responsiveness_score: number;
+  overall_score: number;
+  total_orders: number;
+  on_time_deliveries: number;
+  late_deliveries: number;
+  total_spend: number;
+  ncrs_raised: number;
+  rating: string;
+  notes: string | null;
+  source: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  supplier?: { name: string } | null;
+}
+
+export const fetchSupplierEvaluations = async (): Promise<QMSSupplierEvaluation[]> => {
+  const { data, error } = await supabase
+    .from('qms_supplier_evaluations')
+    .select(`
+      *,
+      supplier:suppliers(name)
+    `)
+    .order('evaluation_date', { ascending: false });
+  
+  if (error) throw error;
+  return (data || []) as unknown as QMSSupplierEvaluation[];
+};
