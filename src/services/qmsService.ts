@@ -593,6 +593,8 @@ export interface QMSKPIData {
   upcomingAudits: number;
   openFeedback: number;
   complaintsThisMonth: number;
+  overdueDocReviews: number;
+  autoNCRsThisMonth: number;
 }
 
 export const fetchQMSKPIs = async (): Promise<QMSKPIData> => {
