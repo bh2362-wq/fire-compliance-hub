@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Trash2, Eye, Edit, FileCheck } from "lucide-react";
+import { Plus, MoreHorizontal, Trash2, Eye, Edit, FileCheck, BookOpen, Shield, Flame, Lightbulb, Camera, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
