@@ -378,6 +378,12 @@ export function DisabledRefugeReportDialog({
       }
 
       toast.success(complete ? "Disabled refuge report completed" : "Disabled refuge report saved");
+      if (defectsFound && defectsFound.trim()) {
+        toast.info("NCR auto-raised in QMS for defects found", {
+          description: "A Non-Conformance Report has been automatically created from the defects recorded.",
+          duration: 6000,
+        });
+      }
       if (complete) {
          // Show invoice prompt if customer has Xero connection
          if (customerInfoForInvoice?.xero_contact_id) {
