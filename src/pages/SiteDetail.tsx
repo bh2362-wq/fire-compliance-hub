@@ -274,6 +274,11 @@ const SiteDetail = () => {
         {/* RAMS Documents */}
         <CollapsibleSection title="RAMS Documents" icon={HardHat} defaultOpen={false}>
           <SiteRamsDocuments siteId={site.id} />
+          {customer?.id && (
+            <div className="mt-4">
+              <CustomerRamsRequirementsPanel customerId={customer.id} siteId={site.id} />
+            </div>
+          )}
         </CollapsibleSection>
 
         {/* Service Reports */}
