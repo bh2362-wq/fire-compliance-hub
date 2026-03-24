@@ -309,8 +309,9 @@ export function RamsDocumentDialog({
           <DialogTitle>{document ? `Edit ${document.rams_number}` : "New RAMS Document"}</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs defaultValue={document ? "details" : "activity"} className="w-full">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="hazards">Hazards</TabsTrigger>
             <TabsTrigger value="method">Method</TabsTrigger>
@@ -319,6 +320,24 @@ export function RamsDocumentDialog({
           </TabsList>
 
           <ScrollArea className="h-[55vh] pr-4">
+            <TabsContent value="activity" className="space-y-4 mt-4">
+              <p className="text-sm text-muted-foreground">
+                Select an activity type to auto-populate hazards, method statements, and PPE requirements from our industry-standard library.
+              </p>
+              <RamsActivitySelector
+                selectedKey={activityKey}
+                onSelect={(activity: RamsActivity) => {
+                  setActivityKey(activity.activity_key);
+                  setHazards(activity.hazards.length > 0 ? activity.hazards : [{ ...emptyHazard, id: crypto.randomUUID() }]);
+                  setMethodStatements(activity.method_statements.length > 0 ? activity.method_statements : [{ ...emptyMethod }]);
+                  setPpeRequirements(activity.ppe_requirements);
+                  setEmergencyProcedures(activity.emergency_procedures || "");
+                  setSiteSpecificHazards(activity.default_site_hazards || "");
+                  if (!title) setTitle(activity.activity_name);
+                }}
+              />
+            </TabsContent>
+
             <TabsContent value="details" className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
