@@ -131,6 +131,7 @@ export default function RAMS() {
           <TabsList>
             <TabsTrigger value="documents">Documents</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="library">Activity Library</TabsTrigger>
           </TabsList>
 
           <TabsContent value="documents" className="space-y-4">
