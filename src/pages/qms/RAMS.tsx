@@ -283,6 +283,58 @@ export default function RAMS() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="library" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5" />
+                  Pre-Built Activity Library
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Industry-standard hazard assessments and method statements for fire &amp; security activities. These auto-populate when creating new RAMS documents.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {activities.length === 0 ? (
+                  <p className="text-muted-foreground">No activities in library</p>
+                ) : (
+                  <div className="space-y-3">
+                    {activities.map((activity) => {
+                      const categoryIcon = activity.category === "Fire Detection" ? <Flame className="w-4 h-4 text-destructive" />
+                        : activity.category === "Emergency Lighting" ? <Lightbulb className="w-4 h-4 text-yellow-500" />
+                        : activity.category === "Fire Suppression" ? <AlertTriangle className="w-4 h-4 text-orange-500" />
+                        : <Camera className="w-4 h-4 text-primary" />;
+                      return (
+                        <div key={activity.id} className="border rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3">
+                              {categoryIcon}
+                              <div>
+                                <h4 className="font-medium text-sm">{activity.activity_name}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {activity.british_standard && (
+                                    <Badge variant="outline" className="text-xs">{activity.british_standard}</Badge>
+                                  )}
+                                  <Badge variant="secondary" className="text-xs">{activity.category}</Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">{activity.description}</p>
+                              </div>
+                            </div>
+                            <div className="text-right text-xs text-muted-foreground flex-shrink-0">
+                              <p>{activity.hazards.length} hazards</p>
+                              <p>{activity.method_statements.length} method steps</p>
+                              <p>{activity.ppe_requirements.length} PPE items</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
 
