@@ -44,6 +44,7 @@ import Audits from "./pages/qms/Audits";
 import Feedback from "./pages/qms/Feedback";
 import ManagementReview from "./pages/qms/ManagementReview";
 import RAMS from "./pages/qms/RAMS";
+import SupplierEvaluations from "./pages/qms/SupplierEvaluations";
 
 const queryClient = new QueryClient();
 
