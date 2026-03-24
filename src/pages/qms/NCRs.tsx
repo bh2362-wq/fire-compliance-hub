@@ -205,7 +205,12 @@ const NCRs = () => {
                 <TableBody>
                   {filteredNCRs.map((ncr) => (
                     <TableRow key={ncr.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleEditNCR(ncr)}>
-                      <TableCell className="font-mono">{ncr.ncr_number}</TableCell>
+                      <TableCell className="font-mono">
+                        {ncr.ncr_number}
+                        {ncr.source === 'service_report' && (
+                          <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 border-primary/30 text-primary">AUTO</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium max-w-[200px] truncate">{ncr.title}</TableCell>
                       <TableCell className="hidden md:table-cell">{getSourceLabel(ncr.source)}</TableCell>
                       <TableCell className="hidden lg:table-cell">{ncr.site?.name || ncr.customer?.name || '-'}</TableCell>
