@@ -8,6 +8,7 @@ import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
 import { SiteServiceReports } from "@/components/sites/SiteServiceReports";
 import { SiteAssets } from "@/components/sites/SiteAssets";
 import { SiteRamsDocuments } from "@/components/sites/SiteRamsDocuments";
+import { CustomerRamsRequirementsPanel } from "@/components/rams/CustomerRamsRequirementsPanel";
 import SiteCustomerForms from "@/components/customer-forms/SiteCustomerForms";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
@@ -273,6 +274,11 @@ const SiteDetail = () => {
         {/* RAMS Documents */}
         <CollapsibleSection title="RAMS Documents" icon={HardHat} defaultOpen={false}>
           <SiteRamsDocuments siteId={site.id} />
+          {customer?.id && (
+            <div className="mt-4">
+              <CustomerRamsRequirementsPanel customerId={customer.id} siteId={site.id} />
+            </div>
+          )}
         </CollapsibleSection>
 
         {/* Service Reports */}

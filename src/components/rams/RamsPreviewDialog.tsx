@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { RamsDocument } from "@/services/ramsService";
 import { generateRamsPDF } from "@/lib/ramsPdfGenerator";
+import { RamsEngineerBriefing } from "@/components/rams/RamsEngineerBriefing";
 
 interface RamsPreviewDialogProps {
   open: boolean;
@@ -74,6 +75,12 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
 
         <ScrollArea className="h-[70vh] pr-4">
           <div className="space-y-6">
+            {/* Engineer Briefing & Sign-off */}
+            <RamsEngineerBriefing
+              ramsDocumentId={document.id}
+              ramsTitle={document.title}
+              ramsNumber={document.rams_number}
+            />
             {/* Document Info */}
             <div className="grid grid-cols-2 gap-4 text-sm">
               {document.site && (

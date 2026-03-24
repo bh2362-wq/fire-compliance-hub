@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -12,14 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Trash2, Eye, Edit, FileCheck } from "lucide-react";
+import { Plus, MoreHorizontal, Trash2, Eye, Edit, FileCheck, BookOpen, Shield, Flame, Lightbulb, Camera, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -30,6 +30,7 @@ import {
   RamsTemplate,
   RamsDocument,
 } from "@/services/ramsService";
+import { getRamsActivities, RamsActivity } from "@/services/ramsActivityService";
 import { RamsTemplateDialog } from "@/components/rams/RamsTemplateDialog";
 import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
 import { RamsPreviewDialog } from "@/components/rams/RamsPreviewDialog";
@@ -43,6 +44,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-500",
@@ -71,6 +73,11 @@ export default function RAMS() {
   const { data: documents = [], isLoading: documentsLoading } = useQuery({
     queryKey: ["rams-documents"],
     queryFn: getRamsDocuments,
+  });
+
+  const { data: activities = [] } = useQuery({
+    queryKey: ["rams-activities"],
+    queryFn: getRamsActivities,
   });
 
   const deleteTemplateMutation = useMutation({
@@ -124,6 +131,7 @@ export default function RAMS() {
           <TabsList>
             <TabsTrigger value="documents">Documents</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="library">Activity Library</TabsTrigger>
           </TabsList>
 
           <TabsContent value="documents" className="space-y-4">
@@ -271,6 +279,58 @@ export default function RAMS() {
                       ))}
                     </TableBody>
                   </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="library" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5" />
+                  Pre-Built Activity Library
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Industry-standard hazard assessments and method statements for fire &amp; security activities. These auto-populate when creating new RAMS documents.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {activities.length === 0 ? (
+                  <p className="text-muted-foreground">No activities in library</p>
+                ) : (
+                  <div className="space-y-3">
+                    {activities.map((activity) => {
+                      const categoryIcon = activity.category === "Fire Detection" ? <Flame className="w-4 h-4 text-destructive" />
+                        : activity.category === "Emergency Lighting" ? <Lightbulb className="w-4 h-4 text-yellow-500" />
+                        : activity.category === "Fire Suppression" ? <AlertTriangle className="w-4 h-4 text-orange-500" />
+                        : <Camera className="w-4 h-4 text-primary" />;
+                      return (
+                        <div key={activity.id} className="border rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3">
+                              {categoryIcon}
+                              <div>
+                                <h4 className="font-medium text-sm">{activity.activity_name}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {activity.british_standard && (
+                                    <Badge variant="outline" className="text-xs">{activity.british_standard}</Badge>
+                                  )}
+                                  <Badge variant="secondary" className="text-xs">{activity.category}</Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">{activity.description}</p>
+                              </div>
+                            </div>
+                            <div className="text-right text-xs text-muted-foreground flex-shrink-0">
+                              <p>{activity.hazards.length} hazards</p>
+                              <p>{activity.method_statements.length} method steps</p>
+                              <p>{activity.ppe_requirements.length} PPE items</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </CardContent>
             </Card>
