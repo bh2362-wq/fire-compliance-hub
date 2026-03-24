@@ -59,6 +59,7 @@ const qmsNavigation = [
   { name: "Audits", href: "/qms/audits", icon: Search },
   { name: "Feedback", href: "/qms/feedback", icon: MessageSquare },
   { name: "Mgmt Review", href: "/qms/management-review", icon: BarChart3 },
+  { name: "Suppliers", href: "/qms/supplier-evaluations", icon: Package },
 ];
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {

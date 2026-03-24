@@ -593,6 +593,8 @@ export interface QMSKPIData {
   upcomingAudits: number;
   openFeedback: number;
   complaintsThisMonth: number;
+  overdueDocReviews: number;
+  autoNCRsThisMonth: number;
 }
 
 export const fetchQMSKPIs = async (): Promise<QMSKPIData> => {
@@ -601,14 +603,15 @@ export const fetchQMSKPIs = async (): Promise<QMSKPIData> => {
   const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   // Fetch all data in parallel
-  const [ncrs, capas, risks, training, audits, feedback, approvals] = await Promise.all([
-    supabase.from('qms_ncrs').select('status, closed_at'),
+  const [ncrs, capas, risks, training, audits, feedback, approvals, docs] = await Promise.all([
+    supabase.from('qms_ncrs').select('status, closed_at, source, created_at'),
     supabase.from('qms_capas').select('status, due_date'),
     supabase.from('qms_risks').select('risk_score, status'),
     supabase.from('qms_training_records').select('expiry_date, status'),
     supabase.from('qms_audits').select('scheduled_date, status'),
     supabase.from('qms_feedback').select('type, status, created_at'),
     supabase.from('qms_document_approvals').select('status'),
+    supabase.from('qms_documents').select('next_review_date, status'),
   ]);
 
   const ncrsData = ncrs.data || [];
@@ -618,6 +621,7 @@ export const fetchQMSKPIs = async (): Promise<QMSKPIData> => {
   const auditsData = audits.data || [];
   const feedbackData = feedback.data || [];
   const approvalsData = approvals.data || [];
+  const docsData = docs.data || [];
 
   return {
     openNCRs: ncrsData.filter(n => n.status !== 'closed').length,
@@ -630,5 +634,48 @@ export const fetchQMSKPIs = async (): Promise<QMSKPIData> => {
     upcomingAudits: auditsData.filter(a => a.scheduled_date >= today && a.scheduled_date <= thirtyDaysFromNow && a.status === 'planned').length,
     openFeedback: feedbackData.filter(f => !['resolved', 'closed'].includes(f.status)).length,
     complaintsThisMonth: feedbackData.filter(f => f.type === 'complaint' && f.created_at >= monthStart).length,
+    overdueDocReviews: docsData.filter(d => d.next_review_date && d.next_review_date < today && d.status !== 'archived').length,
+    autoNCRsThisMonth: ncrsData.filter(n => n.source === 'service_report' && n.created_at >= monthStart).length,
   };
+};
+
+// ============================================
+// SUPPLIER EVALUATIONS
+// ============================================
+
+export interface QMSSupplierEvaluation {
+  id: string;
+  supplier_id: string;
+  evaluation_date: string;
+  evaluation_period_start: string;
+  evaluation_period_end: string;
+  delivery_score: number;
+  quality_score: number;
+  responsiveness_score: number;
+  overall_score: number;
+  total_orders: number;
+  on_time_deliveries: number;
+  late_deliveries: number;
+  total_spend: number;
+  ncrs_raised: number;
+  rating: string;
+  notes: string | null;
+  source: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  supplier?: { name: string } | null;
+}
+
+export const fetchSupplierEvaluations = async (): Promise<QMSSupplierEvaluation[]> => {
+  const { data, error } = await supabase
+    .from('qms_supplier_evaluations')
+    .select(`
+      *,
+      supplier:suppliers(name)
+    `)
+    .order('evaluation_date', { ascending: false });
+  
+  if (error) throw error;
+  return (data || []) as unknown as QMSSupplierEvaluation[];
 };

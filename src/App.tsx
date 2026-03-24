@@ -44,6 +44,7 @@ import Audits from "./pages/qms/Audits";
 import Feedback from "./pages/qms/Feedback";
 import ManagementReview from "./pages/qms/ManagementReview";
 import RAMS from "./pages/qms/RAMS";
+import SupplierEvaluations from "./pages/qms/SupplierEvaluations";
 
 const queryClient = new QueryClient();
 
@@ -95,6 +96,7 @@ const App = () => (
             <Route path="/qms/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
             <Route path="/qms/management-review" element={<ProtectedRoute><ManagementReview /></ProtectedRoute>} />
             <Route path="/qms/rams" element={<ProtectedRoute><RAMS /></ProtectedRoute>} />
+            <Route path="/qms/supplier-evaluations" element={<ProtectedRoute><SupplierEvaluations /></ProtectedRoute>} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

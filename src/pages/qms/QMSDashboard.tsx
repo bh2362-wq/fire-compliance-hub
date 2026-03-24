@@ -160,6 +160,21 @@ const QMSDashboard = () => {
                     </div>
                     <FileCheck className="h-8 w-8 text-purple-500" />
                   </div>
+                  {(kpis?.overdueDocReviews || 0) > 0 && (
+                    <p className="text-xs text-destructive mt-2">{kpis?.overdueDocReviews} overdue reviews → CAPA auto-created</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/qms/supplier-evaluations')}>
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-3xl font-bold text-foreground">{kpis?.autoNCRsThisMonth || 0}</p>
+                      <p className="text-sm text-muted-foreground">Auto NCRs This Month</p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-primary" />
+                  </div>
                 </CardContent>
               </Card>
             </>
