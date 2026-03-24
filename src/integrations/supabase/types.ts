@@ -2309,6 +2309,83 @@ export type Database = {
         }
         Relationships: []
       }
+      qms_supplier_evaluations: {
+        Row: {
+          created_at: string
+          created_by: string
+          delivery_score: number | null
+          evaluation_date: string
+          evaluation_period_end: string
+          evaluation_period_start: string
+          id: string
+          late_deliveries: number | null
+          ncrs_raised: number | null
+          notes: string | null
+          on_time_deliveries: number | null
+          overall_score: number | null
+          quality_score: number | null
+          rating: string
+          responsiveness_score: number | null
+          source: string
+          supplier_id: string
+          total_orders: number | null
+          total_spend: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          delivery_score?: number | null
+          evaluation_date?: string
+          evaluation_period_end: string
+          evaluation_period_start: string
+          id?: string
+          late_deliveries?: number | null
+          ncrs_raised?: number | null
+          notes?: string | null
+          on_time_deliveries?: number | null
+          overall_score?: number | null
+          quality_score?: number | null
+          rating?: string
+          responsiveness_score?: number | null
+          source?: string
+          supplier_id: string
+          total_orders?: number | null
+          total_spend?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          delivery_score?: number | null
+          evaluation_date?: string
+          evaluation_period_end?: string
+          evaluation_period_start?: string
+          id?: string
+          late_deliveries?: number | null
+          ncrs_raised?: number | null
+          notes?: string | null
+          on_time_deliveries?: number | null
+          overall_score?: number | null
+          quality_score?: number | null
+          rating?: string
+          responsiveness_score?: number | null
+          source?: string
+          supplier_id?: string
+          total_orders?: number | null
+          total_spend?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qms_supplier_evaluations_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qms_training_records: {
         Row: {
           certificate_number: string | null
@@ -3520,6 +3597,7 @@ export type Database = {
       }
     }
     Functions: {
+      auto_capa_from_overdue_reviews: { Args: never; Returns: undefined }
       get_next_po_number: { Args: never; Returns: string }
       get_next_qms_number: { Args: { prefix: string }; Returns: string }
       get_next_quotation_number: { Args: never; Returns: string }
