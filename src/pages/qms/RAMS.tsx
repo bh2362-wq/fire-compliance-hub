@@ -30,6 +30,7 @@ import {
   RamsTemplate,
   RamsDocument,
 } from "@/services/ramsService";
+import { getRamsActivities, RamsActivity } from "@/services/ramsActivityService";
 import { RamsTemplateDialog } from "@/components/rams/RamsTemplateDialog";
 import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
 import { RamsPreviewDialog } from "@/components/rams/RamsPreviewDialog";
@@ -43,6 +44,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 
 const statusColors: Record<string, string> = {
   draft: "bg-gray-500",
