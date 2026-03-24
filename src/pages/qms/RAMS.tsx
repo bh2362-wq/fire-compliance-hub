@@ -75,6 +75,11 @@ export default function RAMS() {
     queryFn: getRamsDocuments,
   });
 
+  const { data: activities = [] } = useQuery({
+    queryKey: ["rams-activities"],
+    queryFn: getRamsActivities,
+  });
+
   const deleteTemplateMutation = useMutation({
     mutationFn: deleteRamsTemplate,
     onSuccess: () => {
