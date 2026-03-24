@@ -738,6 +738,63 @@ export type Database = {
           },
         ]
       }
+      customer_rams_requirements: {
+        Row: {
+          created_at: string
+          created_by: string
+          customer_id: string
+          description: string | null
+          id: string
+          is_mandatory: boolean | null
+          requirement_type: string
+          site_id: string | null
+          sort_order: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          customer_id: string
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          requirement_type: string
+          site_id?: string | null
+          sort_order?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          customer_id?: string
+          description?: string | null
+          id?: string
+          is_mandatory?: boolean | null
+          requirement_type?: string
+          site_id?: string | null
+          sort_order?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_rams_requirements_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_rams_requirements_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -2678,8 +2735,101 @@ export type Database = {
           },
         ]
       }
+      rams_acknowledgements: {
+        Row: {
+          acknowledged_at: string
+          engineer_id: string
+          id: string
+          ip_address: string | null
+          notes: string | null
+          rams_document_id: string
+          signature: string | null
+        }
+        Insert: {
+          acknowledged_at?: string
+          engineer_id: string
+          id?: string
+          ip_address?: string | null
+          notes?: string | null
+          rams_document_id: string
+          signature?: string | null
+        }
+        Update: {
+          acknowledged_at?: string
+          engineer_id?: string
+          id?: string
+          ip_address?: string | null
+          notes?: string | null
+          rams_document_id?: string
+          signature?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_acknowledgements_rams_document_id_fkey"
+            columns: ["rams_document_id"]
+            isOneToOne: false
+            referencedRelation: "rams_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rams_activity_library: {
+        Row: {
+          activity_key: string
+          activity_name: string
+          british_standard: string | null
+          category: string
+          created_at: string
+          default_site_hazards: string | null
+          description: string | null
+          emergency_procedures: string | null
+          hazards: Json
+          id: string
+          is_active: boolean | null
+          method_statements: Json
+          ppe_requirements: string[]
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          activity_key: string
+          activity_name: string
+          british_standard?: string | null
+          category: string
+          created_at?: string
+          default_site_hazards?: string | null
+          description?: string | null
+          emergency_procedures?: string | null
+          hazards?: Json
+          id?: string
+          is_active?: boolean | null
+          method_statements?: Json
+          ppe_requirements?: string[]
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          activity_key?: string
+          activity_name?: string
+          british_standard?: string | null
+          category?: string
+          created_at?: string
+          default_site_hazards?: string | null
+          description?: string | null
+          emergency_procedures?: string | null
+          hazards?: Json
+          id?: string
+          is_active?: boolean | null
+          method_statements?: Json
+          ppe_requirements?: string[]
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       rams_documents: {
         Row: {
+          activity_key: string | null
           approved_at: string | null
           approved_by: string | null
           client_name: string | null
@@ -2711,6 +2861,7 @@ export type Database = {
           visit_id: string | null
         }
         Insert: {
+          activity_key?: string | null
           approved_at?: string | null
           approved_by?: string | null
           client_name?: string | null
@@ -2742,6 +2893,7 @@ export type Database = {
           visit_id?: string | null
         }
         Update: {
+          activity_key?: string | null
           approved_at?: string | null
           approved_by?: string | null
           client_name?: string | null
