@@ -100,6 +100,7 @@ export function RamsDocumentDialog({
   const [reviewerSignature, setReviewerSignature] = useState<string | null>(null);
   const [clientSignature, setClientSignature] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
+  const [activityKey, setActivityKey] = useState<string | null>(null);
 
   // Fetch data
   const { data: sites = [] } = useQuery({
