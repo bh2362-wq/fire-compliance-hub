@@ -96,6 +96,7 @@ const App = () => (
             <Route path="/qms/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
             <Route path="/qms/management-review" element={<ProtectedRoute><ManagementReview /></ProtectedRoute>} />
             <Route path="/qms/rams" element={<ProtectedRoute><RAMS /></ProtectedRoute>} />
+            <Route path="/qms/supplier-evaluations" element={<ProtectedRoute><SupplierEvaluations /></ProtectedRoute>} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
