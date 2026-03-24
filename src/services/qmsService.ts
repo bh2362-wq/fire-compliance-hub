@@ -603,14 +603,15 @@ export const fetchQMSKPIs = async (): Promise<QMSKPIData> => {
   const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   // Fetch all data in parallel
-  const [ncrs, capas, risks, training, audits, feedback, approvals] = await Promise.all([
-    supabase.from('qms_ncrs').select('status, closed_at'),
+  const [ncrs, capas, risks, training, audits, feedback, approvals, docs] = await Promise.all([
+    supabase.from('qms_ncrs').select('status, closed_at, source, created_at'),
     supabase.from('qms_capas').select('status, due_date'),
     supabase.from('qms_risks').select('risk_score, status'),
     supabase.from('qms_training_records').select('expiry_date, status'),
     supabase.from('qms_audits').select('scheduled_date, status'),
     supabase.from('qms_feedback').select('type, status, created_at'),
     supabase.from('qms_document_approvals').select('status'),
+    supabase.from('qms_documents').select('next_review_date, status'),
   ]);
 
   const ncrsData = ncrs.data || [];
