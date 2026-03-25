@@ -431,7 +431,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
         7: { cellWidth: 12, halign: "center", fontStyle: "bold" },
         8: { cellWidth: 16, halign: "center", fontStyle: "bold" },
       },
-      margin: { left: raML, right: raMR },
+      margin: { top: 42, left: raML, right: raMR },
       didParseCell: (data) => {
         if (data.section === "body") {
           // Color-code the risk score cells
