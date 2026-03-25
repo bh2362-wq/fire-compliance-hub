@@ -97,7 +97,9 @@ export function RamsDocumentDialog({
   const [status, setStatus] = useState("draft");
   const [reviewDate, setReviewDate] = useState("");
   const [preparerSignature, setPreparerSignature] = useState<string | null>(null);
+  const [preparerName, setPreparerName] = useState("");
   const [reviewerSignature, setReviewerSignature] = useState<string | null>(null);
+  const [reviewerName, setReviewerName] = useState("");
   const [clientSignature, setClientSignature] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
   const [activityKey, setActivityKey] = useState<string | null>(null);
@@ -147,7 +149,9 @@ export function RamsDocumentDialog({
         setStatus(document.status);
         setReviewDate(document.review_date || "");
         setPreparerSignature(document.preparer_signature);
+        setPreparerName((document as any).preparer_name || "");
         setReviewerSignature(document.reviewer_signature);
+        setReviewerName((document as any).reviewer_name || "");
         setClientSignature(document.client_signature);
         setClientName(document.client_name || "");
       } else if (templateToUse) {
@@ -165,7 +169,9 @@ export function RamsDocumentDialog({
         setStatus("draft");
         setReviewDate(format(addMonths(new Date(), 12), "yyyy-MM-dd"));
         setPreparerSignature(null);
+        setPreparerName("");
         setReviewerSignature(null);
+        setReviewerName("");
         setClientSignature(null);
         setClientName("");
       } else {
@@ -183,7 +189,9 @@ export function RamsDocumentDialog({
         setStatus("draft");
         setReviewDate(format(addMonths(new Date(), 12), "yyyy-MM-dd"));
         setPreparerSignature(null);
+        setPreparerName("");
         setReviewerSignature(null);
+        setReviewerName("");
         setClientSignature(null);
         setClientName("");
       }
@@ -251,8 +259,10 @@ export function RamsDocumentDialog({
       review_date: reviewDate || null,
       preparer_signature: preparerSignature,
       preparer_signed_at: preparerSignature ? new Date().toISOString() : null,
+      preparer_name: preparerName.trim() || null,
       reviewer_signature: reviewerSignature,
       reviewer_signed_at: reviewerSignature ? new Date().toISOString() : null,
+      reviewer_name: reviewerName.trim() || null,
       client_signature: clientSignature,
       client_signed_at: clientSignature ? new Date().toISOString() : null,
       client_name: clientName.trim() || null,
@@ -546,18 +556,17 @@ export function RamsDocumentDialog({
               <div className="space-y-2">
                 <Label>Preparer Signature</Label>
                 <SignaturePad value={preparerSignature || ""} onChange={setPreparerSignature} />
+                <Input value={preparerName} onChange={(e) => setPreparerName(e.target.value)} placeholder="Preparer name" className="mt-2" />
               </div>
               <div className="space-y-2">
                 <Label>Reviewer Signature</Label>
                 <SignaturePad value={reviewerSignature || ""} onChange={setReviewerSignature} />
-              </div>
-              <div className="space-y-2">
-                <Label>Client Name</Label>
-                <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Client name" />
+                <Input value={reviewerName} onChange={(e) => setReviewerName(e.target.value)} placeholder="Reviewer name" className="mt-2" />
               </div>
               <div className="space-y-2">
                 <Label>Client Signature</Label>
                 <SignaturePad value={clientSignature || ""} onChange={setClientSignature} />
+                <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Client name" className="mt-2" />
               </div>
             </TabsContent>
           </ScrollArea>

@@ -2844,10 +2844,12 @@ export type Database = {
           method_statements: Json
           parent_version_id: string | null
           ppe_requirements: string[] | null
+          preparer_name: string | null
           preparer_signature: string | null
           preparer_signed_at: string | null
           rams_number: string
           review_date: string | null
+          reviewer_name: string | null
           reviewer_signature: string | null
           reviewer_signed_at: string | null
           site_access_notes: string | null
@@ -2876,10 +2878,12 @@ export type Database = {
           method_statements?: Json
           parent_version_id?: string | null
           ppe_requirements?: string[] | null
+          preparer_name?: string | null
           preparer_signature?: string | null
           preparer_signed_at?: string | null
           rams_number: string
           review_date?: string | null
+          reviewer_name?: string | null
           reviewer_signature?: string | null
           reviewer_signed_at?: string | null
           site_access_notes?: string | null
@@ -2908,10 +2912,12 @@ export type Database = {
           method_statements?: Json
           parent_version_id?: string | null
           ppe_requirements?: string[] | null
+          preparer_name?: string | null
           preparer_signature?: string | null
           preparer_signed_at?: string | null
           rams_number?: string
           review_date?: string | null
+          reviewer_name?: string | null
           reviewer_signature?: string | null
           reviewer_signed_at?: string | null
           site_access_notes?: string | null

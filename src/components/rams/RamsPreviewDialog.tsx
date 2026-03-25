@@ -213,6 +213,9 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not signed</p>
                   )}
+                  {(document as any).preparer_name && (
+                    <p className="text-sm font-medium mt-1">{(document as any).preparer_name}</p>
+                  )}
                   {document.preparer_signed_at && (
                     <p className="text-xs text-muted-foreground mt-1">
                       {format(new Date(document.preparer_signed_at), "dd/MM/yyyy HH:mm")}
@@ -226,6 +229,9 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not signed</p>
                   )}
+                  {(document as any).reviewer_name && (
+                    <p className="text-sm font-medium mt-1">{(document as any).reviewer_name}</p>
+                  )}
                   {document.reviewer_signed_at && (
                     <p className="text-xs text-muted-foreground mt-1">
                       {format(new Date(document.reviewer_signed_at), "dd/MM/yyyy HH:mm")}
@@ -238,6 +244,9 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                     <img src={document.client_signature} alt="Client signature" className="max-h-16 object-contain" />
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not signed</p>
+                  )}
+                  {document.client_name && (
+                    <p className="text-sm font-medium mt-1">{document.client_name}</p>
                   )}
                   {document.client_signed_at && (
                     <p className="text-xs text-muted-foreground mt-1">

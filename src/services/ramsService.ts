@@ -62,8 +62,10 @@ export interface RamsDocument {
   review_date: string | null;
   preparer_signature: string | null;
   preparer_signed_at: string | null;
+  preparer_name: string | null;
   reviewer_signature: string | null;
   reviewer_signed_at: string | null;
+  reviewer_name: string | null;
   client_signature: string | null;
   client_signed_at: string | null;
   client_name: string | null;
@@ -278,8 +280,10 @@ export async function createRamsDocument(
       review_date: doc.review_date,
       preparer_signature: doc.preparer_signature,
       preparer_signed_at: doc.preparer_signed_at,
+      preparer_name: doc.preparer_name,
       reviewer_signature: doc.reviewer_signature,
       reviewer_signed_at: doc.reviewer_signed_at,
+      reviewer_name: doc.reviewer_name,
       client_signature: doc.client_signature,
       client_signed_at: doc.client_signed_at,
       client_name: doc.client_name,
