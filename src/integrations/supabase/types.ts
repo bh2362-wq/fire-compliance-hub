@@ -3763,6 +3763,27 @@ export type Database = {
         Args: { report_type?: string }
         Returns: string
       }
+      get_shared_intelligence_report: {
+        Args: { p_share_token: string }
+        Returns: {
+          created_at: string
+          customer_id: string
+          expires_at: string | null
+          generated_at: string
+          generated_by: string
+          id: string
+          is_active: boolean
+          report_data: Json
+          share_token: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "customer_intelligence_reports"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
       has_finance_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
