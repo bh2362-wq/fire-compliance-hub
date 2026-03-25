@@ -688,7 +688,8 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
 
   // ── Helper: Section with numbered label ──
   function msSectionTitle(num: number, title: string) {
-    msCheckPage(15);
+    msCheckPage(18);
+    msY += 3;
     msDoc.setFontSize(9);
     msDoc.setFont("helvetica", "bold");
     msDoc.setTextColor(...C.textDark);
@@ -698,7 +699,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     msDoc.setLineWidth(0.2);
     const titleWidth = msDoc.getTextWidth(title);
     msDoc.line(msML + 12, msY + 0.5, msML + 12 + titleWidth, msY + 0.5);
-    msY += 5;
+    msY += 6;
   }
 
   // ── 1. Emergency arrangements ──
