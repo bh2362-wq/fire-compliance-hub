@@ -867,13 +867,12 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
         theme: "grid",
         styles: { fontSize: 7.5, cellPadding: 2, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2 },
         columnStyles: { 0: { cellWidth: 10, halign: "center" }, 1: { cellWidth: "auto" } },
-        margin: { left: msML + 4, right: msMR },
-        didDrawPage: () => {
-          const currentPage = msDoc.getNumberOfPages();
-          if (currentPage > msPage) {
-            msPage = currentPage;
-            drawMSHeader(msDoc, msPage);
+        margin: { top: 42, left: msML + 4, right: msMR },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            drawMSHeader(msDoc, msDoc.getNumberOfPages());
           }
+          msPage = msDoc.getNumberOfPages();
         },
       });
       msY = (msDoc as any).lastAutoTable.finalY + 4;
