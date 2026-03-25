@@ -507,7 +507,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     ],
     theme: "grid",
     styles: { cellPadding: 3, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.3 },
-    margin: { left: raML, right: raMR },
+    margin: { top: 42, left: raML, right: raMR },
   });
   raY = (raDoc as any).lastAutoTable.finalY;
 
