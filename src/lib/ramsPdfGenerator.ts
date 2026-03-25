@@ -206,7 +206,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
       raDoc.addPage();
       raPage++;
       drawRAHeader(raDoc, raPage);
-      raY = 22;
+      raY = 42;
       return true;
     }
     return false;
@@ -214,7 +214,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
 
   // ── Page 1 header ──
   drawRAHeader(raDoc, 1);
-  raY = 20;
+  raY = 42;
 
   // ── "Risk Assessment" title ──
   raDoc.setFillColor(...C.sectionBg);
