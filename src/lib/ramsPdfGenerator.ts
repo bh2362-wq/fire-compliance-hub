@@ -779,7 +779,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
         msPage = msDoc.getNumberOfPages();
       },
     });
-    msY = (msDoc as any).lastAutoTable.finalY + 3;
+    msY = (msDoc as any).lastAutoTable.finalY + 5;
   }
 
   // ── 5. Safety precautions ──
