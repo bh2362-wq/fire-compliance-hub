@@ -556,18 +556,17 @@ export function RamsDocumentDialog({
               <div className="space-y-2">
                 <Label>Preparer Signature</Label>
                 <SignaturePad value={preparerSignature || ""} onChange={setPreparerSignature} />
+                <Input value={preparerName} onChange={(e) => setPreparerName(e.target.value)} placeholder="Preparer name" className="mt-2" />
               </div>
               <div className="space-y-2">
                 <Label>Reviewer Signature</Label>
                 <SignaturePad value={reviewerSignature || ""} onChange={setReviewerSignature} />
-              </div>
-              <div className="space-y-2">
-                <Label>Client Name</Label>
-                <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Client name" />
+                <Input value={reviewerName} onChange={(e) => setReviewerName(e.target.value)} placeholder="Reviewer name" className="mt-2" />
               </div>
               <div className="space-y-2">
                 <Label>Client Signature</Label>
                 <SignaturePad value={clientSignature || ""} onChange={setClientSignature} />
+                <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Client name" className="mt-2" />
               </div>
             </TabsContent>
           </ScrollArea>
