@@ -196,7 +196,7 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                 <Separator />
                 <div className="space-y-2">
                   <h3 className="font-semibold text-lg">Emergency Procedures</h3>
-                  <p className="whitespace-pre-wrap">{document.emergency_procedures}</p>
+                  <p className="whitespace-pre-wrap">{formatText(document.emergency_procedures)}</p>
                 </div>
               </>
             )}
