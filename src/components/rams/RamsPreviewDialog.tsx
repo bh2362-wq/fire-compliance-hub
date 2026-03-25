@@ -110,7 +110,7 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                   {document.site_specific_hazards && (
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground">Site-Specific Hazards</h4>
-                      <p className="mt-1">{document.site_specific_hazards}</p>
+                      <p className="mt-1 whitespace-pre-wrap">{formatText(document.site_specific_hazards)}</p>
                     </div>
                   )}
                   {document.site_access_notes && (
