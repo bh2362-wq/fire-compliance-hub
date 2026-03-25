@@ -991,16 +991,14 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     }
   }
 
-  // ── Footer on all MS pages ──
+  // ── Page numbers on all MS pages (top-right, above company details) ──
   const msTotalPages = msDoc.getNumberOfPages();
   for (let i = 1; i <= msTotalPages; i++) {
     msDoc.setPage(i);
-    msDoc.setFillColor(...C.white);
-    msDoc.rect(msPw - msMR - 30, 8, 30, 6, "F");
     msDoc.setFontSize(8);
     msDoc.setFont("helvetica", "normal");
     msDoc.setTextColor(...C.textGrey);
-    msDoc.text(`Page ${i} of ${msTotalPages}`, msPw - msMR, 12, { align: "right" });
+    msDoc.text(`Page ${i} of ${msTotalPages}`, msPw - msMR, 8, { align: "right" });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
