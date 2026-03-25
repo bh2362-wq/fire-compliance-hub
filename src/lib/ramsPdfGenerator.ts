@@ -620,11 +620,6 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
       doc.text(`E: ${company.email}`, rightX, contactY, { align: "right" });
     }
 
-    // Page number — center
-    doc.setFontSize(7);
-    doc.setTextColor(...C.textGrey);
-    doc.text(`Page ${pageNum}`, msPw / 2, yPos + 24, { align: "center" });
-
     // Separator line
     const sepY = 38;
     doc.setDrawColor(...C.borderGrey);
@@ -693,7 +688,8 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
 
   // ── Helper: Section with numbered label ──
   function msSectionTitle(num: number, title: string) {
-    msCheckPage(15);
+    msCheckPage(18);
+    msY += 3;
     msDoc.setFontSize(9);
     msDoc.setFont("helvetica", "bold");
     msDoc.setTextColor(...C.textDark);
@@ -703,7 +699,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     msDoc.setLineWidth(0.2);
     const titleWidth = msDoc.getTextWidth(title);
     msDoc.line(msML + 12, msY + 0.5, msML + 12 + titleWidth, msY + 0.5);
-    msY += 5;
+    msY += 6;
   }
 
   // ── 1. Emergency arrangements ──
@@ -718,7 +714,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     columnStyles: { 0: { cellWidth: 60 } },
     margin: { left: msML + 4, right: msMR },
   });
-  msY = (msDoc as any).lastAutoTable.finalY + 3;
+  msY = (msDoc as any).lastAutoTable.finalY + 5;
 
   // ── 2. Control measures ──
   msSectionTitle(2, "Control measures:");
@@ -734,7 +730,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     columnStyles: { 0: { cellWidth: 60 } },
     margin: { left: msML + 4, right: msMR },
   });
-  msY = (msDoc as any).lastAutoTable.finalY + 3;
+  msY = (msDoc as any).lastAutoTable.finalY + 5;
 
   // ── 3. Resources ──
   msSectionTitle(3, "Resources:");
@@ -751,7 +747,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     columnStyles: { 0: { cellWidth: 60 } },
     margin: { left: msML + 4, right: msMR },
   });
-  msY = (msDoc as any).lastAutoTable.finalY + 3;
+  msY = (msDoc as any).lastAutoTable.finalY + 5;
 
   // ── 4. PPE Requirements ──
   msSectionTitle(4, "Personal protective equipment requirements:");
@@ -775,16 +771,15 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
         1: { cellWidth: 8, halign: "center" },
         2: { cellWidth: "auto" },
       },
-      margin: { left: msML + 4, right: msMR },
-      didDrawPage: () => {
-        const currentPage = msDoc.getNumberOfPages();
-        if (currentPage > msPage) {
-          msPage = currentPage;
-          drawMSHeader(msDoc, msPage);
+      margin: { top: 42, left: msML + 4, right: msMR },
+      didDrawPage: (data) => {
+        if (data.pageNumber > 1) {
+          drawMSHeader(msDoc, msDoc.getNumberOfPages());
         }
+        msPage = msDoc.getNumberOfPages();
       },
     });
-    msY = (msDoc as any).lastAutoTable.finalY + 3;
+    msY = (msDoc as any).lastAutoTable.finalY + 5;
   }
 
   // ── 5. Safety precautions ──
@@ -800,7 +795,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     columnStyles: { 0: { cellWidth: 65 }, 1: { cellWidth: 8, halign: "center" } },
     margin: { left: msML + 4, right: msMR },
   });
-  msY = (msDoc as any).lastAutoTable.finalY + 3;
+  msY = (msDoc as any).lastAutoTable.finalY + 5;
 
   // ── 6. Description of the works ──
   msSectionTitle(6, "Description of the works:");
@@ -839,13 +834,12 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
         0: { cellWidth: 10, halign: "center" },
         1: { cellWidth: "auto" },
       },
-      margin: { left: msML + 4, right: msMR },
-      didDrawPage: () => {
-        const currentPage = msDoc.getNumberOfPages();
-        if (currentPage > msPage) {
-          msPage = currentPage;
-          drawMSHeader(msDoc, msPage);
+      margin: { top: 42, left: msML + 4, right: msMR },
+      didDrawPage: (data) => {
+        if (data.pageNumber > 1) {
+          drawMSHeader(msDoc, msDoc.getNumberOfPages());
         }
+        msPage = msDoc.getNumberOfPages();
       },
     });
     msY = (msDoc as any).lastAutoTable.finalY + 4;
@@ -873,13 +867,12 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
         theme: "grid",
         styles: { fontSize: 7.5, cellPadding: 2, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2 },
         columnStyles: { 0: { cellWidth: 10, halign: "center" }, 1: { cellWidth: "auto" } },
-        margin: { left: msML + 4, right: msMR },
-        didDrawPage: () => {
-          const currentPage = msDoc.getNumberOfPages();
-          if (currentPage > msPage) {
-            msPage = currentPage;
-            drawMSHeader(msDoc, msPage);
+        margin: { top: 42, left: msML + 4, right: msMR },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            drawMSHeader(msDoc, msDoc.getNumberOfPages());
           }
+          msPage = msDoc.getNumberOfPages();
         },
       });
       msY = (msDoc as any).lastAutoTable.finalY + 4;
@@ -925,7 +918,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     columnStyles: { 0: { cellWidth: 10, halign: "center" }, 1: { cellWidth: "auto" } },
     margin: { left: msML + 4, right: msMR },
   });
-  msY = (msDoc as any).lastAutoTable.finalY + 3;
+  msY = (msDoc as any).lastAutoTable.finalY + 5;
 
   // ── Yellow banner ──
   msCheckPage(12);
@@ -998,16 +991,14 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     }
   }
 
-  // ── Footer on all MS pages ──
+  // ── Page numbers on all MS pages (top-right, above company details) ──
   const msTotalPages = msDoc.getNumberOfPages();
   for (let i = 1; i <= msTotalPages; i++) {
     msDoc.setPage(i);
-    msDoc.setFillColor(...C.white);
-    msDoc.rect(msPw - msMR - 30, 8, 30, 6, "F");
     msDoc.setFontSize(8);
     msDoc.setFont("helvetica", "normal");
     msDoc.setTextColor(...C.textGrey);
-    msDoc.text(`Page ${i} of ${msTotalPages}`, msPw - msMR, 12, { align: "right" });
+    msDoc.text(`Page ${i} of ${msTotalPages}`, msPw - msMR, 8, { align: "right" });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
