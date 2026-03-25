@@ -454,13 +454,12 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
           }
         }
       },
-      didDrawPage: () => {
-        // Redraw header on new pages
-        const currentPage = raDoc.getNumberOfPages();
-        if (currentPage > raPage) {
-          raPage = currentPage;
-          drawRAHeader(raDoc, raPage);
+      didDrawPage: (data) => {
+        // Draw header on every page (including continuation pages)
+        if (data.pageNumber > 1) {
+          drawRAHeader(raDoc, data.pageNumber);
         }
+        raPage = raDoc.getNumberOfPages();
       },
     });
     raY = (raDoc as any).lastAutoTable.finalY + 6;
