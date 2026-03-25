@@ -32,6 +32,11 @@ const riskColors: Record<string, string> = {
   "Very High": "text-red-600 bg-red-50",
 };
 
+/** Normalise literal \n sequences into real newlines for display */
+function formatText(text: string): string {
+  return text.replace(/\\\\n/g, "\n").replace(/\\n/g, "\n");
+}
+
 export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewDialogProps) {
   const [generating, setGenerating] = useState(false);
 
@@ -105,13 +110,13 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                   {document.site_specific_hazards && (
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground">Site-Specific Hazards</h4>
-                      <p className="mt-1">{document.site_specific_hazards}</p>
+                      <p className="mt-1 whitespace-pre-wrap">{formatText(document.site_specific_hazards)}</p>
                     </div>
                   )}
                   {document.site_access_notes && (
                     <div>
                       <h4 className="font-medium text-sm text-muted-foreground">Access Notes</h4>
-                      <p className="mt-1">{document.site_access_notes}</p>
+                      <p className="mt-1 whitespace-pre-wrap">{formatText(document.site_access_notes)}</p>
                     </div>
                   )}
                 </div>
@@ -191,7 +196,7 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                 <Separator />
                 <div className="space-y-2">
                   <h3 className="font-semibold text-lg">Emergency Procedures</h3>
-                  <p className="whitespace-pre-wrap">{document.emergency_procedures}</p>
+                  <p className="whitespace-pre-wrap">{formatText(document.emergency_procedures)}</p>
                 </div>
               </>
             )}
