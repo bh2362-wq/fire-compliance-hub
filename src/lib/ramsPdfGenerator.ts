@@ -730,7 +730,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     columnStyles: { 0: { cellWidth: 60 } },
     margin: { left: msML + 4, right: msMR },
   });
-  msY = (msDoc as any).lastAutoTable.finalY + 3;
+  msY = (msDoc as any).lastAutoTable.finalY + 5;
 
   // ── 3. Resources ──
   msSectionTitle(3, "Resources:");
