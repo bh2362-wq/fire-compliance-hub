@@ -918,7 +918,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     columnStyles: { 0: { cellWidth: 10, halign: "center" }, 1: { cellWidth: "auto" } },
     margin: { left: msML + 4, right: msMR },
   });
-  msY = (msDoc as any).lastAutoTable.finalY + 3;
+  msY = (msDoc as any).lastAutoTable.finalY + 5;
 
   // ── Yellow banner ──
   msCheckPage(12);
