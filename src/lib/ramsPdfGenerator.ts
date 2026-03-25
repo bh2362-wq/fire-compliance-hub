@@ -141,34 +141,64 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
 
   // ── Repeating header drawing function ──
   function drawRAHeader(doc: jsPDF, pageNum: number) {
-    // Company name (left)
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...C.textDark);
+    let yPos = 8;
+
+    // Company logo — left side (32x28 matching standard docs)
     if (logoBase64) {
       try {
-        doc.addImage(logoBase64, "PNG", raML, 5, 22, 10, undefined, "FAST");
-        doc.text(companyName, raML + 24, 12);
+        doc.addImage(logoBase64, "PNG", raML, yPos - 2, 32, 28, undefined, "FAST");
       } catch {
-        doc.text(companyName, raML, 12);
+        doc.setTextColor(...C.textDark);
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(companyName, raML, yPos + 10);
       }
     } else {
-      doc.text(companyName, raML, 12);
+      doc.setTextColor(...C.textDark);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(companyName, raML, yPos + 10);
     }
 
-    // Doc title (center)
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...C.textGrey);
-    doc.text(docTitle, raPw / 2, 12, { align: "center" });
+    // Company details — right-aligned (matching standard docs)
+    const rightX = raPw - raMR;
+    let contactY = yPos + 2;
 
-    // Page number (right)
-    doc.text(`Page ${pageNum}`, raPw - raMR, 12, { align: "right" });
+    doc.setTextColor(...C.textDark);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(companyName, rightX, contactY, { align: "right" });
+    contactY += 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...C.textGrey);
+    const compAddr = sanitize(company?.address || "");
+    const compCity = sanitize(company?.city || "");
+    const compPostcode = sanitize(company?.postcode || "");
+    const fullAddr = [compAddr, compCity, compPostcode].filter(Boolean).join(", ");
+    if (fullAddr) {
+      doc.text(fullAddr, rightX, contactY, { align: "right" });
+      contactY += 4;
+    }
+    if (company?.phone) {
+      doc.text(`T: ${company.phone}`, rightX, contactY, { align: "right" });
+      contactY += 4;
+    }
+    if (company?.email) {
+      doc.text(`E: ${company.email}`, rightX, contactY, { align: "right" });
+    }
+
+    // Page number — center
+    doc.setFontSize(7);
+    doc.setTextColor(...C.textGrey);
+    doc.text(`Page ${pageNum}`, raPw / 2, yPos + 24, { align: "center" });
 
     // Separator line
+    const sepY = 38;
     doc.setDrawColor(...C.borderGrey);
     doc.setLineWidth(0.3);
-    doc.line(raML, 16, raPw - raMR, 16);
+    doc.line(raML, sepY, raPw - raMR, sepY);
   }
 
   function raCheckPage(need = 30): boolean {
