@@ -189,11 +189,6 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
       doc.text(`E: ${company.email}`, rightX, contactY, { align: "right" });
     }
 
-    // Page number — center
-    doc.setFontSize(7);
-    doc.setTextColor(...C.textGrey);
-    doc.text(`Page ${pageNum}`, raPw / 2, yPos + 24, { align: "center" });
-
     // Separator line
     const sepY = 38;
     doc.setDrawColor(...C.borderGrey);
@@ -436,7 +431,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
         7: { cellWidth: 12, halign: "center", fontStyle: "bold" },
         8: { cellWidth: 16, halign: "center", fontStyle: "bold" },
       },
-      margin: { left: raML, right: raMR },
+      margin: { top: 42, left: raML, right: raMR },
       didParseCell: (data) => {
         if (data.section === "body") {
           // Color-code the risk score cells
@@ -459,13 +454,12 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
           }
         }
       },
-      didDrawPage: () => {
-        // Redraw header on new pages
-        const currentPage = raDoc.getNumberOfPages();
-        if (currentPage > raPage) {
-          raPage = currentPage;
-          drawRAHeader(raDoc, raPage);
+      didDrawPage: (data) => {
+        // Draw header on every page (including continuation pages)
+        if (data.pageNumber > 1) {
+          drawRAHeader(raDoc, data.pageNumber);
         }
+        raPage = raDoc.getNumberOfPages();
       },
     });
     raY = (raDoc as any).lastAutoTable.finalY + 6;
@@ -513,7 +507,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     ],
     theme: "grid",
     styles: { cellPadding: 3, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.3 },
-    margin: { left: raML, right: raMR },
+    margin: { top: 42, left: raML, right: raMR },
   });
   raY = (raDoc as any).lastAutoTable.finalY;
 
@@ -546,21 +540,22 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
       2: { cellWidth: raCW * 0.15 },
       3: { cellWidth: raCW * 0.3 },
     },
-    margin: { left: raML, right: raMR },
+    margin: { top: 42, left: raML, right: raMR },
+    didDrawPage: (data) => {
+      if (data.pageNumber > 1) {
+        drawRAHeader(raDoc, raDoc.getNumberOfPages());
+      }
+    },
   });
 
-  // ── Footer on all RA pages ──
+  // ── Page numbers on all RA pages (top-right, above company details) ──
   const raTotalPages = raDoc.getNumberOfPages();
   for (let i = 1; i <= raTotalPages; i++) {
     raDoc.setPage(i);
-    // Update page count in header
     raDoc.setFontSize(8);
     raDoc.setFont("helvetica", "normal");
     raDoc.setTextColor(...C.textGrey);
-    // Overwrite page number area
-    raDoc.setFillColor(...C.white);
-    raDoc.rect(raPw - raMR - 30, 8, 30, 6, "F");
-    raDoc.text(`Page ${i} of ${raTotalPages}`, raPw - raMR, 12, { align: "right" });
+    raDoc.text(`Page ${i} of ${raTotalPages}`, raPw - raMR, 8, { align: "right" });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
