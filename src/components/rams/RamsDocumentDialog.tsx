@@ -189,7 +189,9 @@ export function RamsDocumentDialog({
         setStatus("draft");
         setReviewDate(format(addMonths(new Date(), 12), "yyyy-MM-dd"));
         setPreparerSignature(null);
+        setPreparerName("");
         setReviewerSignature(null);
+        setReviewerName("");
         setClientSignature(null);
         setClientName("");
       }
