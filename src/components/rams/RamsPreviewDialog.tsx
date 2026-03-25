@@ -32,6 +32,11 @@ const riskColors: Record<string, string> = {
   "Very High": "text-red-600 bg-red-50",
 };
 
+/** Normalise literal \n sequences into real newlines for display */
+function formatText(text: string): string {
+  return text.replace(/\\\\n/g, "\n").replace(/\\n/g, "\n");
+}
+
 export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewDialogProps) {
   const [generating, setGenerating] = useState(false);
 
