@@ -97,7 +97,9 @@ export function RamsDocumentDialog({
   const [status, setStatus] = useState("draft");
   const [reviewDate, setReviewDate] = useState("");
   const [preparerSignature, setPreparerSignature] = useState<string | null>(null);
+  const [preparerName, setPreparerName] = useState("");
   const [reviewerSignature, setReviewerSignature] = useState<string | null>(null);
+  const [reviewerName, setReviewerName] = useState("");
   const [clientSignature, setClientSignature] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
   const [activityKey, setActivityKey] = useState<string | null>(null);
