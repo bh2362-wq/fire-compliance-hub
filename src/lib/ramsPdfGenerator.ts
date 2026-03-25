@@ -189,11 +189,6 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
       doc.text(`E: ${company.email}`, rightX, contactY, { align: "right" });
     }
 
-    // Page number — center
-    doc.setFontSize(7);
-    doc.setTextColor(...C.textGrey);
-    doc.text(`Page ${pageNum}`, raPw / 2, yPos + 24, { align: "center" });
-
     // Separator line
     const sepY = 38;
     doc.setDrawColor(...C.borderGrey);
