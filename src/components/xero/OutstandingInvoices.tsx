@@ -196,11 +196,21 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
       fetchOutstandingInvoices();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to approve invoice";
-      toast({
-        title: "Error",
-        description: message,
-        variant: "destructive",
-      });
+      // If the invoice is already authorised, treat as success
+      if (message.includes("already AUTHORISED") || message.includes("already SUBMITTED")) {
+        toast({
+          title: "Invoice Already Approved",
+          description: "This invoice was already approved — refreshing list.",
+        });
+        setApprovingInvoice(null);
+        fetchOutstandingInvoices();
+      } else {
+        toast({
+          title: "Error",
+          description: message,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsApproving(false);
     }
@@ -350,8 +360,14 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
       try {
         await approveInvoice(invoiceId);
         successCount++;
-      } catch {
-        failCount++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        // Already authorised = success
+        if (msg.includes("already AUTHORISED")) {
+          successCount++;
+        } else {
+          failCount++;
+        }
       }
     }
 
