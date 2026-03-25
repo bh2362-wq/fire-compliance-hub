@@ -1,362 +1,204 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Flame, Loader2, ArrowLeft, Mail } from 'lucide-react';
+import { Flame, Loader2, Shield, BookOpen, ClipboardCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import LoginForm from '@/components/auth/LoginForm';
+import SignupForm from '@/components/auth/SignupForm';
+import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
+import MFAEnroll from '@/components/auth/MFAEnroll';
+import MFAVerify from '@/components/auth/MFAVerify';
 
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-const signupSchema = loginSchema.extend({
-  fullName: z.string().min(2, 'Name must be at least 2 characters'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-});
-
-const forgotPasswordSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
-type SignupFormValues = z.infer<typeof signupSchema>;
-type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
-
-type AuthView = 'login' | 'signup' | 'forgot-password';
+type AuthView = 'login' | 'signup' | 'forgot-password' | 'mfa-enroll' | 'mfa-verify';
 
 export default function Auth() {
   const [view, setView] = useState<AuthView>('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [resetEmailSent, setResetEmailSent] = useState(false);
-  const { user, loading, signIn, signUp, resetPassword } = useAuth();
+  const { user, loading, signIn, signUp, signOut, resetPassword } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const loginForm = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
-  });
-
-  const signupForm = useForm<SignupFormValues>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: { email: '', password: '', confirmPassword: '', fullName: '' },
-  });
-
-  const forgotPasswordForm = useForm<ForgotPasswordFormValues>({
-    resolver: zodResolver(forgotPasswordSchema),
-    defaultValues: { email: '' },
-  });
-
   useEffect(() => {
     if (!loading && user) {
-      navigate('/dashboard');
+      checkMFAStatus();
     }
-  }, [user, loading, navigate]);
+  }, [user, loading]);
 
-  const handleLogin = async (values: LoginFormValues) => {
+  const checkMFAStatus = async () => {
+    const { data: factorsData } = await supabase.auth.mfa.listFactors();
+    const totpFactors = factorsData?.totp ?? [];
+    const verifiedFactors = totpFactors.filter(f => f.status === 'verified');
+
+    if (verifiedFactors.length > 0) {
+      // Has MFA enrolled - check current AAL
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalData?.currentLevel === 'aal1') {
+        setView('mfa-verify');
+        return;
+      }
+      navigate('/dashboard');
+    } else {
+      // No MFA - offer enrollment
+      setView('mfa-enroll');
+    }
+  };
+
+  const handleLogin = async (email: string, password: string) => {
     setIsSubmitting(true);
-    const { error } = await signIn(values.email, values.password);
+    const { error } = await signIn(email, password);
     setIsSubmitting(false);
 
     if (error) {
       toast({
         variant: 'destructive',
         title: 'Login failed',
-        description: error.message === 'Invalid login credentials' 
+        description: error.message === 'Invalid login credentials'
           ? 'Invalid email or password. Please try again.'
           : error.message,
       });
     }
+    // MFA check happens via useEffect when user state updates
   };
 
-  const handleSignup = async (values: SignupFormValues) => {
+  const handleSignup = async (email: string, password: string, fullName: string) => {
     setIsSubmitting(true);
-    const { error } = await signUp(values.email, values.password, values.fullName);
+    const { error } = await signUp(email, password, fullName);
     setIsSubmitting(false);
 
     if (error) {
-      let message = error.message;
-      if (error.message.includes('already registered')) {
-        message = 'This email is already registered. Please login instead.';
-      }
       toast({
         variant: 'destructive',
         title: 'Signup failed',
-        description: message,
+        description: error.message.includes('already registered')
+          ? 'This email is already registered. Please login instead.'
+          : error.message,
       });
     } else {
-      toast({
-        title: 'Account created!',
-        description: 'You can now access the dashboard.',
-      });
+      toast({ title: 'Account created!', description: 'You can now access the dashboard.' });
     }
   };
 
-  const handleForgotPassword = async (values: ForgotPasswordFormValues) => {
+  const handleForgotPassword = async (email: string) => {
     setIsSubmitting(true);
-    const { error } = await resetPassword(values.email);
+    const { error } = await resetPassword(email);
     setIsSubmitting(false);
 
     if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Reset failed',
-        description: error.message,
-      });
-    } else {
-      setResetEmailSent(true);
+      toast({ variant: 'destructive', title: 'Reset failed', description: error.message });
     }
   };
 
-  const switchView = (newView: AuthView) => {
-    setView(newView);
-    setResetEmailSent(false);
-    loginForm.reset();
-    signupForm.reset();
-    forgotPasswordForm.reset();
+  const handleMFAComplete = () => {
+    navigate('/dashboard');
+  };
+
+  const handleMFASkip = () => {
+    navigate('/dashboard');
+  };
+
+  const handleMFACancel = async () => {
+    await signOut();
+    setView('login');
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // Forgot password email sent confirmation
-  if (view === 'forgot-password' && resetEmailSent) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center space-y-4">
-            <div className="mx-auto w-12 h-12 rounded-xl bg-success/20 flex items-center justify-center">
-              <Mail className="w-6 h-6 text-success" />
-            </div>
-            <div>
-              <CardTitle className="text-2xl">Check your email</CardTitle>
-              <CardDescription>
-                We've sent a password reset link to your email address. Click the link to set a new password.
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button 
-              onClick={() => switchView('login')} 
-              className="w-full" 
-              variant="outline"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to sign in
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center gradient-hero">
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-12 h-12 rounded-xl gradient-accent flex items-center justify-center">
-            <Flame className="w-6 h-6 text-accent-foreground" />
+    <div className="min-h-screen flex gradient-hero">
+      {/* Left branding panel - hidden on mobile */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden">
+        {/* Decorative fire glow */}
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-accent/10 blur-3xl" />
+        <div className="absolute top-1/4 right-0 w-64 h-64 rounded-full bg-accent/5 blur-3xl" />
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-11 h-11 rounded-xl gradient-accent flex items-center justify-center shadow-glow">
+              <Flame className="w-6 h-6 text-accent-foreground" />
+            </div>
+            <span className="text-2xl font-bold text-primary-foreground">Fire Log Book</span>
           </div>
-          <div>
-            <CardTitle className="text-2xl">
-              {view === 'login' && 'Welcome back'}
-              {view === 'signup' && 'Create account'}
-              {view === 'forgot-password' && 'Reset password'}
-            </CardTitle>
-            <CardDescription>
-              {view === 'login' && 'Sign in to access your FireLogbook dashboard'}
-              {view === 'signup' && 'Sign up to start managing fire alarm compliance'}
-              {view === 'forgot-password' && 'Enter your email to receive a reset link'}
-            </CardDescription>
+          <p className="text-primary-foreground/50 text-sm mt-1">Internal Management System</p>
+        </div>
+
+        <div className="relative z-10 space-y-8">
+          <div className="space-y-6">
+            {[
+              { icon: ClipboardCheck, title: 'Compliance Tracking', desc: 'Automated fire alarm service schedules and BS 5839 compliance' },
+              { icon: BookOpen, title: 'Digital Log Books', desc: 'Complete digital records for all sites and service visits' },
+              { icon: Shield, title: 'Secure & Auditable', desc: 'Two-factor authentication with full audit trails' },
+            ].map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary-foreground/5 border border-primary-foreground/10 flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-primary-foreground">{title}</h3>
+                  <p className="text-xs text-primary-foreground/50 mt-0.5">{desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
-        </CardHeader>
-        <CardContent>
-          {view === 'login' && (
-            <Form {...loginForm}>
-              <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
-                <FormField
-                  control={loginForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="you@company.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={loginForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel>Password</FormLabel>
-                        <button
-                          type="button"
-                          onClick={() => switchView('forgot-password')}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          Forgot password?
-                        </button>
-                      </div>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" variant="hero" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Sign in
-                </Button>
-              </form>
-            </Form>
-          )}
+        </div>
 
-          {view === 'signup' && (
-            <Form {...signupForm}>
-              <form onSubmit={signupForm.handleSubmit(handleSignup)} className="space-y-4">
-                <FormField
-                  control={signupForm.control}
-                  name="fullName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signupForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="you@company.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signupForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signupForm.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" variant="hero" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Create account
-                </Button>
-              </form>
-            </Form>
-          )}
+        <div className="relative z-10">
+          <p className="text-xs text-primary-foreground/30">
+            © {new Date().getFullYear()} BHO Fire. All rights reserved.
+          </p>
+        </div>
+      </div>
 
-          {view === 'forgot-password' && (
-            <Form {...forgotPasswordForm}>
-              <form onSubmit={forgotPasswordForm.handleSubmit(handleForgotPassword)} className="space-y-4">
-                <FormField
-                  control={forgotPasswordForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="you@company.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" variant="hero" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Send reset link
-                </Button>
-              </form>
-            </Form>
-          )}
+      {/* Right form panel */}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+        {/* Mobile logo */}
+        <div className="lg:hidden absolute top-6 left-6 flex items-center gap-2">
+          <div className="w-9 h-9 rounded-lg gradient-accent flex items-center justify-center">
+            <Flame className="w-5 h-5 text-accent-foreground" />
+          </div>
+          <span className="text-lg font-bold text-primary-foreground">Fire Log Book</span>
+        </div>
 
-          <div className="mt-6 text-center text-sm">
+        <Card className="w-full max-w-md border-border/50 shadow-xl">
+          <CardContent className="p-8">
             {view === 'login' && (
-              <>
-                <span className="text-muted-foreground">Don't have an account? </span>
-                <button
-                  type="button"
-                  onClick={() => switchView('signup')}
-                  className="text-primary hover:underline font-medium"
-                >
-                  Sign up
-                </button>
-              </>
+              <LoginForm
+                onSubmit={handleLogin}
+                onForgotPassword={() => setView('forgot-password')}
+                onSwitchToSignup={() => setView('signup')}
+                isSubmitting={isSubmitting}
+              />
             )}
             {view === 'signup' && (
-              <>
-                <span className="text-muted-foreground">Already have an account? </span>
-                <button
-                  type="button"
-                  onClick={() => switchView('login')}
-                  className="text-primary hover:underline font-medium"
-                >
-                  Sign in
-                </button>
-              </>
+              <SignupForm
+                onSubmit={handleSignup}
+                onSwitchToLogin={() => setView('login')}
+                isSubmitting={isSubmitting}
+              />
             )}
             {view === 'forgot-password' && (
-              <button
-                type="button"
-                onClick={() => switchView('login')}
-                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to sign in
-              </button>
+              <ForgotPasswordForm
+                onSubmit={handleForgotPassword}
+                onBack={() => setView('login')}
+                isSubmitting={isSubmitting}
+              />
             )}
-          </div>
-        </CardContent>
-      </Card>
+            {view === 'mfa-enroll' && (
+              <MFAEnroll onComplete={handleMFAComplete} onSkip={handleMFASkip} />
+            )}
+            {view === 'mfa-verify' && (
+              <MFAVerify onComplete={handleMFAComplete} onCancel={handleMFACancel} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
