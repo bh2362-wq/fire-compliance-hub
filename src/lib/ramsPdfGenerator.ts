@@ -164,11 +164,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     const rightX = raPw - raMR;
     let contactY = yPos + 2;
 
-    doc.setTextColor(...C.textDark);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(companyName, rightX, contactY, { align: "right" });
-    contactY += 5;
+    doc.setTextColor(...C.textGrey);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -595,11 +591,7 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     const rightX = msPw - msMR;
     let contactY = yPos + 2;
 
-    doc.setTextColor(...C.textDark);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(companyName, rightX, contactY, { align: "right" });
-    contactY += 5;
+    doc.setTextColor(...C.textGrey);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
