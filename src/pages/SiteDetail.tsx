@@ -272,7 +272,7 @@ const SiteDetail = () => {
         </CollapsibleSection>
 
         {/* RAMS Documents */}
-        <CollapsibleSection title="RAMS Documents" icon={HardHat} defaultOpen={false}>
+        <CollapsibleSection title="RAMS Documents" icon={HardHat} defaultOpen={true}>
           <SiteRamsDocuments siteId={site.id} />
           {customer?.id && (
             <div className="mt-4">
