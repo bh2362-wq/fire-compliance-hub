@@ -548,18 +548,14 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     },
   });
 
-  // ── Footer on all RA pages ──
+  // ── Page numbers on all RA pages (top-right, above company details) ──
   const raTotalPages = raDoc.getNumberOfPages();
   for (let i = 1; i <= raTotalPages; i++) {
     raDoc.setPage(i);
-    // Update page count in header
     raDoc.setFontSize(8);
     raDoc.setFont("helvetica", "normal");
     raDoc.setTextColor(...C.textGrey);
-    // Overwrite page number area
-    raDoc.setFillColor(...C.white);
-    raDoc.rect(raPw - raMR - 30, 8, 30, 6, "F");
-    raDoc.text(`Page ${i} of ${raTotalPages}`, raPw - raMR, 12, { align: "right" });
+    raDoc.text(`Page ${i} of ${raTotalPages}`, raPw - raMR, 8, { align: "right" });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
