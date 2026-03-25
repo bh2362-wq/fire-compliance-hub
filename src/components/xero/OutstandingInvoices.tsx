@@ -360,8 +360,14 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
       try {
         await approveInvoice(invoiceId);
         successCount++;
-      } catch {
-        failCount++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        // Already authorised = success
+        if (msg.includes("already AUTHORISED")) {
+          successCount++;
+        } else {
+          failCount++;
+        }
       }
     }
 
