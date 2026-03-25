@@ -540,7 +540,12 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
       2: { cellWidth: raCW * 0.15 },
       3: { cellWidth: raCW * 0.3 },
     },
-    margin: { left: raML, right: raMR },
+    margin: { top: 42, left: raML, right: raMR },
+    didDrawPage: (data) => {
+      if (data.pageNumber > 1) {
+        drawRAHeader(raDoc, raDoc.getNumberOfPages());
+      }
+    },
   });
 
   // ── Footer on all RA pages ──
