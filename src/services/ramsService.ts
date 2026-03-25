@@ -62,8 +62,10 @@ export interface RamsDocument {
   review_date: string | null;
   preparer_signature: string | null;
   preparer_signed_at: string | null;
+  preparer_name: string | null;
   reviewer_signature: string | null;
   reviewer_signed_at: string | null;
+  reviewer_name: string | null;
   client_signature: string | null;
   client_signed_at: string | null;
   client_name: string | null;
