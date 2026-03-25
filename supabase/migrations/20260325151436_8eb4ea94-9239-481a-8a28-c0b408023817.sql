@@ -1,0 +1,1 @@
+ALTER TABLE public.rams_documents ADD COLUMN preparer_name text, ADD COLUMN reviewer_name text;
