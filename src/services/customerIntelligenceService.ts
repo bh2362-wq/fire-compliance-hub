@@ -106,12 +106,9 @@ export async function saveSharedReport(
 
 export async function getSharedReport(shareToken: string) {
   const { data, error } = await supabase
-    .from("customer_intelligence_reports")
-    .select("*")
-    .eq("share_token", shareToken)
-    .eq("is_active", true)
-    .maybeSingle();
+    .rpc("get_shared_intelligence_report", { p_share_token: shareToken });
 
   if (error) throw new Error(error.message);
-  return data;
+  const report = Array.isArray(data) ? data[0] ?? null : data;
+  return report;
 }
