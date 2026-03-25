@@ -149,7 +149,9 @@ export function RamsDocumentDialog({
         setStatus(document.status);
         setReviewDate(document.review_date || "");
         setPreparerSignature(document.preparer_signature);
+        setPreparerName((document as any).preparer_name || "");
         setReviewerSignature(document.reviewer_signature);
+        setReviewerName((document as any).reviewer_name || "");
         setClientSignature(document.client_signature);
         setClientName(document.client_name || "");
       } else if (templateToUse) {
