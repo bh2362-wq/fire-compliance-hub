@@ -163,15 +163,11 @@ const VisitFormDialog = ({
   const showSiteSelector = !siteId && availableSites.length > 0;
   const selectedSiteName = availableSites.find(s => s.id === selectedSiteId)?.name || siteName;
 
-  // Group assets by type - keys match SERVICE_TYPES from serviceContractService
-  const fireAssets = siteAssets.filter(a => a.asset_type === "fire");
-  const aspiratorAssets = siteAssets.filter(a => a.asset_type === "aspirator");
-  const gasSuppressionAssets = siteAssets.filter(a => a.asset_type === "gas_suppression");
-  const roomIntegrityAssets = siteAssets.filter(a => a.asset_type === "room_integrity");
-  const fireCurtainAssets = siteAssets.filter(a => a.asset_type === "fire_curtain");
-  const disabledRefugeAssets = siteAssets.filter(a => a.asset_type === "disabled_refuge");
-  const emergencyLightingAssets = siteAssets.filter(a => a.asset_type === "emergency_lighting");
-  const intruderAlarmAssets = siteAssets.filter(a => a.asset_type === "intruder_alarm");
+  // Clear visit_type when asset_type changes
+  useEffect(() => {
+    form.setValue("visit_type", "");
+  }, [selectedAssetType, form]);
+
   // Helper: check if asset type has assets OR a service contract
   const hasType = (type: string) => {
     const assetCount = siteAssets.filter(a => a.asset_type === type).length;
