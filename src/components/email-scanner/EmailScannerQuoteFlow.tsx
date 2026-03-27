@@ -54,7 +54,9 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
   const [title, setTitle] = useState(data.scope_summary || data.description || "");
   const [summary, setSummary] = useState(data.scope_summary || "");
   const [terms, setTerms] = useState("This quotation is valid for 30 days from the date of issue.");
-  const [notes, setNotes] = useState(data.notes || data.special_requirements || "");
+  const [specialRequirements, setSpecialRequirements] = useState(data.special_requirements || "");
+  const [ramsConsiderations, setRamsConsiderations] = useState(data.rams_considerations || "");
+  const [notes, setNotes] = useState(data.notes || "");
   const [vatRate, setVatRate] = useState(20);
 
   // New customer/site fields
