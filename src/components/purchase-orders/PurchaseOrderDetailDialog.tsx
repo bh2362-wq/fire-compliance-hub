@@ -423,6 +423,17 @@ const PurchaseOrderDetailDialog = ({
                 </Button>
               )}
 
+              {/* Create Invoice from PO */}
+              {["sent", "received", "paid"].includes(purchaseOrder.status) && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowInvoiceDialog(true)}
+                >
+                  <Receipt className="w-4 h-4 mr-2" />
+                  Create Invoice
+                </Button>
+              )}
+
               {/* Sync to Xero */}
               {!purchaseOrder.xero_purchase_order_id && purchaseOrder.supplier?.xero_contact_id && (
                 <Button onClick={handleSyncToXero} disabled={syncing}>
