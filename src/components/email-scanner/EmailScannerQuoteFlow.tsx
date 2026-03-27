@@ -393,6 +393,8 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
               <Label>Notes</Label>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[60px]" />
             </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Line Items */}
