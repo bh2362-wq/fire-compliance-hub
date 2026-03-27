@@ -106,6 +106,9 @@ export function SiteRamsDocuments({ siteId }: SiteRamsDocumentsProps) {
               <Button variant="ghost" size="icon" onClick={() => setPreviewDoc(doc)} title="Preview">
                 <Eye className="w-4 h-4" />
               </Button>
+              <Button variant="ghost" size="icon" onClick={() => setEmailDoc(doc)} title="Email to Client">
+                <Mail className="w-4 h-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
