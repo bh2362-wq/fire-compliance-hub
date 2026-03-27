@@ -69,6 +69,7 @@ const PurchaseOrderDetailDialog = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
 
   useEffect(() => {
     if (open && purchaseOrderId) {
