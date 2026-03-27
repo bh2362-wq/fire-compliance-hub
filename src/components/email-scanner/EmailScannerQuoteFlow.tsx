@@ -285,12 +285,17 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
                 </Button>
               </div>
               {createNewCustomer ? (
-                <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                  <Input placeholder="Company name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} />
-                  <Input placeholder="Contact name" value={newCustomerContact} onChange={(e) => setNewCustomerContact(e.target.value)} />
-                  <Input placeholder="Email" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)} />
-                  <Input placeholder="Phone" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} />
-                </div>
+                 <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                   <Input placeholder="Company name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} />
+                   <Input placeholder="Contact name" value={newCustomerContact} onChange={(e) => setNewCustomerContact(e.target.value)} />
+                   <Input placeholder="Email" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)} />
+                   <Input placeholder="Phone" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} />
+                   <Input placeholder="Address" value={newCustomerAddress} onChange={(e) => setNewCustomerAddress(e.target.value)} />
+                   <div className="grid grid-cols-2 gap-2">
+                     <Input placeholder="City" value={newCustomerCity} onChange={(e) => setNewCustomerCity(e.target.value)} />
+                     <Input placeholder="Postcode" value={newCustomerPostcode} onChange={(e) => setNewCustomerPostcode(e.target.value)} />
+                   </div>
+                 </div>
               ) : (
                 <Select value={matchedCustomerId} onValueChange={setMatchedCustomerId}>
                   <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
