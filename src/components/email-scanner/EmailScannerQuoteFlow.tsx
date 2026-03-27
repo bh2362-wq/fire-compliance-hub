@@ -390,16 +390,8 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
               <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} className="min-h-[60px]" />
             </div>
             <div className="space-y-2">
-              <Label>Special Requirements</Label>
-              <Textarea value={specialRequirements} onChange={(e) => setSpecialRequirements(e.target.value)} className="min-h-[60px]" placeholder="Access, equipment, or special considerations..." />
-            </div>
-            <div className="space-y-2">
-              <Label>RAMS Considerations</Label>
-              <Textarea value={ramsConsiderations} onChange={(e) => setRamsConsiderations(e.target.value)} className="min-h-[60px]" placeholder="Health and safety considerations..." />
-            </div>
-            <div className="space-y-2">
               <Label>Notes</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[60px]" />
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[60px]" placeholder="Any additional notes..." />
             </div>
           </CardContent>
         </Card>
