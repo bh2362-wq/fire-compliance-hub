@@ -192,6 +192,9 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
           contact_email: newCustomerEmail || null,
           contact_phone: newCustomerPhone || null,
           contact_name: newCustomerContact || null,
+          address: newCustomerAddress || null,
+          city: newCustomerCity || null,
+          postcode: newCustomerPostcode || null,
         }).select().single();
         if (custErr) throw custErr;
         customerId = newCust.id;
