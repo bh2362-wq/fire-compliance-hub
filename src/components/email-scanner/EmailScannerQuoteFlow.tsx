@@ -246,7 +246,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
         title: title || "Quotation",
         summary: summary || null,
         terms: terms || null,
-        notes: combinedNotes || null,
+        notes: notes || null,
         vat_rate: vatRate,
         total_amount: total || 0,
         status: "draft",
