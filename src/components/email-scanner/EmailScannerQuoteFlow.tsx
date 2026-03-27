@@ -52,11 +52,32 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
   const [createNewCustomer, setCreateNewCustomer] = useState(false);
   const [createNewSite, setCreateNewSite] = useState(false);
   const [title, setTitle] = useState(data.scope_summary || data.description || "");
-  const [summary, setSummary] = useState(data.scope_summary || "");
+
+  // Build full scope of works from all extracted details
+  const buildScopeOfWorks = () => {
+    const sections: string[] = [];
+    if (data.scope_summary) sections.push(data.scope_summary);
+    if (data.description && data.description !== data.scope_summary) sections.push(data.description);
+    if (data.visit_type) sections.push(`Visit Type: ${data.visit_type.replace(/_/g, ' ')}`);
+    if (data.urgency) sections.push(`Priority: ${data.urgency}`);
+    if (data.preferred_date) sections.push(`Preferred Date: ${data.preferred_date}`);
+    if (data.job_requirements && data.job_requirements.length > 0) {
+      sections.push("\nScope of Works:");
+      data.job_requirements.forEach((req, i) => {
+        let line = `${i + 1}. ${req.description}`;
+        if (req.estimated_quantity) line += ` (Qty: ${req.estimated_quantity}${req.unit ? ` ${req.unit}` : ''})`;
+        sections.push(line);
+      });
+    }
+    if (data.special_requirements) sections.push(`\nSpecial Requirements:\n${data.special_requirements}`);
+    if (data.rams_considerations) sections.push(`\nRAMS Considerations:\n${data.rams_considerations}`);
+    if (data.notes) sections.push(`\nAdditional Notes:\n${data.notes}`);
+    return sections.join('\n');
+  };
+
+  const [summary, setSummary] = useState(buildScopeOfWorks());
   const [terms, setTerms] = useState("This quotation is valid for 30 days from the date of issue.");
-  const [specialRequirements, setSpecialRequirements] = useState(data.special_requirements || "");
-  const [ramsConsiderations, setRamsConsiderations] = useState(data.rams_considerations || "");
-  const [notes, setNotes] = useState(data.notes || "");
+  const [notes, setNotes] = useState("");
   const [vatRate, setVatRate] = useState(20);
 
   // New customer/site fields
@@ -73,15 +94,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
   const [newSitePostcode, setNewSitePostcode] = useState(data.site_postcode || "");
 
   const [lineItems, setLineItems] = useState<LineItem[]>(
-    data.job_requirements && data.job_requirements.length > 0
-      ? data.job_requirements.map((r) => ({
-          description: r.description,
-          quantity: r.estimated_quantity || 1,
-          unit_price: 0,
-          labour_cost: 0,
-          total_price: 0,
-        }))
-      : [{ description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }]
+    [{ description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }]
   );
 
   useEffect(() => {
@@ -223,12 +236,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
         throw new Error("A site is required to create a quotation. Please select or create a site.");
       }
 
-      // Build combined notes
-      const combinedNotes = [
-        notes,
-        specialRequirements ? `Special Requirements:\n${specialRequirements}` : '',
-        ramsConsiderations ? `RAMS Considerations:\n${ramsConsiderations}` : '',
-      ].filter(Boolean).join('\n\n');
+      // Notes field (scope is already in summary)
 
       // Create quotation
       const { data: quote, error: quoteErr } = await supabase.from("quotations").insert({
@@ -238,7 +246,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
         title: title || "Quotation",
         summary: summary || null,
         terms: terms || null,
-        notes: combinedNotes || null,
+        notes: notes || null,
         vat_rate: vatRate,
         total_amount: total || 0,
         status: "draft",
@@ -375,23 +383,15 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
             </div>
             <div className="space-y-2">
               <Label>Summary / Scope of Works</Label>
-              <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="min-h-[100px]" />
+              <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="min-h-[200px] font-mono text-sm" />
             </div>
             <div className="space-y-2">
               <Label>Terms</Label>
               <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} className="min-h-[60px]" />
             </div>
             <div className="space-y-2">
-              <Label>Special Requirements</Label>
-              <Textarea value={specialRequirements} onChange={(e) => setSpecialRequirements(e.target.value)} className="min-h-[60px]" placeholder="Access, equipment, or special considerations..." />
-            </div>
-            <div className="space-y-2">
-              <Label>RAMS Considerations</Label>
-              <Textarea value={ramsConsiderations} onChange={(e) => setRamsConsiderations(e.target.value)} className="min-h-[60px]" placeholder="Health and safety considerations..." />
-            </div>
-            <div className="space-y-2">
               <Label>Notes</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[60px]" />
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[60px]" placeholder="Any additional notes..." />
             </div>
           </CardContent>
         </Card>
