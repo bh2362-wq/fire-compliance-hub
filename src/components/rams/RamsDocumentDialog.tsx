@@ -104,7 +104,9 @@ export function RamsDocumentDialog({
   const [clientSignature, setClientSignature] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
   const [activityKey, setActivityKey] = useState<string | null>(null);
-
+  const [preparerSigMode, setPreparerSigMode] = useState<"draw" | "type">("type");
+  const [reviewerSigMode, setReviewerSigMode] = useState<"draw" | "type">("type");
+  const [clientSigMode, setClientSigMode] = useState<"draw" | "type">("type");
   // Fetch data
   const { data: sites = [] } = useQuery({
     queryKey: ["sites"],
