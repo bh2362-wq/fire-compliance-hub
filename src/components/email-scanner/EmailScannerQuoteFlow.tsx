@@ -77,9 +77,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
 
   const [summary, setSummary] = useState(buildScopeOfWorks());
   const [terms, setTerms] = useState("This quotation is valid for 30 days from the date of issue.");
-  const [specialRequirements, setSpecialRequirements] = useState(data.special_requirements || "");
-  const [ramsConsiderations, setRamsConsiderations] = useState(data.rams_considerations || "");
-  const [notes, setNotes] = useState(data.notes || "");
+  const [notes, setNotes] = useState("");
   const [vatRate, setVatRate] = useState(20);
 
   // New customer/site fields
