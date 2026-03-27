@@ -277,5 +277,14 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
         </ScrollArea>
       </DialogContent>
     </Dialog>
+
+    {showEmail && document && (
+      <EmailRamsDialog
+        open={showEmail}
+        onOpenChange={setShowEmail}
+        document={document}
+      />
+    )}
+    </>
   );
 }
