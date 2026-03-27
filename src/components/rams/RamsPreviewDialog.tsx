@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { RamsDocument } from "@/services/ramsService";
 import { generateRamsPDF } from "@/lib/ramsPdfGenerator";
 import { RamsEngineerBriefing } from "@/components/rams/RamsEngineerBriefing";
+import { EmailRamsDialog } from "@/components/rams/EmailRamsDialog";
 
 interface RamsPreviewDialogProps {
   open: boolean;
