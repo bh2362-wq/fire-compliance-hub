@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { HardHat, FileDown, Eye, Trash2, Plus } from "lucide-react";
+import { HardHat, FileDown, Eye, Trash2, Plus, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -13,6 +13,7 @@ import {
 import { generateRamsPDF } from "@/lib/ramsPdfGenerator";
 import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
 import { RamsPreviewDialog } from "@/components/rams/RamsPreviewDialog";
+import { EmailRamsDialog } from "@/components/rams/EmailRamsDialog";
 import {
   AlertDialog,
   AlertDialogAction,
