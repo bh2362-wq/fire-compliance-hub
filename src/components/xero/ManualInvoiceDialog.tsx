@@ -151,6 +151,7 @@ export function ManualInvoiceDialog({
   onOpenChange,
   onSuccess,
   editInvoice,
+  prefillData,
 }: ManualInvoiceDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
