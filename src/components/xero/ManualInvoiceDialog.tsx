@@ -52,11 +52,18 @@ export interface EditInvoiceData {
   lineItems: InvoiceLineItem[];
 }
 
+export interface InvoicePrefillData {
+  contactId?: string;
+  reference?: string;
+  lineItems?: InvoiceLineItem[];
+}
+
 interface ManualInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
   editInvoice?: EditInvoiceData | null;
+  prefillData?: InvoicePrefillData | null;
 }
 
 const SERVICE_TYPES = [
@@ -144,6 +151,7 @@ export function ManualInvoiceDialog({
   onOpenChange,
   onSuccess,
   editInvoice,
+  prefillData,
 }: ManualInvoiceDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -202,6 +210,19 @@ export function ManualInvoiceDialog({
         setInvoiceNumber(editInvoice.invoiceNumber);
         setDueDate(editInvoice.dueDate ? new Date(editInvoice.dueDate) : addDays(new Date(), 28));
         setLineItems(editInvoice.lineItems.length > 0 ? editInvoice.lineItems : SERVICE_TYPE_LINE_ITEMS.quarterly_service);
+      } else if (prefillData) {
+        // Prefill mode (e.g. from Purchase Order)
+        draftRestoredRef.current = true;
+        setHasDraft(false);
+        setSelectedContact(prefillData.contactId || "");
+        setSelectedSite("");
+        setServiceType("supply_only");
+        setPoNumber(prefillData.reference || "");
+        setDueDate(addDays(new Date(), 28));
+        setLineItems(prefillData.lineItems && prefillData.lineItems.length > 0
+          ? prefillData.lineItems
+          : [{ description: "", quantity: 1, unitAmount: 0 }]);
+        fetchNextInvoiceNumber();
       } else {
         // New invoice mode
         const draft = loadDraft();
@@ -228,7 +249,7 @@ export function ManualInvoiceDialog({
         }
       }
     }
-  }, [open, user, isEditMode, editInvoice]);
+  }, [open, user, isEditMode, editInvoice, prefillData]);
 
   const fetchNextInvoiceNumber = async () => {
     setLoadingInvoiceNumber(true);

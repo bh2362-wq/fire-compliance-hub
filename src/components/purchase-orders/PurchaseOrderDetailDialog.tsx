@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Download, ExternalLink, Loader2, Package, Copy, Trash2, Ban, Mail } from "lucide-react";
+import { Send, Download, ExternalLink, Loader2, Package, Copy, Trash2, Ban, Mail, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -42,6 +42,7 @@ import { downloadPurchaseOrderPDF } from "@/lib/purchaseOrderPdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmailPurchaseOrderDialog } from "@/components/purchase-orders/EmailPurchaseOrderDialog";
+import { ManualInvoiceDialog, InvoicePrefillData } from "@/components/xero/ManualInvoiceDialog";
 
 interface PurchaseOrderDetailDialogProps {
   open: boolean;
@@ -68,6 +69,7 @@ const PurchaseOrderDetailDialog = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
 
   useEffect(() => {
     if (open && purchaseOrderId) {
@@ -421,6 +423,17 @@ const PurchaseOrderDetailDialog = ({
                 </Button>
               )}
 
+              {/* Create Invoice from PO */}
+              {["sent", "received", "paid"].includes(purchaseOrder.status) && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowInvoiceDialog(true)}
+                >
+                  <Receipt className="w-4 h-4 mr-2" />
+                  Create Invoice
+                </Button>
+              )}
+
               {/* Sync to Xero */}
               {!purchaseOrder.xero_purchase_order_id && purchaseOrder.supplier?.xero_contact_id && (
                 <Button onClick={handleSyncToXero} disabled={syncing}>
@@ -536,6 +549,26 @@ const PurchaseOrderDetailDialog = ({
             setShowEmailDialog(false);
             loadPurchaseOrder();
             onUpdate();
+          }}
+        />
+      )}
+
+      {purchaseOrder && (
+        <ManualInvoiceDialog
+          open={showInvoiceDialog}
+          onOpenChange={setShowInvoiceDialog}
+          prefillData={{
+            contactId: purchaseOrder.supplier?.xero_contact_id || "",
+            reference: purchaseOrder.po_number,
+            lineItems: purchaseOrder.line_items?.map((item) => ({
+              description: item.description,
+              quantity: item.quantity,
+              unitAmount: item.unit_price,
+            })) || [],
+          }}
+          onSuccess={() => {
+            setShowInvoiceDialog(false);
+            toast.success("Invoice draft created");
           }}
         />
       )}
