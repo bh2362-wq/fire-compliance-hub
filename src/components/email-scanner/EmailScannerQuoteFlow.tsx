@@ -54,7 +54,9 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
   const [title, setTitle] = useState(data.scope_summary || data.description || "");
   const [summary, setSummary] = useState(data.scope_summary || "");
   const [terms, setTerms] = useState("This quotation is valid for 30 days from the date of issue.");
-  const [notes, setNotes] = useState(data.notes || data.special_requirements || "");
+  const [specialRequirements, setSpecialRequirements] = useState(data.special_requirements || "");
+  const [ramsConsiderations, setRamsConsiderations] = useState(data.rams_considerations || "");
+  const [notes, setNotes] = useState(data.notes || "");
   const [vatRate, setVatRate] = useState(20);
 
   // New customer/site fields
@@ -221,6 +223,13 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
         throw new Error("A site is required to create a quotation. Please select or create a site.");
       }
 
+      // Build combined notes
+      const combinedNotes = [
+        notes,
+        specialRequirements ? `Special Requirements:\n${specialRequirements}` : '',
+        ramsConsiderations ? `RAMS Considerations:\n${ramsConsiderations}` : '',
+      ].filter(Boolean).join('\n\n');
+
       // Create quotation
       const { data: quote, error: quoteErr } = await supabase.from("quotations").insert({
         quotation_number: quoteNum,
@@ -229,7 +238,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
         title: title || "Quotation",
         summary: summary || null,
         terms: terms || null,
-        notes: notes || null,
+        notes: combinedNotes || null,
         vat_rate: vatRate,
         total_amount: total || 0,
         status: "draft",
@@ -371,6 +380,14 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
             <div className="space-y-2">
               <Label>Terms</Label>
               <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} className="min-h-[60px]" />
+            </div>
+            <div className="space-y-2">
+              <Label>Special Requirements</Label>
+              <Textarea value={specialRequirements} onChange={(e) => setSpecialRequirements(e.target.value)} className="min-h-[60px]" placeholder="Access, equipment, or special considerations..." />
+            </div>
+            <div className="space-y-2">
+              <Label>RAMS Considerations</Label>
+              <Textarea value={ramsConsiderations} onChange={(e) => setRamsConsiderations(e.target.value)} className="min-h-[60px]" placeholder="Health and safety considerations..." />
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
