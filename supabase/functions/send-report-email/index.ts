@@ -41,6 +41,7 @@ serve(async (req) => {
       reportNumber,
       reportDate,
       pdfBase64,
+      additionalAttachments,
       customerName,
       companyName,
       logoUrl,
