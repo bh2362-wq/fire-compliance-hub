@@ -114,7 +114,7 @@ const PPE_STANDARDS: Record<string, { standard: string; condition: string }> = {
 
 // ─── Main Generator ──────────────────────────────────────────────────────────
 
-export async function generateRamsPDF(document: RamsDocument): Promise<void> {
+export async function generateRamsPDF(document: RamsDocument, options?: { returnDocs?: boolean }): Promise<void | { raDoc: jsPDF; msDoc: jsPDF }> {
   const company = await loadCompanySettings();
   const logoUrl = company?.report_logo_url || company?.company_logo_url || null;
   const logoBase64 = logoUrl ? await loadImageAsBase64(logoUrl) : null;
