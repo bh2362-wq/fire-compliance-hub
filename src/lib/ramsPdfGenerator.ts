@@ -1013,7 +1013,11 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   // MERGE: Append MS pages to RA document
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Unfortunately jsPDF can't merge two docs natively, so we save both
+  // Return docs if requested (for base64 generation), otherwise save
+  if (options?.returnDocs) {
+    return { raDoc, msDoc };
+  }
+
   // Save as two files: Risk Assessment + Method Statement
   raDoc.save(`${document.rams_number}_Risk_Assessment.pdf`);
   msDoc.save(`${document.rams_number}_Method_Statement.pdf`);
