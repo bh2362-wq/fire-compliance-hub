@@ -73,15 +73,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
   const [newSitePostcode, setNewSitePostcode] = useState(data.site_postcode || "");
 
   const [lineItems, setLineItems] = useState<LineItem[]>(
-    data.job_requirements && data.job_requirements.length > 0
-      ? data.job_requirements.map((r) => ({
-          description: r.description,
-          quantity: r.estimated_quantity || 1,
-          unit_price: 0,
-          labour_cost: 0,
-          total_price: 0,
-        }))
-      : [{ description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }]
+    [{ description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }]
   );
 
   useEffect(() => {
