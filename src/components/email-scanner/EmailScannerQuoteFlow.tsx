@@ -52,7 +52,30 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
   const [createNewCustomer, setCreateNewCustomer] = useState(false);
   const [createNewSite, setCreateNewSite] = useState(false);
   const [title, setTitle] = useState(data.scope_summary || data.description || "");
-  const [summary, setSummary] = useState(data.scope_summary || "");
+
+  // Build full scope of works from all extracted details
+  const buildScopeOfWorks = () => {
+    const sections: string[] = [];
+    if (data.scope_summary) sections.push(data.scope_summary);
+    if (data.description && data.description !== data.scope_summary) sections.push(data.description);
+    if (data.visit_type) sections.push(`Visit Type: ${data.visit_type.replace(/_/g, ' ')}`);
+    if (data.urgency) sections.push(`Priority: ${data.urgency}`);
+    if (data.preferred_date) sections.push(`Preferred Date: ${data.preferred_date}`);
+    if (data.job_requirements && data.job_requirements.length > 0) {
+      sections.push("\nScope of Works:");
+      data.job_requirements.forEach((req, i) => {
+        let line = `${i + 1}. ${req.description}`;
+        if (req.estimated_quantity) line += ` (Qty: ${req.estimated_quantity}${req.unit ? ` ${req.unit}` : ''})`;
+        sections.push(line);
+      });
+    }
+    if (data.special_requirements) sections.push(`\nSpecial Requirements:\n${data.special_requirements}`);
+    if (data.rams_considerations) sections.push(`\nRAMS Considerations:\n${data.rams_considerations}`);
+    if (data.notes) sections.push(`\nAdditional Notes:\n${data.notes}`);
+    return sections.join('\n');
+  };
+
+  const [summary, setSummary] = useState(buildScopeOfWorks());
   const [terms, setTerms] = useState("This quotation is valid for 30 days from the date of issue.");
   const [specialRequirements, setSpecialRequirements] = useState(data.special_requirements || "");
   const [ramsConsiderations, setRamsConsiderations] = useState(data.rams_considerations || "");
