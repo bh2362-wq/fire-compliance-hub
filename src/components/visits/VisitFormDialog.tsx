@@ -82,6 +82,7 @@ const VisitFormDialog = ({
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [internalSites, setInternalSites] = useState<Site[]>([]);
   const [siteAssets, setSiteAssets] = useState<SiteAsset[]>([]);
+  const [contractServiceTypes, setContractServiceTypes] = useState<string[]>([]);
   const { toast } = useToast();
 
   const form = useForm<VisitFormData>({
