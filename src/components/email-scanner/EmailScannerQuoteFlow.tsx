@@ -223,6 +223,13 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
         throw new Error("A site is required to create a quotation. Please select or create a site.");
       }
 
+      // Build combined notes
+      const combinedNotes = [
+        notes,
+        specialRequirements ? `Special Requirements:\n${specialRequirements}` : '',
+        ramsConsiderations ? `RAMS Considerations:\n${ramsConsiderations}` : '',
+      ].filter(Boolean).join('\n\n');
+
       // Create quotation
       const { data: quote, error: quoteErr } = await supabase.from("quotations").insert({
         quotation_number: quoteNum,
@@ -231,7 +238,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
         title: title || "Quotation",
         summary: summary || null,
         terms: terms || null,
-        notes: notes || null,
+        notes: combinedNotes || null,
         vat_rate: vatRate,
         total_amount: total || 0,
         status: "draft",
