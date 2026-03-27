@@ -206,9 +206,10 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
       });
       emailLogId = log?.id || null;
 
-      const pdfBase64 = await generateRamsPDFBase64(document);
+      const { raBase64, msBase64 } = await generateRamsPDFBase64(document);
 
       const settings = await getCompanySettings().catch(() => null);
+      const reportDate = new Date().toISOString().split("T")[0];
 
       const { data, error } = await supabase.functions.invoke("send-report-email", {
         body: {
@@ -216,8 +217,14 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
           subject: subject.trim(),
           siteName,
           reportNumber: document.rams_number,
-          reportDate: new Date().toISOString().split("T")[0],
-          pdfBase64,
+          reportDate,
+          pdfBase64: raBase64,
+          additionalAttachments: [
+            {
+              filename: `${document.rams_number}_Method_Statement-${reportDate}.pdf`,
+              content: msBase64,
+            },
+          ],
           customerName: "",
           companyName: companyNameVal,
           logoUrl: settings?.report_logo_url || settings?.company_logo_url || "",

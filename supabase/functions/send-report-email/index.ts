@@ -16,6 +16,7 @@ interface SendReportRequest {
   reportNumber: string;
   reportDate: string;
   pdfBase64: string;
+  additionalAttachments?: { filename: string; content: string }[];
   customerName?: string;
   companyName?: string;
   logoUrl?: string;
@@ -40,6 +41,7 @@ serve(async (req) => {
       reportNumber,
       reportDate,
       pdfBase64,
+      additionalAttachments,
       customerName,
       companyName,
       logoUrl,
@@ -156,6 +158,7 @@ serve(async (req) => {
               filename: fileName,
               content: pdfBase64,
             },
+            ...(additionalAttachments || []),
           ],
         });
 
