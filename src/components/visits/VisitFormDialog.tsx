@@ -172,60 +172,38 @@ const VisitFormDialog = ({
   const disabledRefugeAssets = siteAssets.filter(a => a.asset_type === "disabled_refuge");
   const emergencyLightingAssets = siteAssets.filter(a => a.asset_type === "emergency_lighting");
   const intruderAlarmAssets = siteAssets.filter(a => a.asset_type === "intruder_alarm");
-  const nurseCallAssets = siteAssets.filter(a => a.asset_type === "nurse_call");
+  // Helper: check if asset type has assets OR a service contract
+  const hasType = (type: string) => {
+    const assetCount = siteAssets.filter(a => a.asset_type === type).length;
+    return assetCount > 0 || contractServiceTypes.includes(type);
+  };
+  const countForType = (type: string) => siteAssets.filter(a => a.asset_type === type).length;
 
-  // Fire panel visits cover ALL panels - report will have separate checklists per panel
-  // ASD visits also cover ALL units at the site - same approach
+  // Get available asset types based on site assets AND service contracts
+  const assetTypeConfigs: { value: string; label: string; icon: typeof Flame; }[] = [
+    { value: "fire", label: "Fire Alarm", icon: Flame },
+    { value: "aspirator", label: "Aspirator / ASD", icon: Wind },
+    { value: "gas_suppression", label: "Gas Suppression", icon: Flame },
+    { value: "emergency_lighting", label: "Emergency Lighting", icon: Flame },
+    { value: "disabled_refuge", label: "Disabled Refuge", icon: Phone },
+    { value: "room_integrity", label: "Room Integrity", icon: Flame },
+    { value: "fire_curtain", label: "Fire Curtain", icon: Flame },
+    { value: "intruder_alarm", label: "Intruder Alarm", icon: AlertTriangle },
+    { value: "nurse_call", label: "Nurse Call", icon: Phone },
+  ];
 
-  // Clear visit_type when asset_type changes
-  useEffect(() => {
-    form.setValue("visit_type", "");
-  }, [selectedAssetType, form]);
-
-  // Get available asset types based on site assets
   const availableAssetTypes = [
-    ...(fireAssets.length > 0 ? [{ 
-      value: "fire", 
-      label: `Fire Alarm${fireAssets.length > 1 ? ` (${fireAssets.length} panels)` : ""}`, 
-      icon: Flame, 
-      count: fireAssets.length 
-    }] : []),
-    ...(aspiratorAssets.length > 0 ? [{ 
-      value: "aspirator", 
-      label: `Aspirator / ASD${aspiratorAssets.length > 1 ? ` (${aspiratorAssets.length} units)` : ""}`, 
-      icon: Wind, 
-      count: aspiratorAssets.length 
-    }] : []),
-    ...(gasSuppressionAssets.length > 0 ? [{ 
-      value: "gas_suppression", 
-      label: `Gas Suppression${gasSuppressionAssets.length > 1 ? ` (${gasSuppressionAssets.length} units)` : ""}`, 
-      icon: Flame, 
-      count: gasSuppressionAssets.length 
-    }] : []),
-    ...(emergencyLightingAssets.length > 0 ? [{ 
-      value: "emergency_lighting", 
-      label: `Emergency Lighting${emergencyLightingAssets.length > 1 ? ` (${emergencyLightingAssets.length} units)` : ""}`, 
-      icon: Flame, 
-      count: emergencyLightingAssets.length 
-    }] : []),
-    ...(disabledRefugeAssets.length > 0 ? [{ 
-      value: "disabled_refuge", 
-      label: `Disabled Refuge${disabledRefugeAssets.length > 1 ? ` (${disabledRefugeAssets.length} units)` : ""}`, 
-      icon: Phone, 
-      count: disabledRefugeAssets.length 
-    }] : []),
-    ...(intruderAlarmAssets.length > 0 ? [{ 
-      value: "intruder_alarm", 
-      label: `Intruder Alarm${intruderAlarmAssets.length > 1 ? ` (${intruderAlarmAssets.length} units)` : ""}`, 
-      icon: AlertTriangle, 
-      count: intruderAlarmAssets.length 
-    }] : []),
-    ...(nurseCallAssets.length > 0 ? [{ 
-      value: "nurse_call", 
-      label: `Nurse Call${nurseCallAssets.length > 1 ? ` (${nurseCallAssets.length} units)` : ""}`, 
-      icon: Phone, 
-      count: nurseCallAssets.length 
-    }] : []),
+    ...assetTypeConfigs
+      .filter(cfg => hasType(cfg.value))
+      .map(cfg => {
+        const count = countForType(cfg.value);
+        return {
+          value: cfg.value,
+          label: count > 1 ? `${cfg.label} (${count} units)` : cfg.label,
+          icon: cfg.icon,
+          count,
+        };
+      }),
     { value: "general", label: "General / Other", icon: Wrench, count: 0 },
   ];
 
