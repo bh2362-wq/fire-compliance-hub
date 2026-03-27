@@ -52,11 +52,18 @@ export interface EditInvoiceData {
   lineItems: InvoiceLineItem[];
 }
 
+export interface InvoicePrefillData {
+  contactId?: string;
+  reference?: string;
+  lineItems?: InvoiceLineItem[];
+}
+
 interface ManualInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
   editInvoice?: EditInvoiceData | null;
+  prefillData?: InvoicePrefillData | null;
 }
 
 const SERVICE_TYPES = [

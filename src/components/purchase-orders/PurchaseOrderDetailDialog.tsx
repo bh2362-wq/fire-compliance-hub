@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Download, ExternalLink, Loader2, Package, Copy, Trash2, Ban, Mail } from "lucide-react";
+import { Send, Download, ExternalLink, Loader2, Package, Copy, Trash2, Ban, Mail, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
