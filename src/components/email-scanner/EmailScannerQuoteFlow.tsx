@@ -62,6 +62,9 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
   const [newCustomerEmail, setNewCustomerEmail] = useState(data.contact_email || data.sender_email || "");
   const [newCustomerPhone, setNewCustomerPhone] = useState(data.contact_phone || "");
   const [newCustomerContact, setNewCustomerContact] = useState(data.contact_name || data.sender_name || "");
+  const [newCustomerAddress, setNewCustomerAddress] = useState(data.site_address || "");
+  const [newCustomerCity, setNewCustomerCity] = useState(data.site_city || "");
+  const [newCustomerPostcode, setNewCustomerPostcode] = useState(data.site_postcode || "");
   const [newSiteName, setNewSiteName] = useState(data.site_name || "");
   const [newSiteAddress, setNewSiteAddress] = useState(data.site_address || "");
   const [newSiteCity, setNewSiteCity] = useState(data.site_city || "");
