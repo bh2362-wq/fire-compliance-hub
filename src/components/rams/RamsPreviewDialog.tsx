@@ -209,7 +209,11 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                 <div className="border rounded-lg p-4">
                   <h4 className="font-medium text-sm text-muted-foreground mb-2">Preparer</h4>
                   {document.preparer_signature ? (
-                    <img src={document.preparer_signature} alt="Preparer signature" className="max-h-16 object-contain" />
+                    document.preparer_signature.startsWith("typed:") ? (
+                      <p className="text-2xl" style={{ fontFamily: "'Dancing Script', cursive" }}>{document.preparer_signature.replace("typed:", "")}</p>
+                    ) : (
+                      <img src={document.preparer_signature} alt="Preparer signature" className="max-h-16 object-contain" />
+                    )
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not signed</p>
                   )}
@@ -225,7 +229,11 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                 <div className="border rounded-lg p-4">
                   <h4 className="font-medium text-sm text-muted-foreground mb-2">Reviewer</h4>
                   {document.reviewer_signature ? (
-                    <img src={document.reviewer_signature} alt="Reviewer signature" className="max-h-16 object-contain" />
+                    document.reviewer_signature.startsWith("typed:") ? (
+                      <p className="text-2xl" style={{ fontFamily: "'Dancing Script', cursive" }}>{document.reviewer_signature.replace("typed:", "")}</p>
+                    ) : (
+                      <img src={document.reviewer_signature} alt="Reviewer signature" className="max-h-16 object-contain" />
+                    )
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not signed</p>
                   )}
@@ -241,7 +249,11 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                 <div className="border rounded-lg p-4">
                   <h4 className="font-medium text-sm text-muted-foreground mb-2">Client {document.client_name && `(${document.client_name})`}</h4>
                   {document.client_signature ? (
-                    <img src={document.client_signature} alt="Client signature" className="max-h-16 object-contain" />
+                    document.client_signature.startsWith("typed:") ? (
+                      <p className="text-2xl" style={{ fontFamily: "'Dancing Script', cursive" }}>{document.client_signature.replace("typed:", "")}</p>
+                    ) : (
+                      <img src={document.client_signature} alt="Client signature" className="max-h-16 object-contain" />
+                    )
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not signed</p>
                   )}

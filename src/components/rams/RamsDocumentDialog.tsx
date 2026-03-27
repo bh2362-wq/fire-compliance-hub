@@ -14,11 +14,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format, addMonths } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { SignaturePad } from "@/components/ui/signature-pad";
+import { TypedSignature } from "@/components/ui/typed-signature";
 import {
   RamsDocument,
   RamsTemplate,
@@ -103,7 +105,9 @@ export function RamsDocumentDialog({
   const [clientSignature, setClientSignature] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
   const [activityKey, setActivityKey] = useState<string | null>(null);
-
+  const [preparerSigMode, setPreparerSigMode] = useState<"draw" | "type">("type");
+  const [reviewerSigMode, setReviewerSigMode] = useState<"draw" | "type">("type");
+  const [clientSigMode, setClientSigMode] = useState<"draw" | "type">("type");
   // Fetch data
   const { data: sites = [] } = useQuery({
     queryKey: ["sites"],
@@ -150,10 +154,13 @@ export function RamsDocumentDialog({
         setReviewDate(document.review_date || "");
         setPreparerSignature(document.preparer_signature);
         setPreparerName((document as any).preparer_name || "");
+        setPreparerSigMode(document.preparer_signature?.startsWith("typed:") ? "type" : document.preparer_signature ? "draw" : "type");
         setReviewerSignature(document.reviewer_signature);
         setReviewerName((document as any).reviewer_name || "");
+        setReviewerSigMode(document.reviewer_signature?.startsWith("typed:") ? "type" : document.reviewer_signature ? "draw" : "type");
         setClientSignature(document.client_signature);
         setClientName(document.client_name || "");
+        setClientSigMode(document.client_signature?.startsWith("typed:") ? "type" : document.client_signature ? "draw" : "type");
       } else if (templateToUse) {
         setTitle(templateToUse.name);
         setTemplateId(templateToUse.id);
@@ -553,21 +560,48 @@ export function RamsDocumentDialog({
             </TabsContent>
 
             <TabsContent value="signatures" className="space-y-6 mt-4">
-              <div className="space-y-2">
-                <Label>Preparer Signature</Label>
-                <SignaturePad value={preparerSignature || ""} onChange={setPreparerSignature} />
-                <Input value={preparerName} onChange={(e) => setPreparerName(e.target.value)} placeholder="Preparer name" className="mt-2" />
-              </div>
-              <div className="space-y-2">
-                <Label>Reviewer Signature</Label>
-                <SignaturePad value={reviewerSignature || ""} onChange={setReviewerSignature} />
-                <Input value={reviewerName} onChange={(e) => setReviewerName(e.target.value)} placeholder="Reviewer name" className="mt-2" />
-              </div>
-              <div className="space-y-2">
-                <Label>Client Signature</Label>
-                <SignaturePad value={clientSignature || ""} onChange={setClientSignature} />
-                <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Client name" className="mt-2" />
-              </div>
+              {[
+                { label: "Preparer", mode: preparerSigMode, setMode: setPreparerSigMode, sig: preparerSignature, setSig: setPreparerSignature, name: preparerName, setName: setPreparerName },
+                { label: "Reviewer", mode: reviewerSigMode, setMode: setReviewerSigMode, sig: reviewerSignature, setSig: setReviewerSignature, name: reviewerName, setName: setReviewerName },
+                { label: "Client", mode: clientSigMode, setMode: setClientSigMode, sig: clientSignature, setSig: setClientSignature, name: clientName, setName: setClientName },
+              ].map(({ label, mode, setMode, sig, setSig, name, setName }) => (
+                <div key={label} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>{label} Signature</Label>
+                    <div className="flex gap-1 rounded-md border p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => { setMode("type"); setSig(null); }}
+                        className={cn("px-2.5 py-1 text-xs rounded-sm transition-colors", mode === "type" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+                      >
+                        Type
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setMode("draw"); setSig(null); }}
+                        className={cn("px-2.5 py-1 text-xs rounded-sm transition-colors", mode === "draw" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+                      >
+                        Draw
+                      </button>
+                    </div>
+                  </div>
+                  {mode === "type" ? (
+                    <TypedSignature
+                      value={name}
+                      onChange={(v) => {
+                        setName(v);
+                        setSig(v ? `typed:${v}` : null);
+                      }}
+                      placeholder={`${label} name`}
+                    />
+                  ) : (
+                    <>
+                      <SignaturePad value={sig || ""} onChange={setSig} />
+                      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={`${label} name`} className="mt-2" />
+                    </>
+                  )}
+                </div>
+              ))}
             </TabsContent>
           </ScrollArea>
         </Tabs>

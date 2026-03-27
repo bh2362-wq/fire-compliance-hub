@@ -968,9 +968,21 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
     msDoc.roundedRect(x, msY + 2, sigW, 20, 1, 1, "FD");
 
     if (sigs[i]) {
-      try {
-        msDoc.addImage(sigs[i]!, "PNG", x + 2, msY + 4, sigW - 4, 14, undefined, "FAST");
-      } catch { /* skip */ }
+      const sigVal = sigs[i]!;
+      if (sigVal.startsWith("typed:")) {
+        // Render typed signature in italic cursive style
+        const typedName = sigVal.replace("typed:", "");
+        msDoc.setFontSize(16);
+        msDoc.setFont("helvetica", "bolditalic");
+        msDoc.setTextColor(...C.textDark);
+        const sigTextW = msDoc.getTextWidth(typedName);
+        const sigCenterX = x + (sigW - sigTextW) / 2;
+        msDoc.text(typedName, sigCenterX, msY + 14);
+      } else {
+        try {
+          msDoc.addImage(sigVal, "PNG", x + 2, msY + 4, sigW - 4, 14, undefined, "FAST");
+        } catch { /* skip */ }
+      }
     }
 
     if (sigNames[i]) {
