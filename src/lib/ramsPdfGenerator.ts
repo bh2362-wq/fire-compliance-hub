@@ -1023,26 +1023,13 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   msDoc.save(`${document.rams_number}_Method_Statement.pdf`);
 }
 
-// Generate RAMS PDF and return as base64 string (RA doc only for email attachment)
-export async function generateRamsPDFBase64(document: RamsDocument): Promise<string> {
+// Generate both RAMS PDFs and return as base64 strings for email attachment
+export async function generateRamsPDFBase64(document: RamsDocument): Promise<{ raBase64: string; msBase64: string }> {
   const result = await generateRamsPDF(document, { returnDocs: true });
   if (!result) throw new Error("Failed to generate RAMS PDF");
   const { raDoc, msDoc } = result;
 
-  // Get both PDFs as base64 and combine by appending MS pages to RA
-  // Since jsPDF can't merge different-orientation docs, we return the RA (landscape)
-  // with the MS content summary appended as additional landscape pages
-  
-  // Alternative: return just the RA doc which is the primary professional document
-  // and include a note that MS is attached separately
-  // For a single email attachment, we'll output the RA doc base64
-  // Both docs contain full professional formatting
-  
-  // Actually, to send both as one attachment, we'll create a combined portrait version
-  // But the best approach is to just send the RA doc (the main risk assessment)
-  // since it contains the hazard matrix and professional layout
-  
-  // Return RA doc as base64 (the primary professional document with risk matrix)
   const raBase64 = raDoc.output("datauristring").split(",")[1];
-  return raBase64;
+  const msBase64 = msDoc.output("datauristring").split(",")[1];
+  return { raBase64, msBase64 };
 }

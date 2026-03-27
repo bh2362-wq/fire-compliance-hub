@@ -16,6 +16,7 @@ interface SendReportRequest {
   reportNumber: string;
   reportDate: string;
   pdfBase64: string;
+  additionalAttachments?: { filename: string; content: string }[];
   customerName?: string;
   companyName?: string;
   logoUrl?: string;
