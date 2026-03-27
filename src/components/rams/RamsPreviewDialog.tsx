@@ -71,6 +71,10 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
               <Badge className={statusColors[document.status] || "bg-gray-500"}>
                 {document.status.replace("_", " ")}
               </Badge>
+              <Button variant="outline" onClick={() => setShowEmail(true)}>
+                <Mail className="h-4 w-4 mr-2" />
+                Email
+              </Button>
               <Button onClick={handleDownloadPDF} disabled={generating}>
                 <Download className="h-4 w-4 mr-2" />
                 {generating ? "Generating..." : "Download PDF"}
