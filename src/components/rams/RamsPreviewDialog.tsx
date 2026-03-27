@@ -229,7 +229,11 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                 <div className="border rounded-lg p-4">
                   <h4 className="font-medium text-sm text-muted-foreground mb-2">Reviewer</h4>
                   {document.reviewer_signature ? (
-                    <img src={document.reviewer_signature} alt="Reviewer signature" className="max-h-16 object-contain" />
+                    document.reviewer_signature.startsWith("typed:") ? (
+                      <p className="text-2xl" style={{ fontFamily: "'Dancing Script', cursive" }}>{document.reviewer_signature.replace("typed:", "")}</p>
+                    ) : (
+                      <img src={document.reviewer_signature} alt="Reviewer signature" className="max-h-16 object-contain" />
+                    )
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not signed</p>
                   )}
