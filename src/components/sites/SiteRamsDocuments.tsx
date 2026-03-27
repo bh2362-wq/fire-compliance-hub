@@ -155,7 +155,14 @@ export function SiteRamsDocuments({ siteId }: SiteRamsDocumentsProps) {
         />
       )}
 
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+      {emailDoc && (
+        <EmailRamsDialog
+          open={!!emailDoc}
+          onOpenChange={(open) => !open && setEmailDoc(null)}
+          document={emailDoc}
+        />
+      )}
+
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete RAMS Document?</AlertDialogTitle>
