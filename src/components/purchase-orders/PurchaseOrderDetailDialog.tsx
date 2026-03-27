@@ -552,6 +552,26 @@ const PurchaseOrderDetailDialog = ({
           }}
         />
       )}
+
+      {purchaseOrder && (
+        <ManualInvoiceDialog
+          open={showInvoiceDialog}
+          onOpenChange={setShowInvoiceDialog}
+          prefillData={{
+            contactId: purchaseOrder.supplier?.xero_contact_id || "",
+            reference: purchaseOrder.po_number,
+            lineItems: purchaseOrder.line_items?.map((item) => ({
+              description: item.description,
+              quantity: item.quantity,
+              unitAmount: item.unit_price,
+            })) || [],
+          }}
+          onSuccess={() => {
+            setShowInvoiceDialog(false);
+            toast.success("Invoice draft created");
+          }}
+        />
+      )}
     </Dialog>
   );
 };
