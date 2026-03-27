@@ -383,7 +383,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
             </div>
             <div className="space-y-2">
               <Label>Summary / Scope of Works</Label>
-              <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="min-h-[100px]" />
+              <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="min-h-[200px] font-mono text-sm" />
             </div>
             <div className="space-y-2">
               <Label>Terms</Label>
