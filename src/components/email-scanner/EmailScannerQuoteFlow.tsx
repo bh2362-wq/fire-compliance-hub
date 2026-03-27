@@ -62,6 +62,9 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
   const [newCustomerEmail, setNewCustomerEmail] = useState(data.contact_email || data.sender_email || "");
   const [newCustomerPhone, setNewCustomerPhone] = useState(data.contact_phone || "");
   const [newCustomerContact, setNewCustomerContact] = useState(data.contact_name || data.sender_name || "");
+  const [newCustomerAddress, setNewCustomerAddress] = useState(data.site_address || "");
+  const [newCustomerCity, setNewCustomerCity] = useState(data.site_city || "");
+  const [newCustomerPostcode, setNewCustomerPostcode] = useState(data.site_postcode || "");
   const [newSiteName, setNewSiteName] = useState(data.site_name || "");
   const [newSiteAddress, setNewSiteAddress] = useState(data.site_address || "");
   const [newSiteCity, setNewSiteCity] = useState(data.site_city || "");
@@ -189,6 +192,9 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
           contact_email: newCustomerEmail || null,
           contact_phone: newCustomerPhone || null,
           contact_name: newCustomerContact || null,
+          address: newCustomerAddress || null,
+          city: newCustomerCity || null,
+          postcode: newCustomerPostcode || null,
         }).select().single();
         if (custErr) throw custErr;
         customerId = newCust.id;
@@ -279,12 +285,17 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
                 </Button>
               </div>
               {createNewCustomer ? (
-                <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                  <Input placeholder="Company name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} />
-                  <Input placeholder="Contact name" value={newCustomerContact} onChange={(e) => setNewCustomerContact(e.target.value)} />
-                  <Input placeholder="Email" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)} />
-                  <Input placeholder="Phone" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} />
-                </div>
+                 <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                   <Input placeholder="Company name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} />
+                   <Input placeholder="Contact name" value={newCustomerContact} onChange={(e) => setNewCustomerContact(e.target.value)} />
+                   <Input placeholder="Email" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)} />
+                   <Input placeholder="Phone" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} />
+                   <Input placeholder="Address" value={newCustomerAddress} onChange={(e) => setNewCustomerAddress(e.target.value)} />
+                   <div className="grid grid-cols-2 gap-2">
+                     <Input placeholder="City" value={newCustomerCity} onChange={(e) => setNewCustomerCity(e.target.value)} />
+                     <Input placeholder="Postcode" value={newCustomerPostcode} onChange={(e) => setNewCustomerPostcode(e.target.value)} />
+                   </div>
+                 </div>
               ) : (
                 <Select value={matchedCustomerId} onValueChange={setMatchedCustomerId}>
                   <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
