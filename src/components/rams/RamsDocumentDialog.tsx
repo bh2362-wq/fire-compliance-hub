@@ -19,6 +19,7 @@ import { format, addMonths } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { SignaturePad } from "@/components/ui/signature-pad";
+import { TypedSignature } from "@/components/ui/typed-signature";
 import {
   RamsDocument,
   RamsTemplate,
