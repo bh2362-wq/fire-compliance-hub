@@ -160,26 +160,29 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
       doc.text(companyName, raML, yPos + 10);
     }
 
-    // Company details — right-aligned (matching standard docs)
+    // Company details — right-aligned, stacked vertically
+    // Leave top-right corner clear for page numbers (drawn in final pass)
     const rightX = raPw - raMR;
-    let contactY = yPos + 2;
-
-    doc.setTextColor(...C.textGrey);
+    let contactY = yPos + 6; // Start below where page number sits
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setTextColor(...C.textGrey);
+
+    // Split address into separate lines to avoid overflow
     const compAddr = sanitize(company?.address || "");
-    const compCity = sanitize(company?.city || "");
-    const compPostcode = sanitize(company?.postcode || "");
-    const fullAddr = [compAddr, compCity, compPostcode].filter(Boolean).join(", ");
-    if (fullAddr) {
-      doc.text(fullAddr, rightX, contactY, { align: "right" });
-      contactY += 4;
+    const compCityPostcode = [sanitize(company?.city || ""), sanitize(company?.postcode || "")].filter(Boolean).join(", ");
+    if (compAddr) {
+      doc.text(compAddr, rightX, contactY, { align: "right" });
+      contactY += 3.5;
+    }
+    if (compCityPostcode) {
+      doc.text(compCityPostcode, rightX, contactY, { align: "right" });
+      contactY += 3.5;
     }
     if (company?.phone) {
       doc.text(`T: ${company.phone}`, rightX, contactY, { align: "right" });
-      contactY += 4;
+      contactY += 3.5;
     }
     if (company?.email) {
       doc.text(`E: ${company.email}`, rightX, contactY, { align: "right" });
@@ -587,26 +590,27 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
       doc.text(companyName, msML, yPos + 10);
     }
 
-    // Company details — right-aligned (matching standard docs)
+    // Company details — right-aligned, stacked vertically
     const rightX = msPw - msMR;
-    let contactY = yPos + 2;
-
-    doc.setTextColor(...C.textGrey);
+    let contactY = yPos + 6; // Start below page number area
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setTextColor(...C.textGrey);
+
     const msAddr = sanitize(company?.address || "");
-    const msCity = sanitize(company?.city || "");
-    const msPostcode = sanitize(company?.postcode || "");
-    const msFullAddr = [msAddr, msCity, msPostcode].filter(Boolean).join(", ");
-    if (msFullAddr) {
-      doc.text(msFullAddr, rightX, contactY, { align: "right" });
-      contactY += 4;
+    const msCityPostcode = [sanitize(company?.city || ""), sanitize(company?.postcode || "")].filter(Boolean).join(", ");
+    if (msAddr) {
+      doc.text(msAddr, rightX, contactY, { align: "right" });
+      contactY += 3.5;
+    }
+    if (msCityPostcode) {
+      doc.text(msCityPostcode, rightX, contactY, { align: "right" });
+      contactY += 3.5;
     }
     if (company?.phone) {
       doc.text(`T: ${company.phone}`, rightX, contactY, { align: "right" });
-      contactY += 4;
+      contactY += 3.5;
     }
     if (company?.email) {
       doc.text(`E: ${company.email}`, rightX, contactY, { align: "right" });
