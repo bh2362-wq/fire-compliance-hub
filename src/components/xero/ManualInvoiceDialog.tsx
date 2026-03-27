@@ -249,7 +249,7 @@ export function ManualInvoiceDialog({
         }
       }
     }
-  }, [open, user, isEditMode, editInvoice]);
+  }, [open, user, isEditMode, editInvoice, prefillData]);
 
   const fetchNextInvoiceNumber = async () => {
     setLoadingInvoiceNumber(true);

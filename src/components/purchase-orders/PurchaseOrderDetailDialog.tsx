@@ -42,6 +42,7 @@ import { downloadPurchaseOrderPDF } from "@/lib/purchaseOrderPdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmailPurchaseOrderDialog } from "@/components/purchase-orders/EmailPurchaseOrderDialog";
+import { ManualInvoiceDialog, InvoicePrefillData } from "@/components/xero/ManualInvoiceDialog";
 
 interface PurchaseOrderDetailDialogProps {
   open: boolean;
