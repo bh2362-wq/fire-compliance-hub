@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { RamsDocument } from "@/services/ramsService";
