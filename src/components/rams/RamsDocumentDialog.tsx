@@ -154,10 +154,13 @@ export function RamsDocumentDialog({
         setReviewDate(document.review_date || "");
         setPreparerSignature(document.preparer_signature);
         setPreparerName((document as any).preparer_name || "");
+        setPreparerSigMode(document.preparer_signature?.startsWith("typed:") ? "type" : document.preparer_signature ? "draw" : "type");
         setReviewerSignature(document.reviewer_signature);
         setReviewerName((document as any).reviewer_name || "");
+        setReviewerSigMode(document.reviewer_signature?.startsWith("typed:") ? "type" : document.reviewer_signature ? "draw" : "type");
         setClientSignature(document.client_signature);
         setClientName(document.client_name || "");
+        setClientSigMode(document.client_signature?.startsWith("typed:") ? "type" : document.client_signature ? "draw" : "type");
       } else if (templateToUse) {
         setTitle(templateToUse.name);
         setTemplateId(templateToUse.id);
