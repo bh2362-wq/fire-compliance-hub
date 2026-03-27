@@ -43,6 +43,7 @@ export function SiteRamsDocuments({ siteId }: SiteRamsDocumentsProps) {
   const [previewDoc, setPreviewDoc] = useState<RamsDocument | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [emailDoc, setEmailDoc] = useState<RamsDocument | null>(null);
 
   const { data: documents = [], refetch } = useQuery({
     queryKey: ["rams-documents-site", siteId],
