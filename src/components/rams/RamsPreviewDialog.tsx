@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { RamsDocument } from "@/services/ramsService";
 import { generateRamsPDF } from "@/lib/ramsPdfGenerator";
 import { RamsEngineerBriefing } from "@/components/rams/RamsEngineerBriefing";
+import { EmailRamsDialog } from "@/components/rams/EmailRamsDialog";
 
 interface RamsPreviewDialogProps {
   open: boolean;
@@ -39,7 +40,7 @@ function formatText(text: string): string {
 
 export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewDialogProps) {
   const [generating, setGenerating] = useState(false);
-
+  const [showEmail, setShowEmail] = useState(false);
   if (!document) return null;
 
   const handleDownloadPDF = async () => {
@@ -56,6 +57,7 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
@@ -70,6 +72,10 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
               <Badge className={statusColors[document.status] || "bg-gray-500"}>
                 {document.status.replace("_", " ")}
               </Badge>
+              <Button variant="outline" onClick={() => setShowEmail(true)}>
+                <Mail className="h-4 w-4 mr-2" />
+                Email
+              </Button>
               <Button onClick={handleDownloadPDF} disabled={generating}>
                 <Download className="h-4 w-4 mr-2" />
                 {generating ? "Generating..." : "Download PDF"}
@@ -272,5 +278,14 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
         </ScrollArea>
       </DialogContent>
     </Dialog>
+
+    {showEmail && document && (
+      <EmailRamsDialog
+        open={showEmail}
+        onOpenChange={setShowEmail}
+        document={document}
+      />
+    )}
+    </>
   );
 }

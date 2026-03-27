@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { HardHat, FileDown, Eye, Trash2, Plus } from "lucide-react";
+import { HardHat, FileDown, Eye, Trash2, Plus, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -13,6 +13,7 @@ import {
 import { generateRamsPDF } from "@/lib/ramsPdfGenerator";
 import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
 import { RamsPreviewDialog } from "@/components/rams/RamsPreviewDialog";
+import { EmailRamsDialog } from "@/components/rams/EmailRamsDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +43,7 @@ export function SiteRamsDocuments({ siteId }: SiteRamsDocumentsProps) {
   const [previewDoc, setPreviewDoc] = useState<RamsDocument | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [emailDoc, setEmailDoc] = useState<RamsDocument | null>(null);
 
   const { data: documents = [], refetch } = useQuery({
     queryKey: ["rams-documents-site", siteId],
@@ -104,6 +106,9 @@ export function SiteRamsDocuments({ siteId }: SiteRamsDocumentsProps) {
               <Button variant="ghost" size="icon" onClick={() => setPreviewDoc(doc)} title="Preview">
                 <Eye className="w-4 h-4" />
               </Button>
+              <Button variant="ghost" size="icon" onClick={() => setEmailDoc(doc)} title="Email to Client">
+                <Mail className="w-4 h-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -150,6 +155,13 @@ export function SiteRamsDocuments({ siteId }: SiteRamsDocumentsProps) {
         />
       )}
 
+      {emailDoc && (
+        <EmailRamsDialog
+          open={!!emailDoc}
+          onOpenChange={(open) => !open && setEmailDoc(null)}
+          document={emailDoc}
+        />
+      )}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

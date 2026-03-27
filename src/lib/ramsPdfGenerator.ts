@@ -1018,3 +1018,149 @@ export async function generateRamsPDF(document: RamsDocument): Promise<void> {
   raDoc.save(`${document.rams_number}_Risk_Assessment.pdf`);
   msDoc.save(`${document.rams_number}_Method_Statement.pdf`);
 }
+
+// Generate RAMS PDF and return as base64 string (RA doc only for email attachment)
+export async function generateRamsPDFBase64(document: RamsDocument): Promise<string> {
+  const company = await loadCompanySettings();
+  const logoUrl = company?.report_logo_url || company?.company_logo_url || null;
+  const logoBase64 = logoUrl ? await loadImageAsBase64(logoUrl) : null;
+
+  const safeHazards = Array.isArray(document.hazards) ? document.hazards : [];
+  const safeMethods = Array.isArray(document.method_statements) ? document.method_statements : [];
+  const safePpe = Array.isArray(document.ppe_requirements) ? document.ppe_requirements : [];
+
+  // For email we create a single portrait document with both RA and MS sections
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+  const ml = 10;
+  const mr = 10;
+  const cw = pw - ml - mr;
+  const companyName = sanitize(company?.company_name) || "Company";
+
+  // Title page
+  let y = 40;
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.text("RISK ASSESSMENT &", pw / 2, y, { align: "center" });
+  y += 10;
+  doc.text("METHOD STATEMENT", pw / 2, y, { align: "center" });
+  y += 15;
+  doc.setFontSize(14);
+  doc.text(document.rams_number, pw / 2, y, { align: "center" });
+  y += 10;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.text(sanitize(document.title), pw / 2, y, { align: "center", maxWidth: cw - 20 });
+  y += 15;
+
+  if (document.site?.name) {
+    doc.setFontSize(11);
+    doc.text(`Site: ${sanitize(document.site.name)}`, pw / 2, y, { align: "center" });
+    y += 7;
+  }
+  if (document.site?.address) {
+    doc.text(`Address: ${sanitize(document.site.address)}`, pw / 2, y, { align: "center", maxWidth: cw - 20 });
+    y += 10;
+  }
+
+  doc.setFontSize(10);
+  doc.text(`Version: ${document.version}`, pw / 2, y, { align: "center" });
+  y += 6;
+  doc.text(`Status: ${document.status.replace(/_/g, " ")}`, pw / 2, y, { align: "center" });
+  y += 6;
+  if (document.review_date) {
+    doc.text(`Review Date: ${document.review_date}`, pw / 2, y, { align: "center" });
+  }
+
+  // Hazards section
+  doc.addPage();
+  y = 15;
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("RISK ASSESSMENT", ml, y);
+  y += 10;
+
+  for (const hazard of safeHazards) {
+    if (y > ph - 40) { doc.addPage(); y = 15; }
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(sanitize(hazard.hazard), ml, y);
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    if (hazard.who_affected) { doc.text(`Who Affected: ${sanitize(hazard.who_affected)}`, ml + 2, y); y += 5; }
+    if (hazard.existing_controls) {
+      const lines = doc.splitTextToSize(`Controls: ${sanitize(hazard.existing_controls)}`, cw - 4);
+      doc.text(lines, ml + 2, y); y += lines.length * 4 + 2;
+    }
+    if (hazard.additional_controls) {
+      const lines = doc.splitTextToSize(`Additional: ${sanitize(hazard.additional_controls)}`, cw - 4);
+      doc.text(lines, ml + 2, y); y += lines.length * 4 + 2;
+    }
+    doc.text(`Risk: ${hazard.risk_level} → Residual: ${hazard.residual_risk}`, ml + 2, y);
+    y += 8;
+  }
+
+  // Method statements
+  doc.addPage();
+  y = 15;
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("METHOD STATEMENT", ml, y);
+  y += 10;
+
+  for (const step of safeMethods) {
+    if (y > ph - 30) { doc.addPage(); y = 15; }
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Step ${step.step_number}`, ml, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const lines = doc.splitTextToSize(sanitize(step.description), cw - 4);
+    doc.text(lines, ml + 2, y); y += lines.length * 4 + 2;
+    if (step.responsible_person) { doc.text(`Responsible: ${sanitize(step.responsible_person)}`, ml + 2, y); y += 5; }
+    if (step.equipment_required) { doc.text(`Equipment: ${sanitize(step.equipment_required)}`, ml + 2, y); y += 5; }
+    y += 3;
+  }
+
+  // PPE
+  if (safePpe.length > 0) {
+    if (y > ph - 30) { doc.addPage(); y = 15; }
+    y += 5;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("PPE REQUIREMENTS", ml, y);
+    y += 7;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(safePpe.join(", "), ml + 2, y, { maxWidth: cw - 4 });
+    y += 8;
+  }
+
+  // Emergency procedures
+  if (document.emergency_procedures) {
+    if (y > ph - 40) { doc.addPage(); y = 15; }
+    y += 5;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("EMERGENCY PROCEDURES", ml, y);
+    y += 7;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const epLines = doc.splitTextToSize(sanitize(document.emergency_procedures), cw - 4);
+    doc.text(epLines, ml + 2, y);
+  }
+
+  // Footer on all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${companyName} | ${document.rams_number} | Page ${i} of ${totalPages}`, pw / 2, ph - 5, { align: "center" });
+  }
+
+  return doc.output("datauristring").split(",")[1];
+}
