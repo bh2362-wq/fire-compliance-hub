@@ -134,14 +134,24 @@ const VisitFormDialog = ({
   const loadSiteAssets = async (siteId: string) => {
     setLoadingAssets(true);
     try {
-      const { data } = await supabase
-        .from("site_assets")
-        .select("id, item_name, asset_type, manufacturer, model, location")
-        .eq("site_id", siteId)
-        .order("asset_type", { ascending: true })
-        .order("item_name", { ascending: true });
+      // Load site_assets AND service contracts in parallel
+      const [assetsResult, contractsResult] = await Promise.all([
+        supabase
+          .from("site_assets")
+          .select("id, item_name, asset_type, manufacturer, model, location")
+          .eq("site_id", siteId)
+          .order("asset_type", { ascending: true })
+          .order("item_name", { ascending: true }),
+        supabase
+          .from("site_service_contracts")
+          .select("service_type")
+          .eq("site_id", siteId),
+      ]);
       
-      setSiteAssets(data || []);
+      setSiteAssets(assetsResult.data || []);
+      // Extract unique service types from contracts
+      const contractTypes = (contractsResult.data || []).map(c => c.service_type);
+      setContractServiceTypes([...new Set(contractTypes)]);
     } catch (error) {
       console.error("Error loading site assets:", error);
     } finally {
