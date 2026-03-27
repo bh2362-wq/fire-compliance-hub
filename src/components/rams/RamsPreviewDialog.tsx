@@ -40,7 +40,7 @@ function formatText(text: string): string {
 
 export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewDialogProps) {
   const [generating, setGenerating] = useState(false);
-
+  const [showEmail, setShowEmail] = useState(false);
   if (!document) return null;
 
   const handleDownloadPDF = async () => {
