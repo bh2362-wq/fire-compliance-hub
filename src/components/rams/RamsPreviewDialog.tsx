@@ -209,7 +209,11 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                 <div className="border rounded-lg p-4">
                   <h4 className="font-medium text-sm text-muted-foreground mb-2">Preparer</h4>
                   {document.preparer_signature ? (
-                    <img src={document.preparer_signature} alt="Preparer signature" className="max-h-16 object-contain" />
+                    document.preparer_signature.startsWith("typed:") ? (
+                      <p className="text-2xl" style={{ fontFamily: "'Dancing Script', cursive" }}>{document.preparer_signature.replace("typed:", "")}</p>
+                    ) : (
+                      <img src={document.preparer_signature} alt="Preparer signature" className="max-h-16 object-contain" />
+                    )
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not signed</p>
                   )}
