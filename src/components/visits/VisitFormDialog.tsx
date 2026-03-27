@@ -82,6 +82,7 @@ const VisitFormDialog = ({
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [internalSites, setInternalSites] = useState<Site[]>([]);
   const [siteAssets, setSiteAssets] = useState<SiteAsset[]>([]);
+  const [contractServiceTypes, setContractServiceTypes] = useState<string[]>([]);
   const { toast } = useToast();
 
   const form = useForm<VisitFormData>({
@@ -133,14 +134,24 @@ const VisitFormDialog = ({
   const loadSiteAssets = async (siteId: string) => {
     setLoadingAssets(true);
     try {
-      const { data } = await supabase
-        .from("site_assets")
-        .select("id, item_name, asset_type, manufacturer, model, location")
-        .eq("site_id", siteId)
-        .order("asset_type", { ascending: true })
-        .order("item_name", { ascending: true });
+      // Load site_assets AND service contracts in parallel
+      const [assetsResult, contractsResult] = await Promise.all([
+        supabase
+          .from("site_assets")
+          .select("id, item_name, asset_type, manufacturer, model, location")
+          .eq("site_id", siteId)
+          .order("asset_type", { ascending: true })
+          .order("item_name", { ascending: true }),
+        supabase
+          .from("site_service_contracts")
+          .select("service_type")
+          .eq("site_id", siteId),
+      ]);
       
-      setSiteAssets(data || []);
+      setSiteAssets(assetsResult.data || []);
+      // Extract unique service types from contracts
+      const contractTypes = (contractsResult.data || []).map(c => c.service_type);
+      setContractServiceTypes([...new Set(contractTypes)]);
     } catch (error) {
       console.error("Error loading site assets:", error);
     } finally {
@@ -152,69 +163,43 @@ const VisitFormDialog = ({
   const showSiteSelector = !siteId && availableSites.length > 0;
   const selectedSiteName = availableSites.find(s => s.id === selectedSiteId)?.name || siteName;
 
-  // Group assets by type - keys match SERVICE_TYPES from serviceContractService
-  const fireAssets = siteAssets.filter(a => a.asset_type === "fire");
-  const aspiratorAssets = siteAssets.filter(a => a.asset_type === "aspirator");
-  const gasSuppressionAssets = siteAssets.filter(a => a.asset_type === "gas_suppression");
-  const roomIntegrityAssets = siteAssets.filter(a => a.asset_type === "room_integrity");
-  const fireCurtainAssets = siteAssets.filter(a => a.asset_type === "fire_curtain");
-  const disabledRefugeAssets = siteAssets.filter(a => a.asset_type === "disabled_refuge");
-  const emergencyLightingAssets = siteAssets.filter(a => a.asset_type === "emergency_lighting");
-  const intruderAlarmAssets = siteAssets.filter(a => a.asset_type === "intruder_alarm");
-  const nurseCallAssets = siteAssets.filter(a => a.asset_type === "nurse_call");
-
-  // Fire panel visits cover ALL panels - report will have separate checklists per panel
-  // ASD visits also cover ALL units at the site - same approach
-
   // Clear visit_type when asset_type changes
   useEffect(() => {
     form.setValue("visit_type", "");
   }, [selectedAssetType, form]);
 
-  // Get available asset types based on site assets
+  // Helper: check if asset type has assets OR a service contract
+  const hasType = (type: string) => {
+    const assetCount = siteAssets.filter(a => a.asset_type === type).length;
+    return assetCount > 0 || contractServiceTypes.includes(type);
+  };
+  const countForType = (type: string) => siteAssets.filter(a => a.asset_type === type).length;
+
+  // Get available asset types based on site assets AND service contracts
+  const assetTypeConfigs: { value: string; label: string; icon: typeof Flame; }[] = [
+    { value: "fire", label: "Fire Alarm", icon: Flame },
+    { value: "aspirator", label: "Aspirator / ASD", icon: Wind },
+    { value: "gas_suppression", label: "Gas Suppression", icon: Flame },
+    { value: "emergency_lighting", label: "Emergency Lighting", icon: Flame },
+    { value: "disabled_refuge", label: "Disabled Refuge", icon: Phone },
+    { value: "room_integrity", label: "Room Integrity", icon: Flame },
+    { value: "fire_curtain", label: "Fire Curtain", icon: Flame },
+    { value: "intruder_alarm", label: "Intruder Alarm", icon: AlertTriangle },
+    { value: "nurse_call", label: "Nurse Call", icon: Phone },
+  ];
+
   const availableAssetTypes = [
-    ...(fireAssets.length > 0 ? [{ 
-      value: "fire", 
-      label: `Fire Alarm${fireAssets.length > 1 ? ` (${fireAssets.length} panels)` : ""}`, 
-      icon: Flame, 
-      count: fireAssets.length 
-    }] : []),
-    ...(aspiratorAssets.length > 0 ? [{ 
-      value: "aspirator", 
-      label: `Aspirator / ASD${aspiratorAssets.length > 1 ? ` (${aspiratorAssets.length} units)` : ""}`, 
-      icon: Wind, 
-      count: aspiratorAssets.length 
-    }] : []),
-    ...(gasSuppressionAssets.length > 0 ? [{ 
-      value: "gas_suppression", 
-      label: `Gas Suppression${gasSuppressionAssets.length > 1 ? ` (${gasSuppressionAssets.length} units)` : ""}`, 
-      icon: Flame, 
-      count: gasSuppressionAssets.length 
-    }] : []),
-    ...(emergencyLightingAssets.length > 0 ? [{ 
-      value: "emergency_lighting", 
-      label: `Emergency Lighting${emergencyLightingAssets.length > 1 ? ` (${emergencyLightingAssets.length} units)` : ""}`, 
-      icon: Flame, 
-      count: emergencyLightingAssets.length 
-    }] : []),
-    ...(disabledRefugeAssets.length > 0 ? [{ 
-      value: "disabled_refuge", 
-      label: `Disabled Refuge${disabledRefugeAssets.length > 1 ? ` (${disabledRefugeAssets.length} units)` : ""}`, 
-      icon: Phone, 
-      count: disabledRefugeAssets.length 
-    }] : []),
-    ...(intruderAlarmAssets.length > 0 ? [{ 
-      value: "intruder_alarm", 
-      label: `Intruder Alarm${intruderAlarmAssets.length > 1 ? ` (${intruderAlarmAssets.length} units)` : ""}`, 
-      icon: AlertTriangle, 
-      count: intruderAlarmAssets.length 
-    }] : []),
-    ...(nurseCallAssets.length > 0 ? [{ 
-      value: "nurse_call", 
-      label: `Nurse Call${nurseCallAssets.length > 1 ? ` (${nurseCallAssets.length} units)` : ""}`, 
-      icon: Phone, 
-      count: nurseCallAssets.length 
-    }] : []),
+    ...assetTypeConfigs
+      .filter(cfg => hasType(cfg.value))
+      .map(cfg => {
+        const count = countForType(cfg.value);
+        return {
+          value: cfg.value,
+          label: count > 1 ? `${cfg.label} (${count} units)` : cfg.label,
+          icon: cfg.icon,
+          count,
+        };
+      }),
     { value: "general", label: "General / Other", icon: Wrench, count: 0 },
   ];
 
