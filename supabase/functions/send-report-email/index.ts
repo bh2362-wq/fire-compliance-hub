@@ -158,6 +158,7 @@ serve(async (req) => {
               filename: fileName,
               content: pdfBase64,
             },
+            ...(additionalAttachments || []),
           ],
         });
 
