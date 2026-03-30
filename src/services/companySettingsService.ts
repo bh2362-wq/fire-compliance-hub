@@ -155,7 +155,6 @@ export async function getTeamMembers() {
 }
 
 export async function updateUserRole(userId: string, role: 'owner' | 'admin' | 'engineer' | 'client' | 'auditor') {
-  // First check if user has a role
   const { data: existingRole } = await supabase
     .from('user_roles')
     .select('id')
@@ -174,4 +173,12 @@ export async function updateUserRole(userId: string, role: 'owner' | 'admin' | '
       .insert({ user_id: userId, role });
     if (error) throw error;
   }
+}
+
+export async function updateMicrosoftEmail(userId: string, microsoftEmail: string | null) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ microsoft_email: microsoftEmail } as any)
+    .eq('user_id', userId);
+  if (error) throw error;
 }
