@@ -37,7 +37,8 @@ export function AppointmentCard({ appointment, compact = false, onClick }: Appoi
       >
         <span className="font-medium">{formatTime(appointment.start_time)}</span>
         {' '}
-        {appointment.title}
+        {appointment.site?.name || appointment.title}
+        {appointment.visit_type && ` – ${appointment.visit_type.replace(/_/g, ' ')}`}
       </div>
     );
   }
@@ -52,12 +53,24 @@ export function AppointmentCard({ appointment, compact = false, onClick }: Appoi
       style={{ borderLeftColor: visitTypeColor.hex }}
       onClick={onClick}
     >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <h4 className="font-medium text-foreground line-clamp-1">{appointment.title}</h4>
+      <div className="flex items-start justify-between gap-2 mb-1">
+        {appointment.site ? (
+          <h4 className="font-semibold text-foreground line-clamp-1">{appointment.site.name}</h4>
+        ) : (
+          <h4 className="font-semibold text-foreground line-clamp-1">{appointment.title}</h4>
+        )}
         <Badge variant="secondary" className={cn("text-white text-[10px] shrink-0", statusColor)}>
           {statusLabel}
         </Badge>
       </div>
+
+      {appointment.visit_type && (
+        <div className="mb-2">
+          <Badge variant="outline" className="text-[10px] capitalize">
+            {appointment.visit_type.replace(/_/g, ' ')}
+          </Badge>
+        </div>
+      )}
 
       <div className="space-y-1.5 text-sm text-muted-foreground">
         <div className="flex items-center gap-1.5">
@@ -67,13 +80,6 @@ export function AppointmentCard({ appointment, compact = false, onClick }: Appoi
             {appointment.end_time && ` - ${formatTime(appointment.end_time)}`}
           </span>
         </div>
-
-        {appointment.site && (
-          <div className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5" />
-            <span className="truncate">{appointment.site.name}</span>
-          </div>
-        )}
 
         {appointment.engineer && (
           <div className="flex items-center gap-1.5">
@@ -90,14 +96,6 @@ export function AppointmentCard({ appointment, compact = false, onClick }: Appoi
           </div>
         )}
       </div>
-
-      {appointment.visit_type && (
-        <div className="mt-2">
-          <Badge variant="outline" className="text-[10px]">
-            {appointment.visit_type.replace(/_/g, ' ')}
-          </Badge>
-        </div>
-      )}
     </div>
   );
 }
