@@ -36,6 +36,7 @@ interface ExtractedPOData {
   contact_phone: string | null;
   special_instructions: string | null;
   asset_descriptions: { name: string; type: string; manufacturer?: string; model?: string }[];
+  frequency: string | null;
   estimated_value: number | null;
 }
 
