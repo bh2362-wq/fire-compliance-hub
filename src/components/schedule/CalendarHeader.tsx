@@ -66,7 +66,13 @@ export function CalendarHeader({
         <h2 className="text-xl font-semibold text-foreground">{getTitle()}</h2>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        {onEngineerChange && (
+          <EngineerDiaryFilter
+            selectedEngineerId={selectedEngineerId ?? null}
+            onEngineerChange={onEngineerChange}
+          />
+        )}
         <div className="flex items-center border border-border rounded-lg overflow-hidden">
           <Button
             variant={view === 'day' ? 'default' : 'ghost'}

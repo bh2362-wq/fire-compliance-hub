@@ -30,6 +30,7 @@ const Schedule = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedEngineerId, setSelectedEngineerId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
