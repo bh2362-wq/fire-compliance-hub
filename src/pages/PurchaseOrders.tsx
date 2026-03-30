@@ -412,6 +412,10 @@ const PurchaseOrders = () => {
               <FileUp className="w-4 h-4 mr-2" />
               Import Client PO
             </Button>
+            <Button variant="outline" onClick={() => setShowBulkImportPO(true)}>
+              <Files className="w-4 h-4 mr-2" />
+              Bulk Import POs
+            </Button>
             <Button variant="outline" onClick={() => setShowSubcontractors(true)}>
               <HardHat className="w-4 h-4 mr-2" />
               Subcontractors
