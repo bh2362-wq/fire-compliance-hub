@@ -69,7 +69,7 @@ export function PushToQuotationDialog({ open, onOpenChange, priceList, items }: 
         .filter(i => Number(i.sell_price) > 0 || i.description)
         .map((item, idx) => ({
           quotation_id: quotation.id,
-          description: `${item.model_number ? item.model_number + " - " : ""}${item.description}`,
+          description: expandedDescriptions[idx] || `${item.model_number ? item.model_number + " - " : ""}${item.description}`,
           quantity: item.quantity,
           unit_price: Number(item.cost_price) * (1 + Number(item.markup_percent) / 100),
           labour_cost: Number(item.labour_cost),
