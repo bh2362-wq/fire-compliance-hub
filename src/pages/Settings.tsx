@@ -157,6 +157,10 @@ const Settings = () => {
             </div>
             {xeroConnection && <OutstandingInvoices />}
           </TabsContent>
+
+          <TabsContent value="security">
+            <SecurityComplianceTab />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
