@@ -27,6 +27,8 @@ const roleConfig = {
   owner: { label: "Owner", color: "bg-purple-500", icon: Shield },
   admin: { label: "Admin", color: "bg-blue-500", icon: UserCog },
   engineer: { label: "Engineer", color: "bg-green-500", icon: Wrench },
+  apprentice: { label: "Apprentice", color: "bg-teal-500", icon: GraduationCap },
+  office: { label: "Office", color: "bg-indigo-500", icon: Building2 },
   client: { label: "Client", color: "bg-orange-500", icon: User },
   auditor: { label: "Auditor", color: "bg-gray-500", icon: Eye },
 };
