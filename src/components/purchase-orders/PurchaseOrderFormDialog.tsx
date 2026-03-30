@@ -33,11 +33,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import SupplierFormDialog from "./SupplierFormDialog";
 import { supabase } from "@/integrations/supabase/client";
 
+interface PurchaseOrderPrefill {
+  supplierName?: string;
+  reference?: string;
+  deliveryAddress?: string;
+  notes?: string;
+  lineItems?: { description: string; quantity: number; unit_price: number }[];
+}
+
 interface PurchaseOrderFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   editPurchaseOrder?: PurchaseOrder | null;
+  prefill?: PurchaseOrderPrefill | null;
 }
 
 interface LineItemInput {
