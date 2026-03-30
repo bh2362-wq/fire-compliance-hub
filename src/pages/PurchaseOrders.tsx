@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, MoreVertical, Eye, Trash2, Send, Users, Download, Ban, Copy, Pencil, CheckCircle, Mail, Loader2, FileUp, HardHat } from "lucide-react";
+import { Plus, MoreVertical, Eye, Trash2, Send, Users, Download, Ban, Copy, Pencil, CheckCircle, Mail, Loader2, FileUp, HardHat, Files } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -43,6 +43,7 @@ import SuppliersDialog from "@/components/purchase-orders/SuppliersDialog";
 import { EmailPurchaseOrderDialog } from "@/components/purchase-orders/EmailPurchaseOrderDialog";
 import { BulkSendPODialog } from "@/components/purchase-orders/BulkSendPODialog";
 import ImportClientPODialog from "@/components/purchase-orders/ImportClientPODialog";
+import BulkImportPODialog from "@/components/purchase-orders/BulkImportPODialog";
 import SubcontractorsDialog from "@/components/purchase-orders/SubcontractorsDialog";
 import {
   AlertDialog,
@@ -72,6 +73,7 @@ const PurchaseOrders = () => {
   const [bulkSending, setBulkSending] = useState(false);
   const [showBulkSend, setShowBulkSend] = useState(false);
   const [showImportPO, setShowImportPO] = useState(false);
+  const [showBulkImportPO, setShowBulkImportPO] = useState(false);
   const [showSubcontractors, setShowSubcontractors] = useState(false);
 
   const loadPurchaseOrders = async () => {
@@ -410,6 +412,10 @@ const PurchaseOrders = () => {
               <FileUp className="w-4 h-4 mr-2" />
               Import Client PO
             </Button>
+            <Button variant="outline" onClick={() => setShowBulkImportPO(true)}>
+              <Files className="w-4 h-4 mr-2" />
+              Bulk Import POs
+            </Button>
             <Button variant="outline" onClick={() => setShowSubcontractors(true)}>
               <HardHat className="w-4 h-4 mr-2" />
               Subcontractors
@@ -518,6 +524,12 @@ const PurchaseOrders = () => {
       <ImportClientPODialog
         open={showImportPO}
         onOpenChange={setShowImportPO}
+        onSuccess={loadPurchaseOrders}
+      />
+
+      <BulkImportPODialog
+        open={showBulkImportPO}
+        onOpenChange={setShowBulkImportPO}
         onSuccess={loadPurchaseOrders}
       />
 
