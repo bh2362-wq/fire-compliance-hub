@@ -65,7 +65,7 @@ const Schedule = () => {
   }, [currentDate, view]);
 
   const {
-    data: appointments = [],
+    data: allAppointments = [],
     isLoading,
     refetch,
   } = useQuery({
@@ -73,6 +73,12 @@ const Schedule = () => {
     queryFn: () => fetchAppointments(dateRange.start, dateRange.end),
     refetchOnMount: 'always',
   });
+
+  // Filter by selected engineer for diary view
+  const appointments = useMemo(() => {
+    if (!selectedEngineerId) return allAppointments;
+    return allAppointments.filter(apt => apt.engineer_id === selectedEngineerId);
+  }, [allAppointments, selectedEngineerId]);
 
   const handleNavigate = (direction: 'prev' | 'next' | 'today') => {
     if (direction === 'today') {
