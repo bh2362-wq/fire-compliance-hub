@@ -161,13 +161,13 @@ export function AppointmentFormDialog({
       const folderPath = `Customers/${customerName}/${siteName}/Reports/${vType}_${dateStr}_${shortId}`;
 
       await supabase.functions.invoke('sharepoint-create-folder', {
-        body: { folderPath },
+        body: { folderPath, entityType: 'folder_only', entityId: visitId },
       });
 
       // Create subfolders
       await Promise.all([
-        supabase.functions.invoke('sharepoint-create-folder', { body: { folderPath: `${folderPath}/Photos` } }),
-        supabase.functions.invoke('sharepoint-create-folder', { body: { folderPath: `${folderPath}/Documents` } }),
+        supabase.functions.invoke('sharepoint-create-folder', { body: { folderPath: `${folderPath}/Photos`, entityType: 'folder_only', entityId: visitId } }),
+        supabase.functions.invoke('sharepoint-create-folder', { body: { folderPath: `${folderPath}/Documents`, entityType: 'folder_only', entityId: visitId } }),
       ]);
 
       toast({ title: "SharePoint folder created", description: folderPath });
