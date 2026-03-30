@@ -31,7 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Loader2, Pencil, Upload, FileText, X, Server, Wind, Flame, Box, PanelTop, Accessibility, Lightbulb, ShieldAlert, Phone, Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Check } from "lucide-react";
+import { Loader2, Pencil, Upload, FileText, X, Server, Wind, Flame, Box, PanelTop, Accessibility, Lightbulb, ShieldAlert, Phone, Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Check, UserCog } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
