@@ -52,6 +52,7 @@ import { VisitRequirementsBadges } from "./VisitRequirementsBadges";
 import { SendVisitConfirmationDialog } from "./SendVisitConfirmationDialog";
 import { BulkEmailJobsDialog } from "./BulkEmailJobsDialog";
 import { getVisitTypeLabel } from "@/constants/visitTypes";
+import JobProgressTracker from "./JobProgressTracker";
 
 interface ASDAsset {
   id: string;
@@ -760,7 +761,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           </div>
         </div>
         <div className="col-span-2">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-sm text-foreground">
               <Calendar className="w-4 h-4 text-muted-foreground" />
               {format(new Date(visit.visit_date), "MMM d, yyyy")}
@@ -770,6 +771,12 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 ? `#${invoiceInfo.xero_invoice_number}` 
                 : displayStatus.label}
             </Badge>
+            <JobProgressTracker
+              status={visit.status}
+              hasReport={!!reportInfo?.report_number}
+              hasInvoice={isInvoiced}
+              compact
+            />
           </div>
         </div>
         <div className="col-span-1">

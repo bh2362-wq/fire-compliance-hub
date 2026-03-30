@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
+import FloatingActionButton from "@/components/dashboard/FloatingActionButton";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -377,6 +378,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <div className="flex-1 overflow-y-auto p-3 md:p-6">
           {children}
         </div>
+
+        {/* Mobile floating action button */}
+        <FloatingActionButton />
       </main>
     </div>
   );
