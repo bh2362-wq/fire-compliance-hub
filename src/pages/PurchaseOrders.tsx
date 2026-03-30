@@ -73,6 +73,7 @@ const PurchaseOrders = () => {
   const [bulkSending, setBulkSending] = useState(false);
   const [showBulkSend, setShowBulkSend] = useState(false);
   const [showImportPO, setShowImportPO] = useState(false);
+  const [showBulkImportPO, setShowBulkImportPO] = useState(false);
   const [showSubcontractors, setShowSubcontractors] = useState(false);
 
   const loadPurchaseOrders = async () => {
