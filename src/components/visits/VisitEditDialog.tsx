@@ -510,6 +510,27 @@ const VisitEditDialog = ({
               />
             </div>
 
+            {/* Engineer Assignment */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <UserCog className="h-4 w-4" />
+                Assigned Engineer
+              </Label>
+              <Select value={selectedEngineerId} onValueChange={setSelectedEngineerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select engineer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {engineers.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.full_name || e.email || "Unknown"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <FormField
               control={form.control}
               name="notes"
