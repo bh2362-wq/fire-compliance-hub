@@ -20,6 +20,7 @@ import {
   deleteAppointment,
   fetchEngineers,
   APPOINTMENT_STATUS_LABELS,
+  syncAppointmentToOutlook,
 } from "@/services/appointmentService";
 import { 
   sendAppointmentCreatedNotification, 
