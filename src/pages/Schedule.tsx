@@ -30,6 +30,7 @@ const Schedule = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedEngineerId, setSelectedEngineerId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -64,7 +65,7 @@ const Schedule = () => {
   }, [currentDate, view]);
 
   const {
-    data: appointments = [],
+    data: allAppointments = [],
     isLoading,
     refetch,
   } = useQuery({
@@ -72,6 +73,12 @@ const Schedule = () => {
     queryFn: () => fetchAppointments(dateRange.start, dateRange.end),
     refetchOnMount: 'always',
   });
+
+  // Filter by selected engineer for diary view
+  const appointments = useMemo(() => {
+    if (!selectedEngineerId) return allAppointments;
+    return allAppointments.filter(apt => apt.engineer_id === selectedEngineerId);
+  }, [allAppointments, selectedEngineerId]);
 
   const handleNavigate = (direction: 'prev' | 'next' | 'today') => {
     if (direction === 'today') {
@@ -137,6 +144,8 @@ const Schedule = () => {
           onViewChange={setView}
           onNavigate={handleNavigate}
           onAddAppointment={handleAddAppointment}
+          selectedEngineerId={selectedEngineerId}
+          onEngineerChange={setSelectedEngineerId}
         />
 
         <div className="flex-1 mt-4 overflow-hidden bg-card rounded-lg border border-border">

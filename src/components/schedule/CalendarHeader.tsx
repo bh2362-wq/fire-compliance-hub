@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus } from "lucide-react";
 import { format } from "date-fns";
+import { EngineerDiaryFilter } from "./EngineerDiaryFilter";
 
 export type CalendarView = 'day' | 'week' | 'month';
 
@@ -10,6 +11,8 @@ interface CalendarHeaderProps {
   onViewChange: (view: CalendarView) => void;
   onNavigate: (direction: 'prev' | 'next' | 'today') => void;
   onAddAppointment: () => void;
+  selectedEngineerId?: string | null;
+  onEngineerChange?: (engineerId: string | null) => void;
 }
 
 export function CalendarHeader({
@@ -18,6 +21,8 @@ export function CalendarHeader({
   onViewChange,
   onNavigate,
   onAddAppointment,
+  selectedEngineerId,
+  onEngineerChange,
 }: CalendarHeaderProps) {
   const getTitle = () => {
     switch (view) {
@@ -61,7 +66,13 @@ export function CalendarHeader({
         <h2 className="text-xl font-semibold text-foreground">{getTitle()}</h2>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        {onEngineerChange && (
+          <EngineerDiaryFilter
+            selectedEngineerId={selectedEngineerId ?? null}
+            onEngineerChange={onEngineerChange}
+          />
+        )}
         <div className="flex items-center border border-border rounded-lg overflow-hidden">
           <Button
             variant={view === 'day' ? 'default' : 'ghost'}
