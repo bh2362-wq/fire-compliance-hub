@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
+import FloatingActionButton from "@/components/dashboard/FloatingActionButton";
 
 interface DashboardLayoutProps {
   children: ReactNode;
