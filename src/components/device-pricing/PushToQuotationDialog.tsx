@@ -10,6 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { AIExpandButton } from "@/components/quotations/AIExpandButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { DevicePriceList, DevicePriceItem } from "@/services/devicePricingService";
@@ -30,6 +31,7 @@ export function PushToQuotationDialog({ open, onOpenChange, priceList, items }: 
   const [summary, setSummary] = useState("Supply and installation of replacement fire alarm devices as per device health report.");
   const [terms, setTerms] = useState("");
   const [saving, setSaving] = useState(false);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Record<number, string>>({});
 
   const subtotal = items.reduce((s, i) => s + Number(i.sell_price), 0);
   const vatAmount = subtotal * (vatRate / 100);
@@ -67,7 +69,7 @@ export function PushToQuotationDialog({ open, onOpenChange, priceList, items }: 
         .filter(i => Number(i.sell_price) > 0 || i.description)
         .map((item, idx) => ({
           quotation_id: quotation.id,
-          description: `${item.model_number ? item.model_number + " - " : ""}${item.description}`,
+          description: expandedDescriptions[idx] || `${item.model_number ? item.model_number + " - " : ""}${item.description}`,
           quantity: item.quantity,
           unit_price: Number(item.cost_price) * (1 + Number(item.markup_percent) / 100),
           labour_cost: Number(item.labour_cost),
@@ -103,7 +105,23 @@ export function PushToQuotationDialog({ open, onOpenChange, priceList, items }: 
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Push to Quotation</DialogTitle>
-          <DialogDescription>Create a quotation from {items.length} priced devices.</DialogDescription>
+          <DialogDescription className="flex items-center justify-between">
+            <span>Create a quotation from {items.length} priced devices.</span>
+            <AIExpandButton
+              lineItems={items.map((i) => ({
+                description: `${i.model_number ? i.model_number + " - " : ""}${i.description}`,
+                quantity: i.quantity,
+              }))}
+              onAccept={(expandedItems, generatedSummary) => {
+                const newDescs: Record<number, string> = {};
+                expandedItems.forEach(({ index, description }) => {
+                  newDescs[index] = description;
+                });
+                setExpandedDescriptions(newDescs);
+                if (generatedSummary) setSummary(generatedSummary);
+              }}
+            />
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

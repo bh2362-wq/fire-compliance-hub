@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, Loader2, Database } from "lucide-react";
+import { AIExpandButton } from "./AIExpandButton";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -386,9 +387,22 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-base font-semibold">Line Items</Label>
-              <Button variant="outline" size="sm" onClick={addItem}>
-                <Plus className="mr-1 h-4 w-4" /> Add Item
-              </Button>
+              <div className="flex items-center gap-2">
+                <AIExpandButton
+                  lineItems={lineItems}
+                  onAccept={(expandedItems, generatedSummary) => {
+                    const updated = [...lineItems];
+                    expandedItems.forEach(({ index, description }) => {
+                      if (updated[index]) updated[index] = { ...updated[index], description };
+                    });
+                    setLineItems(updated);
+                    if (generatedSummary) setSummary(generatedSummary);
+                  }}
+                />
+                <Button variant="outline" size="sm" onClick={addItem}>
+                  <Plus className="mr-1 h-4 w-4" /> Add Item
+                </Button>
+              </div>
             </div>
 
             {lineItems.map((item, index) => (
