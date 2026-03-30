@@ -515,7 +515,10 @@ export function AppointmentFormDialog({
                   disabled={!engineerId}
                   title={!engineerId ? "Assign an engineer first" : "Push to engineer's Outlook calendar"}
                   onClick={async () => {
-                    if (!appointment?.id) return;
+                    if (!appointment?.id || !engineerId) {
+                      toast({ title: "No engineer assigned", description: "Please assign an engineer before syncing to Outlook.", variant: "destructive" });
+                      return;
+                    }
                     const result = await syncAppointmentToOutlook(appointment.id);
                     if (result.success) {
                       toast({ title: "Synced to Outlook", description: "Appointment pushed to engineer's Outlook calendar." });
