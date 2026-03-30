@@ -1538,6 +1538,23 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           onRefresh?.();
         }}
       />
+      {subcontractorPOVisit && (
+        <PurchaseOrderFormDialog
+          open={!!subcontractorPOVisit}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSubcontractorPOVisit(null);
+              setSubcontractorPOPrefill(null);
+            }
+          }}
+          onSuccess={() => {
+            setSubcontractorPOVisit(null);
+            setSubcontractorPOPrefill(null);
+            toast({ title: "Success", description: "Subcontractor PO created" });
+          }}
+          prefill={subcontractorPOPrefill}
+        />
+      )}
     </div>
   );
 };
