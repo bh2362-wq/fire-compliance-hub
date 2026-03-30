@@ -378,6 +378,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <div className="flex-1 overflow-y-auto p-3 md:p-6">
           {children}
         </div>
+
+        {/* Mobile floating action button */}
+        <FloatingActionButton />
       </main>
     </div>
   );
