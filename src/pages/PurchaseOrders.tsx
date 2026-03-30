@@ -515,6 +515,17 @@ const PurchaseOrders = () => {
         }}
       />
 
+      <ImportClientPODialog
+        open={showImportPO}
+        onOpenChange={setShowImportPO}
+        onSuccess={loadPurchaseOrders}
+      />
+
+      <SubcontractorsDialog
+        open={showSubcontractors}
+        onOpenChange={setShowSubcontractors}
+      />
+
       {/* Delete Confirmation */}
       <AlertDialog open={!!poToDelete} onOpenChange={() => setPoToDelete(null)}>
         <AlertDialogContent>
