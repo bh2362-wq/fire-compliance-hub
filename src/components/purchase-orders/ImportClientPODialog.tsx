@@ -468,7 +468,7 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
                       <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
                       <span className="font-medium">{asset.name}</span>
                       {asset.manufacturer && <span className="text-muted-foreground">({asset.manufacturer} {asset.model || ""})</span>}
-                      <Badge variant="outline" className="text-xs ml-auto">{asset.type}</Badge>
+                      <Badge variant="outline" className="text-xs ml-auto">{getServiceTypeLabel(asset.type)}</Badge>
                     </div>
                   ))}
                   <p className="text-xs text-muted-foreground mt-2">
