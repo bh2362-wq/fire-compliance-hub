@@ -31,6 +31,7 @@ export function PushToQuotationDialog({ open, onOpenChange, priceList, items }: 
   const [summary, setSummary] = useState("Supply and installation of replacement fire alarm devices as per device health report.");
   const [terms, setTerms] = useState("");
   const [saving, setSaving] = useState(false);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Record<number, string>>({});
 
   const subtotal = items.reduce((s, i) => s + Number(i.sell_price), 0);
   const vatAmount = subtotal * (vatRate / 100);
