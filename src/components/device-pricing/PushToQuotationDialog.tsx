@@ -105,7 +105,23 @@ export function PushToQuotationDialog({ open, onOpenChange, priceList, items }: 
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Push to Quotation</DialogTitle>
-          <DialogDescription>Create a quotation from {items.length} priced devices.</DialogDescription>
+          <DialogDescription className="flex items-center justify-between">
+            <span>Create a quotation from {items.length} priced devices.</span>
+            <AIExpandButton
+              lineItems={items.map((i) => ({
+                description: `${i.model_number ? i.model_number + " - " : ""}${i.description}`,
+                quantity: i.quantity,
+              }))}
+              onAccept={(expandedItems, generatedSummary) => {
+                const newDescs: Record<number, string> = {};
+                expandedItems.forEach(({ index, description }) => {
+                  newDescs[index] = description;
+                });
+                setExpandedDescriptions(newDescs);
+                if (generatedSummary) setSummary(generatedSummary);
+              }}
+            />
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
