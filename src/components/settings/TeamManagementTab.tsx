@@ -135,13 +135,21 @@ export function TeamManagementTab() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          Team Management
-        </CardTitle>
-        <CardDescription>
-          Manage team members, roles, and Outlook calendar sync
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Team Management
+            </CardTitle>
+            <CardDescription>
+              Manage team members, roles, and Outlook calendar sync
+            </CardDescription>
+          </div>
+          <Button onClick={() => setShowAddDialog(true)} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Add Team Member
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-3">
