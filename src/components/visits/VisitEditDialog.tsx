@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { fetchEngineers } from "@/services/appointmentService";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -30,7 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Loader2, Pencil, Upload, FileText, X, Server, Wind, Flame, Box, PanelTop, Accessibility, Lightbulb, ShieldAlert, Phone, Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Check } from "lucide-react";
+import { Loader2, Pencil, Upload, FileText, X, Server, Wind, Flame, Box, PanelTop, Accessibility, Lightbulb, ShieldAlert, Phone, Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Check, UserCog } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -153,6 +154,10 @@ const VisitEditDialog = ({
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [storedAssetType, setStoredAssetType] = useState("general");
   
+  // Engineer state
+  const [engineers, setEngineers] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
+  const [selectedEngineerId, setSelectedEngineerId] = useState(visit.engineer_id || "");
+  
   // Requirements state
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loadingReqs, setLoadingReqs] = useState(false);
@@ -182,6 +187,7 @@ const VisitEditDialog = ({
     if (open && visit) {
       const { assetType, userNotes } = parseVisitNotes(visit.notes);
       setStoredAssetType(assetType);
+      setSelectedEngineerId(visit.engineer_id || "");
       form.reset({
         visit_date: visit.visit_date,
         visit_type: visit.visit_type,
@@ -191,6 +197,7 @@ const VisitEditDialog = ({
       fetchUploadedFiles();
       fetchSiteAssets();
       fetchRequirements();
+      fetchEngineers().then(setEngineers).catch(console.error);
     }
   }, [open, visit, form]);
 
@@ -343,6 +350,7 @@ const VisitEditDialog = ({
           visit_date: data.visit_date,
           visit_type: data.visit_type,
           status: data.status,
+          engineer_id: selectedEngineerId && selectedEngineerId !== "unassigned" ? selectedEngineerId : null,
           notes: buildVisitNotes(storedAssetType, data.notes || ""),
         })
         .eq("id", visit.id);
@@ -369,6 +377,7 @@ const VisitEditDialog = ({
               appointment_date: data.visit_date,
               visit_type: data.visit_type,
               status: appointmentStatus,
+              engineer_id: selectedEngineerId && selectedEngineerId !== "unassigned" ? selectedEngineerId : null,
               title: `${visitTypeLabel} - ${visit.site?.name || "Site Visit"}`,
             })
             .eq("id", existingApt.id);
@@ -383,7 +392,7 @@ const VisitEditDialog = ({
               visit_id: visit.id,
               site_id: visit.site_id,
               customer_id: null,
-              engineer_id: visit.engineer_id || user.id,
+              engineer_id: (selectedEngineerId && selectedEngineerId !== "unassigned") ? selectedEngineerId : user.id,
               title: `${visitTypeLabel} - ${visit.site?.name || "Site Visit"}`,
               appointment_date: data.visit_date,
               start_time: "09:00:00",
@@ -499,6 +508,27 @@ const VisitEditDialog = ({
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Engineer Assignment */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <UserCog className="h-4 w-4" />
+                Assigned Engineer
+              </Label>
+              <Select value={selectedEngineerId} onValueChange={setSelectedEngineerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select engineer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {engineers.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.full_name || e.email || "Unknown"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <FormField
