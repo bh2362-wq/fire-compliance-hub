@@ -144,6 +144,8 @@ const Schedule = () => {
           onViewChange={setView}
           onNavigate={handleNavigate}
           onAddAppointment={handleAddAppointment}
+          selectedEngineerId={selectedEngineerId}
+          onEngineerChange={setSelectedEngineerId}
         />
 
         <div className="flex-1 mt-4 overflow-hidden bg-card rounded-lg border border-border">
