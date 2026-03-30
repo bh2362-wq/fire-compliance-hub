@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Loader2, Shield, UserCog, Wrench, Eye, User, Mail, Check, X, Calendar } from "lucide-react";
-import { getTeamMembers, updateUserRole, updateMicrosoftEmail } from "@/services/companySettingsService";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Users, Loader2, Shield, UserCog, Wrench, Eye, User, Mail, Check, X, Calendar, Plus } from "lucide-react";
+import { getTeamMembers, updateUserRole, updateMicrosoftEmail, addEngineerProfile } from "@/services/companySettingsService";
 import { toast } from "sonner";
 
 interface TeamMember {

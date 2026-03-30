@@ -182,3 +182,33 @@ export async function updateMicrosoftEmail(userId: string, microsoftEmail: strin
     .eq('user_id', userId);
   if (error) throw error;
 }
+
+export async function addEngineerProfile(data: {
+  full_name: string;
+  email: string;
+  microsoft_email?: string;
+  role: 'owner' | 'admin' | 'engineer' | 'client' | 'auditor';
+}) {
+  // Generate a deterministic UUID from the email to use as user_id
+  // Since this is a manually-added profile (not a real auth user), we use a generated ID
+  const tempUserId = crypto.randomUUID();
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .insert({
+      user_id: tempUserId,
+      full_name: data.full_name,
+      email: data.email,
+      microsoft_email: data.microsoft_email || null,
+    });
+
+  if (profileError) throw profileError;
+
+  const { error: roleError } = await supabase
+    .from('user_roles')
+    .insert({ user_id: tempUserId, role: data.role });
+
+  if (roleError) throw roleError;
+
+  return tempUserId;
+}
