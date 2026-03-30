@@ -83,6 +83,31 @@ export function TeamManagementTab() {
     }
   };
 
+  const handleAddEngineer = async () => {
+    if (!addForm.full_name.trim() || !addForm.email.trim()) {
+      toast.error("Name and email are required");
+      return;
+    }
+    setIsAdding(true);
+    try {
+      await addEngineerProfile({
+        full_name: addForm.full_name.trim(),
+        email: addForm.email.trim(),
+        microsoft_email: addForm.microsoft_email.trim() || undefined,
+        role: addForm.role,
+      });
+      await loadTeamMembers();
+      setShowAddDialog(false);
+      setAddForm({ full_name: "", email: "", microsoft_email: "", role: "engineer" });
+      toast.success("Team member added successfully");
+    } catch (error) {
+      console.error("Failed to add team member:", error);
+      toast.error("Failed to add team member");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   const getUserRole = (member: TeamMember): string => {
     if (member.user_roles && member.user_roles.length > 0) {
       return member.user_roles[0].role;
