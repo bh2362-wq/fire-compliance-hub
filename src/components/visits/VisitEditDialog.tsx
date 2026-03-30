@@ -392,7 +392,7 @@ const VisitEditDialog = ({
               visit_id: visit.id,
               site_id: visit.site_id,
               customer_id: null,
-              engineer_id: selectedEngineerId || user.id,
+              engineer_id: (selectedEngineerId && selectedEngineerId !== "unassigned") ? selectedEngineerId : user.id,
               title: `${visitTypeLabel} - ${visit.site?.name || "Site Visit"}`,
               appointment_date: data.visit_date,
               start_time: "09:00:00",
