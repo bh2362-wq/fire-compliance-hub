@@ -52,6 +52,7 @@ import { VisitRequirementsBadges } from "./VisitRequirementsBadges";
 import { SendVisitConfirmationDialog } from "./SendVisitConfirmationDialog";
 import { BulkEmailJobsDialog } from "./BulkEmailJobsDialog";
 import { getVisitTypeLabel } from "@/constants/visitTypes";
+import JobProgressTracker from "./JobProgressTracker";
 
 interface ASDAsset {
   id: string;
