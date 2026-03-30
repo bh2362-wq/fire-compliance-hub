@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Users, Loader2, Shield, UserCog, Wrench, Eye, User, Mail, Check, X, Calendar, Plus } from "lucide-react";
+import { Users, Loader2, Shield, UserCog, Wrench, Eye, User, Mail, Check, X, Calendar, Plus, GraduationCap, Building2 } from "lucide-react";
 import { getTeamMembers, updateUserRole, updateMicrosoftEmail, addEngineerProfile } from "@/services/companySettingsService";
 import { toast } from "sonner";
 
