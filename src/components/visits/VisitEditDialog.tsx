@@ -377,7 +377,7 @@ const VisitEditDialog = ({
               appointment_date: data.visit_date,
               visit_type: data.visit_type,
               status: appointmentStatus,
-              engineer_id: selectedEngineerId || null,
+              engineer_id: selectedEngineerId && selectedEngineerId !== "unassigned" ? selectedEngineerId : null,
               title: `${visitTypeLabel} - ${visit.site?.name || "Site Visit"}`,
             })
             .eq("id", existingApt.id);
