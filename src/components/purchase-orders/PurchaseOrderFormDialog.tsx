@@ -111,10 +111,21 @@ const PurchaseOrderFormDialog = ({
         setSupplierId("");
         setOrderDate(format(new Date(), "yyyy-MM-dd"));
         setExpectedDeliveryDate("");
-        setReference("");
-        setNotes("");
+        setReference(prefill?.reference || "");
+        setNotes(prefill?.notes || "");
         setVatRate(20);
-        setLineItems([{ description: "", quantity: 1, unit_price: 0 }]);
+        setLineItems(
+          prefill?.lineItems && prefill.lineItems.length > 0
+            ? prefill.lineItems
+            : [{ description: "", quantity: 1, unit_price: 0 }]
+        );
+
+        // Auto-select supplier by name if prefill provided
+        if (prefill?.supplierName) {
+          loadSuppliers().then(() => {
+            // Defer to next tick so suppliers state is updated
+          });
+        }
       }
     }
   }, [open, editPurchaseOrder]);
