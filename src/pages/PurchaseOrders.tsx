@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, MoreVertical, Eye, Trash2, Send, Users, Download, Ban, Copy, Pencil, CheckCircle, Mail, Loader2 } from "lucide-react";
+import { Plus, MoreVertical, Eye, Trash2, Send, Users, Download, Ban, Copy, Pencil, CheckCircle, Mail, Loader2, FileUp, HardHat } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -42,6 +42,8 @@ import PurchaseOrderDetailDialog from "@/components/purchase-orders/PurchaseOrde
 import SuppliersDialog from "@/components/purchase-orders/SuppliersDialog";
 import { EmailPurchaseOrderDialog } from "@/components/purchase-orders/EmailPurchaseOrderDialog";
 import { BulkSendPODialog } from "@/components/purchase-orders/BulkSendPODialog";
+import ImportClientPODialog from "@/components/purchase-orders/ImportClientPODialog";
+import SubcontractorsDialog from "@/components/purchase-orders/SubcontractorsDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +71,8 @@ const PurchaseOrders = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSending, setBulkSending] = useState(false);
   const [showBulkSend, setShowBulkSend] = useState(false);
+  const [showImportPO, setShowImportPO] = useState(false);
+  const [showSubcontractors, setShowSubcontractors] = useState(false);
 
   const loadPurchaseOrders = async () => {
     try {
@@ -402,6 +406,14 @@ const PurchaseOrders = () => {
                 Send {selectedIds.size} PO{selectedIds.size > 1 ? "s" : ""}
               </Button>
             )}
+            <Button variant="outline" onClick={() => setShowImportPO(true)}>
+              <FileUp className="w-4 h-4 mr-2" />
+              Import Client PO
+            </Button>
+            <Button variant="outline" onClick={() => setShowSubcontractors(true)}>
+              <HardHat className="w-4 h-4 mr-2" />
+              Subcontractors
+            </Button>
             <Button variant="outline" onClick={() => setShowSuppliers(true)}>
               <Users className="w-4 h-4 mr-2" />
               Suppliers
@@ -501,6 +513,17 @@ const PurchaseOrders = () => {
           setSelectedIds(new Set());
           loadPurchaseOrders();
         }}
+      />
+
+      <ImportClientPODialog
+        open={showImportPO}
+        onOpenChange={setShowImportPO}
+        onSuccess={loadPurchaseOrders}
+      />
+
+      <SubcontractorsDialog
+        open={showSubcontractors}
+        onOpenChange={setShowSubcontractors}
       />
 
       {/* Delete Confirmation */}

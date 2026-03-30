@@ -3682,6 +3682,7 @@ export type Database = {
           acceptance_token: string | null
           accepted_by_name: string | null
           client_accepted_at: string | null
+          client_po_file_url: string | null
           client_po_number: string | null
           coverage_percentage: number | null
           created_at: string
@@ -3703,6 +3704,7 @@ export type Database = {
           acceptance_token?: string | null
           accepted_by_name?: string | null
           client_accepted_at?: string | null
+          client_po_file_url?: string | null
           client_po_number?: string | null
           coverage_percentage?: number | null
           created_at?: string
@@ -3724,6 +3726,7 @@ export type Database = {
           acceptance_token?: string | null
           accepted_by_name?: string | null
           client_accepted_at?: string | null
+          client_po_file_url?: string | null
           client_po_number?: string | null
           coverage_percentage?: number | null
           created_at?: string

@@ -149,6 +149,7 @@ const CHANGEABLE_STATUSES = [
   { value: 'further_works_required', label: 'Further Works Required' },
   { value: 'quote_needed', label: 'Quote Needed' },
   { value: 'awaiting_po', label: 'Awaiting PO' },
+  { value: 'awaiting_scheduling', label: 'Awaiting Scheduling' },
 ];
 
 // Group order for sub-list sections
@@ -161,6 +162,7 @@ const STATUS_GROUP_ORDER = [
   'further_works_required',
   'quote_needed',
   'awaiting_po',
+  'awaiting_scheduling',
   'pending_review',
 ];
 

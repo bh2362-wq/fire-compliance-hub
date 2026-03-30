@@ -5,6 +5,7 @@ export const VISIT_TYPES = [
   { value: "emergency", label: "Emergency Callout" },
   { value: "remedial", label: "Remedial Works" },
   { value: "supply_only", label: "Supply Only" },
+  { value: "subcontract", label: "Subcontract Works" },
 ];
 
 export const SERVICE_FREQUENCY_TYPES = VISIT_TYPES.filter((t) =>
