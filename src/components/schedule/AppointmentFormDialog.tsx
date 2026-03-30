@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, Trash2 } from "lucide-react";
+import { CalendarIcon, Loader2, Trash2, Plus, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,10 @@ import {
   sendAppointmentUpdatedNotification 
 } from "@/services/notificationService";
 import { useAuth } from "@/contexts/AuthContext";
+import { VISIT_TYPES } from "@/constants/visitTypes";
+import CustomerFormDialog from "@/components/customers/CustomerFormDialog";
+import SiteFormDialog from "@/components/sites/SiteFormDialog";
+import { Badge } from "@/components/ui/badge";
 
 interface AppointmentFormDialogProps {
   open: boolean;
@@ -34,8 +38,6 @@ interface AppointmentFormDialogProps {
   defaultDate?: Date;
   onSuccess: () => void;
 }
-
-import { VISIT_TYPES } from "@/constants/visitTypes";
 
 export function AppointmentFormDialog({
   open,
@@ -48,6 +50,10 @@ export function AppointmentFormDialog({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Inline creation dialogs
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [showNewSite, setShowNewSite] = useState(false);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -62,11 +68,16 @@ export function AppointmentFormDialog({
   const [visitType, setVisitType] = useState("");
 
   // Data for selects
-  const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null }[]>([]);
+  const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null; address: string | null }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [engineers, setEngineers] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
 
   const isEditing = !!appointment;
+
+  // Filter sites by selected customer
+  const filteredSites = customerId
+    ? sites.filter((s) => s.customer_id === customerId)
+    : sites;
 
   useEffect(() => {
     if (open) {
@@ -82,7 +93,7 @@ export function AppointmentFormDialog({
   const loadFormData = async () => {
     try {
       const [sitesRes, customersRes, engineersRes] = await Promise.all([
-        supabase.from('sites').select('id, name, customer_id').order('name'),
+        supabase.from('sites').select('id, name, customer_id, address').order('name'),
         supabase.from('customers').select('id, name').order('name'),
         fetchEngineers(),
       ]);
@@ -125,11 +136,46 @@ export function AppointmentFormDialog({
   useEffect(() => {
     if (siteId && sites.length > 0) {
       const site = sites.find((s) => s.id === siteId);
-      if (site?.customer_id && !customerId) {
+      if (site?.customer_id) {
         setCustomerId(site.customer_id);
       }
     }
   }, [siteId, sites]);
+
+  // Auto-generate title from visit type and site
+  useEffect(() => {
+    if (!isEditing && visitType && siteId) {
+      const site = sites.find((s) => s.id === siteId);
+      const typeLabel = VISIT_TYPES.find((vt) => vt.value === visitType)?.label || visitType;
+      if (site) {
+        setTitle(`${typeLabel} - ${site.name}`);
+      }
+    }
+  }, [visitType, siteId, sites, isEditing]);
+
+  const createSharePointFolder = async (visitId: string, siteName: string, customerName: string) => {
+    try {
+      const dateStr = appointmentDate ? format(appointmentDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+      const shortId = visitId.substring(0, 8);
+      const vType = visitType || 'general';
+      const folderPath = `Customers/${customerName}/${siteName}/Reports/${vType}_${dateStr}_${shortId}`;
+
+      await supabase.functions.invoke('sharepoint-create-folder', {
+        body: { folderPath },
+      });
+
+      // Create subfolders
+      await Promise.all([
+        supabase.functions.invoke('sharepoint-create-folder', { body: { folderPath: `${folderPath}/Photos` } }),
+        supabase.functions.invoke('sharepoint-create-folder', { body: { folderPath: `${folderPath}/Documents` } }),
+      ]);
+
+      toast({ title: "SharePoint folder created", description: folderPath });
+    } catch (err) {
+      console.error('SharePoint folder creation failed:', err);
+      // Non-blocking - don't fail the appointment creation
+    }
+  };
 
   const handleSubmit = async () => {
     if (!appointmentDate || !siteId || !title || !startTime) {
@@ -168,13 +214,20 @@ export function AppointmentFormDialog({
       if (isEditing && appointment) {
         await updateAppointment(appointment.id, input);
         toast({ title: "Appointment updated" });
-        // Send update notification email
         sendAppointmentUpdatedNotification(appointment.id).catch(console.error);
       } else {
         const newAppointment = await createAppointment(input, user.id);
-        toast({ title: "Appointment created" });
-        // Send confirmation email
+        toast({ title: "Job created successfully" });
         sendAppointmentCreatedNotification(newAppointment.id).catch(console.error);
+
+        // Auto-create SharePoint folder for the new visit
+        if (newAppointment.visit_id) {
+          const site = sites.find((s) => s.id === siteId);
+          const customer = customers.find((c) => c.id === customerId);
+          if (site && customer) {
+            createSharePointFolder(newAppointment.visit_id, site.name, customer.name);
+          }
+        }
       }
 
       onSuccess();
@@ -212,197 +265,278 @@ export function AppointmentFormDialog({
     }
   };
 
+  const handleCustomerCreated = () => {
+    setShowNewCustomer(false);
+    loadFormData();
+    toast({ title: "Customer created", description: "You can now select the new customer." });
+  };
+
+  const handleSiteCreated = () => {
+    setShowNewSite(false);
+    loadFormData();
+    toast({ title: "Site created", description: "You can now select the new site." });
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Edit Appointment" : "New Appointment"}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {isEditing ? "Edit Job" : "New Job"}
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Quarterly Service Visit"
-            />
-          </div>
-
-          {/* Site */}
-          <div className="space-y-2">
-            <Label>Site *</Label>
-            <Select value={siteId} onValueChange={setSiteId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select site" />
-              </SelectTrigger>
-              <SelectContent>
-                {sites.map((site) => (
-                  <SelectItem key={site.id} value={site.id}>
-                    {site.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Customer */}
-          <div className="space-y-2">
-            <Label>Customer</Label>
-            <Select value={customerId} onValueChange={setCustomerId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Engineer */}
-          <div className="space-y-2">
-            <Label>Assigned Engineer</Label>
-            <Select value={engineerId} onValueChange={setEngineerId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select engineer" />
-              </SelectTrigger>
-              <SelectContent>
-                {engineers.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.full_name || e.email || 'Unknown'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Date */}
-          <div className="space-y-2">
-            <Label>Date *</Label>
-            <Popover>
-              <PopoverTrigger asChild>
+          <div className="space-y-4 py-4">
+            {/* Customer with New button */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Customer *</Label>
                 <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !appointmentDate && "text-muted-foreground"
-                  )}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-primary"
+                  onClick={() => setShowNewCustomer(true)}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {appointmentDate ? format(appointmentDate, "PPP") : "Pick a date"}
+                  <Plus className="h-3 w-3 mr-1" />
+                  New Customer
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={appointmentDate}
-                  onSelect={setAppointmentDate}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
+              </div>
+              <Select value={customerId} onValueChange={(val) => {
+                setCustomerId(val);
+                // Reset site when customer changes
+                setSiteId("");
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Site with New button */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Site *</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-primary"
+                  onClick={() => setShowNewSite(true)}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  New Site
+                </Button>
+              </div>
+              <Select value={siteId} onValueChange={setSiteId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={customerId ? "Select site" : "Select customer first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredSites.length === 0 ? (
+                    <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                      {customerId ? "No sites for this customer" : "Select a customer first"}
+                    </div>
+                  ) : (
+                    filteredSites.map((site) => (
+                      <SelectItem key={site.id} value={site.id}>
+                        <div className="flex flex-col">
+                          <span>{site.name}</span>
+                          {site.address && (
+                            <span className="text-xs text-muted-foreground">{site.address}</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Visit Type */}
+            <div className="space-y-2">
+              <Label>Job Type *</Label>
+              <Select value={visitType} onValueChange={setVisitType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select job type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {VISIT_TYPES.map((vt) => (
+                    <SelectItem key={vt.value} value={vt.value}>
+                      {vt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Title (auto-generated but editable) */}
+            <div className="space-y-2">
+              <Label htmlFor="title">Title *</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Auto-generated from job type + site"
+              />
+            </div>
+
+            {/* Engineer */}
+            <div className="space-y-2">
+              <Label>Assigned Engineer</Label>
+              <Select value={engineerId} onValueChange={setEngineerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select engineer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {engineers.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.full_name || e.email || 'Unknown'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Date */}
+            <div className="space-y-2">
+              <Label>Date *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !appointmentDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {appointmentDate ? format(appointmentDate, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={appointmentDate}
+                    onSelect={setAppointmentDate}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Time */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="start_time">Start Time *</Label>
+                <Input
+                  id="start_time"
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
                 />
-              </PopoverContent>
-            </Popover>
-          </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="end_time">End Time</Label>
+                <Input
+                  id="end_time"
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+            </div>
 
-          {/* Time */}
-          <div className="grid grid-cols-2 gap-4">
+            {/* Status */}
+            {isEditing && (
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(APPOINTMENT_STATUS_LABELS).map(([val, label]) => (
+                      <SelectItem key={val} value={val}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="start_time">Start Time *</Label>
-              <Input
-                id="start_time"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+              <Label htmlFor="description">Notes</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Job notes, access instructions, special requirements..."
+                rows={3}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="end_time">End Time</Label>
-              <Input
-                id="end_time"
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
+
+            {/* SharePoint indicator */}
+            {!isEditing && visitType && siteId && customerId && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
+                <FolderOpen className="h-4 w-4 text-primary" />
+                <span className="text-sm text-muted-foreground">
+                  SharePoint folder will be created automatically
+                </span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex justify-between">
+            {isEditing && (
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleting || loading}
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                Delete
+              </Button>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSubmit} disabled={loading}>
+                {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                {isEditing ? "Update Job" : "Create Job"}
+              </Button>
             </div>
-          </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-          {/* Visit Type */}
-          <div className="space-y-2">
-            <Label>Visit Type</Label>
-            <Select value={visitType} onValueChange={setVisitType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {VISIT_TYPES.map((vt) => (
-                  <SelectItem key={vt.value} value={vt.value}>
-                    {vt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      {/* Inline Customer Creation */}
+      <CustomerFormDialog
+        open={showNewCustomer}
+        onOpenChange={setShowNewCustomer}
+        onSuccess={handleCustomerCreated}
+      />
 
-          {/* Status */}
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(APPOINTMENT_STATUS_LABELS).map(([val, label]) => (
-                  <SelectItem key={val} value={val}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Notes</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Additional notes..."
-              rows={3}
-            />
-          </div>
-        </div>
-
-        <DialogFooter className="flex justify-between">
-          {isEditing && (
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting || loading}
-            >
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
-              Delete
-            </Button>
-          )}
-          <div className="flex gap-2 ml-auto">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              {isEditing ? "Update" : "Create"}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {/* Inline Site Creation */}
+      <SiteFormDialog
+        open={showNewSite}
+        onOpenChange={setShowNewSite}
+        onSuccess={handleSiteCreated}
+        onSiteCreated={handleSiteCreated}
+        defaultCustomerId={customerId || undefined}
+      />
+    </>
   );
 }
