@@ -62,6 +62,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/shared-report/:token" element={<SharedReport />} />
             <Route path="/accept-quote/:token" element={<AcceptQuote />} />
             <Route path="/accept-visit/:token" element={<AcceptVisit />} />
