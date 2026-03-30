@@ -191,6 +191,13 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [confirmationVisit, setConfirmationVisit] = useState<Visit | null>(null);
   const [selectedVisitIds, setSelectedVisitIds] = useState<Set<string>>(new Set());
   const [showBulkEmail, setShowBulkEmail] = useState(false);
+  const [subcontractorPOVisit, setSubcontractorPOVisit] = useState<Visit | null>(null);
+  const [subcontractorPOPrefill, setSubcontractorPOPrefill] = useState<{
+    supplierName?: string;
+    reference?: string;
+    notes?: string;
+    lineItems?: { description: string; quantity: number; unit_price: number }[];
+  } | null>(null);
 
   const [emailVisit, setEmailVisit] = useState<Visit | null>(null);
   const [emailVisitData, setEmailVisitData] = useState<{
