@@ -112,6 +112,10 @@ const Settings = () => {
               <Link className="h-4 w-4" />
               <span className="hidden sm:inline">Integrations</span>
             </TabsTrigger>
+            <TabsTrigger value="security" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              <span className="hidden sm:inline">Security</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="company">
