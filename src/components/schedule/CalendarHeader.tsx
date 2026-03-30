@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus } from "lucide-react";
 import { format } from "date-fns";
+import { EngineerDiaryFilter } from "./EngineerDiaryFilter";
 
 export type CalendarView = 'day' | 'week' | 'month';
 
@@ -10,6 +11,8 @@ interface CalendarHeaderProps {
   onViewChange: (view: CalendarView) => void;
   onNavigate: (direction: 'prev' | 'next' | 'today') => void;
   onAddAppointment: () => void;
+  selectedEngineerId?: string | null;
+  onEngineerChange?: (engineerId: string | null) => void;
 }
 
 export function CalendarHeader({
