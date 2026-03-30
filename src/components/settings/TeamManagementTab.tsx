@@ -292,5 +292,70 @@ export function TeamManagementTab() {
         )}
       </CardContent>
     </Card>
+
+    <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Team Member</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Full Name *</Label>
+            <Input
+              value={addForm.full_name}
+              onChange={(e) => setAddForm(f => ({ ...f, full_name: e.target.value }))}
+              placeholder="John Smith"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Email *</Label>
+            <Input
+              type="email"
+              value={addForm.email}
+              onChange={(e) => setAddForm(f => ({ ...f, email: e.target.value }))}
+              placeholder="john@company.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Microsoft / Outlook Email</Label>
+            <Input
+              type="email"
+              value={addForm.microsoft_email}
+              onChange={(e) => setAddForm(f => ({ ...f, microsoft_email: e.target.value }))}
+              placeholder="john@company.onmicrosoft.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Role</Label>
+            <Select
+              value={addForm.role}
+              onValueChange={(value: any) => setAddForm(f => ({ ...f, role: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(roleConfig).map(([key, roleConf]) => (
+                  <SelectItem key={key} value={key}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${roleConf.color}`} />
+                      {roleConf.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+          <Button onClick={handleAddEngineer} disabled={isAdding}>
+            {isAdding && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Add Member
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
