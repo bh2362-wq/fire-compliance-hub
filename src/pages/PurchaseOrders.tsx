@@ -43,6 +43,7 @@ import SuppliersDialog from "@/components/purchase-orders/SuppliersDialog";
 import { EmailPurchaseOrderDialog } from "@/components/purchase-orders/EmailPurchaseOrderDialog";
 import { BulkSendPODialog } from "@/components/purchase-orders/BulkSendPODialog";
 import ImportClientPODialog from "@/components/purchase-orders/ImportClientPODialog";
+import BulkImportPODialog from "@/components/purchase-orders/BulkImportPODialog";
 import SubcontractorsDialog from "@/components/purchase-orders/SubcontractorsDialog";
 import {
   AlertDialog,
