@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Loader2, Shield, UserCog, Wrench, Eye, User, Mail, Check, X, Calendar } from "lucide-react";
-import { getTeamMembers, updateUserRole, updateMicrosoftEmail } from "@/services/companySettingsService";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Users, Loader2, Shield, UserCog, Wrench, Eye, User, Mail, Check, X, Calendar, Plus } from "lucide-react";
+import { getTeamMembers, updateUserRole, updateMicrosoftEmail, addEngineerProfile } from "@/services/companySettingsService";
 import { toast } from "sonner";
 
 interface TeamMember {
@@ -35,6 +37,9 @@ export function TeamManagementTab() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
   const [emailDraft, setEmailDraft] = useState("");
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [addForm, setAddForm] = useState({ full_name: "", email: "", microsoft_email: "", role: "engineer" as const });
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
     loadTeamMembers();
@@ -78,6 +83,31 @@ export function TeamManagementTab() {
     }
   };
 
+  const handleAddEngineer = async () => {
+    if (!addForm.full_name.trim() || !addForm.email.trim()) {
+      toast.error("Name and email are required");
+      return;
+    }
+    setIsAdding(true);
+    try {
+      await addEngineerProfile({
+        full_name: addForm.full_name.trim(),
+        email: addForm.email.trim(),
+        microsoft_email: addForm.microsoft_email.trim() || undefined,
+        role: addForm.role,
+      });
+      await loadTeamMembers();
+      setShowAddDialog(false);
+      setAddForm({ full_name: "", email: "", microsoft_email: "", role: "engineer" });
+      toast.success("Team member added successfully");
+    } catch (error) {
+      console.error("Failed to add team member:", error);
+      toast.error("Failed to add team member");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   const getUserRole = (member: TeamMember): string => {
     if (member.user_roles && member.user_roles.length > 0) {
       return member.user_roles[0].role;
@@ -103,15 +133,24 @@ export function TeamManagementTab() {
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          Team Management
-        </CardTitle>
-        <CardDescription>
-          Manage team members, roles, and Outlook calendar sync
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Team Management
+            </CardTitle>
+            <CardDescription>
+              Manage team members, roles, and Outlook calendar sync
+            </CardDescription>
+          </div>
+          <Button onClick={() => setShowAddDialog(true)} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Add Team Member
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -254,5 +293,70 @@ export function TeamManagementTab() {
         )}
       </CardContent>
     </Card>
+
+    <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Team Member</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Full Name *</Label>
+            <Input
+              value={addForm.full_name}
+              onChange={(e) => setAddForm(f => ({ ...f, full_name: e.target.value }))}
+              placeholder="John Smith"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Email *</Label>
+            <Input
+              type="email"
+              value={addForm.email}
+              onChange={(e) => setAddForm(f => ({ ...f, email: e.target.value }))}
+              placeholder="john@company.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Microsoft / Outlook Email</Label>
+            <Input
+              type="email"
+              value={addForm.microsoft_email}
+              onChange={(e) => setAddForm(f => ({ ...f, microsoft_email: e.target.value }))}
+              placeholder="john@company.onmicrosoft.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Role</Label>
+            <Select
+              value={addForm.role}
+              onValueChange={(value: any) => setAddForm(f => ({ ...f, role: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(roleConfig).map(([key, roleConf]) => (
+                  <SelectItem key={key} value={key}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${roleConf.color}`} />
+                      {roleConf.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
+          <Button onClick={handleAddEngineer} disabled={isAdding}>
+            {isAdding && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Add Member
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
