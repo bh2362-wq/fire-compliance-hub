@@ -916,7 +916,44 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
               <DropdownMenuItem onClick={() => setRequirementsVisit(visit)}>
                 <Package className="w-4 h-4 mr-2" />
                 Job Requirements
-              </DropdownMenuItem>
+               </DropdownMenuItem>
+              {visit.visit_type === 'subcontract' && (
+                <DropdownMenuItem onClick={async () => {
+                  try {
+                    // Fetch subcontractors to find one linked to this visit
+                    const subs = await fetchActiveSubcontractors();
+                    
+                    // Get site info for reference
+                    const { data: siteData } = await supabase
+                      .from("sites")
+                      .select("name, address, customer:customers(name)")
+                      .eq("id", visit.site_id)
+                      .single();
+                    
+                    const siteName = siteData?.name || "";
+                    const customerName = (siteData?.customer as any)?.name || "";
+                    const visitLabel = getVisitTypeLabel(visit.visit_type);
+                    const visitDate = format(new Date(visit.visit_date), "dd/MM/yyyy");
+
+                    // If only one subcontractor, pre-select; otherwise let user pick
+                    const prefill = {
+                      supplierName: subs.length === 1 ? subs[0].company_name : undefined,
+                      reference: `${customerName} - ${siteName} - ${visitDate}`,
+                      notes: `${visitLabel} at ${siteName}\nVisit date: ${visitDate}`,
+                      lineItems: [{ description: `${visitLabel} - ${siteName}`, quantity: 1, unit_price: subs.length === 1 ? (subs[0].day_rate || 0) : 0 }],
+                    };
+
+                    setSubcontractorPOPrefill(prefill);
+                    setSubcontractorPOVisit(visit);
+                  } catch (err) {
+                    console.error("Error preparing subcontractor PO:", err);
+                    toast({ title: "Error", description: "Failed to prepare PO", variant: "destructive" });
+                  }
+                }}>
+                  <Truck className="w-4 h-4 mr-2" />
+                  Raise Subcontractor PO
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate(`/dashboard/schedule`)}>
                 <CalendarDays className="w-4 h-4 mr-2" />
