@@ -21,6 +21,8 @@ export function CalendarHeader({
   onViewChange,
   onNavigate,
   onAddAppointment,
+  selectedEngineerId,
+  onEngineerChange,
 }: CalendarHeaderProps) {
   const getTitle = () => {
     switch (view) {
