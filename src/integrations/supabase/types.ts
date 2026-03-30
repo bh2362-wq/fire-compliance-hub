@@ -3853,6 +3853,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "visits_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "visits_quotation_id_fkey"
             columns: ["quotation_id"]
             isOneToOne: false
