@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Users, Loader2, Shield, UserCog, Wrench, Eye, User, Mail, Check, X, Calendar, Plus } from "lucide-react";
+import { Users, Loader2, Shield, UserCog, Wrench, Eye, User, Mail, Check, X, Calendar, Plus, GraduationCap, Building2 } from "lucide-react";
 import { getTeamMembers, updateUserRole, updateMicrosoftEmail, addEngineerProfile } from "@/services/companySettingsService";
 import { toast } from "sonner";
 
@@ -27,6 +27,8 @@ const roleConfig = {
   owner: { label: "Owner", color: "bg-purple-500", icon: Shield },
   admin: { label: "Admin", color: "bg-blue-500", icon: UserCog },
   engineer: { label: "Engineer", color: "bg-green-500", icon: Wrench },
+  apprentice: { label: "Apprentice", color: "bg-teal-500", icon: GraduationCap },
+  office: { label: "Office", color: "bg-indigo-500", icon: Building2 },
   client: { label: "Client", color: "bg-orange-500", icon: User },
   auditor: { label: "Auditor", color: "bg-gray-500", icon: Eye },
 };
@@ -60,7 +62,7 @@ export function TeamManagementTab() {
   const handleRoleChange = async (userId: string, newRole: string) => {
     setUpdatingId(userId);
     try {
-      await updateUserRole(userId, newRole as 'owner' | 'admin' | 'engineer' | 'client' | 'auditor');
+      await updateUserRole(userId, newRole as 'owner' | 'admin' | 'engineer' | 'client' | 'auditor' | 'apprentice' | 'office');
       await loadTeamMembers();
       toast.success("Role updated successfully");
     } catch (error) {
