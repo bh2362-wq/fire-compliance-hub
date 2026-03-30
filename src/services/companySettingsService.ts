@@ -154,7 +154,7 @@ export async function getTeamMembers() {
   }));
 }
 
-export async function updateUserRole(userId: string, role: 'owner' | 'admin' | 'engineer' | 'client' | 'auditor') {
+export async function updateUserRole(userId: string, role: 'owner' | 'admin' | 'engineer' | 'client' | 'auditor' | 'apprentice' | 'office') {
   const { data: existingRole } = await supabase
     .from('user_roles')
     .select('id')
