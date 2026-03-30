@@ -110,9 +110,9 @@ export function SecurityComplianceTab() {
             {complianceChecks.map((check) => (
               <div key={check.label} className="flex items-center gap-2 text-sm p-2 rounded-md border">
                 {check.status ? (
-                  <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                  <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
                 ) : (
-                  <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+                  <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
                 )}
                 <span className="flex-1">{check.label}</span>
                 <Badge variant="outline" className="text-xs">{check.standard}</Badge>
