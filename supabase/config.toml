@@ -128,3 +128,9 @@ verify_jwt = false
 
 [functions.accept-quotation]
 verify_jwt = false
+
+[functions.outlook-sync-push]
+verify_jwt = false
+
+[functions.outlook-sync-pull]
+verify_jwt = false
