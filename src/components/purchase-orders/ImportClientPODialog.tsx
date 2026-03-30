@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { VISIT_TYPES } from "@/constants/visitTypes";
+import { SERVICE_TYPES, SERVICE_FREQUENCIES, getServiceTypeLabel, getFrequencyLabel } from "@/services/serviceContractService";
 
 interface ExtractedPOData {
   customer_name: string | null;
