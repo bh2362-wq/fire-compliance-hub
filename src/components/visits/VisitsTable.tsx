@@ -162,6 +162,7 @@ const STATUS_GROUP_ORDER = [
   'further_works_required',
   'quote_needed',
   'awaiting_po',
+  'awaiting_scheduling',
   'pending_review',
 ];
 
