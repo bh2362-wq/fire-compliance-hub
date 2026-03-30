@@ -12,7 +12,8 @@ import { ReportBrandingTab } from "@/components/settings/ReportBrandingTab";
 import { TeamManagementTab } from "@/components/settings/TeamManagementTab";
 import { DefaultSettingsTab } from "@/components/settings/DefaultSettingsTab";
  import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
- import { Building2, FileText, Users, Settings2, Link, Mail } from "lucide-react";
+ import { SecurityComplianceTab } from "@/components/settings/SecurityComplianceTab";
+ import { Building2, FileText, Users, Settings2, Link, Mail, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
