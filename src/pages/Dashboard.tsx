@@ -1,6 +1,8 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import StatsCard from "@/components/dashboard/StatsCard";
 import RecentVisits from "@/components/dashboard/RecentVisits";
+import QuickActions from "@/components/dashboard/QuickActions";
+import TodaySchedule from "@/components/dashboard/TodaySchedule";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { BankReconciliation } from "@/components/xero/BankReconciliation";
