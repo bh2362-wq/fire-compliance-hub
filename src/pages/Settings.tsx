@@ -12,7 +12,8 @@ import { ReportBrandingTab } from "@/components/settings/ReportBrandingTab";
 import { TeamManagementTab } from "@/components/settings/TeamManagementTab";
 import { DefaultSettingsTab } from "@/components/settings/DefaultSettingsTab";
  import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
- import { Building2, FileText, Users, Settings2, Link, Mail } from "lucide-react";
+ import { SecurityComplianceTab } from "@/components/settings/SecurityComplianceTab";
+ import { Building2, FileText, Users, Settings2, Link, Mail, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -86,7 +87,7 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="company" className="space-y-6">
-           <TabsList className="grid w-full grid-cols-6">
+           <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="company" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Company</span>
@@ -110,6 +111,10 @@ const Settings = () => {
             <TabsTrigger value="integrations" className="flex items-center gap-2">
               <Link className="h-4 w-4" />
               <span className="hidden sm:inline">Integrations</span>
+            </TabsTrigger>
+            <TabsTrigger value="security" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              <span className="hidden sm:inline">Security</span>
             </TabsTrigger>
           </TabsList>
 
@@ -151,6 +156,10 @@ const Settings = () => {
               <SharePointConnectionCard />
             </div>
             {xeroConnection && <OutstandingInvoices />}
+          </TabsContent>
+
+          <TabsContent value="security">
+            <SecurityComplianceTab />
           </TabsContent>
         </Tabs>
       </div>

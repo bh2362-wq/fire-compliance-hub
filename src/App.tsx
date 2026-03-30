@@ -5,8 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { SessionTimeoutWarning } from "@/components/SessionTimeoutWarning";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Sites from "./pages/Sites";
@@ -59,6 +62,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/shared-report/:token" element={<SharedReport />} />
             <Route path="/accept-quote/:token" element={<AcceptQuote />} />
             <Route path="/accept-visit/:token" element={<AcceptVisit />} />
@@ -101,6 +105,8 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <SessionTimeoutWarning />
+          <CookieConsentBanner />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
