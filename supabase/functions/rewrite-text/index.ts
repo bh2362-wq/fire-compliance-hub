@@ -99,6 +99,39 @@ Return ONLY the formatted summary text.`;
       case "po_line_items":
         systemPrompt = `You are a professional procurement specialist. Improve the grammar, spelling and clarity of these numbered purchase order line item descriptions. Keep the same numbering format (1. 2. 3. etc). Make descriptions clear, professional and suitable for a formal purchase order. Each description should be well-formatted - if a description contains multiple details (e.g. part number, specification, quantity notes), space them clearly across up to 2 lines using a newline within the numbered item. Do NOT add information that wasn't in the original. Use UK English spelling.${formatRules}`;
         break;
+      case "quotation_bs5839_expand":
+        systemPrompt = `You are a senior fire safety engineer preparing a detailed quotation for a client. You must expand brief line item descriptions into comprehensive, professional descriptions that reference relevant British Standards (BS 5839-1, BS 5839-6, BS 5266, etc.) where applicable.
+
+For each line item, expand the description to include:
+- What work will be carried out (supply, install, commission, test)
+- Reference to relevant BS 5839 clauses where applicable
+- Commissioning and testing requirements per the standard
+- Any handover documentation or certification that will be provided
+- Professional fire safety engineering terminology
+
+IMPORTANT RULES:
+1. Return a JSON array of objects with "index" (0-based) and "expanded_description" and "expanded_summary_section" fields
+2. expanded_description should be 2-4 sentences of detailed professional text for the line item
+3. expanded_summary_section should be a brief scope entry (1 sentence) for the overall summary
+4. Reference BS 5839-1:2017+A2:2019 for fire detection and alarm systems
+5. Reference BS 5839-6 for domestic fire detection
+6. Reference BS 5266-1 for emergency lighting where relevant
+7. Use UK English spelling throughout
+8. Be technically accurate - don't reference standards that don't apply
+9. Include commissioning, testing and certification where relevant
+10. Return ONLY valid JSON, no markdown wrapping
+
+${context ? `\nADDITIONAL CONTEXT FROM EMAIL/SOURCE:\n${context}` : ""}
+
+Example output:
+[
+  {
+    "index": 0,
+    "expanded_description": "Supply and install one Hochiki ESP Intelligent multi-sensor detector to replace the existing end-of-life unit. The detector shall be installed in accordance with BS 5839-1:2017+A2:2019, Clause 25. Upon completion, the device will be commissioned and functionally tested to confirm correct operation with the existing fire alarm control panel, and a completion certificate issued.",
+    "expanded_summary_section": "Replacement of end-of-life multi-sensor detector with commissioning and testing to BS 5839-1"
+  }
+]`;
+        break;
       default:
         systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise. Separate different topics with blank lines.${formatRules}`;
     }
