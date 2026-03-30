@@ -132,6 +132,7 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
       setScopeOfWork(data.scope_of_work || "");
       setVisitType(data.visit_type || "remedial");
       setSpecialInstructions(data.special_instructions || "");
+      setFrequency(data.frequency || "");
       setAssets(data.asset_descriptions || []);
 
       // Try to match customer
