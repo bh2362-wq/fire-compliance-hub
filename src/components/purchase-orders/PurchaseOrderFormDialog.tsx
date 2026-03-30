@@ -62,6 +62,7 @@ const PurchaseOrderFormDialog = ({
   onOpenChange,
   onSuccess,
   editPurchaseOrder,
+  prefill,
 }: PurchaseOrderFormDialogProps) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
