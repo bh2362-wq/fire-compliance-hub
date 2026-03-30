@@ -21,9 +21,11 @@ export interface Subcontractor {
   updated_at: string;
 }
 
+// Use type-cast helper since types may not have regenerated yet
+const from = (table: string) => supabase.from(table as any);
+
 export async function fetchSubcontractors(): Promise<Subcontractor[]> {
-  const { data, error } = await supabase
-    .from("subcontractors")
+  const { data, error } = await from("subcontractors")
     .select("*")
     .order("company_name");
 
@@ -32,8 +34,7 @@ export async function fetchSubcontractors(): Promise<Subcontractor[]> {
 }
 
 export async function fetchActiveSubcontractors(): Promise<Subcontractor[]> {
-  const { data, error } = await supabase
-    .from("subcontractors")
+  const { data, error } = await from("subcontractors")
     .select("*")
     .eq("status", "active")
     .order("company_name");
@@ -46,8 +47,7 @@ export async function createSubcontractor(
   sub: Partial<Subcontractor>,
   userId: string
 ): Promise<Subcontractor> {
-  const { data, error } = await supabase
-    .from("subcontractors")
+  const { data, error } = await from("subcontractors")
     .insert({
       company_name: sub.company_name!,
       contact_name: sub.contact_name || null,
@@ -75,8 +75,7 @@ export async function updateSubcontractor(
   id: string,
   sub: Partial<Subcontractor>
 ): Promise<Subcontractor> {
-  const { data, error } = await supabase
-    .from("subcontractors")
+  const { data, error } = await from("subcontractors")
     .update(sub)
     .eq("id", id)
     .select()
@@ -87,8 +86,7 @@ export async function updateSubcontractor(
 }
 
 export async function deleteSubcontractor(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("subcontractors")
+  const { error } = await from("subcontractors")
     .delete()
     .eq("id", id);
 
