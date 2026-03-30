@@ -37,7 +37,8 @@ export function AppointmentCard({ appointment, compact = false, onClick }: Appoi
       >
         <span className="font-medium">{formatTime(appointment.start_time)}</span>
         {' '}
-        {appointment.title}
+        {appointment.site?.name || appointment.title}
+        {appointment.visit_type && ` – ${appointment.visit_type.replace(/_/g, ' ')}`}
       </div>
     );
   }
