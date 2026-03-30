@@ -401,7 +401,7 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Client PO Number</Label>
                 <Input value={poNumber} onChange={(e) => setPoNumber(e.target.value)} />
@@ -415,6 +415,20 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
                   <SelectContent>
                     {VISIT_TYPES.map((t) => (
                       <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Frequency</Label>
+                <Select value={frequency} onValueChange={setFrequency}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select frequency..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">N/A</SelectItem>
+                    {SERVICE_FREQUENCIES.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
