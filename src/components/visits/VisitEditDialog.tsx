@@ -350,7 +350,7 @@ const VisitEditDialog = ({
           visit_date: data.visit_date,
           visit_type: data.visit_type,
           status: data.status,
-          engineer_id: selectedEngineerId || null,
+          engineer_id: selectedEngineerId && selectedEngineerId !== "unassigned" ? selectedEngineerId : null,
           notes: buildVisitNotes(storedAssetType, data.notes || ""),
         })
         .eq("id", visit.id);
