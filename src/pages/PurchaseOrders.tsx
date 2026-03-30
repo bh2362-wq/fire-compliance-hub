@@ -527,6 +527,12 @@ const PurchaseOrders = () => {
         onSuccess={loadPurchaseOrders}
       />
 
+      <BulkImportPODialog
+        open={showBulkImportPO}
+        onOpenChange={setShowBulkImportPO}
+        onSuccess={loadPurchaseOrders}
+      />
+
       <SubcontractorsDialog
         open={showSubcontractors}
         onOpenChange={setShowSubcontractors}
