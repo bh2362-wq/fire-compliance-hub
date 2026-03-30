@@ -205,3 +205,19 @@ export const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
   completed: 'Completed',
   cancelled: 'Cancelled',
 };
+
+export async function syncAppointmentToOutlook(appointmentId: string): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await supabase.functions.invoke('outlook-sync-push', {
+    body: { appointment_id: appointmentId },
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  if (data?.error) {
+    return { success: false, error: data.error };
+  }
+
+  return { success: true };
+}
