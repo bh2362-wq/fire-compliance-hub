@@ -403,9 +403,23 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Line Items</CardTitle>
-            <Button variant="outline" size="sm" onClick={addItem}>
-              <Plus className="w-4 h-4 mr-1" /> Add Item
-            </Button>
+            <div className="flex items-center gap-2">
+              <AIExpandButton
+                lineItems={lineItems}
+                context={summary}
+                onAccept={(expandedItems, generatedSummary) => {
+                  const updated = [...lineItems];
+                  expandedItems.forEach(({ index, description }) => {
+                    if (updated[index]) updated[index] = { ...updated[index], description };
+                  });
+                  setLineItems(updated);
+                  if (generatedSummary) setSummary(generatedSummary);
+                }}
+              />
+              <Button variant="outline" size="sm" onClick={addItem}>
+                <Plus className="w-4 h-4 mr-1" /> Add Item
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
