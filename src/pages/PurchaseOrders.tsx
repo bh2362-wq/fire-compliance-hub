@@ -406,6 +406,14 @@ const PurchaseOrders = () => {
                 Send {selectedIds.size} PO{selectedIds.size > 1 ? "s" : ""}
               </Button>
             )}
+            <Button variant="outline" onClick={() => setShowImportPO(true)}>
+              <FileUp className="w-4 h-4 mr-2" />
+              Import Client PO
+            </Button>
+            <Button variant="outline" onClick={() => setShowSubcontractors(true)}>
+              <HardHat className="w-4 h-4 mr-2" />
+              Subcontractors
+            </Button>
             <Button variant="outline" onClick={() => setShowSuppliers(true)}>
               <Users className="w-4 h-4 mr-2" />
               Suppliers
