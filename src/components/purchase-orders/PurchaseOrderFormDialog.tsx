@@ -33,11 +33,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import SupplierFormDialog from "./SupplierFormDialog";
 import { supabase } from "@/integrations/supabase/client";
 
+interface PurchaseOrderPrefill {
+  supplierName?: string;
+  reference?: string;
+  deliveryAddress?: string;
+  notes?: string;
+  lineItems?: { description: string; quantity: number; unit_price: number }[];
+}
+
 interface PurchaseOrderFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   editPurchaseOrder?: PurchaseOrder | null;
+  prefill?: PurchaseOrderPrefill | null;
 }
 
 interface LineItemInput {
@@ -53,6 +62,7 @@ const PurchaseOrderFormDialog = ({
   onOpenChange,
   onSuccess,
   editPurchaseOrder,
+  prefill,
 }: PurchaseOrderFormDialogProps) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -101,10 +111,21 @@ const PurchaseOrderFormDialog = ({
         setSupplierId("");
         setOrderDate(format(new Date(), "yyyy-MM-dd"));
         setExpectedDeliveryDate("");
-        setReference("");
-        setNotes("");
+        setReference(prefill?.reference || "");
+        setNotes(prefill?.notes || "");
         setVatRate(20);
-        setLineItems([{ description: "", quantity: 1, unit_price: 0 }]);
+        setLineItems(
+          prefill?.lineItems && prefill.lineItems.length > 0
+            ? prefill.lineItems
+            : [{ description: "", quantity: 1, unit_price: 0 }]
+        );
+
+        // Auto-select supplier by name if prefill provided
+        if (prefill?.supplierName) {
+          loadSuppliers().then(() => {
+            // Defer to next tick so suppliers state is updated
+          });
+        }
       }
     }
   }, [open, editPurchaseOrder]);
@@ -113,10 +134,24 @@ const PurchaseOrderFormDialog = ({
     try {
       const data = await fetchSuppliers();
       setSuppliers(data);
+      return data;
     } catch (error) {
       console.error("Error loading suppliers:", error);
+      return [];
     }
   };
+
+  // Auto-select supplier when prefill + suppliers are loaded
+  useEffect(() => {
+    if (open && !editPurchaseOrder && prefill?.supplierName && suppliers.length > 0 && !supplierId) {
+      const match = suppliers.find(
+        (s) => s.name.toLowerCase() === prefill.supplierName!.toLowerCase()
+      );
+      if (match) {
+        setSupplierId(match.id);
+      }
+    }
+  }, [open, suppliers, prefill, editPurchaseOrder, supplierId]);
 
   const addLineItem = () => {
     setLineItems([...lineItems, { description: "", quantity: 1, unit_price: 0 }]);

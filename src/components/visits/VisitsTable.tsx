@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -53,6 +53,8 @@ import { SendVisitConfirmationDialog } from "./SendVisitConfirmationDialog";
 import { BulkEmailJobsDialog } from "./BulkEmailJobsDialog";
 import { getVisitTypeLabel } from "@/constants/visitTypes";
 import JobProgressTracker from "./JobProgressTracker";
+import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderFormDialog";
+import { fetchActiveSubcontractors, Subcontractor } from "@/services/subcontractorService";
 
 interface ASDAsset {
   id: string;
@@ -189,6 +191,13 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [confirmationVisit, setConfirmationVisit] = useState<Visit | null>(null);
   const [selectedVisitIds, setSelectedVisitIds] = useState<Set<string>>(new Set());
   const [showBulkEmail, setShowBulkEmail] = useState(false);
+  const [subcontractorPOVisit, setSubcontractorPOVisit] = useState<Visit | null>(null);
+  const [subcontractorPOPrefill, setSubcontractorPOPrefill] = useState<{
+    supplierName?: string;
+    reference?: string;
+    notes?: string;
+    lineItems?: { description: string; quantity: number; unit_price: number }[];
+  } | null>(null);
 
   const [emailVisit, setEmailVisit] = useState<Visit | null>(null);
   const [emailVisitData, setEmailVisitData] = useState<{
@@ -907,7 +916,44 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
               <DropdownMenuItem onClick={() => setRequirementsVisit(visit)}>
                 <Package className="w-4 h-4 mr-2" />
                 Job Requirements
-              </DropdownMenuItem>
+               </DropdownMenuItem>
+              {visit.visit_type === 'subcontract' && (
+                <DropdownMenuItem onClick={async () => {
+                  try {
+                    // Fetch subcontractors to find one linked to this visit
+                    const subs = await fetchActiveSubcontractors();
+                    
+                    // Get site info for reference
+                    const { data: siteData } = await supabase
+                      .from("sites")
+                      .select("name, address, customer:customers(name)")
+                      .eq("id", visit.site_id)
+                      .single();
+                    
+                    const siteName = siteData?.name || "";
+                    const customerName = (siteData?.customer as any)?.name || "";
+                    const visitLabel = getVisitTypeLabel(visit.visit_type);
+                    const visitDate = format(new Date(visit.visit_date), "dd/MM/yyyy");
+
+                    // If only one subcontractor, pre-select; otherwise let user pick
+                    const prefill = {
+                      supplierName: subs.length === 1 ? subs[0].company_name : undefined,
+                      reference: `${customerName} - ${siteName} - ${visitDate}`,
+                      notes: `${visitLabel} at ${siteName}\nVisit date: ${visitDate}`,
+                      lineItems: [{ description: `${visitLabel} - ${siteName}`, quantity: 1, unit_price: subs.length === 1 ? (subs[0].day_rate || 0) : 0 }],
+                    };
+
+                    setSubcontractorPOPrefill(prefill);
+                    setSubcontractorPOVisit(visit);
+                  } catch (err) {
+                    console.error("Error preparing subcontractor PO:", err);
+                    toast({ title: "Error", description: "Failed to prepare PO", variant: "destructive" });
+                  }
+                }}>
+                  <Truck className="w-4 h-4 mr-2" />
+                  Raise Subcontractor PO
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate(`/dashboard/schedule`)}>
                 <CalendarDays className="w-4 h-4 mr-2" />
@@ -1492,6 +1538,23 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           onRefresh?.();
         }}
       />
+      {subcontractorPOVisit && (
+        <PurchaseOrderFormDialog
+          open={!!subcontractorPOVisit}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSubcontractorPOVisit(null);
+              setSubcontractorPOPrefill(null);
+            }
+          }}
+          onSuccess={() => {
+            setSubcontractorPOVisit(null);
+            setSubcontractorPOPrefill(null);
+            toast({ title: "Success", description: "Subcontractor PO created" });
+          }}
+          prefill={subcontractorPOPrefill}
+        />
+      )}
     </div>
   );
 };
