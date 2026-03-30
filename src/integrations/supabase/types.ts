@@ -3525,6 +3525,69 @@ export type Database = {
           },
         ]
       }
+      subcontractors: {
+        Row: {
+          address: string | null
+          city: string | null
+          company_name: string
+          contact_name: string | null
+          created_at: string
+          created_by: string
+          day_rate: number | null
+          email: string | null
+          hourly_rate: number | null
+          id: string
+          insurance_document_url: string | null
+          insurance_expiry: string | null
+          notes: string | null
+          phone: string | null
+          postcode: string | null
+          specializations: string[] | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          company_name: string
+          contact_name?: string | null
+          created_at?: string
+          created_by: string
+          day_rate?: number | null
+          email?: string | null
+          hourly_rate?: number | null
+          id?: string
+          insurance_document_url?: string | null
+          insurance_expiry?: string | null
+          notes?: string | null
+          phone?: string | null
+          postcode?: string | null
+          specializations?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          company_name?: string
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string
+          day_rate?: number | null
+          email?: string | null
+          hourly_rate?: number | null
+          id?: string
+          insurance_document_url?: string | null
+          insurance_expiry?: string | null
+          notes?: string | null
+          phone?: string | null
+          postcode?: string | null
+          specializations?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       supplier_products: {
         Row: {
           category: string | null
