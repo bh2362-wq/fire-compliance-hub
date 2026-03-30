@@ -98,6 +98,12 @@ const Dashboard = () => {
           )}
         </div>
 
+        {/* Quick actions + schedule */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          <QuickActions />
+          <TodaySchedule />
+        </div>
+
         {/* Charts, lists, and financials */}
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
