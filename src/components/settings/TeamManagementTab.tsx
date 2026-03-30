@@ -62,7 +62,7 @@ export function TeamManagementTab() {
   const handleRoleChange = async (userId: string, newRole: string) => {
     setUpdatingId(userId);
     try {
-      await updateUserRole(userId, newRole as 'owner' | 'admin' | 'engineer' | 'client' | 'auditor');
+      await updateUserRole(userId, newRole as 'owner' | 'admin' | 'engineer' | 'client' | 'auditor' | 'apprentice' | 'office');
       await loadTeamMembers();
       toast.success("Role updated successfully");
     } catch (error) {

@@ -187,7 +187,7 @@ export async function addEngineerProfile(data: {
   full_name: string;
   email: string;
   microsoft_email?: string;
-  role: 'owner' | 'admin' | 'engineer' | 'client' | 'auditor';
+  role: 'owner' | 'admin' | 'engineer' | 'client' | 'auditor' | 'apprentice' | 'office';
 }) {
   // Generate a deterministic UUID from the email to use as user_id
   // Since this is a manually-added profile (not a real auth user), we use a generated ID
