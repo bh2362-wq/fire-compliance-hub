@@ -37,6 +37,9 @@ export function TeamManagementTab() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
   const [emailDraft, setEmailDraft] = useState("");
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [addForm, setAddForm] = useState({ full_name: "", email: "", microsoft_email: "", role: "engineer" as const });
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
     loadTeamMembers();
