@@ -1495,6 +1495,47 @@ export type Database = {
         }
         Relationships: []
       }
+      outlook_calendar_sync: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          engineer_id: string
+          id: string
+          last_synced_at: string
+          outlook_event_id: string
+          sync_direction: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          engineer_id: string
+          id?: string
+          last_synced_at?: string
+          outlook_event_id: string
+          sync_direction?: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          engineer_id?: string
+          id?: string
+          last_synced_at?: string
+          outlook_event_id?: string
+          sync_direction?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outlook_calendar_sync_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parsed_device_tests: {
         Row: {
           address: string
@@ -1628,6 +1669,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          microsoft_email: string | null
           updated_at: string
           user_id: string
         }
@@ -1637,6 +1679,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          microsoft_email?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1646,6 +1689,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          microsoft_email?: string | null
           updated_at?: string
           user_id?: string
         }

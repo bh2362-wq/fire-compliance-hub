@@ -4,8 +4,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Loader2, Shield, UserCog, Wrench, Eye, User } from "lucide-react";
-import { getTeamMembers, updateUserRole } from "@/services/companySettingsService";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Users, Loader2, Shield, UserCog, Wrench, Eye, User, Mail, Check, X, Calendar } from "lucide-react";
+import { getTeamMembers, updateUserRole, updateMicrosoftEmail } from "@/services/companySettingsService";
 import { toast } from "sonner";
 
 interface TeamMember {
@@ -15,6 +17,7 @@ interface TeamMember {
   email: string | null;
   avatar_url: string | null;
   created_at: string;
+  microsoft_email?: string | null;
   user_roles: { role: string }[] | null;
 }
 
@@ -30,6 +33,8 @@ export function TeamManagementTab() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [editingEmailId, setEditingEmailId] = useState<string | null>(null);
+  const [emailDraft, setEmailDraft] = useState("");
 
   useEffect(() => {
     loadTeamMembers();
@@ -61,11 +66,23 @@ export function TeamManagementTab() {
     }
   };
 
+  const handleSaveMicrosoftEmail = async (userId: string) => {
+    try {
+      await updateMicrosoftEmail(userId, emailDraft.trim() || null);
+      await loadTeamMembers();
+      setEditingEmailId(null);
+      toast.success("Microsoft email updated");
+    } catch (error) {
+      console.error("Failed to update Microsoft email:", error);
+      toast.error("Failed to update Microsoft email");
+    }
+  };
+
   const getUserRole = (member: TeamMember): string => {
     if (member.user_roles && member.user_roles.length > 0) {
       return member.user_roles[0].role;
     }
-    return "engineer"; // Default role
+    return "engineer";
   };
 
   const getInitials = (name: string | null, email: string | null): string => {
@@ -93,7 +110,7 @@ export function TeamManagementTab() {
           Team Management
         </CardTitle>
         <CardDescription>
-          Manage team members and their roles within your organization
+          Manage team members, roles, and Outlook calendar sync
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -122,6 +139,7 @@ export function TeamManagementTab() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Microsoft / Outlook Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Joined</TableHead>
               </TableRow>
@@ -129,7 +147,7 @@ export function TeamManagementTab() {
             <TableBody>
               {members.map((member) => {
                 const currentRole = getUserRole(member);
-                const config = roleConfig[currentRole as keyof typeof roleConfig] || roleConfig.engineer;
+                const isEditingEmail = editingEmailId === member.user_id;
                 
                 return (
                   <TableRow key={member.id}>
@@ -148,6 +166,57 @@ export function TeamManagementTab() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {member.email || "No email"}
+                    </TableCell>
+                    <TableCell>
+                      {isEditingEmail ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={emailDraft}
+                            onChange={(e) => setEmailDraft(e.target.value)}
+                            placeholder="user@company.com"
+                            className="h-8 w-[200px] text-sm"
+                            type="email"
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => handleSaveMicrosoftEmail(member.user_id)}
+                          >
+                            <Check className="h-4 w-4 text-green-600" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => setEditingEmailId(null)}
+                          >
+                            <X className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          {member.microsoft_email ? (
+                            <>
+                              <Calendar className="h-3.5 w-3.5 text-blue-500" />
+                              <span className="text-sm">{member.microsoft_email}</span>
+                            </>
+                          ) : (
+                            <span className="text-sm text-muted-foreground italic">Not set</span>
+                          )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => {
+                              setEditingEmailId(member.user_id);
+                              setEmailDraft(member.microsoft_email || "");
+                            }}
+                          >
+                            <Mail className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Select

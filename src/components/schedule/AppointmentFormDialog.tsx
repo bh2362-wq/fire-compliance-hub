@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, Trash2, Plus, FolderOpen } from "lucide-react";
+import { CalendarIcon, Loader2, Trash2, Plus, FolderOpen, Cloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ import {
   deleteAppointment,
   fetchEngineers,
   APPOINTMENT_STATUS_LABELS,
+  syncAppointmentToOutlook,
 } from "@/services/appointmentService";
 import { 
   sendAppointmentCreatedNotification, 
@@ -500,14 +501,31 @@ export function AppointmentFormDialog({
 
           <DialogFooter className="flex justify-between">
             {isEditing && (
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={deleting || loading}
-              >
-                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
-                Delete
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={deleting || loading}
+                >
+                  {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                  Delete
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (!appointment?.id) return;
+                    const result = await syncAppointmentToOutlook(appointment.id);
+                    if (result.success) {
+                      toast({ title: "Synced to Outlook", description: "Appointment pushed to engineer's Outlook calendar." });
+                    } else {
+                      toast({ title: "Sync Failed", description: result.error || "Could not sync to Outlook.", variant: "destructive" });
+                    }
+                  }}
+                >
+                  <Cloud className="h-4 w-4 mr-1" />
+                  Sync to Outlook
+                </Button>
+              </div>
             )}
             <div className="flex gap-2 ml-auto">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
