@@ -154,6 +154,10 @@ const VisitEditDialog = ({
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [storedAssetType, setStoredAssetType] = useState("general");
   
+  // Engineer state
+  const [engineers, setEngineers] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
+  const [selectedEngineerId, setSelectedEngineerId] = useState(visit.engineer_id || "");
+  
   // Requirements state
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loadingReqs, setLoadingReqs] = useState(false);
