@@ -512,6 +512,8 @@ export function AppointmentFormDialog({
                 </Button>
                 <Button
                   variant="outline"
+                  disabled={!engineerId}
+                  title={!engineerId ? "Assign an engineer first" : "Push to engineer's Outlook calendar"}
                   onClick={async () => {
                     if (!appointment?.id) return;
                     const result = await syncAppointmentToOutlook(appointment.id);
