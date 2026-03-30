@@ -62,6 +62,7 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
   const [scopeOfWork, setScopeOfWork] = useState("");
   const [visitType, setVisitType] = useState("remedial");
   const [specialInstructions, setSpecialInstructions] = useState("");
+  const [frequency, setFrequency] = useState("");
   const [assets, setAssets] = useState<{ name: string; type: string; manufacturer?: string; model?: string }[]>([]);
 
   // Matched records
