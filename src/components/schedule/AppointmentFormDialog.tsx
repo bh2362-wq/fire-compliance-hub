@@ -27,7 +27,7 @@ import {
 } from "@/services/notificationService";
 import { useAuth } from "@/contexts/AuthContext";
 import { VISIT_TYPES } from "@/constants/visitTypes";
-import CustomerFormDialog from "@/components/customers/CustomerFormDialog";
+import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import { Badge } from "@/components/ui/badge";
 
