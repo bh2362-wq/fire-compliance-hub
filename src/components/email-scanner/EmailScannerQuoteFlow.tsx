@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, Plus, Trash2, Save, Merge } from "lucide-react";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { supabase } from "@/integrations/supabase/client";
+import { AIExpandButton } from "@/components/quotations/AIExpandButton";
 import { useToast } from "@/hooks/use-toast";
 import type { ExtractedEmailData } from "@/pages/EmailScanner";
 
