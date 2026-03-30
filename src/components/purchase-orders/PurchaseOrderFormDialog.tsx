@@ -134,10 +134,24 @@ const PurchaseOrderFormDialog = ({
     try {
       const data = await fetchSuppliers();
       setSuppliers(data);
+      return data;
     } catch (error) {
       console.error("Error loading suppliers:", error);
+      return [];
     }
   };
+
+  // Auto-select supplier when prefill + suppliers are loaded
+  useEffect(() => {
+    if (open && !editPurchaseOrder && prefill?.supplierName && suppliers.length > 0 && !supplierId) {
+      const match = suppliers.find(
+        (s) => s.name.toLowerCase() === prefill.supplierName!.toLowerCase()
+      );
+      if (match) {
+        setSupplierId(match.id);
+      }
+    }
+  }, [open, suppliers, prefill, editPurchaseOrder, supplierId]);
 
   const addLineItem = () => {
     setLineItems([...lineItems, { description: "", quantity: 1, unit_price: 0 }]);
