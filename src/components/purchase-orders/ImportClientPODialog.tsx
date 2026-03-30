@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { VISIT_TYPES } from "@/constants/visitTypes";
+import { SERVICE_TYPES, SERVICE_FREQUENCIES, getServiceTypeLabel, getFrequencyLabel } from "@/services/serviceContractService";
 
 interface ExtractedPOData {
   customer_name: string | null;
@@ -35,6 +36,7 @@ interface ExtractedPOData {
   contact_phone: string | null;
   special_instructions: string | null;
   asset_descriptions: { name: string; type: string; manufacturer?: string; model?: string }[];
+  frequency: string | null;
   estimated_value: number | null;
 }
 
@@ -60,6 +62,7 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
   const [scopeOfWork, setScopeOfWork] = useState("");
   const [visitType, setVisitType] = useState("remedial");
   const [specialInstructions, setSpecialInstructions] = useState("");
+  const [frequency, setFrequency] = useState("");
   const [assets, setAssets] = useState<{ name: string; type: string; manufacturer?: string; model?: string }[]>([]);
 
   // Matched records
@@ -129,6 +132,7 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
       setScopeOfWork(data.scope_of_work || "");
       setVisitType(data.visit_type || "remedial");
       setSpecialInstructions(data.special_instructions || "");
+      setFrequency(data.frequency || "");
       setAssets(data.asset_descriptions || []);
 
       // Try to match customer
@@ -397,7 +401,7 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Client PO Number</Label>
                 <Input value={poNumber} onChange={(e) => setPoNumber(e.target.value)} />
@@ -411,6 +415,20 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
                   <SelectContent>
                     {VISIT_TYPES.map((t) => (
                       <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Frequency</Label>
+                <Select value={frequency} onValueChange={setFrequency}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select frequency..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">N/A</SelectItem>
+                    {SERVICE_FREQUENCIES.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -450,7 +468,7 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
                       <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
                       <span className="font-medium">{asset.name}</span>
                       {asset.manufacturer && <span className="text-muted-foreground">({asset.manufacturer} {asset.model || ""})</span>}
-                      <Badge variant="outline" className="text-xs ml-auto">{asset.type}</Badge>
+                      <Badge variant="outline" className="text-xs ml-auto">{getServiceTypeLabel(asset.type)}</Badge>
                     </div>
                   ))}
                   <p className="text-xs text-muted-foreground mt-2">

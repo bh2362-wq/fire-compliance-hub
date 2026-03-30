@@ -61,7 +61,8 @@ Return a JSON object using the tool provided with these fields:
 - contact_email: Email from the PO
 - contact_phone: Phone number from the PO
 - special_instructions: Any special access, safety, or scheduling requirements
-- asset_descriptions: Array of equipment/assets mentioned (e.g. [{name: "Fire Alarm Panel", type: "fire", manufacturer: "Advanced", model: "MxPro 5"}])
+- asset_descriptions: Array of equipment/assets mentioned. The "type" MUST be one of: fire, aspirator, gas_suppression, room_integrity, fire_curtain, disabled_refuge, emergency_lighting, intruder_alarm, nurse_call. (e.g. [{name: "Fire Alarm Panel", type: "fire", manufacturer: "Advanced", model: "MxPro 5"}])
+- frequency: Service frequency if mentioned. Must be one of: 1m (monthly), 3m (quarterly), 6m (bi-annual), 12m (annual). Default null if not clear.
 - estimated_value: Total value/amount on the PO if visible (number or null)`;
 
     const isPdf = fileName.toLowerCase().endsWith(".pdf");
@@ -127,13 +128,14 @@ Return a JSON object using the tool provided with these fields:
                       type: "object",
                       properties: {
                         name: { type: "string" },
-                        type: { type: "string" },
+                        type: { type: "string", enum: ["fire", "aspirator", "gas_suppression", "room_integrity", "fire_curtain", "disabled_refuge", "emergency_lighting", "intruder_alarm", "nurse_call"] },
                         manufacturer: { type: "string", nullable: true },
                         model: { type: "string", nullable: true },
                       },
                       required: ["name", "type"],
                     },
                   },
+                  frequency: { type: "string", enum: ["1m", "3m", "6m", "12m"], nullable: true },
                   estimated_value: { type: "number", nullable: true },
                 },
                 required: ["customer_name", "po_number", "scope_of_work", "visit_type"],
