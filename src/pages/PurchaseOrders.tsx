@@ -71,6 +71,8 @@ const PurchaseOrders = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSending, setBulkSending] = useState(false);
   const [showBulkSend, setShowBulkSend] = useState(false);
+  const [showImportPO, setShowImportPO] = useState(false);
+  const [showSubcontractors, setShowSubcontractors] = useState(false);
 
   const loadPurchaseOrders = async () => {
     try {
