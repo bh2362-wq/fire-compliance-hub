@@ -187,6 +187,7 @@ const VisitEditDialog = ({
     if (open && visit) {
       const { assetType, userNotes } = parseVisitNotes(visit.notes);
       setStoredAssetType(assetType);
+      setSelectedEngineerId(visit.engineer_id || "");
       form.reset({
         visit_date: visit.visit_date,
         visit_type: visit.visit_type,
@@ -196,6 +197,7 @@ const VisitEditDialog = ({
       fetchUploadedFiles();
       fetchSiteAssets();
       fetchRequirements();
+      fetchEngineers().then(setEngineers).catch(console.error);
     }
   }, [open, visit, form]);
 
