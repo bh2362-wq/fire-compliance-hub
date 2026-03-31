@@ -22,7 +22,7 @@ const CATEGORY_CONFIG: Record<string, { icon: typeof Package; color: string; lab
   other: { icon: HelpCircle, color: "bg-muted text-muted-foreground border-border", label: "Other" },
 };
 
-export function VisitRequirementsBadges({ visitId, compact }: VisitRequirementsBadgesProps) {
+export function VisitRequirementsBadges({ visitId, compact, inline }: VisitRequirementsBadgesProps) {
   const [summary, setSummary] = useState<RequirementSummary[]>([]);
 
   useEffect(() => {
