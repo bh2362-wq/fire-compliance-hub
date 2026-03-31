@@ -69,6 +69,16 @@ export function AppointmentFormDialog({
   const [status, setStatus] = useState<string>("scheduled");
   const [visitType, setVisitType] = useState("");
 
+  // Inline customer/site detail editing
+  const [customerDetailsOpen, setCustomerDetailsOpen] = useState(false);
+  const [siteDetailsOpen, setSiteDetailsOpen] = useState(false);
+  const [customerDetails, setCustomerDetails] = useState({
+    contact_name: "", contact_email: "", contact_phone: "", address: "", city: "", postcode: "",
+  });
+  const [siteDetails, setSiteDetails] = useState({
+    address: "", city: "", postcode: "",
+  });
+
   // Data for selects
   const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null; address: string | null }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
