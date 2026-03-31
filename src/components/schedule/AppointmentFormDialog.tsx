@@ -140,6 +140,7 @@ export function AppointmentFormDialog({
     setCustomerId("");
     setEngineerId("");
     setAppointmentDate(defaultDate || new Date());
+    setEndDate(undefined);
     setStartTime("09:00");
     setEndTime("10:00");
     setStatus("scheduled");
