@@ -392,6 +392,80 @@ export function AppointmentFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Inline Customer Details */}
+              {customerId && (
+                <Collapsible open={customerDetailsOpen} onOpenChange={setCustomerDetailsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-start h-8 text-xs text-muted-foreground hover:text-foreground px-2">
+                      {customerDetailsOpen ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
+                      <Building2 className="h-3 w-3 mr-1" />
+                      Customer Details
+                      {(!customerDetails.contact_name && !customerDetails.contact_email) && (
+                        <span className="ml-1 text-orange-500">• needs info</span>
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 pt-2 pl-2 border-l-2 border-primary/20 ml-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Contact Name</Label>
+                      <Input
+                        value={customerDetails.contact_name}
+                        onChange={(e) => setCustomerDetails(prev => ({ ...prev, contact_name: e.target.value }))}
+                        placeholder="Contact name"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Contact Email</Label>
+                      <Input
+                        value={customerDetails.contact_email}
+                        onChange={(e) => setCustomerDetails(prev => ({ ...prev, contact_email: e.target.value }))}
+                        placeholder="email@example.com"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Contact Phone</Label>
+                      <Input
+                        value={customerDetails.contact_phone}
+                        onChange={(e) => setCustomerDetails(prev => ({ ...prev, contact_phone: e.target.value }))}
+                        placeholder="Phone number"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Address</Label>
+                      <Input
+                        value={customerDetails.address}
+                        onChange={(e) => setCustomerDetails(prev => ({ ...prev, address: e.target.value }))}
+                        placeholder="Address"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">City</Label>
+                        <Input
+                          value={customerDetails.city}
+                          onChange={(e) => setCustomerDetails(prev => ({ ...prev, city: e.target.value }))}
+                          placeholder="City"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Postcode</Label>
+                        <Input
+                          value={customerDetails.postcode}
+                          onChange={(e) => setCustomerDetails(prev => ({ ...prev, postcode: e.target.value }))}
+                          placeholder="Postcode"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </div>
 
             {/* Site with New button */}
@@ -432,6 +506,53 @@ export function AppointmentFormDialog({
                   )}
                 </SelectContent>
               </Select>
+
+              {/* Inline Site Details */}
+              {siteId && (
+                <Collapsible open={siteDetailsOpen} onOpenChange={setSiteDetailsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-start h-8 text-xs text-muted-foreground hover:text-foreground px-2">
+                      {siteDetailsOpen ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
+                      <MapPin className="h-3 w-3 mr-1" />
+                      Site Details
+                      {!siteDetails.address && (
+                        <span className="ml-1 text-orange-500">• needs address</span>
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 pt-2 pl-2 border-l-2 border-primary/20 ml-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Address</Label>
+                      <Input
+                        value={siteDetails.address}
+                        onChange={(e) => setSiteDetails(prev => ({ ...prev, address: e.target.value }))}
+                        placeholder="Site address"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">City</Label>
+                        <Input
+                          value={siteDetails.city}
+                          onChange={(e) => setSiteDetails(prev => ({ ...prev, city: e.target.value }))}
+                          placeholder="City"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Postcode</Label>
+                        <Input
+                          value={siteDetails.postcode}
+                          onChange={(e) => setSiteDetails(prev => ({ ...prev, postcode: e.target.value }))}
+                          placeholder="Postcode"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </div>
 
             {/* Visit Type */}
