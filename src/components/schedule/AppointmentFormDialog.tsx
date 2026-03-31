@@ -402,7 +402,7 @@ export function AppointmentFormDialog({
                       <Building2 className="h-3 w-3 mr-1" />
                       Customer Details
                       {(!customerDetails.contact_name && !customerDetails.contact_email) && (
-                        <span className="ml-1 text-orange-500">• needs info</span>
+                        <span className="ml-1 text-destructive">• needs info</span>
                       )}
                     </Button>
                   </CollapsibleTrigger>
