@@ -767,7 +767,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   </p>
                 ) : null;
               })()}
-              <VisitRequirementsBadges key={requirementsRefreshKey} visitId={visit.id} />
+              
             </div>
           </div>
         </div>
