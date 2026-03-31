@@ -59,6 +59,29 @@ export function VisitRequirementsBadges({ visitId, compact, inline }: VisitRequi
 
   if (summary.length === 0) return null;
 
+  if (inline) {
+    return (
+      <div className="px-6 pb-3 -mt-1 flex items-center gap-2 flex-wrap">
+        <Package className="w-3.5 h-3.5 text-muted-foreground" />
+        {summary.map((g) => {
+          const cfg = CATEGORY_CONFIG[g.category] || CATEGORY_CONFIG.other;
+          const Icon = cfg.icon;
+          return (
+            <Badge
+              key={g.category}
+              variant="outline"
+              className={`text-[11px] px-2 py-0.5 ${cfg.color}`}
+              title={g.items.join(", ")}
+            >
+              <Icon className="w-3 h-3 mr-1" />
+              {g.items.join(", ")}
+            </Badge>
+          );
+        })}
+      </div>
+    );
+  }
+
   if (compact) {
     const total = summary.reduce((s, g) => s + g.count, 0);
     return (
