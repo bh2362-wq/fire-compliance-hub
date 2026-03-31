@@ -7,8 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, Trash2, Plus, FolderOpen, Cloud } from "lucide-react";
+import { CalendarIcon, Loader2, Trash2, Plus, FolderOpen, Cloud, ChevronDown, ChevronRight, Building2, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,9 +69,19 @@ export function AppointmentFormDialog({
   const [status, setStatus] = useState<string>("scheduled");
   const [visitType, setVisitType] = useState("");
 
+  // Inline customer/site detail editing
+  const [customerDetailsOpen, setCustomerDetailsOpen] = useState(false);
+  const [siteDetailsOpen, setSiteDetailsOpen] = useState(false);
+  const [customerDetails, setCustomerDetails] = useState({
+    contact_name: "", contact_email: "", contact_phone: "", address: "", city: "", postcode: "",
+  });
+  const [siteDetails, setSiteDetails] = useState({
+    address: "", city: "", postcode: "",
+  });
+
   // Data for selects
-  const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null; address: string | null }[]>([]);
-  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null; address: string | null; city: string | null; postcode: string | null }[]>([]);
+  const [customers, setCustomers] = useState<{ id: string; name: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; city: string | null; postcode: string | null }[]>([]);
   const [engineers, setEngineers] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
 
   const isEditing = !!appointment;
@@ -94,8 +105,8 @@ export function AppointmentFormDialog({
   const loadFormData = async () => {
     try {
       const [sitesRes, customersRes, engineersRes] = await Promise.all([
-        supabase.from('sites').select('id, name, customer_id, address').order('name'),
-        supabase.from('customers').select('id, name').order('name'),
+        supabase.from('sites').select('id, name, customer_id, address, city, postcode').order('name'),
+        supabase.from('customers').select('id, name, contact_name, contact_email, contact_phone, address, city, postcode').order('name'),
         fetchEngineers(),
       ]);
 
@@ -140,8 +151,31 @@ export function AppointmentFormDialog({
       if (site?.customer_id) {
         setCustomerId(site.customer_id);
       }
+      // Populate site details
+      setSiteDetails({
+        address: site?.address || "",
+        city: site?.city || "",
+        postcode: site?.postcode || "",
+      });
     }
   }, [siteId, sites]);
+
+  // Populate customer details when customer changes
+  useEffect(() => {
+    if (customerId && customers.length > 0) {
+      const cust = customers.find((c) => c.id === customerId);
+      if (cust) {
+        setCustomerDetails({
+          contact_name: cust.contact_name || "",
+          contact_email: cust.contact_email || "",
+          contact_phone: cust.contact_phone || "",
+          address: cust.address || "",
+          city: cust.city || "",
+          postcode: cust.postcode || "",
+        });
+      }
+    }
+  }, [customerId, customers]);
 
   // Auto-generate title from visit type and site
   useEffect(() => {
@@ -199,6 +233,44 @@ export function AppointmentFormDialog({
 
     setLoading(true);
     try {
+      // Save any inline customer/site detail changes
+      if (customerId) {
+        const cust = customers.find(c => c.id === customerId);
+        const hasChanges = cust && (
+          customerDetails.contact_name !== (cust.contact_name || "") ||
+          customerDetails.contact_email !== (cust.contact_email || "") ||
+          customerDetails.contact_phone !== (cust.contact_phone || "") ||
+          customerDetails.address !== (cust.address || "") ||
+          customerDetails.city !== (cust.city || "") ||
+          customerDetails.postcode !== (cust.postcode || "")
+        );
+        if (hasChanges) {
+          await supabase.from('customers').update({
+            contact_name: customerDetails.contact_name || null,
+            contact_email: customerDetails.contact_email || null,
+            contact_phone: customerDetails.contact_phone || null,
+            address: customerDetails.address || null,
+            city: customerDetails.city || null,
+            postcode: customerDetails.postcode || null,
+          }).eq('id', customerId);
+        }
+      }
+      if (siteId) {
+        const site = sites.find(s => s.id === siteId);
+        const hasChanges = site && (
+          siteDetails.address !== (site.address || "") ||
+          siteDetails.city !== (site.city || "") ||
+          siteDetails.postcode !== (site.postcode || "")
+        );
+        if (hasChanges) {
+          await supabase.from('sites').update({
+            address: siteDetails.address || null,
+            city: siteDetails.city || null,
+            postcode: siteDetails.postcode || null,
+          }).eq('id', siteId);
+        }
+      }
+
       const input: AppointmentInput = {
         title,
         description: description || null,
@@ -320,6 +392,80 @@ export function AppointmentFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Inline Customer Details */}
+              {customerId && (
+                <Collapsible open={customerDetailsOpen} onOpenChange={setCustomerDetailsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-start h-8 text-xs text-muted-foreground hover:text-foreground px-2">
+                      {customerDetailsOpen ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
+                      <Building2 className="h-3 w-3 mr-1" />
+                      Customer Details
+                      {(!customerDetails.contact_name && !customerDetails.contact_email) && (
+                        <span className="ml-1 text-destructive">• needs info</span>
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 pt-2 pl-2 border-l-2 border-primary/20 ml-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Contact Name</Label>
+                      <Input
+                        value={customerDetails.contact_name}
+                        onChange={(e) => setCustomerDetails(prev => ({ ...prev, contact_name: e.target.value }))}
+                        placeholder="Contact name"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Contact Email</Label>
+                      <Input
+                        value={customerDetails.contact_email}
+                        onChange={(e) => setCustomerDetails(prev => ({ ...prev, contact_email: e.target.value }))}
+                        placeholder="email@example.com"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Contact Phone</Label>
+                      <Input
+                        value={customerDetails.contact_phone}
+                        onChange={(e) => setCustomerDetails(prev => ({ ...prev, contact_phone: e.target.value }))}
+                        placeholder="Phone number"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Address</Label>
+                      <Input
+                        value={customerDetails.address}
+                        onChange={(e) => setCustomerDetails(prev => ({ ...prev, address: e.target.value }))}
+                        placeholder="Address"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">City</Label>
+                        <Input
+                          value={customerDetails.city}
+                          onChange={(e) => setCustomerDetails(prev => ({ ...prev, city: e.target.value }))}
+                          placeholder="City"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Postcode</Label>
+                        <Input
+                          value={customerDetails.postcode}
+                          onChange={(e) => setCustomerDetails(prev => ({ ...prev, postcode: e.target.value }))}
+                          placeholder="Postcode"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </div>
 
             {/* Site with New button */}
@@ -360,6 +506,53 @@ export function AppointmentFormDialog({
                   )}
                 </SelectContent>
               </Select>
+
+              {/* Inline Site Details */}
+              {siteId && (
+                <Collapsible open={siteDetailsOpen} onOpenChange={setSiteDetailsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-start h-8 text-xs text-muted-foreground hover:text-foreground px-2">
+                      {siteDetailsOpen ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
+                      <MapPin className="h-3 w-3 mr-1" />
+                      Site Details
+                      {!siteDetails.address && (
+                        <span className="ml-1 text-destructive">• needs address</span>
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 pt-2 pl-2 border-l-2 border-primary/20 ml-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Address</Label>
+                      <Input
+                        value={siteDetails.address}
+                        onChange={(e) => setSiteDetails(prev => ({ ...prev, address: e.target.value }))}
+                        placeholder="Site address"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">City</Label>
+                        <Input
+                          value={siteDetails.city}
+                          onChange={(e) => setSiteDetails(prev => ({ ...prev, city: e.target.value }))}
+                          placeholder="City"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Postcode</Label>
+                        <Input
+                          value={siteDetails.postcode}
+                          onChange={(e) => setSiteDetails(prev => ({ ...prev, postcode: e.target.value }))}
+                          placeholder="Postcode"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </div>
 
             {/* Visit Type */}
