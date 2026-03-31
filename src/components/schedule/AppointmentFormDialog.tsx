@@ -151,8 +151,31 @@ export function AppointmentFormDialog({
       if (site?.customer_id) {
         setCustomerId(site.customer_id);
       }
+      // Populate site details
+      setSiteDetails({
+        address: site?.address || "",
+        city: site?.city || "",
+        postcode: site?.postcode || "",
+      });
     }
   }, [siteId, sites]);
+
+  // Populate customer details when customer changes
+  useEffect(() => {
+    if (customerId && customers.length > 0) {
+      const cust = customers.find((c) => c.id === customerId);
+      if (cust) {
+        setCustomerDetails({
+          contact_name: cust.contact_name || "",
+          contact_email: cust.contact_email || "",
+          contact_phone: cust.contact_phone || "",
+          address: cust.address || "",
+          city: cust.city || "",
+          postcode: cust.postcode || "",
+        });
+      }
+    }
+  }, [customerId, customers]);
 
   // Auto-generate title from visit type and site
   useEffect(() => {
