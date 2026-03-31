@@ -254,7 +254,7 @@ export function AppointmentFormDialog({
               address: customerDetails.address || null,
               city: customerDetails.city || null,
               postcode: customerDetails.postcode || null,
-            }).eq('id', customerId)
+            }).eq('id', customerId).then()
           );
         }
       }
