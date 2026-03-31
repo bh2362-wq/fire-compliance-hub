@@ -80,8 +80,8 @@ export function AppointmentFormDialog({
   });
 
   // Data for selects
-  const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null; address: string | null }[]>([]);
-  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [sites, setSites] = useState<{ id: string; name: string; customer_id: string | null; address: string | null; city: string | null; postcode: string | null }[]>([]);
+  const [customers, setCustomers] = useState<{ id: string; name: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; city: string | null; postcode: string | null }[]>([]);
   const [engineers, setEngineers] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
 
   const isEditing = !!appointment;
@@ -105,8 +105,8 @@ export function AppointmentFormDialog({
   const loadFormData = async () => {
     try {
       const [sitesRes, customersRes, engineersRes] = await Promise.all([
-        supabase.from('sites').select('id, name, customer_id, address').order('name'),
-        supabase.from('customers').select('id, name').order('name'),
+        supabase.from('sites').select('id, name, customer_id, address, city, postcode').order('name'),
+        supabase.from('customers').select('id, name, contact_name, contact_email, contact_phone, address, city, postcode').order('name'),
         fetchEngineers(),
       ]);
 
