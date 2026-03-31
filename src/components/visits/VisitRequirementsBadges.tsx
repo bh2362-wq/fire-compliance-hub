@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface VisitRequirementsBadgesProps {
   visitId: string;
   compact?: boolean;
+  inline?: boolean;
 }
 
 interface RequirementSummary {
@@ -21,7 +22,7 @@ const CATEGORY_CONFIG: Record<string, { icon: typeof Package; color: string; lab
   other: { icon: HelpCircle, color: "bg-muted text-muted-foreground border-border", label: "Other" },
 };
 
-export function VisitRequirementsBadges({ visitId, compact }: VisitRequirementsBadgesProps) {
+export function VisitRequirementsBadges({ visitId, compact, inline }: VisitRequirementsBadgesProps) {
   const [summary, setSummary] = useState<RequirementSummary[]>([]);
 
   useEffect(() => {
@@ -57,6 +58,29 @@ export function VisitRequirementsBadges({ visitId, compact }: VisitRequirementsB
   }, [visitId]);
 
   if (summary.length === 0) return null;
+
+  if (inline) {
+    return (
+      <div className="px-6 pb-3 -mt-1 flex items-center gap-2 flex-wrap">
+        <Package className="w-3.5 h-3.5 text-muted-foreground" />
+        {summary.map((g) => {
+          const cfg = CATEGORY_CONFIG[g.category] || CATEGORY_CONFIG.other;
+          const Icon = cfg.icon;
+          return (
+            <Badge
+              key={g.category}
+              variant="outline"
+              className={`text-[11px] px-2 py-0.5 ${cfg.color}`}
+              title={g.items.join(", ")}
+            >
+              <Icon className="w-3 h-3 mr-1" />
+              {g.items.join(", ")}
+            </Badge>
+          );
+        })}
+      </div>
+    );
+  }
 
   if (compact) {
     const total = summary.reduce((s, g) => s + g.count, 0);

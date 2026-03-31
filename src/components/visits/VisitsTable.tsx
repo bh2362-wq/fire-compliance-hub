@@ -693,8 +693,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     const coverage = Number(visit.coverage_percentage) || 0;
 
     return (
+      <div key={visit.id} className="border-b border-border last:border-b-0">
       <div
-        key={visit.id}
         className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/30 transition-colors items-center"
       >
         <div className="col-span-3">
@@ -767,7 +767,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   </p>
                 ) : null;
               })()}
-              <VisitRequirementsBadges key={requirementsRefreshKey} visitId={visit.id} />
+              
             </div>
           </div>
         </div>
@@ -1104,6 +1104,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </div>
+      <VisitRequirementsBadges key={requirementsRefreshKey} visitId={visit.id} inline />
       </div>
     );
   };
