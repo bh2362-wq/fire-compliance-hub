@@ -516,7 +516,7 @@ export function AppointmentFormDialog({
                       <MapPin className="h-3 w-3 mr-1" />
                       Site Details
                       {!siteDetails.address && (
-                        <span className="ml-1 text-orange-500">• needs address</span>
+                        <span className="ml-1 text-destructive">• needs address</span>
                       )}
                     </Button>
                   </CollapsibleTrigger>
