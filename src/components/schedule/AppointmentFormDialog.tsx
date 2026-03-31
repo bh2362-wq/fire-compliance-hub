@@ -233,6 +233,52 @@ export function AppointmentFormDialog({
 
     setLoading(true);
     try {
+      // Save any inline customer/site detail changes
+      const updatePromises: Promise<any>[] = [];
+      if (customerId) {
+        const cust = customers.find(c => c.id === customerId);
+        const hasChanges = cust && (
+          customerDetails.contact_name !== (cust.contact_name || "") ||
+          customerDetails.contact_email !== (cust.contact_email || "") ||
+          customerDetails.contact_phone !== (cust.contact_phone || "") ||
+          customerDetails.address !== (cust.address || "") ||
+          customerDetails.city !== (cust.city || "") ||
+          customerDetails.postcode !== (cust.postcode || "")
+        );
+        if (hasChanges) {
+          updatePromises.push(
+            supabase.from('customers').update({
+              contact_name: customerDetails.contact_name || null,
+              contact_email: customerDetails.contact_email || null,
+              contact_phone: customerDetails.contact_phone || null,
+              address: customerDetails.address || null,
+              city: customerDetails.city || null,
+              postcode: customerDetails.postcode || null,
+            }).eq('id', customerId)
+          );
+        }
+      }
+      if (siteId) {
+        const site = sites.find(s => s.id === siteId);
+        const hasChanges = site && (
+          siteDetails.address !== (site.address || "") ||
+          siteDetails.city !== (site.city || "") ||
+          siteDetails.postcode !== (site.postcode || "")
+        );
+        if (hasChanges) {
+          updatePromises.push(
+            supabase.from('sites').update({
+              address: siteDetails.address || null,
+              city: siteDetails.city || null,
+              postcode: siteDetails.postcode || null,
+            }).eq('id', siteId)
+          );
+        }
+      }
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+      }
+
       const input: AppointmentInput = {
         title,
         description: description || null,
