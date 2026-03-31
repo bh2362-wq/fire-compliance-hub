@@ -21,6 +21,7 @@ export type Database = {
           created_by: string
           customer_id: string | null
           description: string | null
+          end_date: string | null
           end_time: string | null
           engineer_id: string | null
           id: string
@@ -38,6 +39,7 @@ export type Database = {
           created_by: string
           customer_id?: string | null
           description?: string | null
+          end_date?: string | null
           end_time?: string | null
           engineer_id?: string | null
           id?: string
@@ -55,6 +57,7 @@ export type Database = {
           created_by?: string
           customer_id?: string | null
           description?: string | null
+          end_date?: string | null
           end_time?: string | null
           engineer_id?: string | null
           id?: string
