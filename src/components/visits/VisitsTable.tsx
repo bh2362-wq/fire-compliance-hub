@@ -1105,6 +1105,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           </DropdownMenu>
         </div>
       </div>
+      <VisitRequirementsBadges key={requirementsRefreshKey} visitId={visit.id} inline />
+      </div>
     );
   };
 
