@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface VisitRequirementsBadgesProps {
   visitId: string;
   compact?: boolean;
+  inline?: boolean;
 }
 
 interface RequirementSummary {
