@@ -126,6 +126,7 @@ export function AppointmentFormDialog({
     setCustomerId(apt.customer_id || "");
     setEngineerId(apt.engineer_id || "");
     setAppointmentDate(new Date(apt.appointment_date));
+    setEndDate(apt.end_date ? new Date(apt.end_date) : undefined);
     setStartTime(apt.start_time.substring(0, 5));
     setEndTime(apt.end_time?.substring(0, 5) || "");
     setStatus(apt.status);
