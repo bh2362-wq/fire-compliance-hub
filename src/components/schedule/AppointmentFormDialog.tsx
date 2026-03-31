@@ -64,6 +64,7 @@ export function AppointmentFormDialog({
   const [customerId, setCustomerId] = useState("");
   const [engineerId, setEngineerId] = useState("");
   const [appointmentDate, setAppointmentDate] = useState<Date | undefined>(defaultDate);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [status, setStatus] = useState<string>("scheduled");

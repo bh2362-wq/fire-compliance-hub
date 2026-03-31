@@ -10,6 +10,8 @@ import {
   addDays,
   isSameMonth,
   isToday,
+  isWithinInterval,
+  parseISO,
 } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +24,20 @@ interface MonthViewProps {
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function getAppointmentsForDay(appointments: Appointment[], d: Date) {
+  const dayStr = format(d, 'yyyy-MM-dd');
+  return appointments.filter((apt) => {
+    if (apt.end_date && apt.end_date > apt.appointment_date) {
+      // Multi-day: check if this day falls within the range
+      return isWithinInterval(d, {
+        start: parseISO(apt.appointment_date),
+        end: parseISO(apt.end_date),
+      });
+    }
+    return apt.appointment_date === dayStr;
+  });
+}
 
 export function MonthView({
   currentDate,
@@ -43,11 +59,6 @@ export function MonthView({
     days.push(day);
     day = addDays(day, 1);
   }
-
-  const getAppointmentsForDay = (d: Date) => {
-    const dayStr = format(d, 'yyyy-MM-dd');
-    return appointments.filter((apt) => apt.appointment_date === dayStr);
-  };
 
   const handleDragStart = useCallback((e: DragEvent, apt: Appointment) => {
     e.stopPropagation();
@@ -91,7 +102,7 @@ export function MonthView({
       {/* Calendar grid */}
       <div className="flex-1 grid grid-cols-7 auto-rows-fr overflow-auto">
         {days.map((d) => {
-          const dayAppointments = getAppointmentsForDay(d);
+          const dayAppointments = getAppointmentsForDay(appointments, d);
           const isCurrentMonth = isSameMonth(d, currentDate);
           const today = isToday(d);
           const dateStr = format(d, 'yyyy-MM-dd');
@@ -129,20 +140,30 @@ export function MonthView({
               </div>
 
               <div className="space-y-0.5">
-                {dayAppointments.slice(0, 3).map((apt) => (
-                  <div
-                    key={apt.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, apt)}
-                    className="cursor-grab active:cursor-grabbing"
-                  >
-                    <AppointmentCard
-                      appointment={apt}
-                      compact
-                      onClick={() => onAppointmentClick(apt)}
-                    />
-                  </div>
-                ))}
+                {dayAppointments.slice(0, 3).map((apt) => {
+                  const isMultiDay = apt.end_date && apt.end_date > apt.appointment_date;
+                  const isStart = apt.appointment_date === dateStr;
+                  const isEnd = apt.end_date === dateStr;
+                  return (
+                    <div
+                      key={apt.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, apt)}
+                      className={cn(
+                        "cursor-grab active:cursor-grabbing",
+                        isMultiDay && !isStart && !isEnd && "-mx-1",
+                        isMultiDay && isStart && "-mr-1",
+                        isMultiDay && isEnd && "-ml-1"
+                      )}
+                    >
+                      <AppointmentCard
+                        appointment={apt}
+                        compact
+                        onClick={() => onAppointmentClick(apt)}
+                      />
+                    </div>
+                  );
+                })}
                 {dayAppointments.length > 3 && (
                   <div className="text-[10px] text-muted-foreground pl-1">
                     +{dayAppointments.length - 3} more

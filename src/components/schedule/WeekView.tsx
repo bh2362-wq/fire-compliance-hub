@@ -5,6 +5,8 @@ import {
   startOfWeek,
   addDays,
   isToday,
+  isWithinInterval,
+  parseISO,
 } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -23,9 +25,25 @@ export function WeekView({ currentDate, appointments, onAppointmentClick }: Week
   const getAppointmentsForDayHour = (day: Date, hour: number) => {
     const dayStr = format(day, 'yyyy-MM-dd');
     return appointments.filter((apt) => {
-      if (apt.appointment_date !== dayStr) return false;
+      // Check if this appointment covers this day
+      let coversDay = false;
+      if (apt.end_date && apt.end_date > apt.appointment_date) {
+        coversDay = isWithinInterval(day, {
+          start: parseISO(apt.appointment_date),
+          end: parseISO(apt.end_date),
+        });
+      } else {
+        coversDay = apt.appointment_date === dayStr;
+      }
+      if (!coversDay) return false;
+
       try {
         const startHour = parseInt(apt.start_time.split(':')[0], 10);
+        // For multi-day appointments, show at the start hour on the first day,
+        // and at the top (first working hour) on subsequent days
+        if (apt.end_date && apt.end_date > apt.appointment_date && apt.appointment_date !== dayStr) {
+          return hour === 6; // Show at top of day for continuation days
+        }
         return startHour === hour;
       } catch {
         return false;
@@ -71,6 +89,7 @@ export function WeekView({ currentDate, appointments, onAppointmentClick }: Week
             {/* Day cells */}
             {days.map((day) => {
               const hourAppointments = getAppointmentsForDayHour(day, hour);
+              const dayStr = format(day, 'yyyy-MM-dd');
 
               return (
                 <div
@@ -80,14 +99,18 @@ export function WeekView({ currentDate, appointments, onAppointmentClick }: Week
                     isToday(day) && "bg-primary/5"
                   )}
                 >
-                  {hourAppointments.slice(0, 2).map((apt) => (
-                    <AppointmentCard
-                      key={apt.id}
-                      appointment={apt}
-                      compact
-                      onClick={() => onAppointmentClick(apt)}
-                    />
-                  ))}
+                  {hourAppointments.slice(0, 2).map((apt) => {
+                    const isMultiDay = apt.end_date && apt.end_date > apt.appointment_date;
+                    const isContinuation = isMultiDay && apt.appointment_date !== dayStr;
+                    return (
+                      <AppointmentCard
+                        key={apt.id}
+                        appointment={apt}
+                        compact
+                        onClick={() => onAppointmentClick(apt)}
+                      />
+                    );
+                  })}
                   {hourAppointments.length > 2 && (
                     <div className="text-[10px] text-muted-foreground pl-1">
                       +{hourAppointments.length - 2} more
