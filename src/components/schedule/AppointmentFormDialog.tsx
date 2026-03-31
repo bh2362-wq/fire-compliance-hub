@@ -281,6 +281,7 @@ export function AppointmentFormDialog({
         customer_id: customerId || null,
         engineer_id: engineerId || null,
         appointment_date: format(appointmentDate, 'yyyy-MM-dd'),
+        end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
         start_time: startTime + ':00',
         end_time: endTime ? endTime + ':00' : null,
         status: status as AppointmentInput['status'],
