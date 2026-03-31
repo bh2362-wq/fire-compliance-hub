@@ -64,6 +64,7 @@ export function AppointmentFormDialog({
   const [customerId, setCustomerId] = useState("");
   const [engineerId, setEngineerId] = useState("");
   const [appointmentDate, setAppointmentDate] = useState<Date | undefined>(defaultDate);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [status, setStatus] = useState<string>("scheduled");
@@ -125,6 +126,7 @@ export function AppointmentFormDialog({
     setCustomerId(apt.customer_id || "");
     setEngineerId(apt.engineer_id || "");
     setAppointmentDate(new Date(apt.appointment_date));
+    setEndDate(apt.end_date ? new Date(apt.end_date) : undefined);
     setStartTime(apt.start_time.substring(0, 5));
     setEndTime(apt.end_time?.substring(0, 5) || "");
     setStatus(apt.status);
@@ -138,6 +140,7 @@ export function AppointmentFormDialog({
     setCustomerId("");
     setEngineerId("");
     setAppointmentDate(defaultDate || new Date());
+    setEndDate(undefined);
     setStartTime("09:00");
     setEndTime("10:00");
     setStatus("scheduled");
@@ -278,6 +281,7 @@ export function AppointmentFormDialog({
         customer_id: customerId || null,
         engineer_id: engineerId || null,
         appointment_date: format(appointmentDate, 'yyyy-MM-dd'),
+        end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
         start_time: startTime + ':00',
         end_time: endTime ? endTime + ':00' : null,
         status: status as AppointmentInput['status'],
@@ -601,31 +605,60 @@ export function AppointmentFormDialog({
             </div>
 
             {/* Date */}
-            <div className="space-y-2">
-              <Label>Date *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !appointmentDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {appointmentDate ? format(appointmentDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={appointmentDate}
-                    onSelect={setAppointmentDate}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Start Date *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !appointmentDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {appointmentDate ? format(appointmentDate, "dd/MM/yy") : "Pick date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={appointmentDate}
+                      onSelect={setAppointmentDate}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !endDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endDate ? format(endDate, "dd/MM/yy") : "Same day"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={endDate}
+                      onSelect={setEndDate}
+                      disabled={(date) => appointmentDate ? date < appointmentDate : false}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
             {/* Time */}

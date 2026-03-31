@@ -1,0 +1,1 @@
+ALTER TABLE public.appointments ADD COLUMN end_date date NULL;

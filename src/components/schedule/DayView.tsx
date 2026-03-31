@@ -1,6 +1,6 @@
 import { Appointment } from "@/services/appointmentService";
 import { AppointmentCard } from "./AppointmentCard";
-import { format, parse } from "date-fns";
+import { format, isWithinInterval, parseISO } from "date-fns";
 
 interface DayViewProps {
   currentDate: Date;
@@ -12,12 +12,26 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export function DayView({ currentDate, appointments, onAppointmentClick }: DayViewProps) {
   const currentDayStr = format(currentDate, 'yyyy-MM-dd');
-  const dayAppointments = appointments.filter((apt) => apt.appointment_date === currentDayStr);
+  
+  // Include multi-day appointments that span this day
+  const dayAppointments = appointments.filter((apt) => {
+    if (apt.end_date && apt.end_date > apt.appointment_date) {
+      return isWithinInterval(currentDate, {
+        start: parseISO(apt.appointment_date),
+        end: parseISO(apt.end_date),
+      });
+    }
+    return apt.appointment_date === currentDayStr;
+  });
 
   const getAppointmentsForHour = (hour: number) => {
     return dayAppointments.filter((apt) => {
       try {
         const startHour = parseInt(apt.start_time.split(':')[0], 10);
+        // Multi-day continuation days: show at 9am
+        if (apt.end_date && apt.end_date > apt.appointment_date && apt.appointment_date !== currentDayStr) {
+          return hour === 9;
+        }
         return startHour === hour;
       } catch {
         return false;

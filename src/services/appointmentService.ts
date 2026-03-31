@@ -11,6 +11,7 @@ export interface Appointment {
   appointment_date: string;
   start_time: string;
   end_time: string | null;
+  end_date: string | null;
   status: 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
   visit_type: string | null;
   created_by: string;
@@ -43,6 +44,7 @@ export interface AppointmentInput {
   appointment_date: string;
   start_time: string;
   end_time?: string | null;
+  end_date?: string | null;
   status?: 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
   visit_type?: string | null;
 }
