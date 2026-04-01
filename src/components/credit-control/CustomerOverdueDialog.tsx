@@ -93,10 +93,8 @@ export function CustomerOverdueDialog({
   onInvoiceClick,
   onEmailSent,
 }: CustomerOverdueDialogProps) {
-  const [sending, setSending] = useState(false);
   const [emailAddresses, setEmailAddresses] = useState<string[]>([""]);
-  const [message, setMessage] = useState(DEFAULT_MESSAGE);
-  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [showStatementDialog, setShowStatementDialog] = useState(false);
 
   // Invoice action states
   const [editingInvoice, setEditingInvoice] = useState<EditInvoiceData | null>(null);
