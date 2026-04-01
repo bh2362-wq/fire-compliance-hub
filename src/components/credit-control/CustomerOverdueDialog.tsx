@@ -65,23 +65,8 @@ interface CustomerOverdueDialogProps {
   onEmailSent?: () => void;
 }
 
-const DEFAULT_MESSAGE = `Please confirm the following information:
- 
-  - That all the invoices have been received.
-  - That there are no disputes.
-  - If there is a dispute, has backup been supplied?
-  - The payment date for the open invoices. 
- 
- If there are no issues and a payment was already made please
- disregard this message.
- 
- 
- 
- Kind Regards
- 
- Credit Control
- 
- accounts@bhofire.com`;
+
+
 
 export function CustomerOverdueDialog({
   open,
