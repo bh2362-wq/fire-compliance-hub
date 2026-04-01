@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -41,8 +40,8 @@ import {
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
-  Mail, Send, Loader2, FileText, Plus, X, BarChart3,
-  MoreHorizontal, Pencil, ShieldCheck, CheckCircle, Trash2, Eye, Download,
+  Mail, Loader2, FileText, BarChart3,
+  MoreHorizontal, Pencil, ShieldCheck, CheckCircle, Trash2, Eye,
 } from "lucide-react";
 import {
   XeroOutstandingInvoice,
@@ -54,8 +53,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { CustomerPaymentInsights, computeInsights } from "./CustomerPaymentInsights";
 import { ManualInvoiceDialog, EditInvoiceData } from "@/components/xero/ManualInvoiceDialog";
-import { generateStatementPDF } from "@/lib/statementPdfGenerator";
-import { getCompanySettings } from "@/services/companySettingsService";
+import { SendStatementDialog } from "./SendStatementDialog";
 
 interface CustomerOverdueDialogProps {
   open: boolean;
@@ -67,23 +65,8 @@ interface CustomerOverdueDialogProps {
   onEmailSent?: () => void;
 }
 
-const DEFAULT_MESSAGE = `Please confirm the following information:
- 
-  - That all the invoices have been received.
-  - That there are no disputes.
-  - If there is a dispute, has backup been supplied?
-  - The payment date for the open invoices. 
- 
- If there are no issues and a payment was already made please
- disregard this message.
- 
- 
- 
- Kind Regards
- 
- Credit Control
- 
- accounts@bhofire.com`;
+
+
 
 export function CustomerOverdueDialog({
   open,
@@ -94,10 +77,8 @@ export function CustomerOverdueDialog({
   onInvoiceClick,
   onEmailSent,
 }: CustomerOverdueDialogProps) {
-  const [sending, setSending] = useState(false);
   const [emailAddresses, setEmailAddresses] = useState<string[]>([""]);
-  const [message, setMessage] = useState(DEFAULT_MESSAGE);
-  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [showStatementDialog, setShowStatementDialog] = useState(false);
 
   // Invoice action states
   const [editingInvoice, setEditingInvoice] = useState<EditInvoiceData | null>(null);
@@ -149,66 +130,7 @@ export function CustomerOverdueDialog({
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(amount);
 
-  const addEmailField = () => {
-    setEmailAddresses((prev) => [...prev, ""]);
-  };
 
-  const removeEmailField = (index: number) => {
-    setEmailAddresses((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const updateEmailField = (index: number, value: string) => {
-    setEmailAddresses((prev) => prev.map((email, i) => (i === index ? value : email)));
-  };
-
-  const handleSendStatement = async () => {
-    const validEmails = emailAddresses.filter((e) => e.trim());
-    if (validEmails.length === 0) {
-      toast.error("Please enter at least one email address");
-      return;
-    }
-
-    setSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("send-statement-email", {
-        body: {
-          to: validEmails.join(", "),
-          contactName: customerName,
-          invoices: invoices.map((inv) => ({
-            number: inv.invoiceNumber,
-            reference: inv.reference,
-            date: inv.date,
-            dueDate: inv.dueDate,
-            amount: inv.amountDue,
-          })),
-          totalDue,
-          message,
-          insights: {
-            totalOutstanding: insights.totalOutstanding,
-            totalOverdue: insights.totalOverdue,
-            overdueCount: insights.overdueCount,
-            currentCount: insights.currentCount,
-            avgDaysOverdue: insights.avgDaysOverdue,
-            maxDaysOverdue: insights.maxDaysOverdue,
-            riskLevel: insights.riskLevel,
-            agingBuckets: insights.agingBuckets,
-          },
-        },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      toast.success("Statement email sent successfully");
-      onEmailSent?.();
-      setShowEmailForm(false);
-    } catch (error: any) {
-      console.error("Failed to send statement:", error);
-      toast.error(error.message || "Failed to send statement email");
-    } finally {
-      setSending(false);
-    }
-  };
 
   // --- Invoice Actions ---
   const handleEditInvoice = async (invoice: XeroOutstandingInvoice) => {
@@ -432,115 +354,31 @@ export function CustomerOverdueDialog({
             </TabsContent>
           </Tabs>
 
-          {/* Email Form */}
-          {showEmailForm && (
-            <div className="space-y-4 border rounded-lg p-4 shrink-0">
-              <div className="space-y-2">
-                <Label>Recipients</Label>
-                {emailAddresses.map((email, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      type="email"
-                      placeholder="email@company.com"
-                      className="flex-1"
-                      value={email}
-                      onChange={(e) => updateEmailField(index, e.target.value)}
-                    />
-                    {emailAddresses.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        onClick={() => removeEmailField(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs"
-                  onClick={addEmailField}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add another email
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Message (appears below invoice table)</Label>
-                <Textarea
-                  rows={6}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  className="font-mono text-sm"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowEmailForm(false)}>
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={handleSendStatement} disabled={sending}>
-                  {sending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  Send Statement
-                </Button>
-              </div>
-            </div>
-          )}
-
           {/* Footer Actions */}
-          {!showEmailForm && (
-            <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Close
-              </Button>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  try {
-                    toast.loading("Generating PDF...", { id: "stmt-pdf" });
-                    const settings = await getCompanySettings();
-                    const doc = await generateStatementPDF({
-                      customerName,
-                      invoices,
-                      companySettings: settings,
-                    });
-                    const blob = doc.output("blob");
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `Statement - ${customerName} - ${format(new Date(), "dd-MM-yyyy")}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    toast.success("Statement PDF downloaded", { id: "stmt-pdf" });
-                  } catch (err) {
-                    console.error(err);
-                    toast.error("Failed to generate PDF", { id: "stmt-pdf" });
-                  }
-                }}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Save as PDF
-              </Button>
-              <Button onClick={() => setShowEmailForm(true)}>
-                <Mail className="mr-2 h-4 w-4" />
-                Send Statement
-              </Button>
-            </div>
-          )}
+          <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+            <Button onClick={() => setShowStatementDialog(true)}>
+              <Mail className="mr-2 h-4 w-4" />
+              Send Statement
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Send Statement Dialog */}
+      <SendStatementDialog
+        open={showStatementDialog}
+        onOpenChange={setShowStatementDialog}
+        customerName={customerName}
+        invoices={invoices}
+        emailAddresses={emailAddresses}
+        onEmailAddressesChange={setEmailAddresses}
+        totalDue={totalDue}
+        insights={insights}
+        onEmailSent={onEmailSent}
+      />
 
       {/* View Invoice Details Dialog */}
       <Dialog open={!!viewingInvoice} onOpenChange={(o) => !o && setViewingInvoice(null)}>
