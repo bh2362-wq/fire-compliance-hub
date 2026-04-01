@@ -146,17 +146,8 @@ export function CustomerOverdueDialog({
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(amount);
 
-  const addEmailField = () => {
-    setEmailAddresses((prev) => [...prev, ""]);
-  };
 
-  const removeEmailField = (index: number) => {
-    setEmailAddresses((prev) => prev.filter((_, i) => i !== index));
-  };
 
-  const updateEmailField = (index: number, value: string) => {
-    setEmailAddresses((prev) => prev.map((email, i) => (i === index ? value : email)));
-  };
 
   const handleSendStatement = async () => {
     const validEmails = emailAddresses.filter((e) => e.trim());
