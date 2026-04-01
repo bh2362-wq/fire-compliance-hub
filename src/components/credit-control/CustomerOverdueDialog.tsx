@@ -132,9 +132,6 @@ export function CustomerOverdueDialog({
 
 
 
-
-  // handleSendStatement moved to SendStatementDialog
-
   // --- Invoice Actions ---
   const handleEditInvoice = async (invoice: XeroOutstandingInvoice) => {
     try {
