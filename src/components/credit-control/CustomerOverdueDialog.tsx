@@ -40,8 +40,8 @@ import {
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
-  Mail, Send, Loader2, FileText, Plus, X, BarChart3,
-  MoreHorizontal, Pencil, ShieldCheck, CheckCircle, Trash2, Eye, Download,
+  Mail, Loader2, FileText, BarChart3,
+  MoreHorizontal, Pencil, ShieldCheck, CheckCircle, Trash2, Eye,
 } from "lucide-react";
 import {
   XeroOutstandingInvoice,
