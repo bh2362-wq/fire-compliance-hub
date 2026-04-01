@@ -149,54 +149,7 @@ export function CustomerOverdueDialog({
 
 
 
-  const handleSendStatement = async () => {
-    const validEmails = emailAddresses.filter((e) => e.trim());
-    if (validEmails.length === 0) {
-      toast.error("Please enter at least one email address");
-      return;
-    }
-
-    setSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("send-statement-email", {
-        body: {
-          to: validEmails.join(", "),
-          contactName: customerName,
-          invoices: invoices.map((inv) => ({
-            number: inv.invoiceNumber,
-            reference: inv.reference,
-            date: inv.date,
-            dueDate: inv.dueDate,
-            amount: inv.amountDue,
-          })),
-          totalDue,
-          message,
-          insights: {
-            totalOutstanding: insights.totalOutstanding,
-            totalOverdue: insights.totalOverdue,
-            overdueCount: insights.overdueCount,
-            currentCount: insights.currentCount,
-            avgDaysOverdue: insights.avgDaysOverdue,
-            maxDaysOverdue: insights.maxDaysOverdue,
-            riskLevel: insights.riskLevel,
-            agingBuckets: insights.agingBuckets,
-          },
-        },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      toast.success("Statement email sent successfully");
-      onEmailSent?.();
-      setShowEmailForm(false);
-    } catch (error: any) {
-      console.error("Failed to send statement:", error);
-      toast.error(error.message || "Failed to send statement email");
-    } finally {
-      setSending(false);
-    }
-  };
+  // handleSendStatement moved to SendStatementDialog
 
   // --- Invoice Actions ---
   const handleEditInvoice = async (invoice: XeroOutstandingInvoice) => {
