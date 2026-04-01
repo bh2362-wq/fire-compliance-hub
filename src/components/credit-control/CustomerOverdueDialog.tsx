@@ -373,115 +373,31 @@ export function CustomerOverdueDialog({
             </TabsContent>
           </Tabs>
 
-          {/* Email Form */}
-          {showEmailForm && (
-            <div className="space-y-4 border rounded-lg p-4 shrink-0">
-              <div className="space-y-2">
-                <Label>Recipients</Label>
-                {emailAddresses.map((email, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      type="email"
-                      placeholder="email@company.com"
-                      className="flex-1"
-                      value={email}
-                      onChange={(e) => updateEmailField(index, e.target.value)}
-                    />
-                    {emailAddresses.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        onClick={() => removeEmailField(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs"
-                  onClick={addEmailField}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add another email
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Message (appears below invoice table)</Label>
-                <Textarea
-                  rows={6}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  className="font-mono text-sm"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowEmailForm(false)}>
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={handleSendStatement} disabled={sending}>
-                  {sending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  Send Statement
-                </Button>
-              </div>
-            </div>
-          )}
-
           {/* Footer Actions */}
-          {!showEmailForm && (
-            <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Close
-              </Button>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  try {
-                    toast.loading("Generating PDF...", { id: "stmt-pdf" });
-                    const settings = await getCompanySettings();
-                    const doc = await generateStatementPDF({
-                      customerName,
-                      invoices,
-                      companySettings: settings,
-                    });
-                    const blob = doc.output("blob");
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `Statement - ${customerName} - ${format(new Date(), "dd-MM-yyyy")}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    toast.success("Statement PDF downloaded", { id: "stmt-pdf" });
-                  } catch (err) {
-                    console.error(err);
-                    toast.error("Failed to generate PDF", { id: "stmt-pdf" });
-                  }
-                }}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Save as PDF
-              </Button>
-              <Button onClick={() => setShowEmailForm(true)}>
-                <Mail className="mr-2 h-4 w-4" />
-                Send Statement
-              </Button>
-            </div>
-          )}
+          <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+            <Button onClick={() => setShowStatementDialog(true)}>
+              <Mail className="mr-2 h-4 w-4" />
+              Send Statement
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Send Statement Dialog */}
+      <SendStatementDialog
+        open={showStatementDialog}
+        onOpenChange={setShowStatementDialog}
+        customerName={customerName}
+        invoices={invoices}
+        emailAddresses={emailAddresses}
+        onEmailAddressesChange={setEmailAddresses}
+        totalDue={totalDue}
+        insights={insights}
+        onEmailSent={onEmailSent}
+      />
 
       {/* View Invoice Details Dialog */}
       <Dialog open={!!viewingInvoice} onOpenChange={(o) => !o && setViewingInvoice(null)}>
