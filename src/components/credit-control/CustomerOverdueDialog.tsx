@@ -54,8 +54,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { CustomerPaymentInsights, computeInsights } from "./CustomerPaymentInsights";
 import { ManualInvoiceDialog, EditInvoiceData } from "@/components/xero/ManualInvoiceDialog";
-import { generateStatementPDF } from "@/lib/statementPdfGenerator";
-import { getCompanySettings } from "@/services/companySettingsService";
+import { SendStatementDialog } from "./SendStatementDialog";
 
 interface CustomerOverdueDialogProps {
   open: boolean;
