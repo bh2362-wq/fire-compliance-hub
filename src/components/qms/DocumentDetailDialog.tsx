@@ -160,6 +160,17 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
           )}
         </div>
 
+        {/* Generate Branded PDF */}
+        <Button
+          onClick={handleGeneratePDF}
+          disabled={generatingPdf}
+          className="w-full"
+          variant="outline"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          {generatingPdf ? "Generating..." : "Generate Branded PDF"}
+        </Button>
+
         {/* Description */}
         {document.description && (
           <div>
