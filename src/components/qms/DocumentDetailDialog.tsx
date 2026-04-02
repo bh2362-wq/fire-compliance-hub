@@ -58,6 +58,21 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [changesSummary, setChangesSummary] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleGeneratePDF = async () => {
+    if (!document) return;
+    setGeneratingPdf(true);
+    try {
+      await generateQMSDocumentPDF(document);
+      toast.success("Branded PDF generated and downloaded");
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      toast.error("Failed to generate PDF");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   const { data: versions, isLoading: versionsLoading } = useQuery({
     queryKey: ["qms-document-versions", document?.id],
