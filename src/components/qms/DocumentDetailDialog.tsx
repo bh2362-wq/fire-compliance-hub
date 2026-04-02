@@ -29,6 +29,7 @@ import { QMSDocument, fetchDocumentVersions, uploadDocumentVersion } from "@/ser
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { generateQMSDocumentPDF } from "@/lib/qmsDocumentPdfGenerator";
 
 interface DocumentDetailDialogProps {
   open: boolean;
@@ -57,6 +58,21 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [changesSummary, setChangesSummary] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleGeneratePDF = async () => {
+    if (!document) return;
+    setGeneratingPdf(true);
+    try {
+      await generateQMSDocumentPDF(document);
+      toast.success("Branded PDF generated and downloaded");
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      toast.error("Failed to generate PDF");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   const { data: versions, isLoading: versionsLoading } = useQuery({
     queryKey: ["qms-document-versions", document?.id],
@@ -143,6 +159,17 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
             <Badge variant="outline">{document.category.name}</Badge>
           )}
         </div>
+
+        {/* Generate Branded PDF */}
+        <Button
+          onClick={handleGeneratePDF}
+          disabled={generatingPdf}
+          className="w-full"
+          variant="outline"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          {generatingPdf ? "Generating..." : "Generate Branded PDF"}
+        </Button>
 
         {/* Description */}
         {document.description && (
