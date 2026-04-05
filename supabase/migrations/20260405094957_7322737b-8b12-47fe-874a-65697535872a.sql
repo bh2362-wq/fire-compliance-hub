@@ -1,0 +1,1 @@
+ALTER TABLE public.visits ADD COLUMN estimated_hours numeric NULL;
