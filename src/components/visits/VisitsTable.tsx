@@ -376,6 +376,21 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       // 7. Delete service reports
       await supabase.from("service_reports").delete().eq("visit_id", deleteVisit.id);
 
+      // 8. Delete RAMS documents (auto-generated on visit creation)
+      await supabase.from("rams_documents").delete().eq("visit_id", deleteVisit.id);
+
+      // 9. Delete visit requirements
+      await supabase.from("visit_requirements").delete().eq("visit_id", deleteVisit.id);
+
+      // 10. Delete subcontractor sheets
+      await supabase.from("visit_subcontractor_sheets").delete().eq("visit_id", deleteVisit.id);
+
+      // 11. Delete linked quotations
+      await supabase.from("quotations").delete().eq("visit_id", deleteVisit.id);
+
+      // 12. Delete QMS NCRs and feedback
+      await supabase.from("qms_ncrs").delete().eq("visit_id", deleteVisit.id);
+      await supabase.from("qms_feedback").delete().eq("visit_id", deleteVisit.id);
       const { error } = await supabase
         .from("visits")
         .delete()
