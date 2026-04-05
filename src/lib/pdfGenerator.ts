@@ -1420,71 +1420,124 @@ export async function generateWorkReportPDF(
 
   // === SUPPLEMENTARY SHEETS (attached report files) ===
   if (data.reportFiles && data.reportFiles.length > 0) {
-    const imageFiles = data.reportFiles.filter(f => {
-      const ext = f.name.split(".").pop()?.toLowerCase() || "";
-      return ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(ext);
-    });
+    const totalFiles = data.reportFiles.length;
 
-    for (let fi = 0; fi < imageFiles.length; fi++) {
-      const file = imageFiles[fi];
+    for (let fi = 0; fi < totalFiles; fi++) {
+      const file = data.reportFiles[fi];
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      const isImage = ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(ext);
+
       doc.addPage();
       const suppY = addCompactHeader(doc, pageWidth, margin, logoImg);
 
-      // Section title
+      // Section title bar
       doc.setFillColor(...COLORS.charcoal);
       doc.rect(margin, suppY, contentWidth, 8, "F");
       doc.setTextColor(...COLORS.white);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text(`SUPPLEMENTARY SHEET ${fi + 1} of ${imageFiles.length}`, margin + 3, suppY + 5.5);
+      doc.text(`SUPPLEMENTARY SHEET ${fi + 1} of ${totalFiles}`, margin + 3, suppY + 5.5);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
-      doc.setTextColor(...COLORS.white);
       const truncName = file.name.length > 50 ? file.name.substring(0, 47) + "..." : file.name;
       doc.text(truncName, pageWidth - margin - 2, suppY + 5.5, { align: "right" });
 
-      const imgStartY = suppY + 12;
-      const maxImgHeight = pageHeight - imgStartY - 25; // leave room for footer
-      const maxImgWidth = contentWidth;
+      const contentStartY = suppY + 12;
 
-      try {
-        const response = await fetch(file.url);
-        const blob = await response.blob();
-        const imgDataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
+      if (isImage) {
+        // Render image file
+        const maxImgHeight = pageHeight - contentStartY - 25;
+        try {
+          const response = await fetch(file.url);
+          const blob = await response.blob();
+          const imgDataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
 
-        // Create an image to get natural dimensions
-        const tempImg = await new Promise<HTMLImageElement>((resolve, reject) => {
-          const img = new window.Image();
-          img.onload = () => resolve(img);
-          img.onerror = reject;
-          img.src = imgDataUrl;
-        });
+          const tempImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new window.Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = imgDataUrl;
+          });
 
-        const natW = tempImg.naturalWidth;
-        const natH = tempImg.naturalHeight;
-        let drawW = maxImgWidth;
-        let drawH = (natH / natW) * drawW;
-        if (drawH > maxImgHeight) {
-          drawH = maxImgHeight;
-          drawW = (natW / natH) * drawH;
+          const natW = tempImg.naturalWidth;
+          const natH = tempImg.naturalHeight;
+          let drawW = contentWidth;
+          let drawH = (natH / natW) * drawW;
+          if (drawH > maxImgHeight) {
+            drawH = maxImgHeight;
+            drawW = (natW / natH) * drawH;
+          }
+          const drawX = margin + (contentWidth - drawW) / 2;
+          doc.addImage(imgDataUrl, "JPEG", drawX, contentStartY, drawW, drawH);
+        } catch (imgErr) {
+          console.error("Failed to load supplementary image:", imgErr);
+          doc.setFillColor(...COLORS.lightGrey);
+          doc.rect(margin, contentStartY, contentWidth, 40, "F");
+          doc.setFontSize(10);
+          doc.setTextColor(...COLORS.mediumGrey);
+          doc.text(`Could not load: ${file.name}`, pageWidth / 2, contentStartY + 20, { align: "center" });
+        }
+      } else {
+        // PDF or other non-renderable file — branded reference page
+        let refY = contentStartY + 10;
+
+        // File icon area
+        doc.setFillColor(...COLORS.lightGrey);
+        doc.roundedRect(margin + (contentWidth - 60) / 2, refY, 60, 50, 3, 3, "F");
+        doc.setFontSize(28);
+        doc.setTextColor(...COLORS.red);
+        doc.setFont("helvetica", "bold");
+        doc.text(ext.toUpperCase(), pageWidth / 2, refY + 30, { align: "center" });
+        doc.setFontSize(9);
+        doc.setTextColor(...COLORS.mediumGrey);
+        doc.setFont("helvetica", "normal");
+        doc.text("Attached Document", pageWidth / 2, refY + 42, { align: "center" });
+
+        refY += 60;
+
+        // File details box
+        doc.setDrawColor(...COLORS.borderGrey);
+        doc.setLineWidth(0.3);
+        doc.rect(margin, refY, contentWidth, 30, "S");
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...COLORS.charcoal);
+        doc.text("File Name:", margin + 4, refY + 8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...COLORS.darkGrey);
+        doc.text(file.name, margin + 28, refY + 8);
+
+        if (file.size) {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...COLORS.charcoal);
+          doc.text("File Size:", margin + 4, refY + 16);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...COLORS.darkGrey);
+          const sizeStr = file.size < 1024 * 1024
+            ? `${(file.size / 1024).toFixed(1)} KB`
+            : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+          doc.text(sizeStr, margin + 28, refY + 16);
         }
 
-        // Center horizontally
-        const drawX = margin + (contentWidth - drawW) / 2;
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...COLORS.charcoal);
+        doc.text("Type:", margin + 4, refY + 24);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...COLORS.darkGrey);
+        doc.text(ext.toUpperCase() + " Document", margin + 28, refY + 24);
 
-        doc.addImage(imgDataUrl, "JPEG", drawX, imgStartY, drawW, drawH);
-      } catch (imgErr) {
-        console.error("Failed to load supplementary file:", imgErr);
-        doc.setFillColor(...COLORS.lightGrey);
-        doc.rect(margin, imgStartY, contentWidth, 40, "F");
-        doc.setFontSize(10);
+        refY += 40;
+        doc.setFontSize(9);
         doc.setTextColor(...COLORS.mediumGrey);
-        doc.text(`Could not load: ${file.name}`, pageWidth / 2, imgStartY + 20, { align: "center" });
+        doc.setFont("helvetica", "italic");
+        doc.text("This document has been attached as a supplementary file to this job sheet.", margin, refY);
+        doc.text("Please refer to the original file for full content.", margin, refY + 5);
       }
     }
   }
