@@ -1244,7 +1244,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                     <span>{uniqueSites} site{uniqueSites !== 1 ? 's' : ''}</span>
                     {totalDevices > 0 && <span>{totalDevices} devices</span>}
                     {totalCost > 0 && <span>£{totalCost.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</span>}
-                    <ChevronDown className="w-4 h-4 transition-transform duration-200 [[data-state=closed]_&]:rotate-[-90deg] [[data-state=open]_&]:rotate-0" />
+                    <ChevronDown className="w-4 h-4 transition-transform duration-200" />
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
