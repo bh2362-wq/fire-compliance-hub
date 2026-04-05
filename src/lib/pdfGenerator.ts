@@ -1,5 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { format, addMonths } from "date-fns";
 import {
   ServiceReport,
@@ -167,6 +169,42 @@ function addCompactFooter(doc: jsPDF, pageWidth: number, margin: number) {
       { align: "center" }
     );
   }
+}
+
+GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
+const blobToDataUrl = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+    reader.readAsDataURL(blob);
+  });
+
+async function renderPdfToImages(url: string, scale = 1.6): Promise<string[]> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.status}`);
+
+  const pdfBytes = new Uint8Array(await response.arrayBuffer());
+  const pdf = await getDocument({ data: pdfBytes }).promise;
+  const pages: string[] = [];
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    if (!context) throw new Error("Failed to create PDF canvas context");
+
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+
+    await page.render({ canvasContext: context, viewport }).promise;
+    pages.push(canvas.toDataURL("image/jpeg", 0.92));
+  }
+
+  return pages;
 }
 
 // ===================== SERVICE REPORT PDF (Multi-Panel Support) =====================
@@ -1420,87 +1458,122 @@ export async function generateWorkReportPDF(
 
   // === SUPPLEMENTARY SHEETS (attached report files) ===
   if (data.reportFiles && data.reportFiles.length > 0) {
-    const totalFiles = data.reportFiles.length;
+    const supplementaryPages: Array<{
+      fileName: string;
+      ext: string;
+      size?: number;
+      dataUrl?: string;
+      note?: string;
+    }> = [];
 
-    for (let fi = 0; fi < totalFiles; fi++) {
-      const file = data.reportFiles[fi];
-      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    for (const file of data.reportFiles) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "file";
       const isImage = ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(ext);
 
+      try {
+        if (isImage) {
+          const response = await fetch(file.url);
+          const blob = await response.blob();
+          supplementaryPages.push({
+            fileName: file.name,
+            ext,
+            size: file.size,
+            dataUrl: await blobToDataUrl(blob),
+          });
+          continue;
+        }
+
+        if (ext === "pdf") {
+          const pdfPages = await renderPdfToImages(file.url);
+          pdfPages.forEach((dataUrl, pageIndex) => {
+            supplementaryPages.push({
+              fileName: file.name,
+              ext,
+              size: file.size,
+              dataUrl,
+              note: `PDF page ${pageIndex + 1} of ${pdfPages.length}`,
+            });
+          });
+          continue;
+        }
+      } catch (attachmentErr) {
+        console.error("Failed to render supplementary attachment:", attachmentErr);
+      }
+
+      supplementaryPages.push({
+        fileName: file.name,
+        ext,
+        size: file.size,
+        note: "Preview unavailable",
+      });
+    }
+
+    for (let fi = 0; fi < supplementaryPages.length; fi++) {
+      const attachment = supplementaryPages[fi];
       doc.addPage();
       const suppY = addCompactHeader(doc, pageWidth, margin, logoImg);
 
-      // Section title bar
       doc.setFillColor(...COLORS.charcoal);
       doc.rect(margin, suppY, contentWidth, 8, "F");
       doc.setTextColor(...COLORS.white);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text(`SUPPLEMENTARY SHEET ${fi + 1} of ${totalFiles}`, margin + 3, suppY + 5.5);
+      doc.text(`SUPPLEMENTARY SHEET ${fi + 1} of ${supplementaryPages.length}`, margin + 3, suppY + 5.5);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
-      const truncName = file.name.length > 50 ? file.name.substring(0, 47) + "..." : file.name;
+      const titleText = attachment.note
+        ? `${attachment.fileName} • ${attachment.note}`
+        : attachment.fileName;
+      const truncName = titleText.length > 58 ? `${titleText.substring(0, 55)}...` : titleText;
       doc.text(truncName, pageWidth - margin - 2, suppY + 5.5, { align: "right" });
 
       const contentStartY = suppY + 12;
 
-      if (isImage) {
-        // Render image file
-        const maxImgHeight = pageHeight - contentStartY - 25;
+      if (attachment.dataUrl) {
         try {
-          const response = await fetch(file.url);
-          const blob = await response.blob();
-          const imgDataUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-
           const tempImg = await new Promise<HTMLImageElement>((resolve, reject) => {
             const img = new window.Image();
             img.onload = () => resolve(img);
             img.onerror = reject;
-            img.src = imgDataUrl;
+            img.src = attachment.dataUrl!;
           });
 
+          const maxImgHeight = pageHeight - contentStartY - 25;
           const natW = tempImg.naturalWidth;
           const natH = tempImg.naturalHeight;
           let drawW = contentWidth;
           let drawH = (natH / natW) * drawW;
+
           if (drawH > maxImgHeight) {
             drawH = maxImgHeight;
             drawW = (natW / natH) * drawH;
           }
+
           const drawX = margin + (contentWidth - drawW) / 2;
-          doc.addImage(imgDataUrl, "JPEG", drawX, contentStartY, drawW, drawH);
+          const imageFormat = attachment.dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+          doc.addImage(attachment.dataUrl, imageFormat, drawX, contentStartY, drawW, drawH);
         } catch (imgErr) {
-          console.error("Failed to load supplementary image:", imgErr);
+          console.error("Failed to draw supplementary attachment:", imgErr);
           doc.setFillColor(...COLORS.lightGrey);
           doc.rect(margin, contentStartY, contentWidth, 40, "F");
           doc.setFontSize(10);
           doc.setTextColor(...COLORS.mediumGrey);
-          doc.text(`Could not load: ${file.name}`, pageWidth / 2, contentStartY + 20, { align: "center" });
+          doc.text(`Could not render: ${attachment.fileName}`, pageWidth / 2, contentStartY + 20, { align: "center" });
         }
       } else {
-        // PDF or other non-renderable file — branded reference page
         let refY = contentStartY + 10;
-
-        // File icon area
         doc.setFillColor(...COLORS.lightGrey);
         doc.roundedRect(margin + (contentWidth - 60) / 2, refY, 60, 50, 3, 3, "F");
         doc.setFontSize(28);
         doc.setTextColor(...COLORS.red);
         doc.setFont("helvetica", "bold");
-        doc.text(ext.toUpperCase(), pageWidth / 2, refY + 30, { align: "center" });
+        doc.text(attachment.ext.toUpperCase(), pageWidth / 2, refY + 30, { align: "center" });
         doc.setFontSize(9);
         doc.setTextColor(...COLORS.mediumGrey);
         doc.setFont("helvetica", "normal");
         doc.text("Attached Document", pageWidth / 2, refY + 42, { align: "center" });
 
         refY += 60;
-
-        // File details box
         doc.setDrawColor(...COLORS.borderGrey);
         doc.setLineWidth(0.3);
         doc.rect(margin, refY, contentWidth, 30, "S");
@@ -1511,17 +1584,17 @@ export async function generateWorkReportPDF(
         doc.text("File Name:", margin + 4, refY + 8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(...COLORS.darkGrey);
-        doc.text(file.name, margin + 28, refY + 8);
+        doc.text(attachment.fileName, margin + 28, refY + 8);
 
-        if (file.size) {
+        if (attachment.size) {
           doc.setFont("helvetica", "bold");
           doc.setTextColor(...COLORS.charcoal);
           doc.text("File Size:", margin + 4, refY + 16);
           doc.setFont("helvetica", "normal");
           doc.setTextColor(...COLORS.darkGrey);
-          const sizeStr = file.size < 1024 * 1024
-            ? `${(file.size / 1024).toFixed(1)} KB`
-            : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+          const sizeStr = attachment.size < 1024 * 1024
+            ? `${(attachment.size / 1024).toFixed(1)} KB`
+            : `${(attachment.size / (1024 * 1024)).toFixed(1)} MB`;
           doc.text(sizeStr, margin + 28, refY + 16);
         }
 
@@ -1530,14 +1603,7 @@ export async function generateWorkReportPDF(
         doc.text("Type:", margin + 4, refY + 24);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(...COLORS.darkGrey);
-        doc.text(ext.toUpperCase() + " Document", margin + 28, refY + 24);
-
-        refY += 40;
-        doc.setFontSize(9);
-        doc.setTextColor(...COLORS.mediumGrey);
-        doc.setFont("helvetica", "italic");
-        doc.text("This document has been attached as a supplementary file to this job sheet.", margin, refY);
-        doc.text("Please refer to the original file for full content.", margin, refY + 5);
+        doc.text(`${attachment.ext.toUpperCase()} Document`, margin + 28, refY + 24);
       }
     }
   }
