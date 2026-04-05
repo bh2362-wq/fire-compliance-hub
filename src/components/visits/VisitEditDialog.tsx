@@ -343,6 +343,18 @@ const VisitEditDialog = ({
     if (!error) setRequirements((prev) => prev.map((r) => (r.id === id ? { ...r, is_confirmed: !current } : r)));
   };
 
+  const handleGenerateSubcontractorReport = async () => {
+    setGeneratingReport(true);
+    try {
+      await generateSubcontractorReport(visit);
+      sonnerToast.success("Subcontractor report generated and downloaded");
+    } catch (err: any) {
+      sonnerToast.error(err?.message || "Failed to generate report");
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
   const getReqCategoryConfig = (cat: string) => REQ_CATEGORIES.find((c) => c.value === cat) || REQ_CATEGORIES[3];
 
   const onSubmit = async (data: VisitEditFormData) => {
