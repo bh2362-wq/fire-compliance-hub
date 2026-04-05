@@ -66,6 +66,7 @@ Return ONLY valid JSON. Use null for fields you cannot determine. visits must al
 - visit_type: One of: quarterly_service, biannual_service, annual_inspection, emergency, remedial, supply_only
 - urgency: low, medium, high
 - preferred_date: Any date mentioned for the visit
+- client_po_number: Any purchase order number, PO number, or order reference mentioned
 - description: A summary of what work is needed
 - notes: Any additional notes or context
 
@@ -151,6 +152,7 @@ Return ONLY valid JSON with these fields. Use null for any fields you cannot det
                   visit_type: { type: "string", nullable: true },
                   urgency: { type: "string", nullable: true },
                   preferred_date: { type: "string", nullable: true },
+                  client_po_number: { type: "string", nullable: true },
                   description: { type: "string", nullable: true },
                   notes: { type: "string", nullable: true },
                 } : {
