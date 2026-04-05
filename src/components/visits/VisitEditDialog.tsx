@@ -31,13 +31,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Loader2, Pencil, Upload, FileText, X, Server, Wind, Flame, Box, PanelTop, Accessibility, Lightbulb, ShieldAlert, Phone, Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Check, UserCog } from "lucide-react";
+import { Loader2, Pencil, Upload, FileText, X, Server, Wind, Flame, Box, PanelTop, Accessibility, Lightbulb, ShieldAlert, Phone, Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Check, UserCog, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Visit } from "@/hooks/useVisits";
 import { sendAppointmentUpdatedNotification } from "@/services/notificationService";
 import { SERVICE_TYPES } from "@/services/serviceContractService";
+import SubcontractorSheetsSection from "@/components/visits/SubcontractorSheetsSection";
+import { generateSubcontractorReport } from "@/lib/subcontractorReportPdfGenerator";
+import { toast as sonnerToast } from "sonner";
 
 interface SiteAsset {
   id: string;
@@ -150,6 +153,8 @@ const VisitEditDialog = ({
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [subSheetCount, setSubSheetCount] = useState(0);
+  const [generatingReport, setGeneratingReport] = useState(false);
   const [siteAssets, setSiteAssets] = useState<SiteAsset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [storedAssetType, setStoredAssetType] = useState("general");
@@ -336,6 +341,18 @@ const VisitEditDialog = ({
   const handleToggleConfirm = async (id: string, current: boolean) => {
     const { error } = await supabase.from("visit_requirements").update({ is_confirmed: !current }).eq("id", id);
     if (!error) setRequirements((prev) => prev.map((r) => (r.id === id ? { ...r, is_confirmed: !current } : r)));
+  };
+
+  const handleGenerateSubcontractorReport = async () => {
+    setGeneratingReport(true);
+    try {
+      await generateSubcontractorReport(visit);
+      sonnerToast.success("Subcontractor report generated and downloaded");
+    } catch (err: any) {
+      sonnerToast.error(err?.message || "Failed to generate report");
+    } finally {
+      setGeneratingReport(false);
+    }
   };
 
   const getReqCategoryConfig = (cat: string) => REQ_CATEGORIES.find((c) => c.value === cat) || REQ_CATEGORIES[3];
@@ -662,6 +679,33 @@ const VisitEditDialog = ({
                 </div>
               )}
             </div>
+
+            {/* Subcontractor Sheets Section */}
+            <SubcontractorSheetsSection
+              visitId={visit.id}
+              onSheetsChange={setSubSheetCount}
+            />
+
+            {/* Generate Subcontractor Report */}
+            {subSheetCount > 0 && (
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleGenerateSubcontractorReport}
+                  disabled={generatingReport}
+                >
+                  {generatingReport ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileDown className="w-4 h-4 mr-2" />
+                  )}
+                  Generate Subcontractor Report for Client
+                </Button>
+              </div>
+            )}
 
             {/* Job Requirements Section */}
             <div className="space-y-3 pt-2 border-t">
