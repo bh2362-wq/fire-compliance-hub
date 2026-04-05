@@ -3787,6 +3787,53 @@ export type Database = {
           },
         ]
       }
+      visit_subcontractor_sheets: {
+        Row: {
+          created_at: string
+          description: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string
+          id: string
+          storage_path: string
+          updated_at: string
+          uploaded_by: string | null
+          visit_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          storage_path: string
+          updated_at?: string
+          uploaded_by?: string | null
+          visit_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          storage_path?: string
+          updated_at?: string
+          uploaded_by?: string | null
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_subcontractor_sheets_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visits: {
         Row: {
           acceptance_token: string | null
