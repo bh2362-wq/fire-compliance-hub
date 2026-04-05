@@ -66,7 +66,7 @@ Return ONLY valid JSON. Use null for fields you cannot determine. visits must al
 - visit_type: One of: quarterly_service, biannual_service, annual_inspection, emergency, remedial, supply_only
 - urgency: low, medium, high
 - preferred_date: Any date mentioned for the visit
-- client_po_number: Any purchase order number, PO number, or order reference mentioned
+- client_po_number: The client's purchase order (PO) number or order reference number. This is NOT a contract number, account number, or site reference — it is specifically the PO/order number the client uses to authorise the work
 - description: A summary of what work is needed
 - notes: Any additional notes or context
 
