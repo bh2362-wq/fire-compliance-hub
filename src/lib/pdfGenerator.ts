@@ -1418,6 +1418,77 @@ export async function generateWorkReportPDF(
     doc.text(`Signed: ${custSignDateStr}${custSignTimeStr ? ` ${custSignTimeStr}` : ""}`, custX + 3, yPos + sigBoxHeight + 5);
   }
 
+  // === SUPPLEMENTARY SHEETS (attached report files) ===
+  if (data.reportFiles && data.reportFiles.length > 0) {
+    const imageFiles = data.reportFiles.filter(f => {
+      const ext = f.name.split(".").pop()?.toLowerCase() || "";
+      return ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(ext);
+    });
+
+    for (let fi = 0; fi < imageFiles.length; fi++) {
+      const file = imageFiles[fi];
+      doc.addPage();
+      const suppY = addCompactHeader(doc, pageWidth, margin, logoImg);
+
+      // Section title
+      doc.setFillColor(...COLORS.charcoal);
+      doc.rect(margin, suppY, contentWidth, 8, "F");
+      doc.setTextColor(...COLORS.white);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`SUPPLEMENTARY SHEET ${fi + 1} of ${imageFiles.length}`, margin + 3, suppY + 5.5);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.white);
+      const truncName = file.name.length > 50 ? file.name.substring(0, 47) + "..." : file.name;
+      doc.text(truncName, pageWidth - margin - 2, suppY + 5.5, { align: "right" });
+
+      const imgStartY = suppY + 12;
+      const maxImgHeight = pageHeight - imgStartY - 25; // leave room for footer
+      const maxImgWidth = contentWidth;
+
+      try {
+        const response = await fetch(file.url);
+        const blob = await response.blob();
+        const imgDataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        // Create an image to get natural dimensions
+        const tempImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new window.Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = imgDataUrl;
+        });
+
+        const natW = tempImg.naturalWidth;
+        const natH = tempImg.naturalHeight;
+        let drawW = maxImgWidth;
+        let drawH = (natH / natW) * drawW;
+        if (drawH > maxImgHeight) {
+          drawH = maxImgHeight;
+          drawW = (natW / natH) * drawH;
+        }
+
+        // Center horizontally
+        const drawX = margin + (contentWidth - drawW) / 2;
+
+        doc.addImage(imgDataUrl, "JPEG", drawX, imgStartY, drawW, drawH);
+      } catch (imgErr) {
+        console.error("Failed to load supplementary file:", imgErr);
+        doc.setFillColor(...COLORS.lightGrey);
+        doc.rect(margin, imgStartY, contentWidth, 40, "F");
+        doc.setFontSize(10);
+        doc.setTextColor(...COLORS.mediumGrey);
+        doc.text(`Could not load: ${file.name}`, pageWidth / 2, imgStartY + 20, { align: "center" });
+      }
+    }
+  }
+
   addCompactFooter(doc, pageWidth, margin);
 
   const fileName = `BHO_Work_Report_${site.name.replace(/\s+/g, "_")}_${format(new Date(visitDate), "yyyy-MM-dd")}.pdf`;
