@@ -96,17 +96,6 @@ serve(async (req) => {
       })),
     };
 
-    // Parse the matrix into a 2D array of travel times (seconds)
-    const n = allPoints.length;
-    const travelMatrix: number[][] = [];
-    for (let i = 0; i < n; i++) {
-      travelMatrix[i] = [];
-      for (let j = 0; j < n; j++) {
-        const element = matrixData.rows[i]?.elements[j];
-        travelMatrix[i][j] = element?.status === "OK" ? element.duration.value : 999999;
-      }
-    }
-
     // Nearest-neighbour greedy algorithm for route optimisation
     // Index 0 = office, indices 1..n-1 = visits
     const visitCount = visits.length;
