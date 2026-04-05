@@ -107,6 +107,8 @@ interface ParsedNotes {
   duration?: string;
   jobType?: string;
   materials?: { name: string; qty: string; cost: string }[];
+  photos?: { url: string; caption: string }[];
+  reportFiles?: { url: string; name: string; size?: number }[];
   engineerSignature?: string;
   customerSignature?: string;
   customerNotPresent?: boolean;
@@ -289,6 +291,8 @@ export function ReportPreviewDialog({
           travelTime: parsedNotes.travelTime || "",
           duration: parsedNotes.duration || "",
           materials: parsedNotes.materials || [],
+          photos: parsedNotes.photos || [],
+          reportFiles: parsedNotes.reportFiles || [],
           engineerName: src.engineer_name || "",
           engineerSignature: parsedNotes.engineerSignature || undefined,
           engineerSignDate: parsedNotes.engineerSignDate || undefined,
