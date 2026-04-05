@@ -14,6 +14,7 @@ export interface Visit {
   coverage_percentage: number | null;
   issues_count: number | null;
   quoted_price: number | null;
+  estimated_hours: number | null;
   created_at: string;
   updated_at: string;
   site?: {

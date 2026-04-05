@@ -3845,6 +3845,7 @@ export type Database = {
           created_at: string
           devices_tested: number | null
           engineer_id: string | null
+          estimated_hours: number | null
           id: string
           issues_count: number | null
           notes: string | null
@@ -3867,6 +3868,7 @@ export type Database = {
           created_at?: string
           devices_tested?: number | null
           engineer_id?: string | null
+          estimated_hours?: number | null
           id?: string
           issues_count?: number | null
           notes?: string | null
@@ -3889,6 +3891,7 @@ export type Database = {
           created_at?: string
           devices_tested?: number | null
           engineer_id?: string | null
+          estimated_hours?: number | null
           id?: string
           issues_count?: number | null
           notes?: string | null

@@ -70,6 +70,7 @@ const visitEditSchema = z.object({
   visit_type: z.string().min(1, "Visit type is required"),
   status: z.string().min(1, "Status is required"),
   notes: z.string().max(10000).optional(),
+  estimated_hours: z.string().optional(),
 });
 
 type VisitEditFormData = z.infer<typeof visitEditSchema>;
@@ -198,6 +199,7 @@ const VisitEditDialog = ({
         visit_type: visit.visit_type,
         status: visit.status || "in_progress",
         notes: userNotes,
+        estimated_hours: (visit as any).estimated_hours?.toString() || "",
       });
       fetchUploadedFiles();
       fetchSiteAssets();
@@ -369,6 +371,7 @@ const VisitEditDialog = ({
           status: data.status,
           engineer_id: selectedEngineerId && selectedEngineerId !== "unassigned" ? selectedEngineerId : null,
           notes: buildVisitNotes(storedAssetType, data.notes || ""),
+          estimated_hours: data.estimated_hours ? parseFloat(data.estimated_hours) : null,
         })
         .eq("id", visit.id);
 
@@ -547,6 +550,21 @@ const VisitEditDialog = ({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Estimated Hours */}
+            <FormField
+              control={form.control}
+              name="estimated_hours"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estimated Hours On-Site</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.5" min="0" max="24" placeholder="e.g. 4" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
