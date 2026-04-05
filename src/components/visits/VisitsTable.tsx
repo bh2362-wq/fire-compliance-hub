@@ -1224,28 +1224,46 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           }
         });
 
-        return orderedGroups.map((group) => (
-          <div key={group.status} className="bg-card rounded-xl border border-border">
-            <div className="px-6 py-3 border-b border-border flex items-center gap-2">
-              <Badge variant="outline" className={statusConfig[group.status]?.className || ''}>
-                {statusConfig[group.status]?.label || group.status}
-              </Badge>
-              <span className="text-xs text-muted-foreground">({group.visits.length})</span>
-            </div>
-            <div className="grid grid-cols-12 gap-4 px-6 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border">
-              <div className="col-span-3">Site</div>
-              <div className="col-span-2">Date / Type</div>
-              <div className="col-span-1">Devices</div>
-              <div className="col-span-1">Coverage</div>
-              <div className="col-span-1">Cost</div>
-              <div className="col-span-2">Smoke Spray</div>
-              <div className="col-span-2">Actions</div>
-            </div>
-            <div className="divide-y divide-border">
-              {group.visits.map((visit) => renderVisitRow(visit, false))}
-            </div>
-          </div>
-        ));
+        return orderedGroups.map((group) => {
+          const totalCost = group.visits.reduce((sum, v) => sum + (v.quoted_price || 0), 0);
+          const totalDevices = group.visits.reduce((sum, v) => sum + (v.total_devices || 0), 0);
+          const uniqueSites = new Set(group.visits.map(v => v.site?.name)).size;
+
+          return (
+            <Collapsible key={group.status} defaultOpen={group.status !== 'on_hold' && group.status !== 'awaiting_parts'}>
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <CollapsibleTrigger className="w-full px-6 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className={statusConfig[group.status]?.className || ''}>
+                      {statusConfig[group.status]?.label || group.status}
+                    </Badge>
+                    <span className="text-sm font-medium text-foreground">{group.visits.length} job{group.visits.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span>{uniqueSites} site{uniqueSites !== 1 ? 's' : ''}</span>
+                    {totalDevices > 0 && <span>{totalDevices} devices</span>}
+                    {totalCost > 0 && <span>£{totalCost.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</span>}
+                    <ChevronDown className="w-4 h-4 transition-transform duration-200 [[data-state=closed]_&]:rotate-[-90deg] [[data-state=open]_&]:rotate-0" />
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="grid grid-cols-12 gap-4 px-6 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-t border-b border-border">
+                    <div className="col-span-3">Site</div>
+                    <div className="col-span-2">Date / Type</div>
+                    <div className="col-span-1">Devices</div>
+                    <div className="col-span-1">Coverage</div>
+                    <div className="col-span-1">Cost</div>
+                    <div className="col-span-2">Smoke Spray</div>
+                    <div className="col-span-2">Actions</div>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {group.visits.map((visit) => renderVisitRow(visit, false))}
+                  </div>
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
+          );
+        });
       })()}
 
       {activeVisits.length === 0 && invoicedVisits.length > 0 && (
