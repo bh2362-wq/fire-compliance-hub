@@ -680,6 +680,33 @@ const VisitEditDialog = ({
               )}
             </div>
 
+            {/* Subcontractor Sheets Section */}
+            <SubcontractorSheetsSection
+              visitId={visit.id}
+              onSheetsChange={setSubSheetCount}
+            />
+
+            {/* Generate Subcontractor Report */}
+            {subSheetCount > 0 && (
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleGenerateSubcontractorReport}
+                  disabled={generatingReport}
+                >
+                  {generatingReport ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileDown className="w-4 h-4 mr-2" />
+                  )}
+                  Generate Subcontractor Report for Client
+                </Button>
+              </div>
+            )}
+
             {/* Job Requirements Section */}
             <div className="space-y-3 pt-2 border-t">
               <FormLabel className="text-base flex items-center gap-2">
