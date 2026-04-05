@@ -1630,6 +1630,8 @@ const JOB_TYPES_PDF = [
   { value: "remedial", label: "Remedial" },
   { value: "emergency", label: "Emergency" },
   { value: "supply_only", label: "Supply Only" },
+  { value: "room_integrity", label: "Room Integrity" },
+  { value: "gas_suppression", label: "Gas Suppression" },
 ];
 
 // ===================== ASD SERVICE REPORT PDF =====================
