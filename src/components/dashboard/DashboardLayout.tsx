@@ -43,6 +43,7 @@ const financeNavigation = [
 ];
 
 const toolsNavigation = [
+  { name: "Route Planner", href: "/dashboard/route-planner", icon: Building2 },
   { name: "Email Scanner", href: "/dashboard/email-scanner", icon: ScanSearch },
   { name: "Device Pricing", href: "/dashboard/device-pricing", icon: Package },
   { name: "Product Lookup", href: "/dashboard/product-lookup", icon: Search },
