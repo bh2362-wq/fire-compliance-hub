@@ -199,6 +199,7 @@ const VisitEditDialog = ({
         visit_type: visit.visit_type,
         status: visit.status || "in_progress",
         notes: userNotes,
+        estimated_hours: (visit as any).estimated_hours?.toString() || "",
       });
       fetchUploadedFiles();
       fetchSiteAssets();
@@ -370,6 +371,7 @@ const VisitEditDialog = ({
           status: data.status,
           engineer_id: selectedEngineerId && selectedEngineerId !== "unassigned" ? selectedEngineerId : null,
           notes: buildVisitNotes(storedAssetType, data.notes || ""),
+          estimated_hours: data.estimated_hours ? parseFloat(data.estimated_hours) : null,
         })
         .eq("id", visit.id);
 
