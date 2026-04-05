@@ -79,6 +79,8 @@ const JOB_TYPES = [
   { value: "commissioning", label: "Commissioning" },
   { value: "remedial", label: "Remedial" },
   { value: "callout", label: "Callout" },
+  { value: "room_integrity", label: "Room Integrity" },
+  { value: "gas_suppression", label: "Gas Suppression" },
 ];
 
 const SYSTEM_STATUS_OPTIONS = [
