@@ -347,25 +347,34 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         });
       }
 
-      // Delete linked appointment from schedule first
-      const { error: appointmentError } = await supabase
-        .from("appointments")
-        .delete()
-        .eq("visit_id", deleteVisit.id);
+      // Delete all linked records in dependency order before deleting the visit
 
-      if (appointmentError) {
-        console.error("Error deleting linked appointment:", appointmentError);
+      // 1. Delete parsed_device_tests linked to file_uploads for this visit
+      const { data: uploads } = await supabase
+        .from("file_uploads")
+        .select("id")
+        .eq("visit_id", deleteVisit.id);
+      if (uploads && uploads.length > 0) {
+        await supabase.from("parsed_device_tests").delete().in("upload_id", uploads.map(u => u.id));
       }
 
-      // Check for linked service reports and delete them first
-      const { error: reportError } = await supabase
-        .from("service_reports")
-        .delete()
-        .eq("visit_id", deleteVisit.id);
+      // 2. Delete issues
+      await supabase.from("issues").delete().eq("visit_id", deleteVisit.id);
 
-      if (reportError) {
-        console.error("Error deleting linked reports:", reportError);
-      }
+      // 3. Delete customer form submissions
+      await supabase.from("customer_form_submissions").delete().eq("visit_id", deleteVisit.id);
+
+      // 4. Delete email logs
+      await supabase.from("email_logs").delete().eq("visit_id", deleteVisit.id);
+
+      // 5. Delete file uploads
+      await supabase.from("file_uploads").delete().eq("visit_id", deleteVisit.id);
+
+      // 6. Delete linked appointments
+      await supabase.from("appointments").delete().eq("visit_id", deleteVisit.id);
+
+      // 7. Delete service reports
+      await supabase.from("service_reports").delete().eq("visit_id", deleteVisit.id);
 
       const { error } = await supabase
         .from("visits")
