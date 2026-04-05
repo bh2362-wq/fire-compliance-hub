@@ -40,26 +40,61 @@ serve(async (req) => {
     }
 
     // Build origins and destinations for Distance Matrix
-    // Origins: office + all site postcodes
-    // Destinations: all site postcodes + office (for return)
     const postcodes = visits.map(v => v.postcode);
     const allPoints = [office_postcode, ...postcodes];
+    const n = allPoints.length;
 
-    const originsParam = allPoints.map(p => encodeURIComponent(p + ", UK")).join("|");
-    const destinationsParam = allPoints.map(p => encodeURIComponent(p + ", UK")).join("|");
+    // Distance Matrix API limits to 25 elements per request (origins * destinations)
+    // We batch row-by-row: 1 origin × n destinations per request (always ≤ 25 if n ≤ 25)
+    // For very large n, we also chunk destinations
+    const MAX_ELEMENTS = 25;
+    const travelMatrix: number[][] = [];
+    const distanceMatrix: number[][] = [];
 
-    const matrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originsParam}&destinations=${destinationsParam}&mode=driving&key=${GOOGLE_API_KEY}`;
+    for (let i = 0; i < n; i++) {
+      travelMatrix[i] = new Array(n).fill(999999);
+      distanceMatrix[i] = new Array(n).fill(0);
+      const origin = encodeURIComponent(allPoints[i] + ", UK");
 
-    const matrixRes = await fetch(matrixUrl);
-    const matrixData = await matrixRes.json();
+      // Chunk destinations so origin(1) * chunk ≤ 25
+      const chunkSize = MAX_ELEMENTS;
+      for (let dStart = 0; dStart < n; dStart += chunkSize) {
+        const dEnd = Math.min(dStart + chunkSize, n);
+        const destSlice = allPoints.slice(dStart, dEnd);
+        const destParam = destSlice.map(p => encodeURIComponent(p + ", UK")).join("|");
 
-    if (matrixData.status !== "OK") {
-      console.error("Distance Matrix error:", matrixData);
-      return new Response(JSON.stringify({ error: "Failed to calculate distances", details: matrixData.error_message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        const matrixUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin}&destinations=${destParam}&mode=driving&key=${GOOGLE_API_KEY}`;
+        const matrixRes = await fetch(matrixUrl);
+        const matrixData = await matrixRes.json();
+
+        if (matrixData.status !== "OK") {
+          console.error("Distance Matrix error:", matrixData);
+          return new Response(JSON.stringify({ error: "Failed to calculate distances", details: matrixData.error_message }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const elements = matrixData.rows[0]?.elements || [];
+        for (let j = 0; j < elements.length; j++) {
+          if (elements[j]?.status === "OK") {
+            travelMatrix[i][dStart + j] = elements[j].duration.value;
+            distanceMatrix[i][dStart + j] = elements[j].distance.value;
+          }
+        }
+      }
     }
+
+    // Build a combined matrixData-like structure for plan building
+    const matrixData = {
+      rows: travelMatrix.map((row, i) => ({
+        elements: row.map((dur, j) => ({
+          status: dur < 999999 ? "OK" : "ZERO_RESULTS",
+          duration: { value: dur },
+          distance: { value: distanceMatrix[i][j] },
+        })),
+      })),
+    };
 
     // Parse the matrix into a 2D array of travel times (seconds)
     const n = allPoints.length;
