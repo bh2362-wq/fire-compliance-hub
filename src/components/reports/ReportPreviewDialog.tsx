@@ -107,6 +107,8 @@ interface ParsedNotes {
   duration?: string;
   jobType?: string;
   materials?: { name: string; qty: string; cost: string }[];
+  photos?: { url: string; caption: string }[];
+  reportFiles?: { url: string; name: string; size?: number }[];
   engineerSignature?: string;
   customerSignature?: string;
   customerNotPresent?: boolean;
