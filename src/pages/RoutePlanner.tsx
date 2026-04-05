@@ -493,8 +493,8 @@ const RoutePlanner = () => {
                       {/* Finish time */}
                       {timeline.length > 0 && (
                         <div className="flex items-center gap-3 py-2 pt-3 border-t border-border mt-2">
-                          <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
-                            <Building2 className="w-4 h-4 text-green-600" />
+                          <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
+                            <Building2 className="w-4 h-4 text-accent-foreground" />
                           </div>
                           <div>
                             <p className="text-sm font-medium">Back at Office</p>
