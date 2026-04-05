@@ -53,6 +53,7 @@ export const EmailScannerVisitFlow = ({ data, onBack }: Props) => {
   const [visitDate, setVisitDate] = useState(data.preferred_date || format(new Date(), "yyyy-MM-dd"));
   const [description, setDescription] = useState(data.description || data.scope_summary || "");
   const [notes, setNotes] = useState(data.notes || "");
+  const [clientPoNumber, setClientPoNumber] = useState(data.client_po_number || "");
 
   // New customer/site fields
   const [newCustomerName, setNewCustomerName] = useState(data.company_name || "");
@@ -217,6 +218,7 @@ export const EmailScannerVisitFlow = ({ data, onBack }: Props) => {
         visit_type: visitType,
         notes: JSON.stringify(notesData),
         status: "in_progress",
+        client_po_number: clientPoNumber || null,
       }).select().single();
       if (visitErr) throw visitErr;
 
@@ -358,6 +360,10 @@ export const EmailScannerVisitFlow = ({ data, onBack }: Props) => {
             <div className="space-y-2">
               <Label>Visit Date</Label>
               <Input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Client PO Number</Label>
+              <Input placeholder="PO number (if provided)" value={clientPoNumber} onChange={(e) => setClientPoNumber(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>

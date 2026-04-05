@@ -27,6 +27,7 @@ export interface ExtractedEmailData {
   preferred_date?: string | null;
   description?: string | null;
   notes?: string | null;
+  client_po_number?: string | null;
   // Quote fields
   scope_summary?: string | null;
   job_requirements?: Array<{ description: string; estimated_quantity?: number; unit?: string }>;
