@@ -551,6 +551,21 @@ const VisitEditDialog = ({
               </Select>
             </div>
 
+            {/* Estimated Hours */}
+            <FormField
+              control={form.control}
+              name="estimated_hours"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estimated Hours On-Site</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.5" min="0" max="24" placeholder="e.g. 4" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="notes"
