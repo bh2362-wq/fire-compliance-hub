@@ -289,6 +289,8 @@ export function ReportPreviewDialog({
           travelTime: parsedNotes.travelTime || "",
           duration: parsedNotes.duration || "",
           materials: parsedNotes.materials || [],
+          photos: parsedNotes.photos || [],
+          reportFiles: parsedNotes.reportFiles || [],
           engineerName: src.engineer_name || "",
           engineerSignature: parsedNotes.engineerSignature || undefined,
           engineerSignDate: parsedNotes.engineerSignDate || undefined,
