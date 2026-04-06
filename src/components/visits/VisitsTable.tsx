@@ -1727,6 +1727,22 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         onOpenChange={setMergeSitesOpen}
         onSuccess={onRefresh}
       />
+      <RamsDocumentDialog
+        open={ramsOpen}
+        onOpenChange={(open) => {
+          setRamsOpen(open);
+          if (!open) {
+            setAiRamsData(null);
+            setRamsSiteId(null);
+          }
+        }}
+        preselectedSiteId={ramsSiteId || undefined}
+        aiGeneratedData={aiRamsData}
+        onSuccess={() => {
+          setSelectedVisitIds(new Set());
+          onRefresh?.();
+        }}
+      />
     </div>
   );
 };
