@@ -1035,8 +1035,9 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
     return { raDoc, msDoc };
   }
 
-  // Save as two files: Risk Assessment + Method Statement
+  // Save as two files with a delay so browsers don't block the second download
   raDoc.save(`${document.rams_number}_Risk_Assessment.pdf`);
+  await new Promise((resolve) => setTimeout(resolve, 500));
   msDoc.save(`${document.rams_number}_Method_Statement.pdf`);
 }
 
