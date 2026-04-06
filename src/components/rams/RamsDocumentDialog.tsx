@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,7 @@ interface RamsDocumentDialogProps {
   document?: RamsDocument | null;
   templateToUse?: RamsTemplate | null;
   preselectedSiteId?: string;
+  aiGeneratedData?: AIRamsResult | null;
   onSuccess?: () => void;
 }
 
@@ -79,6 +81,7 @@ export function RamsDocumentDialog({
   document = null,
   templateToUse = null,
   preselectedSiteId,
+  aiGeneratedData = null,
   onSuccess,
 }: RamsDocumentDialogProps) {
   const { user } = useAuth();
