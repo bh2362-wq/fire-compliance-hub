@@ -979,8 +979,8 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   autoTable(msDoc, {
     startY: msY,
     body: [
-      [`Method Statement Written By: ${sanitize(document.preparer_name) || "N/A"}`, `Review of Method Statement Due: ${document.review_date ? format(new Date(document.review_date), "dd/MM/yyyy") : "N/A"}`],
-      [`Reviewed By: ${sanitize(document.reviewer_name) || "N/A"}`, ""],
+      [`Method Statement Written By: ${sanitize(document.preparer_name) || "N/A"} (QA Manager)`, `Review of Method Statement Due: ${document.review_date ? format(new Date(document.review_date), "dd/MM/yyyy") : "N/A"}`],
+      [`Reviewed By: ${sanitize(document.reviewer_name) || "N/A"} (Director)`, ""],
     ],
     theme: "plain",
     styles: { fontSize: 8, cellPadding: 2, textColor: C.textDark, fontStyle: "bold" },
