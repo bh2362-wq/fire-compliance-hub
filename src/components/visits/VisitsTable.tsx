@@ -677,7 +677,88 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     }
   };
 
-  if (loading) {
+  const handleGenerateRams = async () => {
+    const selected = visits.filter((v) => selectedVisitIds.has(v.id));
+    if (selected.length === 0) return;
+
+    // Check all selected visits are from the same site
+    const siteIds = new Set(selected.map((v) => v.site_id));
+    if (siteIds.size > 1) {
+      toast({ title: "Multiple sites selected", description: "Please select visits from a single site to generate RAMS.", variant: "destructive" });
+      return;
+    }
+
+    const siteId = selected[0].site_id;
+    const siteName = selected[0].site?.name || "Unknown Site";
+
+    // Fetch site address
+    let siteAddress = "";
+    try {
+      const { data: siteData } = await supabase
+        .from("sites")
+        .select("address, city, postcode")
+        .eq("id", siteId)
+        .single();
+      if (siteData) {
+        siteAddress = [siteData.address, siteData.city, siteData.postcode].filter(Boolean).join(", ");
+      }
+    } catch { /* ignore */ }
+
+    setRamsGenerating(true);
+    try {
+      const visitTypeLabels: Record<string, string> = {
+        quarterly: "Quarterly Service", biannual: "Biannual Service", annual: "Annual Service",
+        emergency: "Emergency", remedial: "Remedial", installation: "Installation",
+        commissioning: "Commissioning", supply_only: "Supply Only",
+        room_integrity: "Room Integrity Test", gas_suppression: "Gas Suppression Service",
+        subcontract: "Subcontract",
+      };
+
+      const jobs = selected.map((v) => {
+        let userNotes = v.notes;
+        try {
+          const parsed = JSON.parse(v.notes || "{}");
+          userNotes = parsed.user_notes || v.notes;
+        } catch { /* use raw notes */ }
+        return {
+          visit_type: visitTypeLabels[v.visit_type] || v.visit_type,
+          notes: userNotes,
+          visit_date: v.visit_date,
+        };
+      });
+
+      const { data, error } = await supabase.functions.invoke("generate-rams-ai", {
+        body: { jobs, siteName, siteAddress },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const hazards = (data.hazards || []).map((h: any) => ({
+        ...h,
+        id: h.id || crypto.randomUUID(),
+      }));
+
+      setAiRamsData({
+        title: data.title || `RAMS - ${siteName}`,
+        hazards,
+        method_statements: data.method_statements || [],
+        ppe_requirements: data.ppe_requirements || [],
+        emergency_procedures: data.emergency_procedures || "",
+        site_specific_hazards: data.site_specific_hazards || "",
+        selectedVisitIds: Array.from(selectedVisitIds),
+      });
+      setRamsSiteId(siteId);
+      setRamsOpen(true);
+      sonnerToast.success("RAMS generated — review and save");
+    } catch (err: any) {
+      console.error("RAMS generation failed:", err);
+      toast({ title: "RAMS generation failed", description: err.message || "Please try again", variant: "destructive" });
+    } finally {
+      setRamsGenerating(false);
+    }
+  };
+
     return (
       <div className="bg-card rounded-xl border border-border">
         <table className="w-full text-sm">
