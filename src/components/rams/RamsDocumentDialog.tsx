@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,7 @@ interface RamsDocumentDialogProps {
   document?: RamsDocument | null;
   templateToUse?: RamsTemplate | null;
   preselectedSiteId?: string;
+  aiGeneratedData?: AIRamsResult | null;
   onSuccess?: () => void;
 }
 
@@ -79,6 +81,7 @@ export function RamsDocumentDialog({
   document = null,
   templateToUse = null,
   preselectedSiteId,
+  aiGeneratedData = null,
   onSuccess,
 }: RamsDocumentDialogProps) {
   const { user } = useAuth();
@@ -161,6 +164,26 @@ export function RamsDocumentDialog({
         setClientSignature(document.client_signature);
         setClientName(document.client_name || "");
         setClientSigMode(document.client_signature?.startsWith("typed:") ? "type" : document.client_signature ? "draw" : "type");
+      } else if (aiGeneratedData) {
+        setTitle(aiGeneratedData.title);
+        setTemplateId(null);
+        setSiteId(preselectedSiteId || null);
+        setVisitId(null);
+        setContractId(null);
+        setHazards(aiGeneratedData.hazards.length > 0 ? aiGeneratedData.hazards : [{ ...emptyHazard, id: crypto.randomUUID() }]);
+        setMethodStatements(aiGeneratedData.method_statements.length > 0 ? aiGeneratedData.method_statements : [{ ...emptyMethod }]);
+        setPpeRequirements(aiGeneratedData.ppe_requirements || []);
+        setEmergencyProcedures(aiGeneratedData.emergency_procedures || "");
+        setSiteSpecificHazards(aiGeneratedData.site_specific_hazards || "");
+        setSiteAccessNotes("");
+        setStatus("draft");
+        setReviewDate(format(addMonths(new Date(), 12), "yyyy-MM-dd"));
+        setPreparerSignature(null);
+        setPreparerName("");
+        setReviewerSignature(null);
+        setReviewerName("");
+        setClientSignature(null);
+        setClientName("");
       } else if (templateToUse) {
         setTitle(templateToUse.name);
         setTemplateId(templateToUse.id);
@@ -203,7 +226,7 @@ export function RamsDocumentDialog({
         setClientName("");
       }
     }
-  }, [open, document, templateToUse, preselectedSiteId]);
+  }, [open, document, templateToUse, preselectedSiteId, aiGeneratedData]);
 
   // Load template when selected
   const handleTemplateChange = (id: string) => {
@@ -326,7 +349,7 @@ export function RamsDocumentDialog({
           <DialogTitle>{document ? `Edit ${document.rams_number}` : "New RAMS Document"}</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue={document ? "details" : "activity"} className="w-full">
+        <Tabs defaultValue={document || aiGeneratedData ? "details" : "activity"} className="w-full">
           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
