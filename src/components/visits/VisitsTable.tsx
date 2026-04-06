@@ -721,140 +721,118 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     
     const coverage = Number(visit.coverage_percentage) || 0;
 
+    // Parse notes for asset type
+    let assetBadge: React.ReactNode = null;
+    let notesPreview = "";
+    try {
+      const parsed = JSON.parse(visit.notes || "{}");
+      notesPreview = parsed.user_notes || "";
+      const assetType = parsed.asset_type;
+      if (assetType && assetType !== "general") {
+        const assetLabels: Record<string, { label: string; className: string }> = {
+          fire_panel: { label: "Fire", className: "bg-red-500/10 text-red-600 border-red-500/20" },
+          fire: { label: "Fire", className: "bg-red-500/10 text-red-600 border-red-500/20" },
+          asd: { label: "ASD", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+          aspirator: { label: "ASD", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
+          disabled_refuge: { label: "DR", className: "bg-violet-500/10 text-violet-600 border-violet-500/20" },
+          intruder_alarm: { label: "Intruder", className: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
+          nurse_call: { label: "Nurse", className: "bg-teal-500/10 text-teal-600 border-teal-500/20" },
+          gas_suppression: { label: "Gas", className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20" },
+          room_integrity: { label: "Room Int.", className: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" },
+        };
+        const config = assetLabels[assetType] || { label: assetType.replace(/_/g, " "), className: "bg-muted/50 text-muted-foreground border-border" };
+        assetBadge = (
+          <Badge variant="outline" className={`text-[10px] px-1 py-0 h-4 ${config.className}`}>
+            {config.label}
+          </Badge>
+        );
+      }
+    } catch { /* ignore */ }
+
     return (
-      <div key={visit.id} className="border-b border-border last:border-b-0">
-      <div
-        className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/30 transition-colors items-center"
+      <tr
+        key={visit.id}
+        className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors text-sm"
       >
-        <div className="col-span-3">
-          <div className="flex items-center gap-3">
-            <Checkbox
-              checked={selectedVisitIds.has(visit.id)}
-              onCheckedChange={(checked) => {
-                setSelectedVisitIds((prev) => {
-                  const next = new Set(prev);
-                  if (checked) next.add(visit.id);
-                  else next.delete(visit.id);
-                  return next;
-                });
-              }}
-              className="shrink-0"
-            />
-            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-              <Building2 className="w-5 h-5 text-muted-foreground" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-medium text-foreground">
-                {visit.site?.name || "Unknown Site"}
-              </p>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-primary/5 text-primary border-primary/20">
-                  {getVisitTypeLabel(visit.visit_type)}
-                </Badge>
-                {(() => {
-                  try {
-                    const parsed = JSON.parse(visit.notes || "{}");
-                    const assetType = parsed.asset_type;
-                    if (assetType && assetType !== "general") {
-                      const assetLabels: Record<string, { label: string; className: string }> = {
-                        fire_panel: { label: "Fire Panel", className: "bg-red-500/10 text-red-600 border-red-500/20" },
-                        fire: { label: "Fire Panel", className: "bg-red-500/10 text-red-600 border-red-500/20" },
-                        asd: { label: "ASD", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-                        aspirator: { label: "ASD", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-                        disabled_refuge: { label: "Disabled Refuge", className: "bg-violet-500/10 text-violet-600 border-violet-500/20" },
-                        intruder_alarm: { label: "Intruder Alarm", className: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
-                        nurse_call: { label: "Nurse Call", className: "bg-teal-500/10 text-teal-600 border-teal-500/20" },
-                        gas_suppression: { label: "Gas Suppression", className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20" },
-                      };
-                      const config = assetLabels[assetType] || { label: assetType.replace(/_/g, " "), className: "bg-muted/50 text-muted-foreground border-border" };
-                      return (
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${config.className}`}>
-                          {config.label}
-                        </Badge>
-                      );
-                    }
-                  } catch { /* ignore */ }
-                  return null;
-                })()}
-                {reportInfo?.report_number && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-muted/50">
-                    {reportInfo.report_number}
-                  </Badge>
-                )}
-              </div>
-              {(() => {
-                let notesPreview = "";
-                try {
-                  const parsed = JSON.parse(visit.notes || "{}");
-                  notesPreview = parsed.user_notes || "";
-                } catch {
-                  notesPreview = visit.notes || "";
-                }
-                return notesPreview ? (
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-                    {notesPreview}
-                  </p>
-                ) : null;
-              })()}
-              
-            </div>
-          </div>
-        </div>
-        <div className="col-span-2">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 text-sm text-foreground">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              {format(new Date(visit.visit_date), "MMM d, yyyy")}
-            </div>
-            <Badge variant="outline" className={displayStatus.className}>
-              {isInvoiced && invoiceInfo?.xero_invoice_number 
-                ? `#${invoiceInfo.xero_invoice_number}` 
-                : displayStatus.label}
-            </Badge>
-            <JobProgressTracker
-              status={visit.status}
-              hasReport={!!reportInfo?.report_number}
-              hasInvoice={isInvoiced}
-              compact
-            />
-          </div>
-        </div>
-        <div className="col-span-1">
-          <div className="space-y-1">
-            <p className="text-sm text-foreground">
-              {visit.devices_tested || 0} / {visit.total_devices || 0}
+        {/* Checkbox */}
+        <td className="px-2 py-1.5 w-8">
+          <Checkbox
+            checked={selectedVisitIds.has(visit.id)}
+            onCheckedChange={(checked) => {
+              setSelectedVisitIds((prev) => {
+                const next = new Set(prev);
+                if (checked) next.add(visit.id);
+                else next.delete(visit.id);
+                return next;
+              });
+            }}
+          />
+        </td>
+        {/* Site */}
+        <td className="px-2 py-1.5">
+          <div className="min-w-0">
+            <p className="font-medium text-foreground text-sm truncate max-w-[200px]">
+              {visit.site?.name || "Unknown Site"}
             </p>
-            {(visit.issues_count || 0) > 0 && (
-              <p className="text-xs text-destructive">{visit.issues_count} issues</p>
+            {visit.site?.customer_name && (
+              <p className="text-xs text-muted-foreground truncate max-w-[200px]">{visit.site.customer_name}</p>
             )}
           </div>
-        </div>
-        <div className="col-span-1">
+        </td>
+        {/* Type */}
+        <td className="px-2 py-1.5">
+          <div className="flex items-center gap-1 flex-wrap">
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-primary/5 text-primary border-primary/20">
+              {getVisitTypeLabel(visit.visit_type)}
+            </Badge>
+            {assetBadge}
+          </div>
+        </td>
+        {/* Date */}
+        <td className="px-2 py-1.5 text-xs text-foreground whitespace-nowrap">
+          {format(new Date(visit.visit_date), "dd MMM yy")}
+        </td>
+        {/* Status */}
+        <td className="px-2 py-1.5">
+          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${displayStatus.className}`}>
+            {isInvoiced && invoiceInfo?.xero_invoice_number 
+              ? `#${invoiceInfo.xero_invoice_number}` 
+              : displayStatus.label}
+          </Badge>
+        </td>
+        {/* Report */}
+        <td className="px-2 py-1.5 text-xs text-muted-foreground">
+          {reportInfo?.report_number || "—"}
+        </td>
+        {/* Devices */}
+        <td className="px-2 py-1.5 text-xs text-foreground whitespace-nowrap">
+          {visit.devices_tested || 0}/{visit.total_devices || 0}
+          {(visit.issues_count || 0) > 0 && (
+            <span className="text-destructive ml-1">({visit.issues_count})</span>
+          )}
+        </td>
+        {/* Coverage */}
+        <td className="px-2 py-1.5">
           <div className="flex items-center gap-1">
-            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+            <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${
-                  coverage >= 95
-                    ? "bg-success"
-                    : coverage >= 80
-                    ? "bg-warning"
-                    : "bg-destructive"
+                  coverage >= 95 ? "bg-success" : coverage >= 80 ? "bg-warning" : "bg-destructive"
                 }`}
                 style={{ width: `${coverage}%` }}
               />
             </div>
-            <span className="text-xs font-medium text-foreground w-8">
-              {coverage}%
-            </span>
+            <span className="text-[10px] text-muted-foreground w-7">{coverage}%</span>
           </div>
-        </div>
-        <div className="col-span-1">
+        </td>
+        {/* Cost */}
+        <td className="px-2 py-1.5">
           <input
             type="number"
             min="0"
             step="0.01"
             placeholder="—"
-            className="w-full bg-transparent border border-border rounded px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-16 bg-transparent border border-border rounded px-1.5 py-0.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             defaultValue={visit.quoted_price ?? ""}
             onBlur={async (e) => {
               const val = e.target.value ? parseFloat(e.target.value) : null;
@@ -870,276 +848,272 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
               }
             }}
           />
-        </div>
-        <div className="col-span-2">
-          <SmokeSprayEstimate siteId={visit.site_id} visitType={visit.visit_type} />
-        </div>
-        <div className="col-span-2 flex items-center justify-end gap-2">
-          {!isInvoiced && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setPreviewVisit(visit)}
-            >
-              <ClipboardCheck className="w-4 h-4 mr-1" />
-              Report
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => navigate(`/dashboard/sites/${visit.site_id}`)}>
-                <Eye className="w-4 h-4 mr-2" />
-                View Site
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEditVisit(visit)}>
-                <Pencil className="w-4 h-4 mr-2" />
-                Edit Visit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setReassignVisit(visit)}>
-                <Building2 className="w-4 h-4 mr-2" />
-                Reassign Site
-              </DropdownMenuItem>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <ArrowRight className="w-4 h-4 mr-2" />
-                  Change Status
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent>
-                    {CHANGEABLE_STATUSES.map((s) => (
-                      <DropdownMenuItem
-                        key={s.value}
-                        disabled={visit.status === s.value}
-                        onClick={async () => {
-                          const { error } = await supabase
-                            .from("visits")
-                            .update({ status: s.value })
-                            .eq("id", visit.id);
-                          if (error) {
-                            toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
-                          } else {
-                            toast({ title: "Status updated", description: `Visit set to ${s.label}` });
-                            onRefresh?.();
-                          }
-                        }}
-                      >
-                        <Badge variant="outline" className={`${statusConfig[s.value]?.className || ''} mr-2 text-[10px]`}>
-                          {s.label}
-                        </Badge>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              {reportInfo?.status === "completed" && (
-              <DropdownMenuItem onClick={() => handleEmailReport(visit)}>
-                  <Mail className="w-4 h-4 mr-2" />
-                  Email Customer
+        </td>
+        {/* Progress */}
+        <td className="px-2 py-1.5">
+          <JobProgressTracker
+            status={visit.status}
+            hasReport={!!reportInfo?.report_number}
+            hasInvoice={isInvoiced}
+            compact
+          />
+        </td>
+        {/* Actions */}
+        <td className="px-2 py-1.5">
+          <div className="flex items-center justify-end gap-1">
+            {!isInvoiced && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setPreviewVisit(visit)}
+                  >
+                    <ClipboardCheck className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Report</TooltipContent>
+              </Tooltip>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <MoreVertical className="w-3.5 h-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => navigate(`/dashboard/sites/${visit.site_id}`)}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Site
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => setConfirmationVisit(visit)}>
-                <Send className="w-4 h-4 mr-2" />
-                Send Confirmation
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRequirementsVisit(visit)}>
-                <Package className="w-4 h-4 mr-2" />
-                Job Requirements
-               </DropdownMenuItem>
-              {visit.visit_type === 'subcontract' && (
+                <DropdownMenuItem onClick={() => setEditVisit(visit)}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit Visit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setReassignVisit(visit)}>
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Reassign Site
+                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <ArrowRight className="w-4 h-4 mr-2" />
+                    Change Status
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuPortal>
+                    <DropdownMenuSubContent>
+                      {CHANGEABLE_STATUSES.map((s) => (
+                        <DropdownMenuItem
+                          key={s.value}
+                          disabled={visit.status === s.value}
+                          onClick={async () => {
+                            const { error } = await supabase
+                              .from("visits")
+                              .update({ status: s.value })
+                              .eq("id", visit.id);
+                            if (error) {
+                              toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+                            } else {
+                              toast({ title: "Status updated", description: `Visit set to ${s.label}` });
+                              onRefresh?.();
+                            }
+                          }}
+                        >
+                          <Badge variant="outline" className={`${statusConfig[s.value]?.className || ''} mr-2 text-[10px]`}>
+                            {s.label}
+                          </Badge>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuPortal>
+                </DropdownMenuSub>
+                {reportInfo?.status === "completed" && (
+                <DropdownMenuItem onClick={() => handleEmailReport(visit)}>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Email Customer
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => setConfirmationVisit(visit)}>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send Confirmation
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setRequirementsVisit(visit)}>
+                  <Package className="w-4 h-4 mr-2" />
+                  Job Requirements
+                 </DropdownMenuItem>
+                {visit.visit_type === 'subcontract' && (
+                  <DropdownMenuItem onClick={async () => {
+                    try {
+                      const subs = await fetchActiveSubcontractors();
+                      const { data: siteData } = await supabase
+                        .from("sites")
+                        .select("name, address, customer:customers(name)")
+                        .eq("id", visit.site_id)
+                        .single();
+                      const siteName = siteData?.name || "";
+                      const customerName = (siteData?.customer as any)?.name || "";
+                      const visitLabel = getVisitTypeLabel(visit.visit_type);
+                      const visitDate = format(new Date(visit.visit_date), "dd/MM/yyyy");
+                      const prefill = {
+                        supplierName: subs.length === 1 ? subs[0].company_name : undefined,
+                        reference: `${customerName} - ${siteName} - ${visitDate}`,
+                        notes: `${visitLabel} at ${siteName}\nVisit date: ${visitDate}`,
+                        lineItems: [{ description: `${visitLabel} - ${siteName}`, quantity: 1, unit_price: subs.length === 1 ? (subs[0].day_rate || 0) : 0 }],
+                      };
+                      setSubcontractorPOPrefill(prefill);
+                      setSubcontractorPOVisit(visit);
+                    } catch (err) {
+                      console.error("Error preparing subcontractor PO:", err);
+                      toast({ title: "Error", description: "Failed to prepare PO", variant: "destructive" });
+                    }
+                  }}>
+                    <Truck className="w-4 h-4 mr-2" />
+                    Raise Subcontractor PO
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate(`/dashboard/schedule`)}>
+                  <CalendarDays className="w-4 h-4 mr-2" />
+                  View Schedule
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={async () => {
-                  try {
-                    // Fetch subcontractors to find one linked to this visit
-                    const subs = await fetchActiveSubcontractors();
-                    
-                    // Get site info for reference
+                  const { data: existing } = await supabase
+                    .from("appointments")
+                    .select("id")
+                    .eq("visit_id", visit.id)
+                    .maybeSingle();
+                  if (existing) {
+                    const { error: updateErr } = await supabase
+                      .from("appointments")
+                      .update({
+                        appointment_date: visit.visit_date,
+                        visit_type: visit.visit_type,
+                        title: `${visit.visit_type} - ${visit.site?.name || "Site"}`,
+                      })
+                      .eq("id", existing.id);
+                    if (updateErr) {
+                      toast({ title: "Error", description: "Failed to update schedule", variant: "destructive" });
+                    } else {
+                      toast({ title: "Schedule updated", description: `Appointment moved to ${format(new Date(visit.visit_date), "MMM d, yyyy")}` });
+                    }
+                    await queryClient.invalidateQueries({ queryKey: ['appointments'] });
+                    navigate(`/dashboard/schedule`);
+                  } else {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (!user) return;
                     const { data: siteData } = await supabase
                       .from("sites")
-                      .select("name, address, customer:customers(name)")
+                      .select("customer_id")
                       .eq("id", visit.site_id)
-                      .single();
-                    
-                    const siteName = siteData?.name || "";
-                    const customerName = (siteData?.customer as any)?.name || "";
-                    const visitLabel = getVisitTypeLabel(visit.visit_type);
-                    const visitDate = format(new Date(visit.visit_date), "dd/MM/yyyy");
-
-                    // If only one subcontractor, pre-select; otherwise let user pick
-                    const prefill = {
-                      supplierName: subs.length === 1 ? subs[0].company_name : undefined,
-                      reference: `${customerName} - ${siteName} - ${visitDate}`,
-                      notes: `${visitLabel} at ${siteName}\nVisit date: ${visitDate}`,
-                      lineItems: [{ description: `${visitLabel} - ${siteName}`, quantity: 1, unit_price: subs.length === 1 ? (subs[0].day_rate || 0) : 0 }],
-                    };
-
-                    setSubcontractorPOPrefill(prefill);
-                    setSubcontractorPOVisit(visit);
-                  } catch (err) {
-                    console.error("Error preparing subcontractor PO:", err);
-                    toast({ title: "Error", description: "Failed to prepare PO", variant: "destructive" });
+                      .maybeSingle();
+                    const { error } = await supabase.from("appointments").insert({
+                      visit_id: visit.id,
+                      site_id: visit.site_id,
+                      customer_id: siteData?.customer_id || null,
+                      title: `${visit.visit_type} - ${visit.site?.name || "Site"}`,
+                      appointment_date: visit.visit_date,
+                      start_time: "09:00",
+                      end_time: "17:00",
+                      status: "scheduled",
+                      visit_type: visit.visit_type,
+                      created_by: user.id,
+                    });
+                    if (error) {
+                      toast({ title: "Error", description: "Failed to add to schedule", variant: "destructive" });
+                    } else {
+                      toast({ title: "Added to schedule", description: `Visit added to schedule for ${format(new Date(visit.visit_date), "MMM d, yyyy")}` });
+                      await queryClient.invalidateQueries({ queryKey: ['appointments'] });
+                      navigate(`/dashboard/schedule`);
+                    }
                   }
                 }}>
-                  <Truck className="w-4 h-4 mr-2" />
-                  Raise Subcontractor PO
+                  <CalendarPlus className="w-4 h-4 mr-2" />
+                  Add to Schedule
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate(`/dashboard/schedule`)}>
-                <CalendarDays className="w-4 h-4 mr-2" />
-                View Schedule
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={async () => {
-                // Check if appointment already exists
-                const { data: existing } = await supabase
-                  .from("appointments")
-                  .select("id")
-                  .eq("visit_id", visit.id)
-                  .maybeSingle();
-                
-                if (existing) {
-                  // Update existing appointment to match current visit date
-                  const { error: updateErr } = await supabase
-                    .from("appointments")
-                    .update({
-                      appointment_date: visit.visit_date,
-                      visit_type: visit.visit_type,
-                      title: `${visit.visit_type} - ${visit.site?.name || "Site"}`,
-                    })
-                    .eq("id", existing.id);
-                  if (updateErr) {
-                    toast({ title: "Error", description: "Failed to update schedule", variant: "destructive" });
-                  } else {
-                    toast({ title: "Schedule updated", description: `Appointment moved to ${format(new Date(visit.visit_date), "MMM d, yyyy")}` });
-                  }
-                  await queryClient.invalidateQueries({ queryKey: ['appointments'] });
-                  navigate(`/dashboard/schedule`);
-                } else {
-                  // Create appointment from visit
-                  const { data: { user } } = await supabase.auth.getUser();
-                  if (!user) return;
-                  
-                  // Get customer_id from site
+                <DropdownMenuSeparator />
+                {!isInvoiced && (
+                  <DropdownMenuItem onClick={() => navigate(`/dashboard/reconciliation?siteId=${visit.site_id}&visitId=${visit.id}`)}>
+                    <GitCompare className="w-4 h-4 mr-2" />
+                    Reconcile
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={async () => {
                   const { data: siteData } = await supabase
                     .from("sites")
                     .select("customer_id")
                     .eq("id", visit.site_id)
                     .maybeSingle();
-                  
-                  const { error } = await supabase.from("appointments").insert({
-                    visit_id: visit.id,
-                    site_id: visit.site_id,
-                    customer_id: siteData?.customer_id || null,
-                    title: `${visit.visit_type} - ${visit.site?.name || "Site"}`,
-                    appointment_date: visit.visit_date,
-                    start_time: "09:00",
-                    end_time: "17:00",
-                    status: "scheduled",
-                    visit_type: visit.visit_type,
-                    created_by: user.id,
-                  });
-                  
-                  if (error) {
-                    toast({ title: "Error", description: "Failed to add to schedule", variant: "destructive" });
+                  if (siteData?.customer_id) {
+                    const { data: customerData } = await supabase
+                      .from("customers")
+                      .select("xero_contact_id")
+                      .eq("id", siteData.customer_id)
+                      .maybeSingle();
+                    setInvoiceContactId(customerData?.xero_contact_id || null);
                   } else {
-                    toast({ title: "Added to schedule", description: `Visit added to schedule for ${format(new Date(visit.visit_date), "MMM d, yyyy")}` });
-                    await queryClient.invalidateQueries({ queryKey: ['appointments'] });
-                    navigate(`/dashboard/schedule`);
+                    setInvoiceContactId(null);
                   }
-                }
-              }}>
-                <CalendarPlus className="w-4 h-4 mr-2" />
-                Add to Schedule
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {!isInvoiced && (
-                <DropdownMenuItem onClick={() => navigate(`/dashboard/reconciliation?siteId=${visit.site_id}&visitId=${visit.id}`)}>
-                  <GitCompare className="w-4 h-4 mr-2" />
-                  Reconcile
+                  setInvoiceVisit(visit);
+                }}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  {isInvoiced ? "Create Additional Invoice" : "Create Invoice"}
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={async () => {
-                const { data: siteData } = await supabase
-                  .from("sites")
-                  .select("customer_id")
-                  .eq("id", visit.site_id)
-                  .maybeSingle();
-                
-                if (siteData?.customer_id) {
-                  const { data: customerData } = await supabase
-                    .from("customers")
-                    .select("xero_contact_id")
-                    .eq("id", siteData.customer_id)
-                    .maybeSingle();
-                  setInvoiceContactId(customerData?.xero_contact_id || null);
-                } else {
-                  setInvoiceContactId(null);
-                }
-                setInvoiceVisit(visit);
-              }}>
-                <FileText className="w-4 h-4 mr-2" />
-                {isInvoiced ? "Create Additional Invoice" : "Create Invoice"}
-              </DropdownMenuItem>
-              {!isInvoiced && (
-                <>
-                  <DropdownMenuSeparator />
-                  {visit.status !== 'cancelled' && visit.status !== 'completed' && (
+                {!isInvoiced && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {visit.status !== 'cancelled' && visit.status !== 'completed' && (
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from("visits")
+                            .update({ status: "cancelled" })
+                            .eq("id", visit.id);
+                          if (error) {
+                            toast({ title: "Error", description: "Failed to cancel visit", variant: "destructive" });
+                          } else {
+                            toast({ title: "Visit cancelled", description: "The visit has been cancelled." });
+                            onRefresh?.();
+                          }
+                        }}
+                        className="text-warning focus:text-warning"
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Cancel Visit
+                      </DropdownMenuItem>
+                    )}
+                    {(visit.status === 'cancelled' || visit.status === 'completed') && (
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from("visits")
+                            .update({ status: "scheduled" })
+                            .eq("id", visit.id);
+                          if (error) {
+                            toast({ title: "Error", description: "Failed to revoke visit", variant: "destructive" });
+                          } else {
+                            toast({ title: "Visit revoked", description: "The visit has been returned to the active list." });
+                            onRefresh?.();
+                          }
+                        }}
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Revoke Visit
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
-                      onClick={async () => {
-                        const { error } = await supabase
-                          .from("visits")
-                          .update({ status: "cancelled" })
-                          .eq("id", visit.id);
-                        if (error) {
-                          toast({ title: "Error", description: "Failed to cancel visit", variant: "destructive" });
-                        } else {
-                          toast({ title: "Visit cancelled", description: "The visit has been cancelled." });
-                          onRefresh?.();
-                        }
-                      }}
-                      className="text-warning focus:text-warning"
+                      onClick={() => setDeleteVisit(visit)}
+                      className="text-destructive focus:text-destructive"
                     >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Cancel Visit
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Visit
                     </DropdownMenuItem>
-                  )}
-                  {(visit.status === 'cancelled' || visit.status === 'completed') && (
-                    <DropdownMenuItem
-                      onClick={async () => {
-                        const { error } = await supabase
-                          .from("visits")
-                          .update({ status: "scheduled" })
-                          .eq("id", visit.id);
-                        if (error) {
-                          toast({ title: "Error", description: "Failed to revoke visit", variant: "destructive" });
-                        } else {
-                          toast({ title: "Visit revoked", description: "The visit has been returned to the active list." });
-                          onRefresh?.();
-                        }
-                      }}
-                    >
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Revoke Visit
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    onClick={() => setDeleteVisit(visit)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Visit
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-      <VisitRequirementsBadges key={requirementsRefreshKey} visitId={visit.id} inline />
-      </div>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </td>
+      </tr>
     );
   };
 
