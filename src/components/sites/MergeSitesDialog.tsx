@@ -74,29 +74,23 @@ export const MergeSitesDialog = ({ open, onOpenChange, sourceSiteId, sourceSiteN
 
     try {
       // Reassign all related records from source to target
+      // Reassign records from known tables
+      const migrateFn = async (table: string) => {
+        const { error } = await supabase
+          .from(table as any)
+          .update({ site_id: targetId } as any)
+          .eq("site_id" as any, sourceId);
+        if (error) console.warn(`Failed to migrate ${table}:`, error.message);
+      };
+
       const tables = [
-        { table: "visits", column: "site_id" },
-        { table: "devices", column: "site_id" },
-        { table: "service_reports", column: "site_id" },
-        { table: "appointments", column: "site_id" },
-        { table: "file_uploads", column: "site_id" },
-        { table: "issues", column: "site_id" },
-        { table: "email_logs", column: "site_id" },
-        { table: "customer_form_submissions", column: "site_id" },
-        { table: "customer_rams_requirements", column: "site_id" },
-        { table: "site_service_contracts", column: "site_id" },
-        { table: "site_assets", column: "site_id" },
-        { table: "rams_documents", column: "site_id" },
+        "visits", "devices", "service_reports", "appointments",
+        "file_uploads", "issues", "email_logs", "customer_form_submissions",
+        "customer_rams_requirements", "site_service_contracts", "site_assets", "rams_documents",
       ];
 
-      for (const { table, column } of tables) {
-        const { error } = await supabase
-          .from(table)
-          .update({ [column]: targetId })
-          .eq(column, sourceId);
-        if (error) {
-          console.warn(`Failed to migrate ${table}:`, error.message);
-        }
+      for (const table of tables) {
+        await migrateFn(table);
       }
 
       // Mark source site as inactive
