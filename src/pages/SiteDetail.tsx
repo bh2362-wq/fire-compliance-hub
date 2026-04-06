@@ -20,7 +20,7 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye, FileSignature } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye, FileSignature, ShieldCheck } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
