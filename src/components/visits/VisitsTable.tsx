@@ -208,6 +208,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
 
   const [reassignVisit, setReassignVisit] = useState<Visit | null>(null);
   const [mergeSitesOpen, setMergeSitesOpen] = useState(false);
+  const [ramsGenerating, setRamsGenerating] = useState(false);
+  const [ramsOpen, setRamsOpen] = useState(false);
+  const [aiRamsData, setAiRamsData] = useState<AIRamsResult | null>(null);
+  const [ramsSiteId, setRamsSiteId] = useState<string | null>(null);
   const [emailVisit, setEmailVisit] = useState<Visit | null>(null);
   const [emailVisitData, setEmailVisitData] = useState<{
     defaultEmail: string;
