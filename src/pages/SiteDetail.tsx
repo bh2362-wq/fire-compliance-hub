@@ -10,6 +10,7 @@ import { SiteAssets } from "@/components/sites/SiteAssets";
 import { SiteRamsDocuments } from "@/components/sites/SiteRamsDocuments";
 import { CustomerRamsRequirementsPanel } from "@/components/rams/CustomerRamsRequirementsPanel";
 import SiteCustomerForms from "@/components/customer-forms/SiteCustomerForms";
+import { SiteBafeCertificates } from "@/components/sites/SiteBafeCertificates";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
@@ -255,6 +256,11 @@ const SiteDetail = () => {
             </p>
           </div>
         </div>
+
+        {/* BAFE SP203-1 Certificates */}
+        <CollapsibleSection title="BAFE SP203-1 Certificates" icon={ShieldCheck} defaultOpen={true}>
+          <SiteBafeCertificates siteId={site.id} />
+        </CollapsibleSection>
 
         {/* Open Visits */}
         <OpenVisitsCard siteId={site.id} />
