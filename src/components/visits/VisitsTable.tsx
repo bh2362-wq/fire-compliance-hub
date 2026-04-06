@@ -1222,7 +1222,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           return (
             <Collapsible key={group.status} defaultOpen={group.status !== 'on_hold' && group.status !== 'awaiting_parts'}>
               <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <CollapsibleTrigger className="w-full px-6 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer">
+                <CollapsibleTrigger className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer">
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className={statusConfig[group.status]?.className || ''}>
                       {statusConfig[group.status]?.label || group.status}
@@ -1237,17 +1237,27 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="grid grid-cols-12 gap-4 px-6 py-2 bg-muted/50 text-xs font-medium text-muted-foreground border-t border-b border-border">
-                    <div className="col-span-3">Site</div>
-                    <div className="col-span-2">Date / Type</div>
-                    <div className="col-span-1">Devices</div>
-                    <div className="col-span-1">Coverage</div>
-                    <div className="col-span-1">Cost</div>
-                    <div className="col-span-2">Smoke Spray</div>
-                    <div className="col-span-2">Actions</div>
-                  </div>
-                  <div className="divide-y divide-border">
-                    {group.visits.map((visit) => renderVisitRow(visit, false))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/50 text-xs font-medium text-muted-foreground border-t border-b border-border">
+                          <th className="px-2 py-1.5 text-left w-8"></th>
+                          <th className="px-2 py-1.5 text-left">Site</th>
+                          <th className="px-2 py-1.5 text-left">Type</th>
+                          <th className="px-2 py-1.5 text-left">Date</th>
+                          <th className="px-2 py-1.5 text-left">Status</th>
+                          <th className="px-2 py-1.5 text-left">Report</th>
+                          <th className="px-2 py-1.5 text-left">Devices</th>
+                          <th className="px-2 py-1.5 text-left">Coverage</th>
+                          <th className="px-2 py-1.5 text-left">Cost</th>
+                          <th className="px-2 py-1.5 text-left">Progress</th>
+                          <th className="px-2 py-1.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.visits.map((visit) => renderVisitRow(visit, false))}
+                      </tbody>
+                    </table>
                   </div>
                 </CollapsibleContent>
               </div>
