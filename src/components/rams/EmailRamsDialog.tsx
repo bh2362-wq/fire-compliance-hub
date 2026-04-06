@@ -20,7 +20,7 @@ import {
 } from "@/services/emailTemplateService";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { RamsDocument } from "@/services/ramsService";
-import { generateRamsPDFBase64 } from "@/lib/ramsPdfGenerator";
+import { generateMergedRamsPDFBase64 } from "@/lib/ramsPdfGenerator";
 
 interface EmailRamsDialogProps {
   open: boolean;
@@ -206,7 +206,7 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
       });
       emailLogId = log?.id || null;
 
-      const { raBase64, msBase64 } = await generateRamsPDFBase64(document);
+      const mergedPdfBase64 = await generateMergedRamsPDFBase64(document);
 
       const settings = await getCompanySettings().catch(() => null);
       const reportDate = new Date().toISOString().split("T")[0];
@@ -218,13 +218,8 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
           siteName,
           reportNumber: document.rams_number,
           reportDate,
-          pdfBase64: raBase64,
-          additionalAttachments: [
-            {
-              filename: `${document.rams_number}_Method_Statement-${reportDate}.pdf`,
-              content: msBase64,
-            },
-          ],
+          pdfBase64: mergedPdfBase64,
+          additionalAttachments: [],
           customerName: "",
           companyName: companyNameVal,
           logoUrl: settings?.report_logo_url || settings?.company_logo_url || "",
