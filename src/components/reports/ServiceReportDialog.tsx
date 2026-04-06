@@ -54,6 +54,7 @@ import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
  import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
  import { EmailReportDialog } from "./EmailReportDialog";
  import { getCompanySettings } from "@/services/companySettingsService";
+ import { createBafeCertificate, generateBafeCertNumber } from "@/services/bafeCertificateService";
 
 interface VisitForReport {
   id: string;
@@ -108,6 +109,9 @@ export function ServiceReportDialog({
    const [showEmailDialog, setShowEmailDialog] = useState(false);
    const [companyName, setCompanyName] = useState("BHO Fire Ltd");
    const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+   // BAFE prompt state
+   const [showBafePrompt, setShowBafePrompt] = useState(false);
+   const [creatingBafe, setCreatingBafe] = useState(false);
   // Determine if report is locked (completed)
   const isLocked = report?.status === "completed";
 
@@ -398,8 +402,7 @@ export function ServiceReportDialog({
          if (customerInfo?.xero_contact_id) {
            setShowInvoicePrompt(true);
          } else {
-           onOpenChange(false);
-           onSuccess?.();
+           setShowBafePrompt(true);
          }
       }
     } catch (error) {
@@ -478,8 +481,7 @@ export function ServiceReportDialog({
        if (customerInfo?.xero_contact_id) {
          setShowInvoicePrompt(true);
        } else {
-         onOpenChange(false);
-         onSuccess?.();
+         setShowBafePrompt(true);
        }
     } catch (error) {
       console.error("Failed to complete visit:", error);
@@ -496,12 +498,41 @@ export function ServiceReportDialog({
  
    const handleInvoicePromptDecline = () => {
      setShowInvoicePrompt(false);
-     onOpenChange(false);
-     onSuccess?.();
+     setShowBafePrompt(true);
    };
  
    const handleInvoiceDialogClose = () => {
      setShowInvoiceDialog(false);
+     setShowBafePrompt(true);
+   };
+
+   const handleBafeConfirm = async () => {
+     if (!user?.id) return;
+     setCreatingBafe(true);
+     try {
+       const certNumber = await generateBafeCertNumber("maintenance");
+       await createBafeCertificate({
+         site_id: visit.site_id,
+         certificate_type: "maintenance",
+         certificate_number: certNumber,
+         issued_date: new Date().toISOString().split("T")[0],
+         issued_by: user.id,
+         linked_report_id: report?.id || null,
+       });
+       toast.success(`BAFE Maintenance Certificate ${certNumber} recorded`);
+     } catch (err) {
+       console.error("Failed to create BAFE certificate:", err);
+       toast.error("Failed to record BAFE certificate");
+     } finally {
+       setCreatingBafe(false);
+       setShowBafePrompt(false);
+       onOpenChange(false);
+       onSuccess?.();
+     }
+   };
+
+   const handleBafeDecline = () => {
+     setShowBafePrompt(false);
      onOpenChange(false);
      onSuccess?.();
    };
@@ -1190,6 +1221,31 @@ export function ServiceReportDialog({
             }}
          />
        )}
+
+       {/* BAFE Certificate Prompt */}
+       <Dialog open={showBafePrompt} onOpenChange={setShowBafePrompt}>
+         <DialogContent>
+           <div className="space-y-4">
+             <div className="flex items-center gap-3">
+               <div className="p-3 rounded-full bg-primary/10">
+                 <FileCheck className="h-6 w-6 text-primary" />
+               </div>
+               <div>
+                 <h3 className="font-semibold text-foreground">BAFE SP203-1 Certificate</h3>
+                 <p className="text-sm text-muted-foreground">
+                   Would you like to record a BAFE Maintenance Certificate for this site?
+                 </p>
+               </div>
+             </div>
+             <div className="flex justify-end gap-2">
+               <Button variant="outline" onClick={handleBafeDecline}>Skip</Button>
+               <Button onClick={handleBafeConfirm} disabled={creatingBafe}>
+                 {creatingBafe ? "Recording..." : "Record Certificate"}
+               </Button>
+             </div>
+           </div>
+         </DialogContent>
+       </Dialog>
      </ResponsiveDialog>
   );
 }
