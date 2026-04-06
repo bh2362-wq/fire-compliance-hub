@@ -56,6 +56,8 @@ import { getVisitTypeLabel } from "@/constants/visitTypes";
 import JobProgressTracker from "./JobProgressTracker";
 import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderFormDialog";
 import { fetchActiveSubcontractors, Subcontractor } from "@/services/subcontractorService";
+import { ReassignVisitDialog } from "./ReassignVisitDialog";
+import { MergeSitesDialog } from "@/components/sites/MergeSitesDialog";
 
 interface ASDAsset {
   id: string;
@@ -200,6 +202,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     lineItems?: { description: string; quantity: number; unit_price: number }[];
   } | null>(null);
 
+  const [reassignVisit, setReassignVisit] = useState<Visit | null>(null);
+  const [mergeSitesOpen, setMergeSitesOpen] = useState(false);
   const [emailVisit, setEmailVisit] = useState<Visit | null>(null);
   const [emailVisitData, setEmailVisitData] = useState<{
     defaultEmail: string;
@@ -896,6 +900,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 <Pencil className="w-4 h-4 mr-2" />
                 Edit Visit
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setReassignVisit(visit)}>
+                <Building2 className="w-4 h-4 mr-2" />
+                Reassign Site
+              </DropdownMenuItem>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <ArrowRight className="w-4 h-4 mr-2" />
@@ -1151,14 +1159,21 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
 
   return (
     <div className="space-y-6">
+      {/* Merge Sites tool */}
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={() => setMergeSitesOpen(true)}>
+          <GitCompare className="w-4 h-4 mr-2" />
+          Merge Duplicate Sites
+        </Button>
+      </div>
       {/* Selection toolbar */}
       {selectedVisitIds.size > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between">
+      <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <CheckSquare className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">{selectedVisitIds.size} job{selectedVisitIds.size > 1 ? "s" : ""} selected</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => setSelectedVisitIds(new Set())}>
               Clear
             </Button>
@@ -1600,6 +1615,21 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           prefill={subcontractorPOPrefill}
         />
       )}
+      {reassignVisit && (
+        <ReassignVisitDialog
+          open={!!reassignVisit}
+          onOpenChange={(open) => !open && setReassignVisit(null)}
+          visitId={reassignVisit.id}
+          currentSiteId={reassignVisit.site_id}
+          currentSiteName={reassignVisit.site?.name || "Unknown Site"}
+          onSuccess={onRefresh}
+        />
+      )}
+      <MergeSitesDialog
+        open={mergeSitesOpen}
+        onOpenChange={setMergeSitesOpen}
+        onSuccess={onRefresh}
+      />
     </div>
   );
 };
