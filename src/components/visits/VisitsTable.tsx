@@ -774,8 +774,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             <p className="font-medium text-foreground text-sm truncate max-w-[200px]">
               {visit.site?.name || "Unknown Site"}
             </p>
-            {visit.site?.customer_name && (
-              <p className="text-xs text-muted-foreground truncate max-w-[200px]">{visit.site.customer_name}</p>
+            {(visit as any).customer_name && (
+              <p className="text-xs text-muted-foreground truncate max-w-[200px]">{(visit as any).customer_name}</p>
             )}
           </div>
         </td>
