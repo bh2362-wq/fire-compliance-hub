@@ -124,6 +124,7 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   const safePpe = Array.isArray(document.ppe_requirements) ? document.ppe_requirements : [];
 
   const companyName = sanitize(company?.company_name) || "Company";
+  const customerName = sanitize((document.site as any)?.customers?.name || "");
   const docTitle = `${document.rams_number} ${sanitize(document.site?.name || document.title)} RAMS`;
 
   // ═══════════════════════════════════════════════════════════════════════════
