@@ -56,6 +56,28 @@ const Dashboard = () => {
     fetchStats();
   }, []);
 
+  const { data: bafeCerts } = useQuery({
+    queryKey: ['dashboard-bafe-certs'],
+    queryFn: getAllBafeCertificates,
+  });
+
+  const bafeSiteMap = new Map<string, typeof bafeCerts>();
+  (bafeCerts || []).forEach((c) => {
+    const arr = bafeSiteMap.get(c.site_id) || [];
+    arr.push(c);
+    bafeSiteMap.set(c.site_id, arr);
+  });
+  const bafeTypes = ['design', 'installation', 'commissioning', 'maintenance'];
+  const bafeCompliant = Array.from(bafeSiteMap.values()).filter(
+    (certs) => bafeTypes.every((t) => certs!.some((c) => c.certificate_type === t && c.status === 'valid'))
+  ).length;
+  const bafeTotalSites = bafeSiteMap.size;
+  const bafeExpiring = (bafeCerts || []).filter((c) => {
+    if (!c.expiry_date) return false;
+    const diff = new Date(c.expiry_date).getTime() - Date.now();
+    return diff > 0 && diff < 30 * 86400000;
+  }).length;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
