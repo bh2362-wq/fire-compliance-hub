@@ -1079,3 +1079,19 @@ export async function generateRamsPDFBase64(document: RamsDocument): Promise<{ r
   const msBase64 = msDoc.output("datauristring").split(",")[1];
   return { raBase64, msBase64 };
 }
+
+export async function generateMergedRamsPDFBase64(document: RamsDocument): Promise<string> {
+  const result = await generateRamsPDF(document, { returnDocs: true });
+  if (!result) throw new Error("Failed to generate RAMS PDF");
+
+  const mergedPdfBytes = await mergePdfDocuments(result.raDoc, result.msDoc);
+  let binary = "";
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < mergedPdfBytes.length; i += chunkSize) {
+    const chunk = mergedPdfBytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
