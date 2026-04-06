@@ -900,6 +900,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 <Pencil className="w-4 h-4 mr-2" />
                 Edit Visit
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setReassignVisit(visit)}>
+                <Building2 className="w-4 h-4 mr-2" />
+                Reassign Site
+              </DropdownMenuItem>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <ArrowRight className="w-4 h-4 mr-2" />
