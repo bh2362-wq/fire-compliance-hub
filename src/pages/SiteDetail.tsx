@@ -14,6 +14,7 @@ import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
+import { RamsJobSelectorDialog, AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import { CreateSharePointFolderButton } from "@/components/sharepoint/CreateSharePointFolderButton";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,8 @@ const SiteDetail = () => {
   const [importOpen, setImportOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [ramsOpen, setRamsOpen] = useState(false);
+  const [ramsJobSelectorOpen, setRamsJobSelectorOpen] = useState(false);
+  const [aiRamsData, setAiRamsData] = useState<AIRamsResult | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const fetchSite = async () => {
@@ -198,7 +201,7 @@ const SiteDetail = () => {
                 </Button>
               }
             />
-            <Button variant="outline" size="sm" onClick={() => setRamsOpen(true)}>
+            <Button variant="outline" size="sm" onClick={() => setRamsJobSelectorOpen(true)}>
               <HardHat className="w-4 h-4 mr-2" />
               New RAMS
             </Button>
@@ -315,10 +318,25 @@ const SiteDetail = () => {
         site={site}
         onSuccess={fetchSite}
       />
+      <RamsJobSelectorDialog
+        open={ramsJobSelectorOpen}
+        onOpenChange={setRamsJobSelectorOpen}
+        siteId={site.id}
+        siteName={site.name}
+        siteAddress={[site.address, site.city, site.postcode].filter(Boolean).join(", ")}
+        onGenerated={(result) => {
+          setAiRamsData(result);
+          setRamsOpen(true);
+        }}
+      />
       <RamsDocumentDialog
         open={ramsOpen}
-        onOpenChange={setRamsOpen}
+        onOpenChange={(open) => {
+          setRamsOpen(open);
+          if (!open) setAiRamsData(null);
+        }}
         preselectedSiteId={site.id}
+        aiGeneratedData={aiRamsData}
         onSuccess={() => {}}
       />
       <DeleteSiteDialog
