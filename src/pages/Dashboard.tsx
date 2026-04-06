@@ -6,10 +6,15 @@ import TodaySchedule from "@/components/dashboard/TodaySchedule";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { BankReconciliation } from "@/components/xero/BankReconciliation";
-import { Building2, ClipboardCheck, AlertTriangle, Percent } from "lucide-react";
+import { Building2, ClipboardCheck, AlertTriangle, Percent, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfMonth, endOfMonth, format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { getAllBafeCertificates } from "@/services/bafeCertificateService";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
