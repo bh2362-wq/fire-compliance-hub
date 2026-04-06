@@ -10,6 +10,7 @@ import { SiteAssets } from "@/components/sites/SiteAssets";
 import { SiteRamsDocuments } from "@/components/sites/SiteRamsDocuments";
 import { CustomerRamsRequirementsPanel } from "@/components/rams/CustomerRamsRequirementsPanel";
 import SiteCustomerForms from "@/components/customer-forms/SiteCustomerForms";
+import { SiteBafeCertificates } from "@/components/sites/SiteBafeCertificates";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
@@ -20,7 +21,7 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye, FileSignature } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye, FileSignature, ShieldCheck } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -255,6 +256,11 @@ const SiteDetail = () => {
             </p>
           </div>
         </div>
+
+        {/* BAFE SP203-1 Certificates */}
+        <CollapsibleSection title="BAFE SP203-1 Certificates" icon={ShieldCheck} defaultOpen={true}>
+          <SiteBafeCertificates siteId={site.id} />
+        </CollapsibleSection>
 
         {/* Open Visits */}
         <OpenVisitsCard siteId={site.id} />

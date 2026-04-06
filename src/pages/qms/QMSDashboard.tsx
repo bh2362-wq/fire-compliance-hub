@@ -15,9 +15,11 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
-  XCircle
+  XCircle,
+  ShieldCheck
 } from "lucide-react";
 import { fetchQMSKPIs, fetchNCRs, fetchCAPAs, fetchAudits } from "@/services/qmsService";
+import { getAllBafeCertificates, getBafeSummary, BafeCertificate } from "@/services/bafeCertificateService";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
@@ -43,6 +45,29 @@ const QMSDashboard = () => {
     queryKey: ['qms-audits'],
     queryFn: fetchAudits,
   });
+
+  const { data: bafeCerts } = useQuery({
+    queryKey: ['bafe-certificates-all'],
+    queryFn: getAllBafeCertificates,
+  });
+
+  // Group BAFE certs by site and check completeness
+  const bafeSiteMap = new Map<string, BafeCertificate[]>();
+  (bafeCerts || []).forEach((c) => {
+    const arr = bafeSiteMap.get(c.site_id) || [];
+    arr.push(c);
+    bafeSiteMap.set(c.site_id, arr);
+  });
+  const bafeCompliantSites = Array.from(bafeSiteMap.values()).filter((certs) => {
+    const types = new Set(certs.filter((c) => c.status === "valid").map((c) => c.certificate_type));
+    return types.has("design") && types.has("installation") && types.has("commissioning") && types.has("maintenance");
+  }).length;
+  const bafeTotalSites = bafeSiteMap.size;
+  const bafeExpiringSoon = (bafeCerts || []).filter((c) => {
+    if (!c.expiry_date || c.status !== "valid") return false;
+    const exp = new Date(c.expiry_date);
+    return exp > new Date() && exp <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  }).length;
 
   const recentNCRs = ncrs?.slice(0, 5) || [];
   const upcomingAudits = audits?.filter(a => a.status === 'planned').slice(0, 3) || [];
@@ -181,7 +206,49 @@ const QMSDashboard = () => {
           )}
         </div>
 
-        {/* Main Content Grid */}
+        {/* BAFE SP203-1 Compliance */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">BAFE SP203-1 Compliance</CardTitle>
+            </div>
+            <CardDescription>Fire alarm accreditation certificate tracking across sites</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-full bg-success/10">
+                  <CheckCircle2 className="h-6 w-6 text-success" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{bafeCompliantSites}</p>
+                  <p className="text-sm text-muted-foreground">Fully Compliant Sites</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-full bg-muted">
+                  <ShieldCheck className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{bafeTotalSites - bafeCompliantSites}</p>
+                  <p className="text-sm text-muted-foreground">Sites Missing Certificates</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-full bg-warning/10">
+                  <AlertTriangle className="h-6 w-6 text-warning" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{bafeExpiringSoon}</p>
+                  <p className="text-sm text-muted-foreground">Expiring in 30 Days</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Recent NCRs */}
           <Card className="lg:col-span-2">
