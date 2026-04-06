@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { BafeAuditReadinessChecklist } from "@/components/qms/BafeAuditReadinessChecklist";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -401,6 +402,9 @@ const QMSDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* BAFE Audit Readiness Checklist */}
+        <BafeAuditReadinessChecklist />
       </div>
     </DashboardLayout>
   );
