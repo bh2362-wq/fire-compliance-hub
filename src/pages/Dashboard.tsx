@@ -6,12 +6,18 @@ import TodaySchedule from "@/components/dashboard/TodaySchedule";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { BankReconciliation } from "@/components/xero/BankReconciliation";
-import { Building2, ClipboardCheck, AlertTriangle, Percent } from "lucide-react";
+import { Building2, ClipboardCheck, AlertTriangle, Percent, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfMonth, endOfMonth, format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { getAllBafeCertificates } from "@/services/bafeCertificateService";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     activeSites: 0,
     visitsThisMonth: 0,
@@ -49,6 +55,28 @@ const Dashboard = () => {
 
     fetchStats();
   }, []);
+
+  const { data: bafeCerts } = useQuery({
+    queryKey: ['dashboard-bafe-certs'],
+    queryFn: getAllBafeCertificates,
+  });
+
+  const bafeSiteMap = new Map<string, typeof bafeCerts>();
+  (bafeCerts || []).forEach((c) => {
+    const arr = bafeSiteMap.get(c.site_id) || [];
+    arr.push(c);
+    bafeSiteMap.set(c.site_id, arr);
+  });
+  const bafeTypes = ['design', 'installation', 'commissioning', 'maintenance'];
+  const bafeCompliant = Array.from(bafeSiteMap.values()).filter(
+    (certs) => bafeTypes.every((t) => certs!.some((c) => c.certificate_type === t && c.status === 'valid'))
+  ).length;
+  const bafeTotalSites = bafeSiteMap.size;
+  const bafeExpiring = (bafeCerts || []).filter((c) => {
+    if (!c.expiry_date) return false;
+    const diff = new Date(c.expiry_date).getTime() - Date.now();
+    return diff > 0 && diff < 30 * 86400000;
+  }).length;
 
   return (
     <DashboardLayout>
@@ -97,6 +125,36 @@ const Dashboard = () => {
             />
           )}
         </div>
+        {/* BAFE SP203-1 Compliance Summary */}
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/dashboard/qms")}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              BAFE SP203-1 Compliance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-2xl font-bold text-foreground">{bafeCompliant}</p>
+                <p className="text-xs text-muted-foreground">Fully Compliant Sites</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{bafeTotalSites > 0 ? bafeTotalSites - bafeCompliant : 0}</p>
+                <p className="text-xs text-muted-foreground">Missing Certificates</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{bafeExpiring}</p>
+                <p className="text-xs text-muted-foreground">Expiring in 30 Days</p>
+              </div>
+            </div>
+            {bafeExpiring > 0 && (
+              <Badge variant="destructive" className="mt-3">
+                {bafeExpiring} certificate{bafeExpiring !== 1 ? 's' : ''} expiring soon
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Quick actions + schedule */}
         <div className="grid lg:grid-cols-2 gap-6">
