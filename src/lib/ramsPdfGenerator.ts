@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { PDFDocument } from "pdf-lib";
 import { format } from "date-fns";
 import { RamsDocument } from "@/services/ramsService";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,6 +63,33 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+async function mergePdfDocuments(raDoc: jsPDF, msDoc: jsPDF): Promise<Uint8Array> {
+  const mergedPdf = await PDFDocument.create();
+
+  const sourceDocs = await Promise.all([
+    PDFDocument.load(raDoc.output("arraybuffer")),
+    PDFDocument.load(msDoc.output("arraybuffer")),
+  ]);
+
+  for (const sourceDoc of sourceDocs) {
+    const pageIndices = sourceDoc.getPageIndices();
+    const copiedPages = await mergedPdf.copyPages(sourceDoc, pageIndices);
+    copiedPages.forEach((page) => mergedPdf.addPage(page));
+  }
+
+  return mergedPdf.save();
+}
+
+function downloadMergedPdf(pdfBytes: Uint8Array, fileName: string): void {
+  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function sanitize(text: string | null | undefined): string {
@@ -1035,10 +1063,8 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
     return { raDoc, msDoc };
   }
 
-  // Save as two files with a delay so browsers don't block the second download
-  raDoc.save(`${document.rams_number}_Risk_Assessment.pdf`);
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  msDoc.save(`${document.rams_number}_Method_Statement.pdf`);
+  const mergedPdfBytes = await mergePdfDocuments(raDoc, msDoc);
+  downloadMergedPdf(mergedPdfBytes, `${document.rams_number}_RAMS.pdf`);
 }
 
 // Generate both RAMS PDFs and return as base64 strings for email attachment
