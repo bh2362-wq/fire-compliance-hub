@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown, Sparkles, ShieldCheck } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -58,6 +58,10 @@ import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderF
 import { fetchActiveSubcontractors, Subcontractor } from "@/services/subcontractorService";
 import { ReassignVisitDialog } from "./ReassignVisitDialog";
 import { MergeSitesDialog } from "@/components/sites/MergeSitesDialog";
+import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
+import { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
+import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
+import { toast as sonnerToast } from "sonner";
 
 interface ASDAsset {
   id: string;
@@ -204,6 +208,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
 
   const [reassignVisit, setReassignVisit] = useState<Visit | null>(null);
   const [mergeSitesOpen, setMergeSitesOpen] = useState(false);
+  const [ramsGenerating, setRamsGenerating] = useState(false);
+  const [ramsOpen, setRamsOpen] = useState(false);
+  const [aiRamsData, setAiRamsData] = useState<AIRamsResult | null>(null);
+  const [ramsSiteId, setRamsSiteId] = useState<string | null>(null);
   const [emailVisit, setEmailVisit] = useState<Visit | null>(null);
   const [emailVisitData, setEmailVisitData] = useState<{
     defaultEmail: string;
@@ -666,6 +674,88 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     } catch (error) {
       console.error("Failed to prepare email:", error);
       toast({ title: "Error", description: "Failed to prepare email", variant: "destructive" });
+    }
+  };
+
+  const handleGenerateRams = async () => {
+    const selected = visits.filter((v) => selectedVisitIds.has(v.id));
+    if (selected.length === 0) return;
+
+    // Check all selected visits are from the same site
+    const siteIds = new Set(selected.map((v) => v.site_id));
+    if (siteIds.size > 1) {
+      toast({ title: "Multiple sites selected", description: "Please select visits from a single site to generate RAMS.", variant: "destructive" });
+      return;
+    }
+
+    const siteId = selected[0].site_id;
+    const siteName = selected[0].site?.name || "Unknown Site";
+
+    // Fetch site address
+    let siteAddress = "";
+    try {
+      const { data: siteData } = await supabase
+        .from("sites")
+        .select("address, city, postcode")
+        .eq("id", siteId)
+        .single();
+      if (siteData) {
+        siteAddress = [siteData.address, siteData.city, siteData.postcode].filter(Boolean).join(", ");
+      }
+    } catch { /* ignore */ }
+
+    setRamsGenerating(true);
+    try {
+      const visitTypeLabels: Record<string, string> = {
+        quarterly: "Quarterly Service", biannual: "Biannual Service", annual: "Annual Service",
+        emergency: "Emergency", remedial: "Remedial", installation: "Installation",
+        commissioning: "Commissioning", supply_only: "Supply Only",
+        room_integrity: "Room Integrity Test", gas_suppression: "Gas Suppression Service",
+        subcontract: "Subcontract",
+      };
+
+      const jobs = selected.map((v) => {
+        let userNotes = v.notes;
+        try {
+          const parsed = JSON.parse(v.notes || "{}");
+          userNotes = parsed.user_notes || v.notes;
+        } catch { /* use raw notes */ }
+        return {
+          visit_type: visitTypeLabels[v.visit_type] || v.visit_type,
+          notes: userNotes,
+          visit_date: v.visit_date,
+        };
+      });
+
+      const { data, error } = await supabase.functions.invoke("generate-rams-ai", {
+        body: { jobs, siteName, siteAddress },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const hazards = (data.hazards || []).map((h: any) => ({
+        ...h,
+        id: h.id || crypto.randomUUID(),
+      }));
+
+      setAiRamsData({
+        title: data.title || `RAMS - ${siteName}`,
+        hazards,
+        method_statements: data.method_statements || [],
+        ppe_requirements: data.ppe_requirements || [],
+        emergency_procedures: data.emergency_procedures || "",
+        site_specific_hazards: data.site_specific_hazards || "",
+        selectedVisitIds: Array.from(selectedVisitIds),
+      });
+      setRamsSiteId(siteId);
+      setRamsOpen(true);
+      sonnerToast.success("RAMS generated — review and save");
+    } catch (err: any) {
+      console.error("RAMS generation failed:", err);
+      toast({ title: "RAMS generation failed", description: err.message || "Please try again", variant: "destructive" });
+    } finally {
+      setRamsGenerating(false);
     }
   };
 
@@ -1188,6 +1278,19 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
               <Mail className="w-4 h-4 mr-2" />
               Email to Client
             </Button>
+            <Button size="sm" variant="outline" onClick={handleGenerateRams} disabled={ramsGenerating}>
+              {ramsGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating RAMS...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4 mr-2" />
+                  Generate RAMS
+                </>
+              )}
+            </Button>
           </div>
         </div>
       )}
@@ -1623,6 +1726,22 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         open={mergeSitesOpen}
         onOpenChange={setMergeSitesOpen}
         onSuccess={onRefresh}
+      />
+      <RamsDocumentDialog
+        open={ramsOpen}
+        onOpenChange={(open) => {
+          setRamsOpen(open);
+          if (!open) {
+            setAiRamsData(null);
+            setRamsSiteId(null);
+          }
+        }}
+        preselectedSiteId={ramsSiteId || undefined}
+        aiGeneratedData={aiRamsData}
+        onSuccess={() => {
+          setSelectedVisitIds(new Set());
+          onRefresh?.();
+        }}
       />
     </div>
   );
