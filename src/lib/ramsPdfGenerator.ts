@@ -1037,12 +1037,20 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
       msDoc.setFont("helvetica", "normal");
       msDoc.setTextColor(...C.textDark);
       msDoc.text(sanitize(sigNames[i]!), x, msY + 26);
+      // Add title beneath name
+      const sigTitles = ["QA Manager", "Director", ""];
+      if (sigTitles[i]) {
+        msDoc.setFontSize(6.5);
+        msDoc.setFont("helvetica", "italic");
+        msDoc.setTextColor(...C.textGrey);
+        msDoc.text(sigTitles[i], x, msY + 30);
+      }
     }
 
     if (sigDates[i]) {
       msDoc.setFontSize(6.5);
       msDoc.setTextColor(...C.textGrey);
-      msDoc.text(format(new Date(sigDates[i]!), "dd/MM/yyyy HH:mm"), x, msY + 30);
+      msDoc.text(format(new Date(sigDates[i]!), "dd/MM/yyyy HH:mm"), x, msY + 34);
     }
   }
 
