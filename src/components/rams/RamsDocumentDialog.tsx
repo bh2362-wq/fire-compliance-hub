@@ -349,7 +349,7 @@ export function RamsDocumentDialog({
           <DialogTitle>{document ? `Edit ${document.rams_number}` : "New RAMS Document"}</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue={document ? "details" : "activity"} className="w-full">
+        <Tabs defaultValue={document || aiGeneratedData ? "details" : "activity"} className="w-full">
           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
