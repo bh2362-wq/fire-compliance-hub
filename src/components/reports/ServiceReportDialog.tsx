@@ -1221,6 +1221,31 @@ export function ServiceReportDialog({
             }}
          />
        )}
+
+       {/* BAFE Certificate Prompt */}
+       <Dialog open={showBafePrompt} onOpenChange={setShowBafePrompt}>
+         <DialogContent>
+           <div className="space-y-4">
+             <div className="flex items-center gap-3">
+               <div className="p-3 rounded-full bg-primary/10">
+                 <FileCheck className="h-6 w-6 text-primary" />
+               </div>
+               <div>
+                 <h3 className="font-semibold text-foreground">BAFE SP203-1 Certificate</h3>
+                 <p className="text-sm text-muted-foreground">
+                   Would you like to record a BAFE Maintenance Certificate for this site?
+                 </p>
+               </div>
+             </div>
+             <div className="flex justify-end gap-2">
+               <Button variant="outline" onClick={handleBafeDecline}>Skip</Button>
+               <Button onClick={handleBafeConfirm} disabled={creatingBafe}>
+                 {creatingBafe ? "Recording..." : "Record Certificate"}
+               </Button>
+             </div>
+           </div>
+         </DialogContent>
+       </Dialog>
      </ResponsiveDialog>
   );
 }
