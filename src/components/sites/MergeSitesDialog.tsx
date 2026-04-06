@@ -76,10 +76,12 @@ export const MergeSitesDialog = ({ open, onOpenChange, sourceSiteId, sourceSiteN
       // Reassign all related records from source to target
       // Reassign records from known tables
       const migrateFn = async (table: string) => {
-        const { error } = await supabase
-          .from(table as any)
-          .update({ site_id: targetId } as any)
-          .eq("site_id" as any, sourceId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const client = supabase as any;
+        const { error } = await client
+          .from(table)
+          .update({ site_id: targetId })
+          .eq("site_id", sourceId);
         if (error) console.warn(`Failed to migrate ${table}:`, error.message);
       };
 
