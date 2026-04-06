@@ -1161,12 +1161,12 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     <div className="space-y-6">
       {/* Selection toolbar */}
       {selectedVisitIds.size > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between">
+      <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <CheckSquare className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">{selectedVisitIds.size} job{selectedVisitIds.size > 1 ? "s" : ""} selected</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => setSelectedVisitIds(new Set())}>
               Clear
             </Button>
