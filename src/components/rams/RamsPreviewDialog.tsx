@@ -99,6 +99,11 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                   <span className="font-medium">Site:</span> {document.site.name}
                 </div>
               )}
+              {(document.site as any)?.customers?.name && (
+                <div>
+                  <span className="font-medium">Customer:</span> {(document.site as any).customers.name}
+                </div>
+              )}
               {document.review_date && (
                 <div>
                   <span className="font-medium">Review Date:</span>{" "}
