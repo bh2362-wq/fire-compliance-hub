@@ -1278,6 +1278,19 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
               <Mail className="w-4 h-4 mr-2" />
               Email to Client
             </Button>
+            <Button size="sm" variant="outline" onClick={handleGenerateRams} disabled={ramsGenerating}>
+              {ramsGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating RAMS...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4 mr-2" />
+                  Generate RAMS
+                </>
+              )}
+            </Button>
           </div>
         </div>
       )}
