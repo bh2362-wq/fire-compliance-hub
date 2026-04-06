@@ -759,6 +759,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     }
   };
 
+  if (loading) {
     return (
       <div className="bg-card rounded-xl border border-border">
         <table className="w-full text-sm">
