@@ -3454,6 +3454,76 @@ export type Database = {
           },
         ]
       }
+      site_bafe_certificates: {
+        Row: {
+          certificate_number: string
+          certificate_type: string
+          created_at: string
+          expiry_date: string | null
+          id: string
+          issued_by: string
+          issued_date: string
+          linked_form_submission_id: string | null
+          linked_report_id: string | null
+          notes: string | null
+          site_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          certificate_number: string
+          certificate_type: string
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          issued_by: string
+          issued_date: string
+          linked_form_submission_id?: string | null
+          linked_report_id?: string | null
+          notes?: string | null
+          site_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          certificate_number?: string
+          certificate_type?: string
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          issued_by?: string
+          issued_date?: string
+          linked_form_submission_id?: string | null
+          linked_report_id?: string | null
+          notes?: string | null
+          site_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_bafe_certificates_linked_form_submission_id_fkey"
+            columns: ["linked_form_submission_id"]
+            isOneToOne: false
+            referencedRelation: "customer_form_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_bafe_certificates_linked_report_id_fkey"
+            columns: ["linked_report_id"]
+            isOneToOne: false
+            referencedRelation: "service_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_bafe_certificates_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_service_contracts: {
         Row: {
           contract_end: string | null
