@@ -42,7 +42,7 @@ import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 import { DisabledRefugeReportDialog } from "@/components/reports/DisabledRefugeReportDialog";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
 import { ReportPreviewDialog } from "@/components/reports/ReportPreviewDialog";
-import { SmokeSprayEstimate } from "./SmokeSprayEstimate";
+
 import VisitEditDialog from "./VisitEditDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
