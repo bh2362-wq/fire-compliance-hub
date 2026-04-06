@@ -1615,6 +1615,21 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           prefill={subcontractorPOPrefill}
         />
       )}
+      {reassignVisit && (
+        <ReassignVisitDialog
+          open={!!reassignVisit}
+          onOpenChange={(open) => !open && setReassignVisit(null)}
+          visitId={reassignVisit.id}
+          currentSiteId={reassignVisit.site_id}
+          currentSiteName={reassignVisit.site?.name || "Unknown Site"}
+          onSuccess={onRefresh}
+        />
+      )}
+      <MergeSitesDialog
+        open={mergeSitesOpen}
+        onOpenChange={setMergeSitesOpen}
+        onSuccess={onRefresh}
+      />
     </div>
   );
 };
