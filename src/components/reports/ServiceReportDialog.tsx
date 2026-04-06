@@ -481,8 +481,7 @@ export function ServiceReportDialog({
        if (customerInfo?.xero_contact_id) {
          setShowInvoicePrompt(true);
        } else {
-         onOpenChange(false);
-         onSuccess?.();
+         setShowBafePrompt(true);
        }
     } catch (error) {
       console.error("Failed to complete visit:", error);
