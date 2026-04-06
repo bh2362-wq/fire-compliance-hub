@@ -229,14 +229,21 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   const equipmentInvolved = "Tool box and Steps/ Ladders";
   const reviewDate = document.review_date ? format(new Date(document.review_date), "dd/MM/yy") : format(new Date(), "dd/MM/yy");
 
+  const infoRows: any[][] = [
+    [{ content: "Project:", styles: { fontStyle: "bold" } }, siteName, { content: "Contract No:", styles: { fontStyle: "bold" } }, document.rams_number],
+    [{ content: "Activity:", styles: { fontStyle: "bold" } }, { content: activityTitle, styles: { fontStyle: "italic" } }, { content: "Rev:", styles: { fontStyle: "bold" } }, String(document.version)],
+  ];
+  if (customerName) {
+    infoRows.push([{ content: "Customer:", styles: { fontStyle: "bold" } }, customerName, { content: "RA Date:", styles: { fontStyle: "bold" } }, reviewDate]);
+  } else {
+    infoRows.push([{ content: "RA Date:", styles: { fontStyle: "bold" } }, reviewDate, "", ""]);
+  }
+  infoRows.push([{ content: "Persons Affected:", styles: { fontStyle: "bold" } }, { content: personsAffected, colSpan: 3 }]);
+  infoRows.push([{ content: "Equipment Involved:", styles: { fontStyle: "bold" } }, { content: equipmentInvolved, colSpan: 3 }]);
+
   autoTable(raDoc, {
     startY: raY,
-    body: [
-      [{ content: "Project:", styles: { fontStyle: "bold" } }, siteName, { content: "Contract No:", styles: { fontStyle: "bold" } }, document.rams_number],
-      [{ content: "Activity:", styles: { fontStyle: "bold" } }, { content: activityTitle, styles: { fontStyle: "italic" } }, { content: "Rev:", styles: { fontStyle: "bold" } }, String(document.version)],
-      [{ content: "Persons Affected:", styles: { fontStyle: "bold" } }, { content: personsAffected, colSpan: 1 }, { content: "RA Date:", styles: { fontStyle: "bold" } }, reviewDate],
-      [{ content: "Equipment Involved:", styles: { fontStyle: "bold" } }, { content: equipmentInvolved, colSpan: 3 }],
-    ],
+    body: infoRows,
     theme: "grid",
     styles: { fontSize: 8, cellPadding: 1.5, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2 },
     columnStyles: {
