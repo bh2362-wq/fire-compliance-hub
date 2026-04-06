@@ -672,24 +672,24 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   if (loading) {
     return (
       <div className="bg-card rounded-xl border border-border">
-        <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 border-b border-border">
-          <div className="col-span-3"><Skeleton className="h-4 w-16" /></div>
-          <div className="col-span-3"><Skeleton className="h-4 w-20" /></div>
-          <div className="col-span-2"><Skeleton className="h-4 w-16" /></div>
-          <div className="col-span-2"><Skeleton className="h-4 w-16" /></div>
-          <div className="col-span-2"><Skeleton className="h-4 w-16" /></div>
-        </div>
-        <div className="divide-y divide-border">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="grid grid-cols-12 gap-4 px-6 py-4">
-              <div className="col-span-3"><Skeleton className="h-12 w-full" /></div>
-              <div className="col-span-3"><Skeleton className="h-12 w-full" /></div>
-              <div className="col-span-2"><Skeleton className="h-8 w-full" /></div>
-              <div className="col-span-2"><Skeleton className="h-8 w-full" /></div>
-              <div className="col-span-2"><Skeleton className="h-8 w-full" /></div>
-            </div>
-          ))}
-        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-muted/50 border-b border-border">
+              {[...Array(8)].map((_, i) => (
+                <th key={i} className="px-2 py-1.5"><Skeleton className="h-3 w-12" /></th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[...Array(5)].map((_, i) => (
+              <tr key={i} className="border-b border-border">
+                {[...Array(8)].map((_, j) => (
+                  <td key={j} className="px-2 py-1.5"><Skeleton className="h-4 w-full" /></td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
