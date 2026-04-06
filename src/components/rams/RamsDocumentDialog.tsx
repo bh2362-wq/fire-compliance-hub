@@ -164,6 +164,26 @@ export function RamsDocumentDialog({
         setClientSignature(document.client_signature);
         setClientName(document.client_name || "");
         setClientSigMode(document.client_signature?.startsWith("typed:") ? "type" : document.client_signature ? "draw" : "type");
+      } else if (aiGeneratedData) {
+        setTitle(aiGeneratedData.title);
+        setTemplateId(null);
+        setSiteId(preselectedSiteId || null);
+        setVisitId(null);
+        setContractId(null);
+        setHazards(aiGeneratedData.hazards.length > 0 ? aiGeneratedData.hazards : [{ ...emptyHazard, id: crypto.randomUUID() }]);
+        setMethodStatements(aiGeneratedData.method_statements.length > 0 ? aiGeneratedData.method_statements : [{ ...emptyMethod }]);
+        setPpeRequirements(aiGeneratedData.ppe_requirements || []);
+        setEmergencyProcedures(aiGeneratedData.emergency_procedures || "");
+        setSiteSpecificHazards(aiGeneratedData.site_specific_hazards || "");
+        setSiteAccessNotes("");
+        setStatus("draft");
+        setReviewDate(format(addMonths(new Date(), 12), "yyyy-MM-dd"));
+        setPreparerSignature(null);
+        setPreparerName("");
+        setReviewerSignature(null);
+        setReviewerName("");
+        setClientSignature(null);
+        setClientName("");
       } else if (templateToUse) {
         setTitle(templateToUse.name);
         setTemplateId(templateToUse.id);
