@@ -15,9 +15,11 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
-  XCircle
+  XCircle,
+  ShieldCheck
 } from "lucide-react";
 import { fetchQMSKPIs, fetchNCRs, fetchCAPAs, fetchAudits } from "@/services/qmsService";
+import { getAllBafeCertificates, getBafeSummary, BafeCertificate } from "@/services/bafeCertificateService";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
