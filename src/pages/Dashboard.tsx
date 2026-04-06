@@ -125,6 +125,36 @@ const Dashboard = () => {
             />
           )}
         </div>
+        {/* BAFE SP203-1 Compliance Summary */}
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/dashboard/qms")}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              BAFE SP203-1 Compliance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-2xl font-bold text-foreground">{bafeCompliant}</p>
+                <p className="text-xs text-muted-foreground">Fully Compliant Sites</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{bafeTotalSites > 0 ? bafeTotalSites - bafeCompliant : 0}</p>
+                <p className="text-xs text-muted-foreground">Missing Certificates</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{bafeExpiring}</p>
+                <p className="text-xs text-muted-foreground">Expiring in 30 Days</p>
+              </div>
+            </div>
+            {bafeExpiring > 0 && (
+              <Badge variant="destructive" className="mt-3">
+                {bafeExpiring} certificate{bafeExpiring !== 1 ? 's' : ''} expiring soon
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Quick actions + schedule */}
         <div className="grid lg:grid-cols-2 gap-6">
