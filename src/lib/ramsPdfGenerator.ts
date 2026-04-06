@@ -124,6 +124,7 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   const safePpe = Array.isArray(document.ppe_requirements) ? document.ppe_requirements : [];
 
   const companyName = sanitize(company?.company_name) || "Company";
+  const customerName = sanitize((document.site as any)?.customers?.name || "");
   const docTitle = `${document.rams_number} ${sanitize(document.site?.name || document.title)} RAMS`;
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -228,14 +229,21 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   const equipmentInvolved = "Tool box and Steps/ Ladders";
   const reviewDate = document.review_date ? format(new Date(document.review_date), "dd/MM/yy") : format(new Date(), "dd/MM/yy");
 
+  const infoRows: any[][] = [
+    [{ content: "Project:", styles: { fontStyle: "bold" } }, siteName, { content: "Contract No:", styles: { fontStyle: "bold" } }, document.rams_number],
+    [{ content: "Activity:", styles: { fontStyle: "bold" } }, { content: activityTitle, styles: { fontStyle: "italic" } }, { content: "Rev:", styles: { fontStyle: "bold" } }, String(document.version)],
+  ];
+  if (customerName) {
+    infoRows.push([{ content: "Customer:", styles: { fontStyle: "bold" } }, customerName, { content: "RA Date:", styles: { fontStyle: "bold" } }, reviewDate]);
+  } else {
+    infoRows.push([{ content: "RA Date:", styles: { fontStyle: "bold" } }, reviewDate, "", ""]);
+  }
+  infoRows.push([{ content: "Persons Affected:", styles: { fontStyle: "bold" } }, { content: personsAffected, colSpan: 3 }]);
+  infoRows.push([{ content: "Equipment Involved:", styles: { fontStyle: "bold" } }, { content: equipmentInvolved, colSpan: 3 }]);
+
   autoTable(raDoc, {
     startY: raY,
-    body: [
-      [{ content: "Project:", styles: { fontStyle: "bold" } }, siteName, { content: "Contract No:", styles: { fontStyle: "bold" } }, document.rams_number],
-      [{ content: "Activity:", styles: { fontStyle: "bold" } }, { content: activityTitle, styles: { fontStyle: "italic" } }, { content: "Rev:", styles: { fontStyle: "bold" } }, String(document.version)],
-      [{ content: "Persons Affected:", styles: { fontStyle: "bold" } }, { content: personsAffected, colSpan: 1 }, { content: "RA Date:", styles: { fontStyle: "bold" } }, reviewDate],
-      [{ content: "Equipment Involved:", styles: { fontStyle: "bold" } }, { content: equipmentInvolved, colSpan: 3 }],
-    ],
+    body: infoRows,
     theme: "grid",
     styles: { fontSize: 8, cellPadding: 1.5, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2 },
     columnStyles: {
@@ -650,13 +658,22 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   msY += 12;
 
   // ── Project Info Table ──
+  const msInfoRows: any[][] = [
+    [{ content: "PROJECT:", styles: { fontStyle: "bold" } }, sanitize(document.site?.name || document.title), { content: "Contract No:", styles: { fontStyle: "bold" } }, document.rams_number],
+  ];
+  if (customerName) {
+    msInfoRows.push([{ content: "CUSTOMER:", styles: { fontStyle: "bold" } }, customerName, { content: "DATE &\nDURATION OF\nWORKS:", styles: { fontStyle: "bold" } }, "as per schedule"]);
+  } else {
+    msInfoRows.push([{ content: "ACTIVITY:", styles: { fontStyle: "bold" } }, sanitize(document.title), { content: "DATE &\nDURATION OF\nWORKS:", styles: { fontStyle: "bold" } }, "as per schedule"]);
+  }
+  if (customerName) {
+    msInfoRows.push([{ content: "ACTIVITY:", styles: { fontStyle: "bold" } }, sanitize(document.title), "", ""]);
+  }
+  msInfoRows.push([{ content: "REV:", styles: { fontStyle: "bold" } }, { content: String(document.version), styles: { halign: "right" } }, { content: "DATE OF MS:", styles: { fontStyle: "bold" } }, document.review_date ? format(new Date(document.review_date), "dd-MMM-yy") : format(new Date(), "dd-MMM-yy")]);
+
   autoTable(msDoc, {
     startY: msY,
-    body: [
-      [{ content: "PROJECT:", styles: { fontStyle: "bold" } }, sanitize(document.site?.name || document.title), { content: "Contract No:", styles: { fontStyle: "bold" } }, document.rams_number],
-      [{ content: "ACTIVITY:", styles: { fontStyle: "bold" } }, sanitize(document.title), { content: "DATE &\nDURATION OF\nWORKS:", styles: { fontStyle: "bold" } }, "as per schedule"],
-      [{ content: "REV:", styles: { fontStyle: "bold" } }, { content: String(document.version), styles: { halign: "right" } }, { content: "DATE OF MS:", styles: { fontStyle: "bold" } }, document.review_date ? format(new Date(document.review_date), "dd-MMM-yy") : format(new Date(), "dd-MMM-yy")],
-    ],
+    body: msInfoRows,
     theme: "grid",
     styles: { fontSize: 8, cellPadding: 2, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.3 },
     columnStyles: {
@@ -1018,8 +1035,9 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
     return { raDoc, msDoc };
   }
 
-  // Save as two files: Risk Assessment + Method Statement
+  // Save as two files with a delay so browsers don't block the second download
   raDoc.save(`${document.rams_number}_Risk_Assessment.pdf`);
+  await new Promise((resolve) => setTimeout(resolve, 500));
   msDoc.save(`${document.rams_number}_Method_Statement.pdf`);
 }
 

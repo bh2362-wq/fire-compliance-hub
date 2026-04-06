@@ -73,7 +73,7 @@ export interface RamsDocument {
   created_at: string;
   updated_at: string;
   // Joined fields
-  site?: { id: string; name: string; address: string | null };
+  site?: { id: string; name: string; address: string | null; customer_id: string | null; customers?: { name: string } | null };
   visit?: { id: string; visit_date: string; visit_type: string };
   contract?: { id: string; service_type: string };
   template?: { id: string; name: string };
@@ -202,7 +202,7 @@ export async function getRamsDocuments(): Promise<RamsDocument[]> {
     .from("rams_documents")
     .select(`
       *,
-      site:sites(id, name, address),
+      site:sites(id, name, address, customer_id, customers(name)),
       visit:visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
@@ -218,7 +218,7 @@ export async function getRamsDocument(id: string): Promise<RamsDocument | null> 
     .from("rams_documents")
     .select(`
       *,
-      site:sites(id, name, address),
+      site:sites(id, name, address, customer_id, customers(name)),
       visit:visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
@@ -236,7 +236,7 @@ export async function getRamsDocumentsBySite(siteId: string): Promise<RamsDocume
     .from("rams_documents")
     .select(`
       *,
-      site:sites(id, name, address),
+      site:sites(id, name, address, customer_id, customers(name)),
       visit:visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
@@ -291,7 +291,7 @@ export async function createRamsDocument(
     })
     .select(`
       *,
-      site:sites(id, name, address),
+      site:sites(id, name, address, customer_id, customers(name)),
       visit:visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
@@ -329,7 +329,7 @@ export async function updateRamsDocument(
     .eq("id", id)
     .select(`
       *,
-      site:sites(id, name, address),
+      site:sites(id, name, address, customer_id, customers(name)),
       visit:visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
