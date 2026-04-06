@@ -49,7 +49,7 @@ async function fetchAuditReadinessData() {
     supabase.from("qms_audits").select("id, status, audit_type, scheduled_date").order("scheduled_date", { ascending: false }),
     supabase.from("qms_training_records").select("id, status, expiry_date").order("created_at", { ascending: false }),
     supabase.from("site_bafe_certificates").select("id, certificate_type, status, expiry_date").order("created_at", { ascending: false }),
-    supabase.from("qms_risk_assessments").select("id, status, risk_level").order("created_at", { ascending: false }),
+    supabase.from("qms_risks").select("id, status, risk_level").order("created_at", { ascending: false }),
     supabase.from("company_settings").select("company_name, registration_number, vat_number").limit(1).maybeSingle(),
     supabase.from("service_reports").select("id, status, report_number").eq("status", "completed").order("created_at", { ascending: false }).limit(1),
     supabase.from("qms_supplier_evaluations").select("id, rating").order("created_at", { ascending: false }),
