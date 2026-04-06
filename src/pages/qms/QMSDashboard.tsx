@@ -206,7 +206,49 @@ const QMSDashboard = () => {
           )}
         </div>
 
-        {/* Main Content Grid */}
+        {/* BAFE SP203-1 Compliance */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">BAFE SP203-1 Compliance</CardTitle>
+            </div>
+            <CardDescription>Fire alarm accreditation certificate tracking across sites</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-full bg-success/10">
+                  <CheckCircle2 className="h-6 w-6 text-success" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{bafeCompliantSites}</p>
+                  <p className="text-sm text-muted-foreground">Fully Compliant Sites</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-full bg-muted">
+                  <ShieldCheck className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{bafeTotalSites - bafeCompliantSites}</p>
+                  <p className="text-sm text-muted-foreground">Sites Missing Certificates</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-full bg-warning/10">
+                  <AlertTriangle className="h-6 w-6 text-warning" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{bafeExpiringSoon}</p>
+                  <p className="text-sm text-muted-foreground">Expiring in 30 Days</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Recent NCRs */}
           <Card className="lg:col-span-2">
