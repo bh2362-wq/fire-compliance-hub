@@ -1279,26 +1279,36 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       {/* Recently Invoiced Section */}
       {invoicedVisits.length > 0 && (
         <div className="bg-card rounded-xl border border-border">
-          <div className="px-6 py-4 border-b border-border">
-            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
+          <div className="px-4 py-3 border-b border-border">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
               Recently Invoiced
             </h3>
-            <p className="text-sm text-muted-foreground">Visits that have been invoiced</p>
           </div>
-          <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted/50 text-sm font-medium text-muted-foreground border-b border-border">
-            <div className="col-span-3">Site</div>
-            <div className="col-span-2">Date / Invoice</div>
-            <div className="col-span-2">Devices</div>
-            <div className="col-span-1">Coverage</div>
-            <div className="col-span-2">Smoke Spray</div>
-            <div className="col-span-2">Actions</div>
-          </div>
-          <div className="divide-y divide-border">
-            {invoicedVisits.slice(0, 5).map((visit) => renderVisitRow(visit, true))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border">
+                  <th className="px-2 py-1.5 text-left w-8"></th>
+                  <th className="px-2 py-1.5 text-left">Site</th>
+                  <th className="px-2 py-1.5 text-left">Type</th>
+                  <th className="px-2 py-1.5 text-left">Date</th>
+                  <th className="px-2 py-1.5 text-left">Status</th>
+                  <th className="px-2 py-1.5 text-left">Report</th>
+                  <th className="px-2 py-1.5 text-left">Devices</th>
+                  <th className="px-2 py-1.5 text-left">Coverage</th>
+                  <th className="px-2 py-1.5 text-left">Cost</th>
+                  <th className="px-2 py-1.5 text-left">Progress</th>
+                  <th className="px-2 py-1.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoicedVisits.slice(0, 5).map((visit) => renderVisitRow(visit, true))}
+              </tbody>
+            </table>
           </div>
           {invoicedVisits.length > 5 && (
-            <div className="px-6 py-3 text-center border-t border-border">
+            <div className="px-4 py-2 text-center border-t border-border">
               <Button 
                 variant="ghost" 
                 size="sm"
