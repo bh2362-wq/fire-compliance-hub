@@ -500,12 +500,41 @@ export function ServiceReportDialog({
  
    const handleInvoicePromptDecline = () => {
      setShowInvoicePrompt(false);
-     onOpenChange(false);
-     onSuccess?.();
+     setShowBafePrompt(true);
    };
  
    const handleInvoiceDialogClose = () => {
      setShowInvoiceDialog(false);
+     setShowBafePrompt(true);
+   };
+
+   const handleBafeConfirm = async () => {
+     if (!user?.id) return;
+     setCreatingBafe(true);
+     try {
+       const certNumber = await generateBafeCertNumber("maintenance");
+       await createBafeCertificate({
+         site_id: visit.site_id,
+         certificate_type: "maintenance",
+         certificate_number: certNumber,
+         issued_date: new Date().toISOString().split("T")[0],
+         issued_by: user.id,
+         linked_report_id: report?.id || null,
+       });
+       toast.success(`BAFE Maintenance Certificate ${certNumber} recorded`);
+     } catch (err) {
+       console.error("Failed to create BAFE certificate:", err);
+       toast.error("Failed to record BAFE certificate");
+     } finally {
+       setCreatingBafe(false);
+       setShowBafePrompt(false);
+       onOpenChange(false);
+       onSuccess?.();
+     }
+   };
+
+   const handleBafeDecline = () => {
+     setShowBafePrompt(false);
      onOpenChange(false);
      onSuccess?.();
    };
