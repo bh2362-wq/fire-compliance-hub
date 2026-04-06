@@ -54,6 +54,7 @@ import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
  import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
  import { EmailReportDialog } from "./EmailReportDialog";
  import { getCompanySettings } from "@/services/companySettingsService";
+ import { createBafeCertificate, generateBafeCertNumber } from "@/services/bafeCertificateService";
 
 interface VisitForReport {
   id: string;
