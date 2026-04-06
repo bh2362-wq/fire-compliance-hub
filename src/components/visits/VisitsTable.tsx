@@ -56,6 +56,8 @@ import { getVisitTypeLabel } from "@/constants/visitTypes";
 import JobProgressTracker from "./JobProgressTracker";
 import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderFormDialog";
 import { fetchActiveSubcontractors, Subcontractor } from "@/services/subcontractorService";
+import { ReassignVisitDialog } from "./ReassignVisitDialog";
+import { MergeSitesDialog } from "@/components/sites/MergeSitesDialog";
 
 interface ASDAsset {
   id: string;
@@ -200,6 +202,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     lineItems?: { description: string; quantity: number; unit_price: number }[];
   } | null>(null);
 
+  const [reassignVisit, setReassignVisit] = useState<Visit | null>(null);
+  const [mergeSitesOpen, setMergeSitesOpen] = useState(false);
   const [emailVisit, setEmailVisit] = useState<Visit | null>(null);
   const [emailVisitData, setEmailVisitData] = useState<{
     defaultEmail: string;
