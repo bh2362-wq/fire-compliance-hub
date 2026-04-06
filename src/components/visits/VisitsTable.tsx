@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown, Sparkles, ShieldCheck } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -58,6 +58,10 @@ import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderF
 import { fetchActiveSubcontractors, Subcontractor } from "@/services/subcontractorService";
 import { ReassignVisitDialog } from "./ReassignVisitDialog";
 import { MergeSitesDialog } from "@/components/sites/MergeSitesDialog";
+import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
+import { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
+import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
+import { toast as sonnerToast } from "sonner";
 
 interface ASDAsset {
   id: string;
