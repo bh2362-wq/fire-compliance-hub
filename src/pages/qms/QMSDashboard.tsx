@@ -46,6 +46,29 @@ const QMSDashboard = () => {
     queryFn: fetchAudits,
   });
 
+  const { data: bafeCerts } = useQuery({
+    queryKey: ['bafe-certificates-all'],
+    queryFn: getAllBafeCertificates,
+  });
+
+  // Group BAFE certs by site and check completeness
+  const bafeSiteMap = new Map<string, BafeCertificate[]>();
+  (bafeCerts || []).forEach((c) => {
+    const arr = bafeSiteMap.get(c.site_id) || [];
+    arr.push(c);
+    bafeSiteMap.set(c.site_id, arr);
+  });
+  const bafeCompliantSites = Array.from(bafeSiteMap.values()).filter((certs) => {
+    const types = new Set(certs.filter((c) => c.status === "valid").map((c) => c.certificate_type));
+    return types.has("design") && types.has("installation") && types.has("commissioning") && types.has("maintenance");
+  }).length;
+  const bafeTotalSites = bafeSiteMap.size;
+  const bafeExpiringSoon = (bafeCerts || []).filter((c) => {
+    if (!c.expiry_date || c.status !== "valid") return false;
+    const exp = new Date(c.expiry_date);
+    return exp > new Date() && exp <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  }).length;
+
   const recentNCRs = ncrs?.slice(0, 5) || [];
   const upcomingAudits = audits?.filter(a => a.status === 'planned').slice(0, 3) || [];
   const overdueCAPAs = capas?.filter(c => {
