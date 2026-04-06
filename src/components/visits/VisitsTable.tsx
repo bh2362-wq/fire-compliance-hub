@@ -1159,6 +1159,13 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
 
   return (
     <div className="space-y-6">
+      {/* Merge Sites tool */}
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={() => setMergeSitesOpen(true)}>
+          <GitCompare className="w-4 h-4 mr-2" />
+          Merge Duplicate Sites
+        </Button>
+      </div>
       {/* Selection toolbar */}
       {selectedVisitIds.size > 0 && (
       <div className="bg-primary/5 border border-primary/20 rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-2">
