@@ -83,7 +83,9 @@ async function mergePdfDocuments(raDoc: jsPDF, msDoc: jsPDF): Promise<Uint8Array
 }
 
 function downloadMergedPdf(pdfBytes: Uint8Array, fileName: string): void {
-  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  const arrayBuffer = new ArrayBuffer(pdfBytes.byteLength);
+  new Uint8Array(arrayBuffer).set(pdfBytes);
+  const blob = new Blob([arrayBuffer], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
