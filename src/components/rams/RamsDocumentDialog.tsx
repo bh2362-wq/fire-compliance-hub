@@ -226,7 +226,7 @@ export function RamsDocumentDialog({
         setClientName("");
       }
     }
-  }, [open, document, templateToUse, preselectedSiteId]);
+  }, [open, document, templateToUse, preselectedSiteId, aiGeneratedData]);
 
   // Load template when selected
   const handleTemplateChange = (id: string) => {
