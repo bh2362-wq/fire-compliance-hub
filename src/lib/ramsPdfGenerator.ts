@@ -658,13 +658,22 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   msY += 12;
 
   // ── Project Info Table ──
+  const msInfoRows: any[][] = [
+    [{ content: "PROJECT:", styles: { fontStyle: "bold" } }, sanitize(document.site?.name || document.title), { content: "Contract No:", styles: { fontStyle: "bold" } }, document.rams_number],
+  ];
+  if (customerName) {
+    msInfoRows.push([{ content: "CUSTOMER:", styles: { fontStyle: "bold" } }, customerName, { content: "DATE &\nDURATION OF\nWORKS:", styles: { fontStyle: "bold" } }, "as per schedule"]);
+  } else {
+    msInfoRows.push([{ content: "ACTIVITY:", styles: { fontStyle: "bold" } }, sanitize(document.title), { content: "DATE &\nDURATION OF\nWORKS:", styles: { fontStyle: "bold" } }, "as per schedule"]);
+  }
+  if (customerName) {
+    msInfoRows.push([{ content: "ACTIVITY:", styles: { fontStyle: "bold" } }, sanitize(document.title), "", ""]);
+  }
+  msInfoRows.push([{ content: "REV:", styles: { fontStyle: "bold" } }, { content: String(document.version), styles: { halign: "right" } }, { content: "DATE OF MS:", styles: { fontStyle: "bold" } }, document.review_date ? format(new Date(document.review_date), "dd-MMM-yy") : format(new Date(), "dd-MMM-yy")]);
+
   autoTable(msDoc, {
     startY: msY,
-    body: [
-      [{ content: "PROJECT:", styles: { fontStyle: "bold" } }, sanitize(document.site?.name || document.title), { content: "Contract No:", styles: { fontStyle: "bold" } }, document.rams_number],
-      [{ content: "ACTIVITY:", styles: { fontStyle: "bold" } }, sanitize(document.title), { content: "DATE &\nDURATION OF\nWORKS:", styles: { fontStyle: "bold" } }, "as per schedule"],
-      [{ content: "REV:", styles: { fontStyle: "bold" } }, { content: String(document.version), styles: { halign: "right" } }, { content: "DATE OF MS:", styles: { fontStyle: "bold" } }, document.review_date ? format(new Date(document.review_date), "dd-MMM-yy") : format(new Date(), "dd-MMM-yy")],
-    ],
+    body: msInfoRows,
     theme: "grid",
     styles: { fontSize: 8, cellPadding: 2, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.3 },
     columnStyles: {
