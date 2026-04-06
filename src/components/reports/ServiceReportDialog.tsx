@@ -109,6 +109,9 @@ export function ServiceReportDialog({
    const [showEmailDialog, setShowEmailDialog] = useState(false);
    const [companyName, setCompanyName] = useState("BHO Fire Ltd");
    const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+   // BAFE prompt state
+   const [showBafePrompt, setShowBafePrompt] = useState(false);
+   const [creatingBafe, setCreatingBafe] = useState(false);
   // Determine if report is locked (completed)
   const isLocked = report?.status === "completed";
 
