@@ -383,6 +383,34 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
     fetchOutstandingInvoices();
   };
 
+  const handleExportBibby = () => {
+    const invoicesToExport = selectedInvoiceIds.size > 0
+      ? filteredInvoices.filter(inv => selectedInvoiceIds.has(inv.invoiceId))
+      : filteredInvoices;
+
+    if (invoicesToExport.length === 0) {
+      toast({ title: "No invoices selected", description: "Select invoices or apply filters to export", variant: "destructive" });
+      return;
+    }
+
+    const rows = invoicesToExport.map((inv) => ({
+      "Customer ID": inv.contactName,
+      "Reference": inv.invoiceNumber,
+      "Date": inv.date ? format(new Date(inv.date), "dd/MM/yyyy") : "",
+      "Document type": "Invoice",
+      "Total amount": inv.total.toFixed(2),
+      "Order number": inv.reference || "",
+      "Currency Code": inv.currencyCode || "GBP",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Schedules");
+    XLSX.writeFile(wb, `bibby-schedule-${format(new Date(), "yyyy-MM-dd")}.csv`, { bookType: "csv" });
+
+    toast({ title: "Bibby Export Complete", description: `Exported ${invoicesToExport.length} invoices for factoring` });
+  };
+
   const handleExportExcel = () => {
     if (filteredInvoices.length === 0) {
       toast({ title: "No data to export", variant: "destructive" });
