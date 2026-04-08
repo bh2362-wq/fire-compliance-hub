@@ -99,6 +99,29 @@ Deno.serve(async (req) => {
 
     const accessToken = await refreshMicrosoftToken(serviceClient, tokenRow);
 
+    // If download param is provided, proxy the file content
+    if (downloadItemId) {
+      const itemRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/drive/items/${downloadItemId}/content`,
+        { headers: { Authorization: `Bearer ${accessToken}` }, redirect: "follow" }
+      );
+      if (!itemRes.ok) {
+        return new Response(
+          JSON.stringify({ error: "Failed to download file" }),
+          { status: itemRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const fileBlob = await itemRes.blob();
+      return new Response(fileBlob, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": fileBlob.type || "application/octet-stream",
+          "Content-Length": fileBlob.size.toString(),
+        },
+      });
+    }
+
     const cleanPath = folderPath.replace(/^\/+|\/+$/g, "");
     
     // List children (files) in the folder
