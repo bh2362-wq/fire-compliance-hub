@@ -126,15 +126,26 @@ export function SharePointPhotoBrowser({
           );
 
           if (!downloadRes.ok) throw new Error("Download failed");
-          const blob = await downloadRes.blob();
+          let blob = await downloadRes.blob();
+
+          // Convert HEIC/HEIF to JPEG since browsers and PDF generators can't render HEIC
+          const lowerName = f.name.toLowerCase();
+          if (lowerName.endsWith('.heic') || lowerName.endsWith('.heif')) {
+            try {
+              const jpegBlob = await heicTo({ blob, type: "image/jpeg", quality: 0.9 });
+              blob = jpegBlob as Blob;
+            } catch (convertErr) {
+              console.warn("HEIC conversion failed, using original:", convertErr);
+            }
+          }
 
           // Upload to work-report-photos bucket
-          const ext = f.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const ext = (lowerName.endsWith('.heic') || lowerName.endsWith('.heif')) ? 'jpg' : (f.name.split('.').pop()?.toLowerCase() || 'jpg');
           const fileName = `sharepoint/${crypto.randomUUID()}.${ext}`;
           const { error: uploadError } = await supabase.storage
             .from("work-report-photos")
             .upload(fileName, blob, {
-              contentType: blob.type || `image/${ext === 'png' ? 'png' : 'jpeg'}`,
+              contentType: ext === 'png' ? 'image/png' : 'image/jpeg',
               upsert: true,
             });
 
