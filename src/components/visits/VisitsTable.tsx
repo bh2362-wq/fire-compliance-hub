@@ -159,6 +159,7 @@ const CHANGEABLE_STATUSES = [
   { value: 'quote_needed', label: 'Quote Needed' },
   { value: 'awaiting_po', label: 'Awaiting PO' },
   { value: 'awaiting_scheduling', label: 'Awaiting Scheduling' },
+  { value: 'invoiced', label: 'Invoiced' },
 ];
 
 // Group order for sub-list sections
