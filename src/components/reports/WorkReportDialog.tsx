@@ -48,6 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { InvoicePromptDialog } from "./InvoicePromptDialog";
 import { AIRewriteButton } from "./AIRewriteButton";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
+import { SharePointPhotoBrowser } from "@/components/sharepoint/SharePointPhotoBrowser";
 import { sendJobCompletedNotification } from "@/services/notificationService";
 import { getServiceContracts } from "@/services/serviceContractService";
 import { EmailReportDialog } from "./EmailReportDialog";
@@ -207,6 +208,7 @@ export function WorkReportDialog({
   // Photos
   const [photos, setPhotos] = useState<{ url: string; caption: string }[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showSharePointBrowser, setShowSharePointBrowser] = useState(false);
   
   // Files (paperwork, config files etc.)
   const [reportFiles, setReportFiles] = useState<{ url: string; name: string; size: number }[]>([]);
