@@ -171,10 +171,8 @@ export function CustomerCreateInvoiceDialog({
         // Due date should be 28 days from now
         setDueDate(addDays(new Date(), 28));
         
-        // Reference should be the worksheet/report number
-        if (jobReportData.reportNumber) {
-          setReference(jobReportData.reportNumber);
-        } else if (jobReportData.poNumber) {
+        // Reference should be the PO number from the report
+        if (jobReportData.poNumber) {
           setReference(jobReportData.poNumber);
         } else {
           setReference("");
@@ -259,35 +257,13 @@ export function CustomerCreateInvoiceDialog({
   };
 
   useEffect(() => {
-    // If we have job report data, build custom line items
+    // If we have job report data, always use a single line item with full description
     if (jobReportData && selectedSite) {
       const description = buildJobLineItemDescription();
-      
-      if (jobReportData.jobType === "emergency") {
-        // Emergency callout line items
-        setLineItems([
-          { description: `Callout - ${description}`, quantity: 1, unitAmount: jobReportData.unitPrice || 195 },
-        ]);
-      } else {
-        // Use contract unit price if available, otherwise use template defaults
-        const contractPrice = jobReportData.unitPrice;
-        if (contractPrice) {
-          // Single line item with contract price and job info
-          setLineItems([
-            { description: description || "Service", quantity: 1, unitAmount: contractPrice },
-          ]);
-        } else {
-          // Default service line items with job info
-          const baseItems = SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.quarterly_service;
-          const updatedItems = baseItems.map((item, index) => {
-            if (index === 0) {
-              return { ...item, description: description || item.description };
-            }
-            return item;
-          });
-          setLineItems(updatedItems);
-        }
-      }
+      const price = jobReportData.unitPrice || 0;
+      setLineItems([
+        { description: description || "Service", quantity: 1, unitAmount: price },
+      ]);
     } else if (!jobReportData) {
       // Update line items when service type changes (no job report data)
       setLineItems(SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.remedial);
