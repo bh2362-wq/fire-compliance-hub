@@ -650,6 +650,13 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                       </Button>
                     </CollapsibleTrigger>
                   </Collapsible>
+                  <Button variant="outline" size="sm" onClick={handleExportBibby} className="gap-2 border-primary/30 text-primary hover:bg-primary/10">
+                    <Upload className="h-4 w-4" />
+                    Bibby Export
+                    {selectedInvoiceIds.size > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">{selectedInvoiceIds.size}</Badge>
+                    )}
+                  </Button>
                   <Button variant="outline" size="sm" onClick={handleExportExcel} className="gap-2">
                     <FileSpreadsheet className="h-4 w-4" />
                     Excel
