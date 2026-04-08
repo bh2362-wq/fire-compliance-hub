@@ -1229,27 +1229,43 @@ const Reports = () => {
       </Dialog>
 
       {/* Create Invoice Dialog */}
-      {reportToInvoice && (
-        <CreateInvoiceDialog
+      {reportToInvoice && invoiceCustomerInfo && invoiceSiteInfo && (
+        <CustomerCreateInvoiceDialog
           open={invoiceDialogOpen}
           onOpenChange={(open) => {
             setInvoiceDialogOpen(open);
             if (!open) {
               setReportToInvoice(null);
-              setInvoiceContactId(null);
+              setInvoiceCustomerInfo(null);
+              setInvoiceSiteInfo(null);
             }
           }}
-          visit={{
-            id: reportToInvoice.visit_id,
-            visit_type: reportToInvoice.visits?.visit_type || "",
-            visit_date: reportToInvoice.visits?.visit_date || reportToInvoice.report_date,
-            site_id: reportToInvoice.site_id,
-            sites: reportToInvoice.sites,
-          }}
-          defaultContactId={invoiceContactId}
+          customerId={invoiceCustomerInfo.id}
+          customerName={invoiceCustomerInfo.name}
+          xeroContactId={invoiceCustomerInfo.xeroContactId}
+          sites={[invoiceSiteInfo]}
           onSuccess={() => {
-            // Mark report as invoiced after successful invoice creation
             handleInvoicedToggle(reportToInvoice.id, true);
+          }}
+          jobReportData={{
+            jobType: reportToInvoice.visits?.visit_type || "",
+            reportDate: reportToInvoice.report_date,
+            reportNumber: reportToInvoice.report_number || undefined,
+            poNumber: (() => {
+              try {
+                const notes = reportToInvoice.notes ? JSON.parse(reportToInvoice.notes) : null;
+                return notes?.contractPoNumber || reportToInvoice.visits?.client_po_number || undefined;
+              } catch { return undefined; }
+            })(),
+            unitPrice: (() => {
+              try {
+                const notes = reportToInvoice.notes ? JSON.parse(reportToInvoice.notes) : null;
+                return notes?.contractUnitPrice || undefined;
+              } catch { return undefined; }
+            })(),
+            siteName: invoiceSiteInfo.name,
+            jobDescription: reportToInvoice.work_carried_out || undefined,
+            visitDate: reportToInvoice.visits?.visit_date || reportToInvoice.report_date,
           }}
         />
       )}
