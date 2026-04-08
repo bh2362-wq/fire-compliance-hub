@@ -990,12 +990,12 @@ export function WorkReportDialog({
     try {
       // Create SharePoint folder if not already created
       let folderPath = reportSharePointFolder;
-      if (!folderPath && site && report) {
-        const customerData2 = site?.customers as { id: string; name: string } | null;
+      if (!folderPath && customerInfo && siteInfo && report) {
+        const customerData2 = customerInfo;
         if (customerData2) {
           const visitDateStr = format(new Date(visit.visit_date), "yyyy-MM-dd");
           const reportNum = certificateNo || report.report_number || `JOB-${report.id.substring(0, 6)}`;
-          const siteLabel = [site.name, site.address].filter(Boolean).join(" ");
+          const siteLabel = [siteInfo.name, siteInfo.address].filter(Boolean).join(" ");
           const reportFolder = `${reportNum}_${visitDateStr}`;
           const newFolderPath = `Customers/${customerData2.name}/${siteLabel}/Reports/${reportFolder}`;
           
@@ -1013,9 +1013,9 @@ export function WorkReportDialog({
             // Save site-level folder
             const siteLevelPath = `Customers/${customerData2.name}/${siteLabel}`;
             const { data: currentSite } = await supabase.from("sites")
-              .select("sharepoint_folder").eq("id", site.id).single();
+              .select("sharepoint_folder").eq("id", siteInfo.id).single();
             if (!currentSite?.sharepoint_folder) {
-              await supabase.from("sites").update({ sharepoint_folder: siteLevelPath }).eq("id", site.id);
+              await supabase.from("sites").update({ sharepoint_folder: siteLevelPath }).eq("id", siteInfo.id);
             }
           }
         }
