@@ -61,6 +61,7 @@ export function SharePointPhotoBrowser({
       );
 
       if (!res.ok) throw new Error("Failed to load photos");
+      const data = await res.json();
       const allFiles: SharePointFile[] = data.files || [];
       // Sort most recent first
       allFiles.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
