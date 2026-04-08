@@ -24,7 +24,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck, Pencil, ExternalLink, MoreHorizontal, FileSpreadsheet } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck, Pencil, ExternalLink, MoreHorizontal, FileSpreadsheet, Upload } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
@@ -383,6 +383,34 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
     fetchOutstandingInvoices();
   };
 
+  const handleExportBibby = () => {
+    const invoicesToExport = selectedInvoiceIds.size > 0
+      ? filteredInvoices.filter(inv => selectedInvoiceIds.has(inv.invoiceId))
+      : filteredInvoices;
+
+    if (invoicesToExport.length === 0) {
+      toast({ title: "No invoices selected", description: "Select invoices or apply filters to export", variant: "destructive" });
+      return;
+    }
+
+    const rows = invoicesToExport.map((inv) => ({
+      "Customer ID": inv.contactName,
+      "Reference": inv.invoiceNumber,
+      "Date": inv.date ? format(new Date(inv.date), "dd/MM/yyyy") : "",
+      "Document type": "Invoice",
+      "Total amount": inv.total.toFixed(2),
+      "Order number": inv.reference || "",
+      "Currency Code": inv.currencyCode || "GBP",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Schedules");
+    XLSX.writeFile(wb, `bibby-schedule-${format(new Date(), "yyyy-MM-dd")}.csv`, { bookType: "csv" });
+
+    toast({ title: "Bibby Export Complete", description: `Exported ${invoicesToExport.length} invoices for factoring` });
+  };
+
   const handleExportExcel = () => {
     if (filteredInvoices.length === 0) {
       toast({ title: "No data to export", variant: "destructive" });
@@ -622,6 +650,13 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                       </Button>
                     </CollapsibleTrigger>
                   </Collapsible>
+                  <Button variant="outline" size="sm" onClick={handleExportBibby} className="gap-2 border-primary/30 text-primary hover:bg-primary/10">
+                    <Upload className="h-4 w-4" />
+                    Bibby Export
+                    {selectedInvoiceIds.size > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">{selectedInvoiceIds.size}</Badge>
+                    )}
+                  </Button>
                   <Button variant="outline" size="sm" onClick={handleExportExcel} className="gap-2">
                     <FileSpreadsheet className="h-4 w-4" />
                     Excel
