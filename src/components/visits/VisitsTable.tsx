@@ -1374,10 +1374,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                           <th className="px-2 py-1.5 text-left">Type</th>
                           <th className="px-2 py-1.5 text-left">Date</th>
                           <th className="px-2 py-1.5 text-left">Status</th>
-                          <th className="px-2 py-1.5 text-left">Report</th>
-                          <th className="px-2 py-1.5 text-left">Devices</th>
-                          <th className="px-2 py-1.5 text-left">Coverage</th>
-                          <th className="px-2 py-1.5 text-left">Cost</th>
+                          <th className="px-2 py-1.5 text-left">Description</th>
                           <th className="px-2 py-1.5 text-left">Progress</th>
                           <th className="px-2 py-1.5 text-right">Actions</th>
                         </tr>
@@ -1423,10 +1420,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   <th className="px-2 py-1.5 text-left">Type</th>
                   <th className="px-2 py-1.5 text-left">Date</th>
                   <th className="px-2 py-1.5 text-left">Status</th>
-                  <th className="px-2 py-1.5 text-left">Report</th>
-                  <th className="px-2 py-1.5 text-left">Devices</th>
-                  <th className="px-2 py-1.5 text-left">Coverage</th>
-                  <th className="px-2 py-1.5 text-left">Cost</th>
+                  <th className="px-2 py-1.5 text-left">Description</th>
                   <th className="px-2 py-1.5 text-left">Progress</th>
                   <th className="px-2 py-1.5 text-right">Actions</th>
                 </tr>
