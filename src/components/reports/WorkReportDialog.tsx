@@ -1813,7 +1813,7 @@ export function WorkReportDialog({
                                   
                                   await supabase.functions.invoke("upload-to-sharepoint", {
                                     body: {
-                                      folderPath: `${reportSharePointFolder}/Photos`,
+                                      folderPath: `${reportSharePointFolder}/uploads`,
                                       fileName: file.name,
                                       fileBase64: base64,
                                       contentType: file.type || 'image/jpeg',
@@ -2444,7 +2444,7 @@ export function WorkReportDialog({
         <SharePointPhotoBrowser
           open={showSharePointBrowser}
           onOpenChange={setShowSharePointBrowser}
-          folderPath={`${reportSharePointFolder}/Photos`}
+          folderPath={`${reportSharePointFolder}/uploads`}
           onImport={(imported) => {
             setPhotos(prev => [
               ...prev,
