@@ -105,6 +105,63 @@ async function createFolderPath(accessToken: string, folderPath: string): Promis
   return webUrl;
 }
 
+const sanitize = (name: string) =>
+  name.replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
+
+/**
+ * Resolve the canonical SharePoint folder path for a site by looking up
+ * the site's existing sharepoint_folder, then the customer's, and falling
+ * back to constructing from current names.
+ */
+async function resolveCanonicalSitePath(
+  serviceClient: any,
+  siteId: string
+): Promise<string | null> {
+  const { data: site } = await serviceClient
+    .from("sites")
+    .select("id, name, address, sharepoint_folder, customer_id")
+    .eq("id", siteId)
+    .single();
+
+  if (!site) return null;
+
+  // If site already has a stored folder, use it
+  if (site.sharepoint_folder) return site.sharepoint_folder;
+
+  // Otherwise resolve from customer
+  let customerFolder: string | null = null;
+  if (site.customer_id) {
+    const { data: customer } = await serviceClient
+      .from("customers")
+      .select("id, name, sharepoint_folder")
+      .eq("id", site.customer_id)
+      .single();
+
+    if (customer) {
+      customerFolder = customer.sharepoint_folder || `Customers/${sanitize(customer.name)}`;
+    }
+  }
+
+  if (!customerFolder) return null;
+
+  const siteLabel = sanitize(site.name);
+  return `${customerFolder}/${siteLabel}`;
+}
+
+async function resolveCanonicalCustomerPath(
+  serviceClient: any,
+  customerId: string
+): Promise<string | null> {
+  const { data: customer } = await serviceClient
+    .from("customers")
+    .select("id, name, sharepoint_folder")
+    .eq("id", customerId)
+    .single();
+
+  if (!customer) return null;
+  return customer.sharepoint_folder || `Customers/${sanitize(customer.name)}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -134,17 +191,34 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { folderPath, entityType, entityId } = await req.json();
+    const body = await req.json();
+    const { folderPath, entityType, entityId, siteId, customerId, subPath } = body;
 
-    if (!folderPath || !entityType || !entityId) {
+    // New resolve mode: pass siteId/customerId to get canonical path from DB
+    // Falls back to legacy folderPath if provided
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    let resolvedPath = folderPath;
+
+    if (!resolvedPath && siteId) {
+      resolvedPath = await resolveCanonicalSitePath(serviceClient, siteId);
+      if (resolvedPath && subPath) {
+        resolvedPath = `${resolvedPath}/${subPath}`;
+      }
+    } else if (!resolvedPath && customerId) {
+      resolvedPath = await resolveCanonicalCustomerPath(serviceClient, customerId);
+      if (resolvedPath && subPath) {
+        resolvedPath = `${resolvedPath}/${subPath}`;
+      }
+    }
+
+    if (!resolvedPath || !entityType || !entityId) {
       return new Response(
-        JSON.stringify({ error: "folderPath, entityType, and entityId are required" }),
+        JSON.stringify({ error: "folderPath (or siteId/customerId), entityType, and entityId are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: tokenRow, error: tokenError } = await serviceClient
       .from("microsoft_tokens")
@@ -160,7 +234,7 @@ Deno.serve(async (req) => {
     }
 
     const accessToken = await refreshMicrosoftToken(serviceClient, tokenRow);
-    const cleanPath = folderPath.replace(/^\/+|\/+$/g, "");
+    const cleanPath = resolvedPath.replace(/^\/+|\/+$/g, "");
     const webUrl = await createFolderPath(accessToken, cleanPath);
 
     // Save the folder path and webUrl back to the entity
@@ -173,7 +247,36 @@ Deno.serve(async (req) => {
     } else if (entityType === "quotation") {
       await supabase.from("quotations").update({ sharepoint_folder: cleanPath, sharepoint_url: webUrl || null }).eq("id", entityId);
     }
-    // For entityType "folder_only", skip saving — caller handles persistence
+
+    // Also ensure parent site/customer folders are saved if resolved from DB
+    if (siteId && !folderPath) {
+      // Save the site-level folder (without subPath)
+      const baseSitePath = await resolveCanonicalSitePath(serviceClient, siteId);
+      if (baseSitePath) {
+        const { data: currentSite } = await serviceClient
+          .from("sites")
+          .select("sharepoint_folder, customer_id")
+          .eq("id", siteId)
+          .single();
+        if (currentSite && !currentSite.sharepoint_folder) {
+          await serviceClient.from("sites").update({ sharepoint_folder: baseSitePath }).eq("id", siteId);
+        }
+        // Also ensure customer folder is saved
+        if (currentSite?.customer_id) {
+          const { data: cust } = await serviceClient
+            .from("customers")
+            .select("sharepoint_folder")
+            .eq("id", currentSite.customer_id)
+            .single();
+          if (cust && !cust.sharepoint_folder) {
+            const custPath = await resolveCanonicalCustomerPath(serviceClient, currentSite.customer_id);
+            if (custPath) {
+              await serviceClient.from("customers").update({ sharepoint_folder: custPath }).eq("id", currentSite.customer_id);
+            }
+          }
+        }
+      }
+    }
 
     return new Response(
       JSON.stringify({ success: true, folderPath: cleanPath, webUrl }),
