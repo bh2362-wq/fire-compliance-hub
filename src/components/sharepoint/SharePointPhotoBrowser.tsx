@@ -105,14 +105,60 @@ export function SharePointPhotoBrowser({
 
     setImporting(true);
     try {
-      const photos = selectedFiles.map((f) => ({
-        url: f.downloadUrl || f.thumbnailUrl || f.webUrl,
-        caption: f.name.replace(/\.[^/.]+$/, ""),
-        fileName: f.name,
-      }));
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
 
-      onImport(photos);
-      toast.success(`${photos.length} photo(s) imported from SharePoint`);
+      const photos: { url: string; caption: string; fileName: string }[] = [];
+
+      for (const f of selectedFiles) {
+        try {
+          // Download from SharePoint via edge function proxy
+          const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const downloadRes = await fetch(
+            `${baseUrl}/functions/v1/sharepoint-list-files?path=${encodeURIComponent(folderPath)}&download=${encodeURIComponent(f.id)}`,
+            {
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+            }
+          );
+
+          if (!downloadRes.ok) throw new Error("Download failed");
+          const blob = await downloadRes.blob();
+
+          // Upload to work-report-photos bucket
+          const ext = f.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const fileName = `sharepoint/${crypto.randomUUID()}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from("work-report-photos")
+            .upload(fileName, blob, {
+              contentType: blob.type || `image/${ext === 'png' ? 'png' : 'jpeg'}`,
+              upsert: true,
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { data: urlData } = supabase.storage
+            .from("work-report-photos")
+            .getPublicUrl(fileName);
+
+          photos.push({
+            url: urlData.publicUrl,
+            caption: f.name.replace(/\.[^/.]+$/, ""),
+            fileName: f.name,
+          });
+        } catch (fileErr) {
+          console.error(`Failed to import ${f.name}:`, fileErr);
+        }
+      }
+
+      if (photos.length > 0) {
+        onImport(photos);
+        toast.success(`${photos.length} photo(s) imported from SharePoint`);
+      } else {
+        toast.error("Failed to import photos");
+      }
       onOpenChange(false);
     } catch (err) {
       console.error("Import error:", err);
