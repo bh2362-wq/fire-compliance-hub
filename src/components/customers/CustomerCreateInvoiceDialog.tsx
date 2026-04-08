@@ -223,29 +223,41 @@ export function CustomerCreateInvoiceDialog({
   const buildJobLineItemDescription = (): string => {
     if (!jobReportData) return "";
     
-    const parts: string[] = [];
+    const lines: string[] = [];
     
-    // Callout for emergency jobs
+    // First line: job type + site name
     if (jobReportData.jobType === "emergency") {
-      parts.push("Callout");
+      lines.push(`Emergency Callout - ${jobReportData.siteName || "Site"}`);
+    } else {
+      const typeLabel = SERVICE_TYPES.find(s => s.value === serviceType)?.label || jobReportData.jobType || "Service";
+      lines.push(`${typeLabel} - ${jobReportData.siteName || "Site"}`);
     }
     
-    // Add report date
-    if (jobReportData.reportDate) {
-      parts.push(format(new Date(jobReportData.reportDate), "dd/MM/yyyy"));
-    }
-    
-    // Add site name
-    if (jobReportData.siteName) {
-      parts.push(jobReportData.siteName);
-    }
-    
-    // Add job sheet number
+    // Worksheet/report number
     if (jobReportData.reportNumber) {
-      parts.push(jobReportData.reportNumber);
+      lines.push(`Worksheet: ${jobReportData.reportNumber}`);
     }
     
-    return parts.join(" - ");
+    // Visit date
+    if (jobReportData.visitDate) {
+      lines.push(`Date of Visit: ${format(new Date(jobReportData.visitDate), "dd/MM/yyyy")}`);
+    }
+    
+    // PO number
+    if (jobReportData.poNumber) {
+      lines.push(`PO: ${jobReportData.poNumber}`);
+    }
+    
+    // Brief job description
+    if (jobReportData.jobDescription) {
+      // Truncate to first 200 chars for invoice brevity
+      const brief = jobReportData.jobDescription.length > 200 
+        ? jobReportData.jobDescription.substring(0, 200) + "..."
+        : jobReportData.jobDescription;
+      lines.push(brief);
+    }
+    
+    return lines.join("\n");
   };
 
   useEffect(() => {
