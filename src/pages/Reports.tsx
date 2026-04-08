@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2, Copy } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
+import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -122,6 +122,8 @@ const Reports = () => {
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [reportToInvoice, setReportToInvoice] = useState<ReportWithSite | null>(null);
   const [invoiceContactId, setInvoiceContactId] = useState<string | null>(null);
+  const [invoiceCustomerInfo, setInvoiceCustomerInfo] = useState<{ id: string; name: string; xeroContactId: string | null } | null>(null);
+  const [invoiceSiteInfo, setInvoiceSiteInfo] = useState<{ id: string; name: string; address: string | null; city: string | null } | null>(null);
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [reportToUnlock, setReportToUnlock] = useState<ReportWithSite | null>(null);
   const [unlockReason, setUnlockReason] = useState("");
