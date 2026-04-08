@@ -52,6 +52,8 @@ interface JobReportData {
   poNumber?: string;
   unitPrice?: number;
   siteName?: string;
+  jobDescription?: string;
+  visitDate?: string;
 }
 
 interface CustomerCreateInvoiceDialogProps {
