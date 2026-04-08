@@ -914,54 +914,11 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
               : displayStatus.label}
           </Badge>
         </td>
-        {/* Report */}
-        <td className="px-2 py-1.5 text-xs text-muted-foreground">
-          {reportInfo?.report_number || "—"}
-        </td>
-        {/* Devices */}
-        <td className="px-2 py-1.5 text-xs text-foreground whitespace-nowrap">
-          {visit.devices_tested || 0}/{visit.total_devices || 0}
-          {(visit.issues_count || 0) > 0 && (
-            <span className="text-destructive ml-1">({visit.issues_count})</span>
-          )}
-        </td>
-        {/* Coverage */}
+        {/* Description */}
         <td className="px-2 py-1.5">
-          <div className="flex items-center gap-1">
-            <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${
-                  coverage >= 95 ? "bg-success" : coverage >= 80 ? "bg-warning" : "bg-destructive"
-                }`}
-                style={{ width: `${coverage}%` }}
-              />
-            </div>
-            <span className="text-[10px] text-muted-foreground w-7">{coverage}%</span>
-          </div>
-        </td>
-        {/* Cost */}
-        <td className="px-2 py-1.5">
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="—"
-            className="w-16 bg-transparent border border-border rounded px-1.5 py-0.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            defaultValue={visit.quoted_price ?? ""}
-            onBlur={async (e) => {
-              const val = e.target.value ? parseFloat(e.target.value) : null;
-              if (val === (visit.quoted_price ?? null)) return;
-              const { error } = await supabase
-                .from("visits")
-                .update({ quoted_price: val })
-                .eq("id", visit.id);
-              if (error) {
-                toast({ title: "Error", description: "Failed to save cost", variant: "destructive" });
-              } else {
-                onRefresh?.();
-              }
-            }}
-          />
+          <p className="text-xs text-foreground truncate max-w-[280px]" title={notesPreview || "—"}>
+            {notesPreview || "—"}
+          </p>
         </td>
         {/* Progress */}
         <td className="px-2 py-1.5">
@@ -1374,10 +1331,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                           <th className="px-2 py-1.5 text-left">Type</th>
                           <th className="px-2 py-1.5 text-left">Date</th>
                           <th className="px-2 py-1.5 text-left">Status</th>
-                          <th className="px-2 py-1.5 text-left">Report</th>
-                          <th className="px-2 py-1.5 text-left">Devices</th>
-                          <th className="px-2 py-1.5 text-left">Coverage</th>
-                          <th className="px-2 py-1.5 text-left">Cost</th>
+                          <th className="px-2 py-1.5 text-left">Description</th>
                           <th className="px-2 py-1.5 text-left">Progress</th>
                           <th className="px-2 py-1.5 text-right">Actions</th>
                         </tr>
@@ -1423,10 +1377,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   <th className="px-2 py-1.5 text-left">Type</th>
                   <th className="px-2 py-1.5 text-left">Date</th>
                   <th className="px-2 py-1.5 text-left">Status</th>
-                  <th className="px-2 py-1.5 text-left">Report</th>
-                  <th className="px-2 py-1.5 text-left">Devices</th>
-                  <th className="px-2 py-1.5 text-left">Coverage</th>
-                  <th className="px-2 py-1.5 text-left">Cost</th>
+                  <th className="px-2 py-1.5 text-left">Description</th>
                   <th className="px-2 py-1.5 text-left">Progress</th>
                   <th className="px-2 py-1.5 text-right">Actions</th>
                 </tr>
