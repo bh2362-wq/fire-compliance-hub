@@ -24,7 +24,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck, Pencil, ExternalLink, MoreHorizontal, FileSpreadsheet } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle, Banknote, FileText, Users, Trash2, CheckCircle, Filter, Download, X, ChevronDown, ShieldCheck, Pencil, ExternalLink, MoreHorizontal, FileSpreadsheet, Upload } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
