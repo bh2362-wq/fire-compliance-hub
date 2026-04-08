@@ -168,12 +168,10 @@ export function CustomerCreateInvoiceDialog({
           setServiceType("quarterly_service");
         }
         
-        if (jobReportData.reportDate) {
-          setDueDate(new Date(jobReportData.reportDate));
-        } else {
-          setDueDate(addDays(new Date(), 30));
-        }
+        // Due date should be 28 days from now
+        setDueDate(addDays(new Date(), 28));
         
+        // Reference should be PO number if available
         if (jobReportData.poNumber) {
           setReference(jobReportData.poNumber);
         } else if (jobReportData.reportNumber) {
