@@ -573,6 +573,21 @@ export function WorkReportDialog({
         if (parsedNotes.reportDate) {
           setReportDate(new Date(parsedNotes.reportDate));
         }
+      } else {
+        // No saved report notes — pre-populate from visit data
+        if (visit.job_number) setJobNumber(visit.job_number);
+        if (visit.visit_type) {
+          const typeMap: Record<string, string> = {
+            quarterly_service: "service", biannual_service: "service", annual_service: "service",
+            emergency: "callout", remedial: "remedial", installation: "installation",
+            commissioning: "commissioning", room_integrity: "room_integrity",
+            gas_suppression: "gas_suppression",
+          };
+          setJobType(typeMap[visit.visit_type] || visit.visit_type);
+        }
+        // Pre-populate contact from site
+        if (loadedSiteInfo?.contact_name) setContactPerson(loadedSiteInfo.contact_name);
+        if (loadedSiteInfo?.contact_email) setContactEmail(loadedSiteInfo.contact_email);
       }
     } catch {
       // Notes not JSON, use as-is — still populate from visit data
