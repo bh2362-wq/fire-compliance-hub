@@ -2413,7 +2413,7 @@ export function WorkReportDialog({
             jobType,
             reportDate: format(reportDate, "yyyy-MM-dd"),
             reportNumber: certificateNo,
-            poNumber: contractPoNumber || visit.client_po_number || jobNumber || undefined,
+            poNumber: contractPoNumber || visit.client_po_number || undefined,
             unitPrice: contractUnitPrice || undefined,
             siteName: siteInfo.name,
           }}
