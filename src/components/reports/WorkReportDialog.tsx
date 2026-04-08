@@ -2434,6 +2434,21 @@ export function WorkReportDialog({
         logoUrl={logoUrl}
         generatePdfBase64={generatePdfBase64}
       />
+
+      {/* SharePoint Photo Browser */}
+      {reportSharePointFolder && (
+        <SharePointPhotoBrowser
+          open={showSharePointBrowser}
+          onOpenChange={setShowSharePointBrowser}
+          folderPath={`${reportSharePointFolder}/Photos`}
+          onImport={(imported) => {
+            setPhotos(prev => [
+              ...prev,
+              ...imported.map(p => ({ url: p.url, caption: p.caption })),
+            ]);
+          }}
+        />
+      )}
     </ResponsiveDialog>
   );
 }
