@@ -983,27 +983,52 @@ export function WorkReportDialog({
     setMaterials(updated);
   };
 
-  // Shared helper to upload current PDF to SharePoint
-  const syncPdfToSharePoint = async () => {
-    if (!reportSharePointFolder || !siteInfo) return;
+  // Create SharePoint folder and upload final PDF (only called on complete)
+  const createFolderAndSyncToSharePoint = async () => {
+    if (!siteInfo) return;
+    
     try {
-      const pdfBase64 = await generateWorkReportPDF(
-        buildPdfData(),
-        siteInfo,
-        format(reportDate, "yyyy-MM-dd"),
-        undefined,
-        true
-      );
+      // Create SharePoint folder if not already created
+      let folderPath = reportSharePointFolder;
+      if (!folderPath && site && report) {
+        const customerData2 = site?.customers as { id: string; name: string } | null;
+        if (customerData2) {
+          const visitDateStr = format(new Date(visit.visit_date), "yyyy-MM-dd");
+          const reportNum = certificateNo || report.report_number || `JOB-${report.id.substring(0, 6)}`;
+          const siteLabel = [site.name, site.address].filter(Boolean).join(" ");
+          const reportFolder = `${reportNum}_${visitDateStr}`;
+          const newFolderPath = `Customers/${customerData2.name}/${siteLabel}/Reports/${reportFolder}`;
+          
+          const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
+            body: { folderPath: newFolderPath, entityType: "report", entityId: report.id },
+          });
+          
+          if (!spError && spData?.success) {
+            folderPath = spData.folderPath;
+            setReportSharePointFolder(folderPath);
+            await supabase.from("service_reports")
+              .update({ sharepoint_folder: folderPath, sharepoint_url: spData.webUrl || null })
+              .eq("id", report.id);
+            
+            // Save site-level folder
+            const siteLevelPath = `Customers/${customerData2.name}/${siteLabel}`;
+            const { data: currentSite } = await supabase.from("sites")
+              .select("sharepoint_folder").eq("id", site.id).single();
+            if (!currentSite?.sharepoint_folder) {
+              await supabase.from("sites").update({ sharepoint_folder: siteLevelPath }).eq("id", site.id);
+            }
+          }
+        }
+      }
+
+      // Upload PDF
+      if (!folderPath) return;
+      const pdfBase64 = await generateWorkReportPDF(buildPdfData(), siteInfo, format(reportDate, "yyyy-MM-dd"), undefined, true);
       if (pdfBase64) {
         const visitDateStr = visit?.visit_date ? format(new Date(visit.visit_date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
         const pdfFileName = `${certificateNo || jobNumber || 'Report'}_${visitDateStr}.pdf`;
         await supabase.functions.invoke("upload-to-sharepoint", {
-          body: {
-            folderPath: reportSharePointFolder,
-            fileName: pdfFileName,
-            fileBase64: pdfBase64,
-            contentType: "application/pdf",
-          },
+          body: { folderPath, fileName: pdfFileName, fileBase64: pdfBase64, contentType: "application/pdf" },
         });
         console.log("PDF synced to SharePoint");
       }
