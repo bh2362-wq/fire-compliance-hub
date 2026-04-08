@@ -71,7 +71,7 @@ interface AssetInfo {
 
 interface ReportWithSite extends ServiceReport {
   sites: { name: string; customers?: { name: string } | null } | null;
-  visits: { visit_type: string; visit_date: string } | null;
+  visits: { visit_type: string; visit_date: string; client_po_number?: string | null } | null;
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
