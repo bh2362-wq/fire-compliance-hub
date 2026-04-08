@@ -249,14 +249,11 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
           if (siteData?.sharepoint_folder) {
             folderPath = `${siteData.sharepoint_folder}/Quotations`;
           } else if (siteData) {
-            const siteLabel = [siteData.name, siteData.address].filter(Boolean).join(" ");
-            const siteFolderPath = `Customers/${selectedCustomer.name}/${siteLabel}`;
             const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
-              body: { folderPath: `${siteFolderPath}/Quotations`, entityType: "folder_only", entityId: siteId },
+              body: { siteId: siteId, subPath: "Quotations", entityType: "folder_only", entityId: siteId },
             });
             if (!spError && spData?.success) {
-              await supabase.from("sites").update({ sharepoint_folder: siteFolderPath }).eq("id", siteId);
-              folderPath = `${siteFolderPath}/Quotations`;
+              folderPath = spData.folderPath;
             }
           }
 
