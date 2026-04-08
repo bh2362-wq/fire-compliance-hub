@@ -858,30 +858,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             }}
           />
         </td>
-        {/* Job # with hover description */}
-        <td className="px-2 py-1.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-xs font-mono text-primary cursor-default">
-                {visit.job_number || "—"}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs">
-              <div className="space-y-1">
-                <p className="font-semibold text-sm">{visit.job_number || "No job number"}</p>
-                <p className="text-xs"><span className="text-muted-foreground">Site:</span> {visit.site?.name || "Unknown"}</p>
-                <p className="text-xs"><span className="text-muted-foreground">Type:</span> {getVisitTypeLabel(visit.visit_type)}</p>
-                <p className="text-xs"><span className="text-muted-foreground">Date:</span> {format(new Date(visit.visit_date), "dd MMM yyyy")}</p>
-                {notesPreview && (
-                  <p className="text-xs"><span className="text-muted-foreground">Notes:</span> {notesPreview.length > 120 ? notesPreview.slice(0, 120) + "…" : notesPreview}</p>
-                )}
-                {visit.quoted_price != null && (
-                  <p className="text-xs"><span className="text-muted-foreground">Cost:</span> £{Number(visit.quoted_price).toFixed(2)}</p>
-                )}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </td>
         {/* Site */}
         <td className="px-2 py-1.5">
           <div className="min-w-0">
@@ -1326,7 +1302,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                       <thead>
                         <tr className="bg-muted/50 text-xs font-medium text-muted-foreground border-t border-b border-border">
                           <th className="px-2 py-1.5 text-left w-8"></th>
-                          <th className="px-2 py-1.5 text-left">Job #</th>
                           <th className="px-2 py-1.5 text-left">Site</th>
                           <th className="px-2 py-1.5 text-left">Type</th>
                           <th className="px-2 py-1.5 text-left">Date</th>
@@ -1372,7 +1347,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
               <thead>
                 <tr className="bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border">
                   <th className="px-2 py-1.5 text-left w-8"></th>
-                  <th className="px-2 py-1.5 text-left">Job #</th>
+                  
                   <th className="px-2 py-1.5 text-left">Site</th>
                   <th className="px-2 py-1.5 text-left">Type</th>
                   <th className="px-2 py-1.5 text-left">Date</th>
