@@ -432,7 +432,6 @@ export function WorkReportDialog({
       if (existingReport.sharepoint_folder) {
         setReportSharePointFolder(existingReport.sharepoint_folder);
       }
-      }
     } catch (error) {
       console.error("Failed to load report:", error);
       toast.error("Failed to load work report");
