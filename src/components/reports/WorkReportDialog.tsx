@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, LockOpen, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight, Mail, Upload, Paperclip } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, LockOpen, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight, Mail, Upload, Paperclip, FolderOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -48,6 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { InvoicePromptDialog } from "./InvoicePromptDialog";
 import { AIRewriteButton } from "./AIRewriteButton";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
+import { SharePointPhotoBrowser } from "@/components/sharepoint/SharePointPhotoBrowser";
 import { sendJobCompletedNotification } from "@/services/notificationService";
 import { getServiceContracts } from "@/services/serviceContractService";
 import { EmailReportDialog } from "./EmailReportDialog";
@@ -207,6 +208,7 @@ export function WorkReportDialog({
   // Photos
   const [photos, setPhotos] = useState<{ url: string; caption: string }[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showSharePointBrowser, setShowSharePointBrowser] = useState(false);
   
   // Files (paperwork, config files etc.)
   const [reportFiles, setReportFiles] = useState<{ url: string; name: string; size: number }[]>([]);
@@ -1742,104 +1744,114 @@ export function WorkReportDialog({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label>Site Photos</Label>
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept="image/*,.heic,.heif"
-                      multiple
-                      onChange={async (e) => {
-                        const files = e.target.files;
-                        if (!files || files.length === 0 || !report) return;
-                        
-                        setUploadingPhoto(true);
-                        try {
-                          const newPhotos: { url: string; caption: string }[] = [];
+                  <div className="flex items-center gap-2">
+                    {reportSharePointFolder && !isLocked && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => setShowSharePointBrowser(true)}
+                      >
+                        <FolderOpen className="w-4 h-4 mr-2" />
+                        Browse SharePoint
+                      </Button>
+                    )}
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*,.heic,.heif"
+                        multiple
+                        onChange={async (e) => {
+                          const files = e.target.files;
+                          if (!files || files.length === 0 || !report) return;
                           
-                          for (const rawFile of Array.from(files)) {
-                            // Convert HEIC/HEIF to JPEG for browser compatibility
-                            let file: File = rawFile;
-                            const fileIsHeic = /\.(heic|heif)$/i.test(rawFile.name) || rawFile.type === 'image/heic' || rawFile.type === 'image/heif' || await isHeic(rawFile);
-                            if (fileIsHeic) {
-                              try {
-                                const jpegBlob = await heicTo({ blob: rawFile, type: 'image/jpeg', quality: 0.85 });
-                                const newName = rawFile.name.replace(/\.(heic|heif)$/i, '.jpg');
-                                file = new File([jpegBlob], newName, { type: 'image/jpeg' });
-                              } catch (convErr) {
-                                console.error('HEIC conversion failed:', convErr);
-                                toast.error(`Failed to convert ${rawFile.name} — unsupported HEIC format`);
-                                continue;
+                          setUploadingPhoto(true);
+                          try {
+                            const newPhotos: { url: string; caption: string }[] = [];
+                            
+                            for (const rawFile of Array.from(files)) {
+                              let file: File = rawFile;
+                              const fileIsHeic = /\.(heic|heif)$/i.test(rawFile.name) || rawFile.type === 'image/heic' || rawFile.type === 'image/heif' || await isHeic(rawFile);
+                              if (fileIsHeic) {
+                                try {
+                                  const jpegBlob = await heicTo({ blob: rawFile, type: 'image/jpeg', quality: 0.85 });
+                                  const newName = rawFile.name.replace(/\.(heic|heif)$/i, '.jpg');
+                                  file = new File([jpegBlob], newName, { type: 'image/jpeg' });
+                                } catch (convErr) {
+                                  console.error('HEIC conversion failed:', convErr);
+                                  toast.error(`Failed to convert ${rawFile.name} — unsupported HEIC format`);
+                                  continue;
+                                }
                               }
-                            }
 
-                            const fileExt = file.name.split('.').pop();
-                            const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-                            const storagePath = `${report.id}/${uniqueName}`;
-                            
-                            const { error: uploadError } = await supabase.storage
-                              .from('work-report-photos')
-                              .upload(storagePath, file);
-                            
-                            if (uploadError) throw uploadError;
-                            
-                            const { data: { publicUrl } } = supabase.storage
-                              .from('work-report-photos')
-                              .getPublicUrl(storagePath);
-                            
-                            newPhotos.push({ url: publicUrl, caption: '' });
-                            
-                            // Also upload to SharePoint if folder exists
-                            if (reportSharePointFolder) {
-                              try {
-                                const reader = new FileReader();
-                                const base64 = await new Promise<string>((resolve, reject) => {
-                                  reader.onload = () => {
-                                    const result = reader.result as string;
-                                    resolve(result.split(',')[1]);
-                                  };
-                                  reader.onerror = reject;
-                                  reader.readAsDataURL(file);
-                                });
-                                
-                                await supabase.functions.invoke("upload-to-sharepoint", {
-                                  body: {
-                                    folderPath: `${reportSharePointFolder}/Photos`,
-                                    fileName: file.name,
-                                    fileBase64: base64,
-                                    contentType: file.type || 'image/jpeg',
-                                  },
-                                });
-                              } catch (spErr) {
-                                console.log("SharePoint photo upload skipped:", spErr);
+                              const fileExt = file.name.split('.').pop();
+                              const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                              const storagePath = `${report.id}/${uniqueName}`;
+                              
+                              const { error: uploadError } = await supabase.storage
+                                .from('work-report-photos')
+                                .upload(storagePath, file);
+                              
+                              if (uploadError) throw uploadError;
+                              
+                              const { data: { publicUrl } } = supabase.storage
+                                .from('work-report-photos')
+                                .getPublicUrl(storagePath);
+                              
+                              newPhotos.push({ url: publicUrl, caption: '' });
+                              
+                              if (reportSharePointFolder) {
+                                try {
+                                  const reader = new FileReader();
+                                  const base64 = await new Promise<string>((resolve, reject) => {
+                                    reader.onload = () => {
+                                      const result = reader.result as string;
+                                      resolve(result.split(',')[1]);
+                                    };
+                                    reader.onerror = reject;
+                                    reader.readAsDataURL(file);
+                                  });
+                                  
+                                  await supabase.functions.invoke("upload-to-sharepoint", {
+                                    body: {
+                                      folderPath: `${reportSharePointFolder}/Photos`,
+                                      fileName: file.name,
+                                      fileBase64: base64,
+                                      contentType: file.type || 'image/jpeg',
+                                    },
+                                  });
+                                } catch (spErr) {
+                                  console.log("SharePoint photo upload skipped:", spErr);
+                                }
                               }
                             }
+                            
+                            setPhotos(prev => [...prev, ...newPhotos]);
+                            toast.success(`${newPhotos.length} photo(s) uploaded`);
+                          } catch (error) {
+                            console.error('Failed to upload photo:', error);
+                            toast.error('Failed to upload photo');
+                          } finally {
+                            setUploadingPhoto(false);
+                            e.target.value = '';
                           }
-                          
-                          setPhotos(prev => [...prev, ...newPhotos]);
-                          toast.success(`${newPhotos.length} photo(s) uploaded`);
-                        } catch (error) {
-                          console.error('Failed to upload photo:', error);
-                          toast.error('Failed to upload photo');
-                        } finally {
-                          setUploadingPhoto(false);
-                          e.target.value = '';
-                        }
-                      }}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      disabled={isLocked || uploadingPhoto}
-                    />
-                    <Button variant="outline" size="sm" disabled={isLocked || uploadingPhoto}>
-                      {uploadingPhoto ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add Photos
-                        </>
-                      )}
-                    </Button>
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        disabled={isLocked || uploadingPhoto}
+                      />
+                      <Button variant="outline" size="sm" disabled={isLocked || uploadingPhoto}>
+                        {uploadingPhoto ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Upload Local
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 
@@ -1847,7 +1859,11 @@ export function WorkReportDialog({
                   <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
                     <Image className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p className="text-sm">No photos added yet</p>
-                    <p className="text-xs mt-1">Click "Add Photos" to upload images from the site</p>
+                    <p className="text-xs mt-1">
+                      {reportSharePointFolder
+                        ? 'Click "Browse SharePoint" to import photos or "Upload Local" for device photos'
+                        : 'Click "Upload Local" to add images from the site'}
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -2422,6 +2438,21 @@ export function WorkReportDialog({
         logoUrl={logoUrl}
         generatePdfBase64={generatePdfBase64}
       />
+
+      {/* SharePoint Photo Browser */}
+      {reportSharePointFolder && (
+        <SharePointPhotoBrowser
+          open={showSharePointBrowser}
+          onOpenChange={setShowSharePointBrowser}
+          folderPath={`${reportSharePointFolder}/Photos`}
+          onImport={(imported) => {
+            setPhotos(prev => [
+              ...prev,
+              ...imported.map(p => ({ url: p.url, caption: p.caption })),
+            ]);
+          }}
+        />
+      )}
     </ResponsiveDialog>
   );
 }
