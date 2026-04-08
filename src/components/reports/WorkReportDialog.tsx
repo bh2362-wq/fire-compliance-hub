@@ -60,6 +60,7 @@ interface VisitForReport {
   site_id: string;
   notes?: string | null;
   client_po_number?: string | null;
+  job_number?: string | null;
   sites?: { name: string; address?: string | null; city?: string | null; postcode?: string | null; contact_name?: string | null; contact_phone?: string | null; contact_email?: string | null } | null;
 }
 
@@ -478,15 +479,42 @@ export function WorkReportDialog({
     setEngineerName(r.engineer_name || "");
     setCustomerName(r.client_name || "");
     setCertificateNo(r.report_number || "");
-    setWorksReport(r.work_carried_out || "");
+
+    // Pre-populate works description from visit notes if report has no work_carried_out yet
+    let initialWorksReport = r.work_carried_out || "";
+    if (!initialWorksReport) {
+      try {
+        const visitNotes = typeof visit.notes === 'string' ? JSON.parse(visit.notes || '{}') : (visit.notes || {});
+        initialWorksReport = visitNotes.user_notes || "";
+      } catch { /* ignore */ }
+    }
+    setWorksReport(initialWorksReport);
     setFurtherAction(r.recommendations || "");
 
     // Parse notes JSON if stored there
     try {
       if (r.notes) {
         const parsedNotes = JSON.parse(r.notes);
-        setJobNumber(parsedNotes.jobNumber || "");
-        setJobType(parsedNotes.jobType || "");
+        // Pre-populate job number from visit if not already saved in report
+        let savedJobNumber = parsedNotes.jobNumber || "";
+        if (!savedJobNumber && visit.job_number) {
+          savedJobNumber = visit.job_number;
+        }
+        setJobNumber(savedJobNumber);
+
+        // Pre-populate job type from visit type if not saved
+        let savedJobType = parsedNotes.jobType || "";
+        if (!savedJobType && visit.visit_type) {
+          // Map visit_type to job type
+          const typeMap: Record<string, string> = {
+            quarterly_service: "service", biannual_service: "service", annual_service: "service",
+            emergency: "callout", remedial: "remedial", installation: "installation",
+            commissioning: "commissioning", room_integrity: "room_integrity",
+            gas_suppression: "gas_suppression",
+          };
+          savedJobType = typeMap[visit.visit_type] || visit.visit_type;
+        }
+        setJobType(savedJobType);
         setWorkCompleted(parsedNotes.workCompleted || r.status === "completed" || r.status === "locked");
         setReturnRequired(parsedNotes.returnRequired || false);
         setSurveyRequired(parsedNotes.surveyRequired || false);
@@ -545,9 +573,34 @@ export function WorkReportDialog({
         if (parsedNotes.reportDate) {
           setReportDate(new Date(parsedNotes.reportDate));
         }
+      } else {
+        // No saved report notes — pre-populate from visit data
+        if (visit.job_number) setJobNumber(visit.job_number);
+        if (visit.visit_type) {
+          const typeMap: Record<string, string> = {
+            quarterly_service: "service", biannual_service: "service", annual_service: "service",
+            emergency: "callout", remedial: "remedial", installation: "installation",
+            commissioning: "commissioning", room_integrity: "room_integrity",
+            gas_suppression: "gas_suppression",
+          };
+          setJobType(typeMap[visit.visit_type] || visit.visit_type);
+        }
+        // Pre-populate contact from site
+        if (loadedSiteInfo?.contact_name) setContactPerson(loadedSiteInfo.contact_name);
+        if (loadedSiteInfo?.contact_email) setContactEmail(loadedSiteInfo.contact_email);
       }
     } catch {
-      // Notes not JSON, use as-is
+      // Notes not JSON, use as-is — still populate from visit data
+      if (visit.job_number) setJobNumber(visit.job_number);
+      if (visit.visit_type) {
+        const typeMap: Record<string, string> = {
+          quarterly_service: "service", biannual_service: "service", annual_service: "service",
+          emergency: "callout", remedial: "remedial", installation: "installation",
+          commissioning: "commissioning", room_integrity: "room_integrity",
+          gas_suppression: "gas_suppression",
+        };
+        setJobType(typeMap[visit.visit_type] || visit.visit_type);
+      }
     }
   };
 
