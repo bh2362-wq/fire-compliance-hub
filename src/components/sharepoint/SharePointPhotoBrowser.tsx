@@ -161,7 +161,7 @@ export function SharePointPhotoBrowser({
           </Button>
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 max-h-[50vh]">
+        <div className="flex-1 min-h-0 overflow-y-auto" style={{ maxHeight: '50vh' }}>
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -212,7 +212,7 @@ export function SharePointPhotoBrowser({
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         <div className="flex justify-end gap-2 pt-3 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
