@@ -212,7 +212,7 @@ export function SharePointPhotoBrowser({
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         <div className="flex justify-end gap-2 pt-3 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
