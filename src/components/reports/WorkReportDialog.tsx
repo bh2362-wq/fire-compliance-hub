@@ -427,47 +427,11 @@ export function WorkReportDialog({
         setIsLocked(true);
       }
       
-      // Auto-create SharePoint folder for this report if not already created
-      const customerData2 = site?.customers as { id: string; name: string } | null;
-      if (!existingReport.sharepoint_folder && customerData2 && site) {
-        const visitDateStr = format(new Date(visit.visit_date), "yyyy-MM-dd");
-        const reportNum = existingReport.report_number || `DRAFT-${existingReport.id.substring(0, 6)}`;
-        const siteLabel = [site.name, site.address].filter(Boolean).join(" ");
-        const reportFolder = `${reportNum}_${visitDateStr}`;
-        const folderPath = `Customers/${customerData2.name}/${siteLabel}/Reports/${reportFolder}`;
-        
-        try {
-          const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
-            body: {
-              folderPath,
-              entityType: "report",
-              entityId: existingReport.id,
-            },
-          });
-          
-          if (!spError && spData?.success) {
-            setReportSharePointFolder(spData.folderPath);
-            await supabase
-              .from("service_reports")
-              .update({ sharepoint_folder: spData.folderPath, sharepoint_url: spData.webUrl || null })
-              .eq("id", existingReport.id);
-            
-            // Also save site-level folder so future operations (quotations etc.) can find it
-            const siteLevelPath = `Customers/${customerData2.name}/${siteLabel}`;
-            const { data: currentSite } = await supabase
-              .from("sites")
-              .select("sharepoint_folder")
-              .eq("id", site.id)
-              .single();
-            if (!currentSite?.sharepoint_folder) {
-              await supabase.from("sites").update({
-                sharepoint_folder: siteLevelPath,
-              }).eq("id", site.id);
-            }
-          }
-        } catch (e) {
-          console.log("SharePoint folder creation skipped:", e);
-        }
+      // SharePoint folder creation is deferred until report is completed
+      // to avoid creating DRAFT folders that clutter the customer's SharePoint
+      if (existingReport.sharepoint_folder) {
+        setReportSharePointFolder(existingReport.sharepoint_folder);
+      }
       }
     } catch (error) {
       console.error("Failed to load report:", error);
