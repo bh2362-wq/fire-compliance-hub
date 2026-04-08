@@ -1859,7 +1859,11 @@ export function WorkReportDialog({
                   <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
                     <Image className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p className="text-sm">No photos added yet</p>
-                    <p className="text-xs mt-1">Click "Add Photos" to upload images from the site</p>
+                    <p className="text-xs mt-1">
+                      {reportSharePointFolder
+                        ? 'Click "Browse SharePoint" to import photos or "Upload Local" for device photos'
+                        : 'Click "Upload Local" to add images from the site'}
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
