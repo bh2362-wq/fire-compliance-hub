@@ -575,7 +575,17 @@ export function WorkReportDialog({
         }
       }
     } catch {
-      // Notes not JSON, use as-is
+      // Notes not JSON, use as-is — still populate from visit data
+      if (visit.job_number) setJobNumber(visit.job_number);
+      if (visit.visit_type) {
+        const typeMap: Record<string, string> = {
+          quarterly_service: "service", biannual_service: "service", annual_service: "service",
+          emergency: "callout", remedial: "remedial", installation: "installation",
+          commissioning: "commissioning", room_integrity: "room_integrity",
+          gas_suppression: "gas_suppression",
+        };
+        setJobType(typeMap[visit.visit_type] || visit.visit_type);
+      }
     }
   };
 
