@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { XeroConnectionCard } from "@/components/xero/XeroConnectionCard";
 import { SharePointConnectionCard } from "@/components/sharepoint/SharePointConnectionCard";
+import { SharePointCleanup } from "@/components/sharepoint/SharePointCleanup";
 import { OutstandingInvoices } from "@/components/xero/OutstandingInvoices";
 import { useAuth } from "@/contexts/AuthContext";
 import { getXeroConnection, XeroConnection } from "@/services/xeroService";
@@ -155,6 +156,7 @@ const Settings = () => {
               <XeroConnectionCard />
               <SharePointConnectionCard />
             </div>
+            <SharePointCleanup />
             {xeroConnection && <OutstandingInvoices />}
           </TabsContent>
 
