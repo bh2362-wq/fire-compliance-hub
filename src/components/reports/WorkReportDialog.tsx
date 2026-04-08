@@ -479,7 +479,16 @@ export function WorkReportDialog({
     setEngineerName(r.engineer_name || "");
     setCustomerName(r.client_name || "");
     setCertificateNo(r.report_number || "");
-    setWorksReport(r.work_carried_out || "");
+
+    // Pre-populate works description from visit notes if report has no work_carried_out yet
+    let initialWorksReport = r.work_carried_out || "";
+    if (!initialWorksReport) {
+      try {
+        const visitNotes = typeof visit.notes === 'string' ? JSON.parse(visit.notes || '{}') : (visit.notes || {});
+        initialWorksReport = visitNotes.user_notes || "";
+      } catch { /* ignore */ }
+    }
+    setWorksReport(initialWorksReport);
     setFurtherAction(r.recommendations || "");
 
     // Parse notes JSON if stored there
