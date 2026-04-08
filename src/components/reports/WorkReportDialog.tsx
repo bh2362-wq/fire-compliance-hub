@@ -2405,6 +2405,8 @@ export function WorkReportDialog({
             poNumber: contractPoNumber || visit.client_po_number || undefined,
             unitPrice: contractUnitPrice || undefined,
             siteName: siteInfo.name,
+            jobDescription: worksReport || undefined,
+            visitDate: visit.visit_date,
           }}
         />
       )}
