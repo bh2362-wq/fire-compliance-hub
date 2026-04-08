@@ -3918,6 +3918,7 @@ export type Database = {
           estimated_hours: number | null
           id: string
           issues_count: number | null
+          job_number: string | null
           notes: string | null
           quotation_id: string | null
           quoted_price: number | null
@@ -3941,6 +3942,7 @@ export type Database = {
           estimated_hours?: number | null
           id?: string
           issues_count?: number | null
+          job_number?: string | null
           notes?: string | null
           quotation_id?: string | null
           quoted_price?: number | null
@@ -3964,6 +3966,7 @@ export type Database = {
           estimated_hours?: number | null
           id?: string
           issues_count?: number | null
+          job_number?: string | null
           notes?: string | null
           quotation_id?: string | null
           quoted_price?: number | null
