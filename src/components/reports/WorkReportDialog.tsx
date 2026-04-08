@@ -2444,7 +2444,7 @@ export function WorkReportDialog({
         <SharePointPhotoBrowser
           open={showSharePointBrowser}
           onOpenChange={setShowSharePointBrowser}
-          folderPath={`${reportSharePointFolder}/uploads`}
+          folderPath="uploads"
           onImport={(imported) => {
             setPhotos(prev => [
               ...prev,
