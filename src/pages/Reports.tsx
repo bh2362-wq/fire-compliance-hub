@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2, Copy } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
+import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,7 +71,7 @@ interface AssetInfo {
 
 interface ReportWithSite extends ServiceReport {
   sites: { name: string; customers?: { name: string } | null } | null;
-  visits: { visit_type: string; visit_date: string } | null;
+  visits: { visit_type: string; visit_date: string; client_po_number?: string | null } | null;
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -122,6 +122,8 @@ const Reports = () => {
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [reportToInvoice, setReportToInvoice] = useState<ReportWithSite | null>(null);
   const [invoiceContactId, setInvoiceContactId] = useState<string | null>(null);
+  const [invoiceCustomerInfo, setInvoiceCustomerInfo] = useState<{ id: string; name: string; xeroContactId: string | null } | null>(null);
+  const [invoiceSiteInfo, setInvoiceSiteInfo] = useState<{ id: string; name: string; address: string | null; city: string | null } | null>(null);
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [reportToUnlock, setReportToUnlock] = useState<ReportWithSite | null>(null);
   const [unlockReason, setUnlockReason] = useState("");
@@ -518,7 +520,7 @@ const Reports = () => {
       .select(`
         *,
         sites:site_id(name, address, customers:customer_id(name)),
-        visits:visit_id(visit_type, visit_date)
+        visits:visit_id(visit_type, visit_date, client_po_number)
       `)
       .order("created_at", { ascending: false });
 
@@ -615,23 +617,34 @@ const Reports = () => {
   };
 
   const handleCreateInvoice = async (report: ReportWithSite) => {
-    // Look up the customer linked to this site
+    // Look up the site and customer details
     const { data: siteData } = await supabase
       .from("sites")
-      .select("customer_id")
+      .select("id, name, address, city, customer_id")
       .eq("id", report.site_id)
       .maybeSingle();
     
-    if (siteData?.customer_id) {
-      const { data: customerData } = await supabase
-        .from("customers")
-        .select("xero_contact_id")
-        .eq("id", siteData.customer_id)
-        .maybeSingle();
+    if (siteData) {
+      setInvoiceSiteInfo({ id: siteData.id, name: siteData.name, address: siteData.address, city: siteData.city });
       
-      setInvoiceContactId(customerData?.xero_contact_id || null);
+      if (siteData.customer_id) {
+        const { data: customerData } = await supabase
+          .from("customers")
+          .select("id, name, xero_contact_id")
+          .eq("id", siteData.customer_id)
+          .maybeSingle();
+        
+        if (customerData) {
+          setInvoiceCustomerInfo({ id: customerData.id, name: customerData.name, xeroContactId: customerData.xero_contact_id });
+        } else {
+          setInvoiceCustomerInfo(null);
+        }
+      } else {
+        setInvoiceCustomerInfo(null);
+      }
     } else {
-      setInvoiceContactId(null);
+      setInvoiceSiteInfo(null);
+      setInvoiceCustomerInfo(null);
     }
     
     setReportToInvoice(report);
@@ -1216,27 +1229,43 @@ const Reports = () => {
       </Dialog>
 
       {/* Create Invoice Dialog */}
-      {reportToInvoice && (
-        <CreateInvoiceDialog
+      {reportToInvoice && invoiceCustomerInfo && invoiceSiteInfo && (
+        <CustomerCreateInvoiceDialog
           open={invoiceDialogOpen}
           onOpenChange={(open) => {
             setInvoiceDialogOpen(open);
             if (!open) {
               setReportToInvoice(null);
-              setInvoiceContactId(null);
+              setInvoiceCustomerInfo(null);
+              setInvoiceSiteInfo(null);
             }
           }}
-          visit={{
-            id: reportToInvoice.visit_id,
-            visit_type: reportToInvoice.visits?.visit_type || "",
-            visit_date: reportToInvoice.visits?.visit_date || reportToInvoice.report_date,
-            site_id: reportToInvoice.site_id,
-            sites: reportToInvoice.sites,
-          }}
-          defaultContactId={invoiceContactId}
+          customerId={invoiceCustomerInfo.id}
+          customerName={invoiceCustomerInfo.name}
+          xeroContactId={invoiceCustomerInfo.xeroContactId}
+          sites={[invoiceSiteInfo]}
           onSuccess={() => {
-            // Mark report as invoiced after successful invoice creation
             handleInvoicedToggle(reportToInvoice.id, true);
+          }}
+          jobReportData={{
+            jobType: reportToInvoice.visits?.visit_type || "",
+            reportDate: reportToInvoice.report_date,
+            reportNumber: reportToInvoice.report_number || undefined,
+            poNumber: (() => {
+              try {
+                const notes = reportToInvoice.notes ? JSON.parse(reportToInvoice.notes) : null;
+                return notes?.contractPoNumber || reportToInvoice.visits?.client_po_number || undefined;
+              } catch { return undefined; }
+            })(),
+            unitPrice: (() => {
+              try {
+                const notes = reportToInvoice.notes ? JSON.parse(reportToInvoice.notes) : null;
+                return notes?.contractUnitPrice || undefined;
+              } catch { return undefined; }
+            })(),
+            siteName: invoiceSiteInfo.name,
+            jobDescription: reportToInvoice.work_carried_out || undefined,
+            visitDate: reportToInvoice.visits?.visit_date || reportToInvoice.report_date,
           }}
         />
       )}
