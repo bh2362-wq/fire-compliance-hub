@@ -427,47 +427,10 @@ export function WorkReportDialog({
         setIsLocked(true);
       }
       
-      // Auto-create SharePoint folder for this report if not already created
-      const customerData2 = site?.customers as { id: string; name: string } | null;
-      if (!existingReport.sharepoint_folder && customerData2 && site) {
-        const visitDateStr = format(new Date(visit.visit_date), "yyyy-MM-dd");
-        const reportNum = existingReport.report_number || `DRAFT-${existingReport.id.substring(0, 6)}`;
-        const siteLabel = [site.name, site.address].filter(Boolean).join(" ");
-        const reportFolder = `${reportNum}_${visitDateStr}`;
-        const folderPath = `Customers/${customerData2.name}/${siteLabel}/Reports/${reportFolder}`;
-        
-        try {
-          const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
-            body: {
-              folderPath,
-              entityType: "report",
-              entityId: existingReport.id,
-            },
-          });
-          
-          if (!spError && spData?.success) {
-            setReportSharePointFolder(spData.folderPath);
-            await supabase
-              .from("service_reports")
-              .update({ sharepoint_folder: spData.folderPath, sharepoint_url: spData.webUrl || null })
-              .eq("id", existingReport.id);
-            
-            // Also save site-level folder so future operations (quotations etc.) can find it
-            const siteLevelPath = `Customers/${customerData2.name}/${siteLabel}`;
-            const { data: currentSite } = await supabase
-              .from("sites")
-              .select("sharepoint_folder")
-              .eq("id", site.id)
-              .single();
-            if (!currentSite?.sharepoint_folder) {
-              await supabase.from("sites").update({
-                sharepoint_folder: siteLevelPath,
-              }).eq("id", site.id);
-            }
-          }
-        } catch (e) {
-          console.log("SharePoint folder creation skipped:", e);
-        }
+      // SharePoint folder creation is deferred until report is completed
+      // to avoid creating DRAFT folders that clutter the customer's SharePoint
+      if (existingReport.sharepoint_folder) {
+        setReportSharePointFolder(existingReport.sharepoint_folder);
       }
     } catch (error) {
       console.error("Failed to load report:", error);
@@ -862,8 +825,8 @@ export function WorkReportDialog({
         setIsLocked(true);
         toast.success(`Work report ${finalReportNumber || ""} completed and locked`);
 
-        // Upload PDF to SharePoint
-        syncPdfToSharePoint();
+        // Upload PDF to SharePoint (folder created here, not on draft)
+        createFolderAndSyncToSharePoint();
         
         // Send job completed notification email
         sendJobCompletedNotification(visit.id).catch(console.error);
@@ -883,8 +846,7 @@ export function WorkReportDialog({
           .eq("id", visit.id);
 
         toast.success("Work report saved");
-        // Sync PDF to SharePoint on every save so folder stays current
-        syncPdfToSharePoint();
+        // Draft saves do NOT sync to SharePoint - only completed reports go there
         // Also trigger refresh for draft saves so preview gets updated
         onSuccess?.();
       }
@@ -972,8 +934,8 @@ export function WorkReportDialog({
       setIsLocked(true);
       toast.success(`Visit ${finalReportNumber || ""} completed and locked`);
 
-      // Upload PDF to SharePoint
-      syncPdfToSharePoint();
+      // Upload PDF to SharePoint (folder created here, not on draft)
+      createFolderAndSyncToSharePoint();
       
       // Send job completed notification email
       sendJobCompletedNotification(visit.id).catch(console.error);
@@ -1020,27 +982,52 @@ export function WorkReportDialog({
     setMaterials(updated);
   };
 
-  // Shared helper to upload current PDF to SharePoint
-  const syncPdfToSharePoint = async () => {
-    if (!reportSharePointFolder || !siteInfo) return;
+  // Create SharePoint folder and upload final PDF (only called on complete)
+  const createFolderAndSyncToSharePoint = async () => {
+    if (!siteInfo) return;
+    
     try {
-      const pdfBase64 = await generateWorkReportPDF(
-        buildPdfData(),
-        siteInfo,
-        format(reportDate, "yyyy-MM-dd"),
-        undefined,
-        true
-      );
+      // Create SharePoint folder if not already created
+      let folderPath = reportSharePointFolder;
+      if (!folderPath && customerInfo && siteInfo && report) {
+        const customerData2 = customerInfo;
+        if (customerData2) {
+          const visitDateStr = format(new Date(visit.visit_date), "yyyy-MM-dd");
+          const reportNum = certificateNo || report.report_number || `JOB-${report.id.substring(0, 6)}`;
+          const siteLabel = [siteInfo.name, siteInfo.address].filter(Boolean).join(" ");
+          const reportFolder = `${reportNum}_${visitDateStr}`;
+          const newFolderPath = `Customers/${customerData2.name}/${siteLabel}/Reports/${reportFolder}`;
+          
+          const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
+            body: { folderPath: newFolderPath, entityType: "report", entityId: report.id },
+          });
+          
+          if (!spError && spData?.success) {
+            folderPath = spData.folderPath;
+            setReportSharePointFolder(folderPath);
+            await supabase.from("service_reports")
+              .update({ sharepoint_folder: folderPath, sharepoint_url: spData.webUrl || null })
+              .eq("id", report.id);
+            
+            // Save site-level folder
+            const siteLevelPath = `Customers/${customerData2.name}/${siteLabel}`;
+            const { data: currentSite } = await supabase.from("sites")
+              .select("sharepoint_folder").eq("id", siteInfo.id).single();
+            if (!currentSite?.sharepoint_folder) {
+              await supabase.from("sites").update({ sharepoint_folder: siteLevelPath }).eq("id", siteInfo.id);
+            }
+          }
+        }
+      }
+
+      // Upload PDF
+      if (!folderPath) return;
+      const pdfBase64 = await generateWorkReportPDF(buildPdfData(), siteInfo, format(reportDate, "yyyy-MM-dd"), undefined, true);
       if (pdfBase64) {
         const visitDateStr = visit?.visit_date ? format(new Date(visit.visit_date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
         const pdfFileName = `${certificateNo || jobNumber || 'Report'}_${visitDateStr}.pdf`;
         await supabase.functions.invoke("upload-to-sharepoint", {
-          body: {
-            folderPath: reportSharePointFolder,
-            fileName: pdfFileName,
-            fileBase64: pdfBase64,
-            contentType: "application/pdf",
-          },
+          body: { folderPath, fileName: pdfFileName, fileBase64: pdfBase64, contentType: "application/pdf" },
         });
         console.log("PDF synced to SharePoint");
       }
@@ -1059,8 +1046,10 @@ export function WorkReportDialog({
         format(reportDate, "yyyy-MM-dd")
       );
 
-      // Also sync to SharePoint so the folder always has the latest version
-      syncPdfToSharePoint();
+      // Only sync to SharePoint if report is already completed
+      if (report?.status === "completed" || report?.status === "locked") {
+        createFolderAndSyncToSharePoint();
+      }
 
       toast.success("PDF downloaded successfully");
     } catch (error) {

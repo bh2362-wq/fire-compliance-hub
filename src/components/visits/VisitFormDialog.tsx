@@ -261,41 +261,8 @@ const VisitFormDialog = ({
 
       if (error) throw error;
 
-      // Create unique SharePoint folder for this visit
-      try {
-        const sanitize = (name: string) =>
-          name.replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
-        const sName = sanitize(siteData?.name || "Site");
-        const sAddr = siteData?.address ? ` (${sanitize(siteData.address)})` : "";
-        const visitDate = data.visit_date.replace(/-/g, "");
-        const shortId = visit.id.substring(0, 8);
-        const visitFolder = `${data.visit_type}_${visitDate}_${shortId}`;
-
-        // Build site base path
-        const siteBasePath = siteData?.sharepoint_folder ||
-          (customerName
-            ? `Customers/${sanitize(customerName)}/${sName}${sAddr}`
-            : `Sites/${sName}${sAddr}`);
-
-        const fullFolderPath = `${siteBasePath}/Reports/${visitFolder}`;
-
-        // Create folder in SharePoint (fire-and-forget, don't block visit creation)
-        supabase.functions.invoke("sharepoint-create-folder", {
-          body: { folderPath: fullFolderPath, entityType: "folder_only", entityId: visit.id },
-        }).then(({ data: spData }) => {
-          // Persist site base path if not already set
-          if (!siteData?.sharepoint_folder && siteData?.id) {
-            supabase.from("sites").update({ 
-              sharepoint_folder: siteBasePath,
-              sharepoint_url: spData?.webUrl || null,
-            }).eq("id", siteData.id).then(() => {});
-          }
-        }).catch((spErr) => {
-          console.warn("SharePoint folder creation skipped:", spErr);
-        });
-      } catch (spError) {
-        console.warn("SharePoint folder setup skipped:", spError);
-      }
+      // SharePoint folder creation is deferred until report completion
+      // to avoid creating empty/draft folders in the customer's SharePoint
 
       // Create corresponding appointment in the schedule
       const typeLabel = getVisitTypeLabel();
