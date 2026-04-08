@@ -62,7 +62,10 @@ export function SharePointPhotoBrowser({
 
       if (!res.ok) throw new Error("Failed to load photos");
       const data = await res.json();
-      setFiles(data.files || []);
+      const allFiles: SharePointFile[] = data.files || [];
+      // Sort most recent first
+      allFiles.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+      setFiles(allFiles);
     } catch (err) {
       console.error("Failed to list SharePoint photos:", err);
       toast.error("Failed to load SharePoint photos");
@@ -127,14 +130,14 @@ export function SharePointPhotoBrowser({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-3xl !flex !flex-col max-h-[80vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FolderOpen className="w-5 h-5" />
             SharePoint Photos
           </DialogTitle>
           <DialogDescription className="text-xs truncate">
-            {folderPath}/Photos
+            {folderPath}
           </DialogDescription>
         </DialogHeader>
 
@@ -158,7 +161,7 @@ export function SharePointPhotoBrowser({
           </Button>
         </div>
 
-        <ScrollArea className="flex-1 min-h-0">
+        <ScrollArea className="flex-1 min-h-0 max-h-[50vh]">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
