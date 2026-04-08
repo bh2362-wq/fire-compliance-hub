@@ -15,6 +15,7 @@ export interface Visit {
   issues_count: number | null;
   quoted_price: number | null;
   estimated_hours: number | null;
+  job_number: string | null;
   created_at: string;
   updated_at: string;
   site?: {
