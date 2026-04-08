@@ -617,23 +617,34 @@ const Reports = () => {
   };
 
   const handleCreateInvoice = async (report: ReportWithSite) => {
-    // Look up the customer linked to this site
+    // Look up the site and customer details
     const { data: siteData } = await supabase
       .from("sites")
-      .select("customer_id")
+      .select("id, name, address, city, customer_id")
       .eq("id", report.site_id)
       .maybeSingle();
     
-    if (siteData?.customer_id) {
-      const { data: customerData } = await supabase
-        .from("customers")
-        .select("xero_contact_id")
-        .eq("id", siteData.customer_id)
-        .maybeSingle();
+    if (siteData) {
+      setInvoiceSiteInfo({ id: siteData.id, name: siteData.name, address: siteData.address, city: siteData.city });
       
-      setInvoiceContactId(customerData?.xero_contact_id || null);
+      if (siteData.customer_id) {
+        const { data: customerData } = await supabase
+          .from("customers")
+          .select("id, name, xero_contact_id")
+          .eq("id", siteData.customer_id)
+          .maybeSingle();
+        
+        if (customerData) {
+          setInvoiceCustomerInfo({ id: customerData.id, name: customerData.name, xeroContactId: customerData.xero_contact_id });
+        } else {
+          setInvoiceCustomerInfo(null);
+        }
+      } else {
+        setInvoiceCustomerInfo(null);
+      }
     } else {
-      setInvoiceContactId(null);
+      setInvoiceSiteInfo(null);
+      setInvoiceCustomerInfo(null);
     }
     
     setReportToInvoice(report);
