@@ -191,24 +191,26 @@ export function AppointmentFormDialog({
     }
   }, [visitType, siteId, sites, isEditing]);
 
-  const createSharePointFolder = async (visitId: string, siteName: string, customerName: string) => {
+  const createSharePointFolder = async (visitId: string, visitSiteId: string) => {
     try {
       const dateStr = appointmentDate ? format(appointmentDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
       const shortId = visitId.substring(0, 8);
       const vType = visitType || 'general';
-      const folderPath = `Customers/${customerName}/${siteName}/Reports/${vType}_${dateStr}_${shortId}`;
+      const subPath = `Reports/${vType}_${dateStr}_${shortId}`;
 
-      await supabase.functions.invoke('sharepoint-create-folder', {
-        body: { folderPath, entityType: 'folder_only', entityId: visitId },
+      const { data } = await supabase.functions.invoke('sharepoint-create-folder', {
+        body: { siteId: visitSiteId, subPath, entityType: 'folder_only', entityId: visitId },
       });
 
-      // Create subfolders
-      await Promise.all([
-        supabase.functions.invoke('sharepoint-create-folder', { body: { folderPath: `${folderPath}/Photos`, entityType: 'folder_only', entityId: visitId } }),
-        supabase.functions.invoke('sharepoint-create-folder', { body: { folderPath: `${folderPath}/Documents`, entityType: 'folder_only', entityId: visitId } }),
-      ]);
-
-      toast({ title: "SharePoint folder created", description: folderPath });
+      const folderPath = data?.folderPath;
+      if (folderPath) {
+        // Create subfolders
+        await Promise.all([
+          supabase.functions.invoke('sharepoint-create-folder', { body: { folderPath: `${folderPath}/Photos`, entityType: 'folder_only', entityId: visitId } }),
+          supabase.functions.invoke('sharepoint-create-folder', { body: { folderPath: `${folderPath}/Documents`, entityType: 'folder_only', entityId: visitId } }),
+        ]);
+        toast({ title: "SharePoint folder created", description: folderPath });
+      }
     } catch (err) {
       console.error('SharePoint folder creation failed:', err);
       // Non-blocking - don't fail the appointment creation
@@ -298,12 +300,8 @@ export function AppointmentFormDialog({
         sendAppointmentCreatedNotification(newAppointment.id).catch(console.error);
 
         // Auto-create SharePoint folder for the new visit
-        if (newAppointment.visit_id) {
-          const site = sites.find((s) => s.id === siteId);
-          const customer = customers.find((c) => c.id === customerId);
-          if (site && customer) {
-            createSharePointFolder(newAppointment.visit_id, site.name, customer.name);
-          }
+        if (newAppointment.visit_id && siteId) {
+          createSharePointFolder(newAppointment.visit_id, siteId);
         }
       }
 
