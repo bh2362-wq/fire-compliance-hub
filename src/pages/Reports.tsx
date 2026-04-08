@@ -520,7 +520,7 @@ const Reports = () => {
       .select(`
         *,
         sites:site_id(name, address, customers:customer_id(name)),
-        visits:visit_id(visit_type, visit_date)
+        visits:visit_id(visit_type, visit_date, client_po_number)
       `)
       .order("created_at", { ascending: false });
 
