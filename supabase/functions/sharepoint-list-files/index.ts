@@ -79,6 +79,7 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const folderPath = url.searchParams.get("path") || "";
     const filterImages = url.searchParams.get("images") === "true";
+    const downloadItemId = url.searchParams.get("download") || "";
 
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
