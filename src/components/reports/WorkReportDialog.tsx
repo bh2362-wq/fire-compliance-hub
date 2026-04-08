@@ -495,8 +495,26 @@ export function WorkReportDialog({
     try {
       if (r.notes) {
         const parsedNotes = JSON.parse(r.notes);
-        setJobNumber(parsedNotes.jobNumber || "");
-        setJobType(parsedNotes.jobType || "");
+        // Pre-populate job number from visit if not already saved in report
+        let savedJobNumber = parsedNotes.jobNumber || "";
+        if (!savedJobNumber && visit.job_number) {
+          savedJobNumber = visit.job_number;
+        }
+        setJobNumber(savedJobNumber);
+
+        // Pre-populate job type from visit type if not saved
+        let savedJobType = parsedNotes.jobType || "";
+        if (!savedJobType && visit.visit_type) {
+          // Map visit_type to job type
+          const typeMap: Record<string, string> = {
+            quarterly_service: "service", biannual_service: "service", annual_service: "service",
+            emergency: "callout", remedial: "remedial", installation: "installation",
+            commissioning: "commissioning", room_integrity: "room_integrity",
+            gas_suppression: "gas_suppression",
+          };
+          savedJobType = typeMap[visit.visit_type] || visit.visit_type;
+        }
+        setJobType(savedJobType);
         setWorkCompleted(parsedNotes.workCompleted || r.status === "completed" || r.status === "locked");
         setReturnRequired(parsedNotes.returnRequired || false);
         setSurveyRequired(parsedNotes.surveyRequired || false);
