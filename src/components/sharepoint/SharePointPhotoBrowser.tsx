@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import heicTo from "heic-to";
+import { heicTo } from "heic-to";
 import {
   Dialog,
   DialogContent,
