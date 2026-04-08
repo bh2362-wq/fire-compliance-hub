@@ -825,8 +825,8 @@ export function WorkReportDialog({
         setIsLocked(true);
         toast.success(`Work report ${finalReportNumber || ""} completed and locked`);
 
-        // Upload PDF to SharePoint
-        syncPdfToSharePoint();
+        // Upload PDF to SharePoint (folder created here, not on draft)
+        createFolderAndSyncToSharePoint();
         
         // Send job completed notification email
         sendJobCompletedNotification(visit.id).catch(console.error);
@@ -846,8 +846,7 @@ export function WorkReportDialog({
           .eq("id", visit.id);
 
         toast.success("Work report saved");
-        // Sync PDF to SharePoint on every save so folder stays current
-        syncPdfToSharePoint();
+        // Draft saves do NOT sync to SharePoint - only completed reports go there
         // Also trigger refresh for draft saves so preview gets updated
         onSuccess?.();
       }
@@ -935,8 +934,8 @@ export function WorkReportDialog({
       setIsLocked(true);
       toast.success(`Visit ${finalReportNumber || ""} completed and locked`);
 
-      // Upload PDF to SharePoint
-      syncPdfToSharePoint();
+      // Upload PDF to SharePoint (folder created here, not on draft)
+      createFolderAndSyncToSharePoint();
       
       // Send job completed notification email
       sendJobCompletedNotification(visit.id).catch(console.error);
@@ -1047,8 +1046,10 @@ export function WorkReportDialog({
         format(reportDate, "yyyy-MM-dd")
       );
 
-      // Also sync to SharePoint so the folder always has the latest version
-      syncPdfToSharePoint();
+      // Only sync to SharePoint if report is already completed
+      if (report?.status === "completed" || report?.status === "locked") {
+        createFolderAndSyncToSharePoint();
+      }
 
       toast.success("PDF downloaded successfully");
     } catch (error) {
