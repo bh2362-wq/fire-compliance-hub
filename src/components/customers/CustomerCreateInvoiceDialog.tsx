@@ -171,11 +171,11 @@ export function CustomerCreateInvoiceDialog({
         // Due date should be 28 days from now
         setDueDate(addDays(new Date(), 28));
         
-        // Reference should be PO number if available
-        if (jobReportData.poNumber) {
-          setReference(jobReportData.poNumber);
-        } else if (jobReportData.reportNumber) {
+        // Reference should be the worksheet/report number
+        if (jobReportData.reportNumber) {
           setReference(jobReportData.reportNumber);
+        } else if (jobReportData.poNumber) {
+          setReference(jobReportData.poNumber);
         } else {
           setReference("");
         }
