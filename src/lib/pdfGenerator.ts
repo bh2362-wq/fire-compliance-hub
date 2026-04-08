@@ -1101,10 +1101,10 @@ export async function generateWorkReportPDF(
 
   // === PHOTOS SECTION (only if photos exist) ===
   if (data.photos && data.photos.length > 0) {
-    // 2-column grid, ~66mm per photo (250px equivalent at 96dpi)
-    const photosPerRow = 2;
-    const photoGap = 8;
-    const photoSize = 66; // ~250px - medium size, not overpowering
+    // 3-column grid, ~50mm per photo - compact and clean
+    const photosPerRow = 3;
+    const photoGap = 6;
+    const photoSize = 50;
     const captionHeight = 10;
     const rowHeight = photoSize + captionHeight + 5;
     const estimatedPhotoHeight = 8 + Math.ceil(data.photos.length / photosPerRow) * rowHeight;
@@ -1124,11 +1124,11 @@ export async function generateWorkReportPDF(
     
     yPos += 12;
 
-    // Center the 2-column grid within content width
+    // Center the 3-column grid within content width
     const gridWidth = (photoSize * photosPerRow) + (photoGap * (photosPerRow - 1));
     const gridStartX = margin + (contentWidth - gridWidth) / 2;
 
-    // Render photos in a 2-column grid
+    // Render photos in a 3-column grid
     let photoX = gridStartX;
     let photoY = yPos;
     
@@ -1136,7 +1136,7 @@ export async function generateWorkReportPDF(
       const photo = data.photos[i];
       const colIndex = i % photosPerRow;
       
-      // Start new row after every 2 photos
+      // Start new row after every 3 photos
       if (i > 0 && colIndex === 0) {
         photoX = gridStartX;
         photoY += rowHeight;
@@ -1156,11 +1156,14 @@ export async function generateWorkReportPDF(
       doc.setLineWidth(0.3);
       doc.rect(photoX, photoY, photoSize, photoSize);
       
-      // Try to add the image - use fetch+blob to avoid CORS issues
+      // Load image - fetch blob then convert to data URL
       try {
-        let imgDataUrl: string;
+        let imgDataUrl: string | null = null;
+        
+        // Primary: fetch as blob and convert to data URL
         try {
-          const response = await fetch(photo.url);
+          const response = await fetch(photo.url, { mode: "cors" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const blob = await response.blob();
           imgDataUrl = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
@@ -1168,30 +1171,47 @@ export async function generateWorkReportPDF(
             reader.onerror = reject;
             reader.readAsDataURL(blob);
           });
-        } catch {
-          // Fallback: try Image element with canvas
-          const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-            const image = new Image();
-            image.crossOrigin = "anonymous";
-            image.onload = () => resolve(image);
-            image.onerror = () => reject(new Error("Failed to load image"));
-            image.src = photo.url;
-          });
-          const canvas = document.createElement("canvas");
-          canvas.width = 250;
-          canvas.height = 250;
-          const ctx = canvas.getContext("2d")!;
-          ctx.drawImage(img, 0, 0, 250, 250);
-          imgDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        } catch (fetchErr) {
+          console.warn("Fetch failed for photo, trying Image element:", fetchErr);
         }
-        doc.addImage(imgDataUrl, "JPEG", photoX + 1, photoY + 1, photoSize - 2, photoSize - 2);
+
+        // Fallback: Image element with canvas
+        if (!imgDataUrl) {
+          try {
+            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+              const image = new Image();
+              image.crossOrigin = "anonymous";
+              image.onload = () => resolve(image);
+              image.onerror = () => reject(new Error("Image load failed"));
+              image.src = photo.url;
+            });
+            const canvas = document.createElement("canvas");
+            canvas.width = 400;
+            canvas.height = 400;
+            const ctx = canvas.getContext("2d")!;
+            // Draw image maintaining aspect ratio
+            const scale = Math.min(400 / img.naturalWidth, 400 / img.naturalHeight);
+            const w = img.naturalWidth * scale;
+            const h = img.naturalHeight * scale;
+            ctx.drawImage(img, (400 - w) / 2, (400 - h) / 2, w, h);
+            imgDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          } catch (imgErr) {
+            console.warn("Image element fallback also failed:", imgErr);
+          }
+        }
+
+        if (imgDataUrl) {
+          doc.addImage(imgDataUrl, "JPEG", photoX + 1, photoY + 1, photoSize - 2, photoSize - 2);
+        } else {
+          throw new Error("All image loading methods failed");
+        }
       } catch (photoErr) {
-        console.error("Failed to load photo for PDF:", photoErr);
+        console.error("Failed to load photo for PDF:", photoErr, "URL:", photo.url);
         doc.setFillColor(...COLORS.lightGrey);
         doc.rect(photoX + 1, photoY + 1, photoSize - 2, photoSize - 2, "F");
         doc.setFontSize(8);
         doc.setTextColor(...COLORS.mediumGrey);
-        doc.text("Photo", photoX + photoSize / 2, photoY + photoSize / 2, { align: "center" });
+        doc.text("Photo unavailable", photoX + photoSize / 2, photoY + photoSize / 2, { align: "center" });
       }
       
       // Add caption if present
