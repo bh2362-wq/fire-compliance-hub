@@ -31,7 +31,11 @@ export function useCalendarSync() {
         .select("id, visit_date, visit_type, status, engineer_id, site_id, site:sites(id, name)")
         .in("status", ["scheduled", "in_progress", "pending_review"]);
 
-      if (vErr || !visits || visits.length === 0) return;
+      if (vErr || !visits || visits.length === 0) {
+        // Even if no open visits, still fix stale appointment statuses
+        await fixStaleAppointments();
+        return;
+      }
 
       // Get all appointments linked to visits
       const visitIds = visits.map((v: any) => v.id);
@@ -87,11 +91,15 @@ export function useCalendarSync() {
         }
       }
 
-      if (created > 0 || synced > 0) {
+      // Also fix appointments whose visits are completed/invoiced but still show as scheduled
+      const statusFixed = await fixStaleAppointments();
+
+      if (created > 0 || synced > 0 || statusFixed > 0) {
         await queryClient.invalidateQueries({ queryKey: ["appointments"] });
         const parts: string[] = [];
         if (created > 0) parts.push(`${created} missing appointment${created > 1 ? "s" : ""} created`);
         if (synced > 0) parts.push(`${synced} date${synced > 1 ? "s" : ""} synced`);
+        if (statusFixed > 0) parts.push(`${statusFixed} status${statusFixed > 1 ? "es" : ""} updated`);
         toast({
           title: "Calendar Sync Complete",
           description: parts.join(", ") + ".",
@@ -99,6 +107,43 @@ export function useCalendarSync() {
       }
     } catch (err) {
       console.error("Calendar sync error:", err);
+    }
+  }
+
+  async function fixStaleAppointments(): Promise<number> {
+    try {
+      // Find appointments that are still scheduled/in_progress but their visit is completed/invoiced
+      const { data: staleApts } = await supabase
+        .from("appointments")
+        .select("id, visit_id")
+        .in("status", ["scheduled", "in_progress"])
+        .not("visit_id", "is", null);
+
+      if (!staleApts || staleApts.length === 0) return 0;
+
+      const visitIds = staleApts.map((a: any) => a.visit_id);
+      const { data: completedVisits } = await supabase
+        .from("visits")
+        .select("id")
+        .in("id", visitIds)
+        .in("status", ["completed", "invoiced", "cancelled"]);
+
+      if (!completedVisits || completedVisits.length === 0) return 0;
+
+      const completedVisitIds = new Set(completedVisits.map((v: any) => v.id));
+      const toUpdate = staleApts.filter((a: any) => completedVisitIds.has(a.visit_id));
+
+      for (const apt of toUpdate) {
+        await supabase
+          .from("appointments")
+          .update({ status: "completed", updated_at: new Date().toISOString() })
+          .eq("id", apt.id);
+      }
+
+      return toUpdate.length;
+    } catch (err) {
+      console.error("Fix stale appointments error:", err);
+      return 0;
     }
   }
 }
