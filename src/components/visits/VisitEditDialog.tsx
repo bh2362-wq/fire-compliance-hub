@@ -39,7 +39,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Pencil, Upload, FileText, X, Server, Wind, Flame, Box, PanelTop, Accessibility, Lightbulb, ShieldAlert, Phone, Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Check, UserCog, FileDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+
 import { Visit } from "@/hooks/useVisits";
 import { sendAppointmentUpdatedNotification } from "@/services/notificationService";
 import { SERVICE_TYPES } from "@/services/serviceContractService";
