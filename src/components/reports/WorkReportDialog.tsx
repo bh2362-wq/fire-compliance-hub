@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { format } from "date-fns";
 import { isHeic, heicTo } from "heic-to";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, LockOpen, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight, Mail, Upload, Paperclip, FolderOpen } from "lucide-react";
+import { Loader2, FileText, ClipboardList, Package, PenTool, Download, CalendarIcon, Clock, Lock, LockOpen, Plus, Trash2, Camera, X, Image, ChevronLeft, ChevronRight, Mail, Upload, Paperclip, FolderOpen, Sparkles, Search } from "lucide-react";
+import { lookupMaterial, saveToCatalog, searchCatalog, MaterialSuggestion } from "@/services/materialsCatalogService";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
