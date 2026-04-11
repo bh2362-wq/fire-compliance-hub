@@ -1462,6 +1462,45 @@ export type Database = {
           },
         ]
       }
+      materials_catalog: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          part_number: string
+          retail_price: number | null
+          source: string | null
+          supplier_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          part_number: string
+          retail_price?: number | null
+          source?: string | null
+          supplier_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          part_number?: string
+          retail_price?: number | null
+          source?: string | null
+          supplier_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       microsoft_tokens: {
         Row: {
           access_token: string
