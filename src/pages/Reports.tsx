@@ -1266,6 +1266,12 @@ const Reports = () => {
             siteName: invoiceSiteInfo.name,
             jobDescription: reportToInvoice.work_carried_out || undefined,
             visitDate: reportToInvoice.visits?.visit_date || reportToInvoice.report_date,
+            materials: (() => {
+              try {
+                const notes = reportToInvoice.notes ? JSON.parse(reportToInvoice.notes) : null;
+                return notes?.materials?.filter((m: any) => m.name && m.name.trim()) || [];
+              } catch { return []; }
+            })(),
           }}
         />
       )}
