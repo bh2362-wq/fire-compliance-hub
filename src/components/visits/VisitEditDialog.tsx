@@ -399,15 +399,19 @@ const VisitEditDialog = ({
           .single();
 
         if (existingApt) {
+          const updatePayload: Record<string, any> = {
+            appointment_date: data.visit_date,
+            visit_type: data.visit_type,
+            status: appointmentStatus,
+            engineer_id: selectedEngineerId && selectedEngineerId !== "unassigned" ? selectedEngineerId : null,
+            title: `${visitTypeLabel} - ${visit.site?.name || "Site Visit"}`,
+          };
+          if (data.appointment_time) {
+            updatePayload.start_time = data.appointment_time + ":00";
+          }
           await supabase
             .from("appointments")
-            .update({
-              appointment_date: data.visit_date,
-              visit_type: data.visit_type,
-              status: appointmentStatus,
-              engineer_id: selectedEngineerId && selectedEngineerId !== "unassigned" ? selectedEngineerId : null,
-              title: `${visitTypeLabel} - ${visit.site?.name || "Site Visit"}`,
-            })
+            .update(updatePayload)
             .eq("id", existingApt.id);
           
           // Send update notification email
@@ -423,7 +427,7 @@ const VisitEditDialog = ({
               engineer_id: (selectedEngineerId && selectedEngineerId !== "unassigned") ? selectedEngineerId : user.id,
               title: `${visitTypeLabel} - ${visit.site?.name || "Site Visit"}`,
               appointment_date: data.visit_date,
-              start_time: "09:00:00",
+              start_time: data.appointment_time ? data.appointment_time + ":00" : "09:00:00",
               end_time: "17:00:00",
               status: appointmentStatus,
               visit_type: data.visit_type,
