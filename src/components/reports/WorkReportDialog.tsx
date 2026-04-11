@@ -981,6 +981,71 @@ export function WorkReportDialog({
     const updated = [...materials];
     updated[index][field] = value;
     setMaterials(updated);
+    // Clear suggestions when user changes name manually
+    if (field === "name") {
+      setActiveMaterialIndex(index);
+      setMaterialSuggestionSelected(prev => { const n = [...prev]; n[index] = false; return n; });
+    }
+  };
+
+  // Material AI lookup state
+  const [activeMaterialIndex, setActiveMaterialIndex] = useState<number | null>(null);
+  const [materialSuggestions, setMaterialSuggestions] = useState<MaterialSuggestion[]>([]);
+  const [materialLookingUp, setMaterialLookingUp] = useState(false);
+  const [materialShowSuggestions, setMaterialShowSuggestions] = useState(false);
+  const [materialAiUsed, setMaterialAiUsed] = useState(false);
+  const [materialSuggestionSelected, setMaterialSuggestionSelected] = useState<boolean[]>([]);
+  const materialDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounced catalog search for active material row
+  useEffect(() => {
+    if (activeMaterialIndex === null) return;
+    const name = materials[activeMaterialIndex]?.name || "";
+    if (name.trim().length < 2 || materialSuggestionSelected[activeMaterialIndex]) {
+      setMaterialSuggestions([]);
+      setMaterialShowSuggestions(false);
+      return;
+    }
+    if (materialDebounceRef.current) clearTimeout(materialDebounceRef.current);
+    materialDebounceRef.current = setTimeout(async () => {
+      const results = await searchCatalog(name.trim(), 5);
+      if (results.length > 0) {
+        setMaterialSuggestions(results);
+        setMaterialShowSuggestions(true);
+        setMaterialAiUsed(false);
+      } else {
+        setMaterialSuggestions([]);
+        setMaterialShowSuggestions(false);
+      }
+    }, 300);
+    return () => { if (materialDebounceRef.current) clearTimeout(materialDebounceRef.current); };
+  }, [activeMaterialIndex, materials]);
+
+  const handleMaterialAILookup = async (index: number) => {
+    const name = materials[index]?.name;
+    if (!name?.trim()) return;
+    setActiveMaterialIndex(index);
+    setMaterialLookingUp(true);
+    setMaterialShowSuggestions(true);
+    try {
+      const { suggestions, ai_used } = await lookupMaterial(name.trim());
+      setMaterialSuggestions(suggestions);
+      setMaterialAiUsed(ai_used);
+    } catch {
+      // silent
+    } finally {
+      setMaterialLookingUp(false);
+    }
+  };
+
+  const handleSelectMaterialSuggestion = (index: number, s: MaterialSuggestion) => {
+    const updated = [...materials];
+    updated[index] = { name: `${s.part_number} - ${s.description}`, qty: updated[index].qty || "1", cost: s.retail_price.toFixed(2) };
+    setMaterials(updated);
+    setMaterialShowSuggestions(false);
+    setMaterialSuggestionSelected(prev => { const n = [...prev]; n[index] = true; return n; });
+    // Save to catalog
+    saveToCatalog(s);
   };
 
   // Create SharePoint folder and upload final PDF (only called on complete)
