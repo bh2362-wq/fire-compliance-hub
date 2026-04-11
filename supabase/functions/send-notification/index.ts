@@ -474,6 +474,12 @@ const handler = async (req: Request): Promise<Response> => {
                     <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;"><strong>Date:</strong></td>
                     <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">${formattedDate}</td>
                   </tr>
+                  ${formattedTime ? `
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;"><strong>Time:</strong></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">${formattedTime}</td>
+                  </tr>
+                  ` : ""}
                    <tr>
                     <td style="padding: 10px 0;${body.jobNotes ? ' border-bottom: 1px solid #e5e7eb;' : ''}"><strong>Service Type:</strong></td>
                     <td style="padding: 10px 0;${body.jobNotes ? ' border-bottom: 1px solid #e5e7eb;' : ''}">${visitTypeLabel}</td>
