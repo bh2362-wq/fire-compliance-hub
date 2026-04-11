@@ -164,9 +164,9 @@ const CHANGEABLE_STATUSES = [
 
 // Group order for sub-list sections
 const STATUS_GROUP_ORDER = [
+  'scheduled',
   'confirmed',
   'in_progress',
-  'scheduled',
   'on_hold',
   'awaiting_parts',
   'further_works_required',
