@@ -897,15 +897,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             {notesPreview || "—"}
           </p>
         </td>
-        {/* Progress */}
-        <td className="px-2 py-1.5">
-          <JobProgressTracker
-            status={visit.status}
-            hasReport={!!reportInfo?.report_number}
-            hasInvoice={isInvoiced}
-            compact
-          />
-        </td>
         {/* Actions */}
         <td className="px-2 py-1.5">
           <div className="flex items-center justify-end gap-1">
@@ -1308,7 +1299,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                           <th className="px-2 py-1.5 text-left">Date</th>
                           <th className="px-2 py-1.5 text-left">Status</th>
                           <th className="px-2 py-1.5 text-left">Description</th>
-                          <th className="px-2 py-1.5 text-left">Progress</th>
                           <th className="px-2 py-1.5 text-right">Actions</th>
                         </tr>
                       </thead>
@@ -1354,7 +1344,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   <th className="px-2 py-1.5 text-left">Date</th>
                   <th className="px-2 py-1.5 text-left">Status</th>
                   <th className="px-2 py-1.5 text-left">Description</th>
-                  <th className="px-2 py-1.5 text-left">Progress</th>
                   <th className="px-2 py-1.5 text-right">Actions</th>
                 </tr>
               </thead>
