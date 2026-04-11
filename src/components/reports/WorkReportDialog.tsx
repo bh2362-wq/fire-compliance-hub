@@ -2524,6 +2524,7 @@ export function WorkReportDialog({
             siteName: siteInfo.name,
             jobDescription: worksReport || undefined,
             visitDate: visit.visit_date,
+            materials: materials.filter(m => m.name && m.name.trim()),
           }}
         />
       )}
