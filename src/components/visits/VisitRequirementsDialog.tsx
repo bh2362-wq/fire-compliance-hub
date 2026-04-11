@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,9 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Loader2, Check } from "lucide-react";
+import { Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Loader2, Check, Sparkles, Save, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { lookupMaterial, saveToCatalog, searchCatalog, MaterialSuggestion } from "@/services/materialsCatalogService";
 
 interface Requirement {
   id: string;
@@ -67,9 +68,59 @@ export function VisitRequirementsDialog({
   const [newQuantity, setNewQuantity] = useState("1");
   const [newNotes, setNewNotes] = useState("");
 
+  // AI lookup state
+  const [suggestions, setSuggestions] = useState<MaterialSuggestion[]>([]);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [aiUsed, setAiUsed] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<MaterialSuggestion | null>(null);
+  const [partNumber, setPartNumber] = useState("");
+  const [retailPrice, setRetailPrice] = useState("");
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (open) fetchRequirements();
+    if (!open) {
+      resetForm();
+    }
   }, [open, visitId]);
+
+  // Autofill: debounced search as user types
+  useEffect(() => {
+    if (!newItemName.trim() || newItemName.trim().length < 2 || newCategory !== "materials") {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const results = await searchCatalog(newItemName.trim(), 5);
+      if (results.length > 0) {
+        setSuggestions(results);
+        setShowSuggestions(true);
+        setAiUsed(false);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 300);
+
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [newItemName, newCategory]);
+
+  const resetForm = () => {
+    setNewItemName("");
+    setNewQuantity("1");
+    setNewNotes("");
+    setPartNumber("");
+    setRetailPrice("");
+    setSelectedSuggestion(null);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setAiUsed(false);
+  };
 
   const fetchRequirements = async () => {
     setLoading(true);
@@ -84,6 +135,33 @@ export function VisitRequirementsDialog({
     setLoading(false);
   };
 
+  const handleAILookup = async () => {
+    if (!newItemName.trim()) return;
+    setLookingUp(true);
+    setShowSuggestions(true);
+
+    try {
+      const { suggestions: results, ai_used } = await lookupMaterial(newItemName.trim());
+      setSuggestions(results);
+      setAiUsed(ai_used);
+      if (results.length === 0) {
+        toast({ title: "No matches", description: "No products found. You can still add manually." });
+      }
+    } catch {
+      toast({ title: "Lookup failed", variant: "destructive" });
+    } finally {
+      setLookingUp(false);
+    }
+  };
+
+  const handleSelectSuggestion = (s: MaterialSuggestion) => {
+    setSelectedSuggestion(s);
+    setNewItemName(s.description);
+    setPartNumber(s.part_number);
+    setRetailPrice(s.retail_price.toFixed(2));
+    setShowSuggestions(false);
+  };
+
   const handleAdd = async () => {
     if (!newItemName.trim()) return;
     setSaving(true);
@@ -91,23 +169,45 @@ export function VisitRequirementsDialog({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
 
+    const itemLabel = partNumber
+      ? `${partNumber} - ${newItemName.trim()}`
+      : newItemName.trim();
+
+    const priceNote = retailPrice
+      ? `£${Number(retailPrice).toFixed(2)} each`
+      : "";
+    const combinedNotes = [priceNote, newNotes.trim()].filter(Boolean).join(" | ");
+
     const { error } = await supabase.from("visit_requirements").insert({
       visit_id: visitId,
       category: newCategory,
-      item_name: newItemName.trim(),
+      item_name: itemLabel,
       quantity: parseInt(newQuantity) || 1,
-      notes: newNotes.trim() || null,
+      notes: combinedNotes || null,
       created_by: user.id,
     });
 
     if (error) {
       toast({ title: "Error", description: "Failed to add requirement", variant: "destructive" });
     } else {
-      setNewItemName("");
-      setNewQuantity("1");
-      setNewNotes("");
+      // Save to catalog for future autofill if we have a part number
+      if (partNumber && selectedSuggestion) {
+        await saveToCatalog(selectedSuggestion);
+      } else if (partNumber) {
+        await saveToCatalog({
+          part_number: partNumber,
+          description: newItemName.trim(),
+          retail_price: Number(retailPrice) || 0,
+          category: newCategory,
+          supplier: "",
+          source: "catalog",
+        });
+      }
+
+      resetForm();
       fetchRequirements();
       onUpdate?.();
+      toast({ title: "Added", description: "Requirement added and saved to catalog" });
     }
     setSaving(false);
   };
@@ -179,16 +279,105 @@ export function VisitRequirementsDialog({
               />
             </div>
           </div>
-          <div>
-            <Label className="text-xs">Item Name</Label>
-            <Input
-              className="h-9"
-              placeholder="e.g. 10x Smoke Detectors"
-              value={newItemName}
-              onChange={(e) => setNewItemName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            />
+
+          {/* Item name with AI lookup */}
+          <div className="relative">
+            <Label className="text-xs">Item / Description</Label>
+            <div className="flex gap-1.5">
+              <Input
+                className="h-9 flex-1"
+                placeholder="e.g. Apollo XP95 smoke detector"
+                value={newItemName}
+                onChange={(e) => {
+                  setNewItemName(e.target.value);
+                  setSelectedSuggestion(null);
+                  setPartNumber("");
+                  setRetailPrice("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (showSuggestions && suggestions.length > 0) {
+                      handleSelectSuggestion(suggestions[0]);
+                    } else {
+                      handleAILookup();
+                    }
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-2 shrink-0"
+                onClick={handleAILookup}
+                disabled={lookingUp || !newItemName.trim()}
+                title="AI Product Lookup"
+              >
+                {lookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-primary" />}
+              </Button>
+            </div>
+
+            {/* Suggestions dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div
+                ref={suggestionsRef}
+                className="absolute z-50 left-0 right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-56 overflow-y-auto"
+              >
+                <div className="p-1.5">
+                  <p className="text-[10px] text-muted-foreground px-2 pb-1 flex items-center gap-1">
+                    {aiUsed ? <><Sparkles className="h-3 w-3" /> AI suggestions</> : <><Search className="h-3 w-3" /> Catalog matches</>}
+                  </p>
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      className="w-full text-left px-2 py-1.5 rounded hover:bg-muted/80 transition-colors"
+                      onClick={() => handleSelectSuggestion(s)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-semibold text-primary">{s.part_number}</span>
+                        <span className="text-xs font-bold text-foreground">£{s.retail_price.toFixed(2)}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{s.description}</p>
+                      {s.supplier && <span className="text-[10px] text-muted-foreground">{s.supplier}</span>}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className="w-full text-center text-xs text-muted-foreground py-1.5 border-t border-border hover:bg-muted/50"
+                  onClick={() => setShowSuggestions(false)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Part number & price (shown when populated) */}
+          {(partNumber || selectedSuggestion) && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Part Number</Label>
+                <Input
+                  className="h-9 font-mono text-sm"
+                  value={partNumber}
+                  onChange={(e) => setPartNumber(e.target.value)}
+                  placeholder="e.g. 55000-600"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Retail Price (£)</Label>
+                <Input
+                  className="h-9"
+                  type="number"
+                  step="0.01"
+                  value={retailPrice}
+                  onChange={(e) => setRetailPrice(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          )}
+
           <div>
             <Label className="text-xs">Notes (optional)</Label>
             <Textarea
@@ -200,7 +389,7 @@ export function VisitRequirementsDialog({
           </div>
           <Button onClick={handleAdd} disabled={saving || !newItemName.trim()} size="sm" className="w-full">
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-            Add
+            Add {partNumber ? "& Save to Catalog" : ""}
           </Button>
         </div>
 
