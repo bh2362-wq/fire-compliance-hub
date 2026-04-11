@@ -76,6 +76,7 @@ const visitEditSchema = z.object({
   status: z.string().min(1, "Status is required"),
   notes: z.string().max(10000).optional(),
   estimated_hours: z.string().optional(),
+  appointment_time: z.string().optional(),
 });
 
 type VisitEditFormData = z.infer<typeof visitEditSchema>;
@@ -205,6 +206,7 @@ const VisitEditDialog = ({
         status: visit.status || "in_progress",
         notes: userNotes,
         estimated_hours: (visit as any).estimated_hours?.toString() || "",
+        appointment_time: (visit as any).appointment_time || "",
       });
       fetchUploadedFiles();
       fetchSiteAssets();
@@ -377,6 +379,7 @@ const VisitEditDialog = ({
           engineer_id: selectedEngineerId && selectedEngineerId !== "unassigned" ? selectedEngineerId : null,
           notes: buildVisitNotes(storedAssetType, data.notes || ""),
           estimated_hours: data.estimated_hours ? parseFloat(data.estimated_hours) : null,
+          appointment_time: data.appointment_time || null,
         })
         .eq("id", visit.id);
 
@@ -578,20 +581,36 @@ const VisitEditDialog = ({
               </Select>
             </div>
 
-            {/* Estimated Hours */}
-            <FormField
-              control={form.control}
-              name="estimated_hours"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Estimated Hours On-Site</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.5" min="0" max="24" placeholder="e.g. 4" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Appointment Time & Estimated Hours */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="appointment_time"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Appointment Time</FormLabel>
+                    <FormControl>
+                      <Input type="time" placeholder="e.g. 09:00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="estimated_hours"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estimated Hours</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.5" min="0" max="24" placeholder="e.g. 4" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}

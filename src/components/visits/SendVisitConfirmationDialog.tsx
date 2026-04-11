@@ -111,7 +111,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
           siteName: visit.site?.name || "Site",
           siteAddress,
           appointmentDate: visit.visit_date,
-          appointmentTime: "09:00",
+          appointmentTime: (visit as any).appointment_time || "TBC",
           visitType: visit.visit_type,
           acceptUrl,
           jobNotes: jobNotes || undefined,
