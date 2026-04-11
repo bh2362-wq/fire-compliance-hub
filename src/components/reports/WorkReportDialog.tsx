@@ -1725,8 +1725,8 @@ export function WorkReportDialog({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label>Materials Used</Label>
-                  <Button variant="outline" size="sm" onClick={addMaterialRow}>
-                    Add Row
+                  <Button variant="outline" size="sm" onClick={addMaterialRow} disabled={isLocked}>
+                    <Plus className="w-4 h-4 mr-1" /> Add Row
                   </Button>
                 </div>
                 <div className="border rounded-lg overflow-hidden">
@@ -1734,20 +1734,66 @@ export function WorkReportDialog({
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-left text-sm font-medium p-3">Material / Part</th>
-                        <th className="text-left text-sm font-medium p-3 w-24">Qty</th>
+                        <th className="text-left text-sm font-medium p-3 w-12"></th>
+                        <th className="text-left text-sm font-medium p-3 w-20">Qty</th>
                         <th className="text-left text-sm font-medium p-3 w-28">Cost (£)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {materials.map((mat, index) => (
-                        <tr key={index} className="border-t border-border">
-                          <td className="p-2">
+                        <tr key={index} className="border-t border-border relative">
+                          <td className="p-2 relative">
                             <Input
                               value={mat.name}
                               onChange={(e) => updateMaterial(index, "name", e.target.value)}
-                              placeholder="Material name"
+                              onFocus={() => setActiveMaterialIndex(index)}
+                              placeholder="e.g. Apollo XP95 detector"
                               className="border-0 bg-transparent focus-visible:ring-0"
+                              disabled={isLocked}
                             />
+                            {/* Inline suggestions dropdown */}
+                            {materialShowSuggestions && activeMaterialIndex === index && materialSuggestions.length > 0 && !isLocked && (
+                              <div className="absolute z-50 left-0 right-0 top-full bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                <div className="p-1">
+                                  <p className="text-[10px] text-muted-foreground px-2 pb-1 flex items-center gap-1">
+                                    {materialAiUsed ? <><Sparkles className="h-3 w-3" /> AI suggestions</> : <><Search className="h-3 w-3" /> Catalog matches</>}
+                                  </p>
+                                  {materialSuggestions.map((s, i) => (
+                                    <button
+                                      key={i}
+                                      className="w-full text-left px-2 py-1.5 rounded hover:bg-muted/80 transition-colors"
+                                      onClick={() => handleSelectMaterialSuggestion(index, s)}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-mono text-xs font-semibold text-primary">{s.part_number}</span>
+                                        <span className="text-xs font-bold text-foreground">£{s.retail_price.toFixed(2)}</span>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground truncate">{s.description}</p>
+                                    </button>
+                                  ))}
+                                </div>
+                                <button
+                                  className="w-full text-center text-xs text-muted-foreground py-1 border-t border-border hover:bg-muted/50"
+                                  onClick={() => setMaterialShowSuggestions(false)}
+                                >
+                                  Dismiss
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleMaterialAILookup(index)}
+                              disabled={isLocked || materialLookingUp || !mat.name.trim()}
+                              title="AI Product Lookup"
+                            >
+                              {materialLookingUp && activeMaterialIndex === index
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <Sparkles className="h-3.5 w-3.5 text-primary" />}
+                            </Button>
                           </td>
                           <td className="p-2">
                             <Input
@@ -1755,6 +1801,7 @@ export function WorkReportDialog({
                               onChange={(e) => updateMaterial(index, "qty", e.target.value)}
                               placeholder="0"
                               className="border-0 bg-transparent focus-visible:ring-0"
+                              disabled={isLocked}
                             />
                           </td>
                           <td className="p-2">
@@ -1763,6 +1810,7 @@ export function WorkReportDialog({
                               onChange={(e) => updateMaterial(index, "cost", e.target.value)}
                               placeholder="0.00"
                               className="border-0 bg-transparent focus-visible:ring-0"
+                              disabled={isLocked}
                             />
                           </td>
                         </tr>
@@ -1770,6 +1818,9 @@ export function WorkReportDialog({
                     </tbody>
                   </table>
                 </div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> Type a product name and click ✨ for AI-powered part number and price lookup. Saved items auto-fill next time.
+                </p>
               </div>
             </TabsContent>
 
