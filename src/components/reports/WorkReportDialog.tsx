@@ -1851,7 +1851,7 @@ export function WorkReportDialog({
                 <div className="flex items-center justify-between">
                   <Label>Site Photos</Label>
                   <div className="flex items-center gap-2">
-                    {reportSharePointFolder && !isLocked && (
+                    {!isLocked && (
                       <Button
                         variant="default"
                         size="sm"
@@ -2548,19 +2548,17 @@ export function WorkReportDialog({
       />
 
       {/* SharePoint Photo Browser */}
-      {reportSharePointFolder && (
-        <SharePointPhotoBrowser
-          open={showSharePointBrowser}
-          onOpenChange={setShowSharePointBrowser}
-          folderPath="uploads"
-          onImport={(imported) => {
-            setPhotos(prev => [
-              ...prev,
-              ...imported.map(p => ({ url: p.url, caption: p.caption })),
-            ]);
-          }}
-        />
-      )}
+      <SharePointPhotoBrowser
+        open={showSharePointBrowser}
+        onOpenChange={setShowSharePointBrowser}
+        folderPath="uploads"
+        onImport={(imported) => {
+          setPhotos(prev => [
+            ...prev,
+            ...imported.map(p => ({ url: p.url, caption: p.caption })),
+          ]);
+        }}
+      />
     </ResponsiveDialog>
   );
 }
