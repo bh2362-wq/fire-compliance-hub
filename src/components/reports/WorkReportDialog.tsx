@@ -1729,7 +1729,7 @@ export function WorkReportDialog({
                     <Plus className="w-4 h-4 mr-1" /> Add Row
                   </Button>
                 </div>
-                <div className="border rounded-lg overflow-hidden">
+                <div className="border rounded-lg">
                   <table className="w-full">
                     <thead className="bg-muted/50">
                       <tr>
@@ -1741,8 +1741,8 @@ export function WorkReportDialog({
                     </thead>
                     <tbody>
                       {materials.map((mat, index) => (
-                        <tr key={index} className="border-t border-border relative">
-                          <td className="p-2 relative">
+                        <tr key={index} className={`border-t border-border ${activeMaterialIndex === index && materialShowSuggestions ? "bg-primary/5" : ""}`}>
+                          <td className="p-2">
                             <Input
                               value={mat.name}
                               onChange={(e) => updateMaterial(index, "name", e.target.value)}
@@ -1751,35 +1751,6 @@ export function WorkReportDialog({
                               className="border-0 bg-transparent focus-visible:ring-0"
                               disabled={isLocked}
                             />
-                            {/* Inline suggestions dropdown */}
-                            {materialShowSuggestions && activeMaterialIndex === index && materialSuggestions.length > 0 && !isLocked && (
-                              <div className="absolute z-50 left-0 right-0 top-full bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                <div className="p-1">
-                                  <p className="text-[10px] text-muted-foreground px-2 pb-1 flex items-center gap-1">
-                                    {materialAiUsed ? <><Sparkles className="h-3 w-3" /> AI suggestions</> : <><Search className="h-3 w-3" /> Catalog matches</>}
-                                  </p>
-                                  {materialSuggestions.map((s, i) => (
-                                    <button
-                                      key={i}
-                                      className="w-full text-left px-2 py-1.5 rounded hover:bg-muted/80 transition-colors"
-                                      onClick={() => handleSelectMaterialSuggestion(index, s)}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span className="font-mono text-xs font-semibold text-primary">{s.part_number}</span>
-                                        <span className="text-xs font-bold text-foreground">£{s.retail_price.toFixed(2)}</span>
-                                      </div>
-                                      <p className="text-xs text-muted-foreground truncate">{s.description}</p>
-                                    </button>
-                                  ))}
-                                </div>
-                                <button
-                                  className="w-full text-center text-xs text-muted-foreground py-1 border-t border-border hover:bg-muted/50"
-                                  onClick={() => setMaterialShowSuggestions(false)}
-                                >
-                                  Dismiss
-                                </button>
-                              </div>
-                            )}
                           </td>
                           <td className="p-1">
                             <Button
@@ -1818,6 +1789,48 @@ export function WorkReportDialog({
                     </tbody>
                   </table>
                 </div>
+
+                {/* AI Suggestions panel — rendered outside the table to avoid overflow clipping */}
+                {materialShowSuggestions && materialSuggestions.length > 0 && !isLocked && (
+                  <div className="border border-primary/30 rounded-lg bg-popover shadow-lg">
+                    <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-muted/30 rounded-t-lg">
+                      <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                        {materialAiUsed ? <><Sparkles className="h-3.5 w-3.5 text-primary" /> AI Product Suggestions</> : <><Search className="h-3.5 w-3.5" /> Catalog Matches</>}
+                      </p>
+                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setMaterialShowSuggestions(false)}>
+                        Dismiss
+                      </Button>
+                    </div>
+                    <div className="divide-y divide-border">
+                      {materialSuggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          className="w-full text-left px-3 py-2.5 hover:bg-muted/60 transition-colors flex items-center gap-3"
+                          onClick={() => activeMaterialIndex !== null && handleSelectMaterialSuggestion(activeMaterialIndex, s)}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-semibold text-primary">{s.part_number}</span>
+                              {s.supplier && <Badge variant="outline" className="text-[10px] h-4">{s.supplier}</Badge>}
+                            </div>
+                            <p className="text-sm text-muted-foreground truncate">{s.description}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-sm font-bold text-foreground">£{s.retail_price.toFixed(2)}</span>
+                            <p className="text-[10px] text-muted-foreground">Select</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {materialLookingUp && (
+                  <div className="flex items-center justify-center py-4 text-muted-foreground text-sm gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Searching for products…
+                  </div>
+                )}
+
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Sparkles className="h-3 w-3" /> Type a product name and click ✨ for AI-powered part number and price lookup. Saved items auto-fill next time.
                 </p>
