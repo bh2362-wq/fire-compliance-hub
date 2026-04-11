@@ -3947,6 +3947,7 @@ export type Database = {
         Row: {
           acceptance_token: string | null
           accepted_by_name: string | null
+          appointment_time: string | null
           client_accepted_at: string | null
           client_po_file_url: string | null
           client_po_number: string | null
@@ -3971,6 +3972,7 @@ export type Database = {
         Insert: {
           acceptance_token?: string | null
           accepted_by_name?: string | null
+          appointment_time?: string | null
           client_accepted_at?: string | null
           client_po_file_url?: string | null
           client_po_number?: string | null
@@ -3995,6 +3997,7 @@ export type Database = {
         Update: {
           acceptance_token?: string | null
           accepted_by_name?: string | null
+          appointment_time?: string | null
           client_accepted_at?: string | null
           client_po_file_url?: string | null
           client_po_number?: string | null
