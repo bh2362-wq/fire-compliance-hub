@@ -54,6 +54,7 @@ interface JobReportData {
   siteName?: string;
   jobDescription?: string;
   visitDate?: string;
+  materials?: { name: string; qty: string; cost: string }[];
 }
 
 interface CustomerCreateInvoiceDialogProps {
@@ -261,9 +262,22 @@ export function CustomerCreateInvoiceDialog({
     if (jobReportData && selectedSite) {
       const description = buildJobLineItemDescription();
       const price = jobReportData.unitPrice || 0;
-      setLineItems([
+      const items: { description: string; quantity: number; unitAmount: number }[] = [
         { description: description || "Service", quantity: 1, unitAmount: price },
-      ]);
+      ];
+      
+      // Add materials as separate line items
+      if (jobReportData.materials && jobReportData.materials.length > 0) {
+        for (const mat of jobReportData.materials) {
+          if (mat.name && mat.name.trim()) {
+            const qty = parseFloat(mat.qty) || 1;
+            const cost = parseFloat(mat.cost) || 0;
+            items.push({ description: mat.name, quantity: qty, unitAmount: cost });
+          }
+        }
+      }
+      
+      setLineItems(items);
     } else if (!jobReportData) {
       // Update line items when service type changes (no job report data)
       setLineItems(SERVICE_TYPE_LINE_ITEMS[serviceType] || SERVICE_TYPE_LINE_ITEMS.remedial);
