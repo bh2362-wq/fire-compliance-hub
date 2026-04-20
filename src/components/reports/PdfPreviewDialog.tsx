@@ -54,10 +54,12 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open && !loading && !error) {
+    if (open) {
+      setError(null);
       generateAndOpen();
     }
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, reportId]);
 
   const generateAndOpen = async () => {
     setLoading(true);
@@ -196,7 +198,7 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
 
       if (!base64) throw new Error("Failed to generate PDF");
 
-      // Download the PDF via a hidden anchor (works inside sandboxed iframes)
+      // Convert base64 to blob
       const byteCharacters = atob(base64);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
@@ -204,15 +206,37 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
       }
       const blob = new Blob([new Uint8Array(byteNumbers)], { type: "application/pdf" });
       const blobUrl = URL.createObjectURL(blob);
+      const fileName = `${report.report_number || `report-${reportId}`}.pdf`;
+
+      // Try anchor download first (works in most browsers / top-level pages)
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = `report-${reportId}.pdf`;
+      a.download = fileName;
+      a.rel = "noopener";
+      a.target = "_blank";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+      // Fallback: also open the PDF in a new tab so the user always gets it,
+      // even when running inside a sandboxed preview iframe that blocks downloads.
+      const opened = window.open(blobUrl, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        // Popup blocked — surface a manual link via toast
+        toast.message("PDF ready", {
+          description: "Click to open the report",
+          action: {
+            label: "Open PDF",
+            onClick: () => window.open(blobUrl, "_blank", "noopener,noreferrer"),
+          },
+          duration: 10000,
+        });
+      } else {
+        toast.success("PDF opened in a new tab");
+      }
+
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
       onOpenChange(false);
-      toast.success("PDF downloaded");
     } catch (err) {
       console.error("PDF preview error:", err);
       setError("Failed to generate PDF preview");
