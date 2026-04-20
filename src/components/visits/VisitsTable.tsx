@@ -900,21 +900,19 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         {/* Actions */}
         <td className="px-2 py-1.5">
           <div className="flex items-center justify-end gap-1">
-            {!isInvoiced && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setPreviewVisit(visit)}
-                  >
-                    <ClipboardCheck className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Report</TooltipContent>
-              </Tooltip>
-            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setPreviewVisit(visit)}
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{isInvoiced ? "Add Report" : "Report"}</TooltipContent>
+            </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7">
