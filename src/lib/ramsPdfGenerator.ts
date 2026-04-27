@@ -4,21 +4,6 @@ import { PDFDocument } from "pdf-lib";
 import { format } from "date-fns";
 import { RamsDocument } from "@/services/ramsService";
 import { supabase } from "@/integrations/supabase/client";
-import { CAVEAT_REGULAR_BASE64 } from "@/lib/fonts/caveat-font";
-
-// Register Caveat handwriting font once per jsPDF instance for auto-signatures.
-// Embedding the font ensures identical rendering across all browsers and printers.
-function registerSignatureFont(doc: jsPDF) {
-  try {
-    const anyDoc = doc as any;
-    if (anyDoc.__caveatRegistered) return;
-    doc.addFileToVFS("Caveat-Regular.ttf", CAVEAT_REGULAR_BASE64);
-    doc.addFont("Caveat-Regular.ttf", "Caveat", "normal");
-    anyDoc.__caveatRegistered = true;
-  } catch (e) {
-    console.warn("Caveat font registration failed; falling back to Times italic", e);
-  }
-}
 
 
 // ─── Color Palette ───────────────────────────────────────────────────────────
