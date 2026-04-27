@@ -3681,6 +3681,60 @@ export type Database = {
           },
         ]
       }
+      smart_form_submissions: {
+        Row: {
+          certificate_reference: string
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          customer_id: string | null
+          engineer_id: string | null
+          form_type: string
+          id: string
+          job_number: string | null
+          payload: Json
+          pdf_url: string | null
+          site_id: string | null
+          status: string
+          updated_at: string
+          visit_id: string | null
+        }
+        Insert: {
+          certificate_reference: string
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          customer_id?: string | null
+          engineer_id?: string | null
+          form_type?: string
+          id?: string
+          job_number?: string | null
+          payload?: Json
+          pdf_url?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Update: {
+          certificate_reference?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          customer_id?: string | null
+          engineer_id?: string | null
+          form_type?: string
+          id?: string
+          job_number?: string | null
+          payload?: Json
+          pdf_url?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Relationships: []
+      }
       subcontractors: {
         Row: {
           address: string | null
@@ -4187,6 +4241,10 @@ export type Database = {
       get_next_quotation_number: { Args: never; Returns: string }
       get_next_report_number: {
         Args: { report_type?: string }
+        Returns: string
+      }
+      get_next_smart_form_cert_ref: {
+        Args: { p_form_type?: string }
         Returns: string
       }
       get_shared_intelligence_report: {
