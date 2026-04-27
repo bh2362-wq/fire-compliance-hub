@@ -38,6 +38,7 @@ import DevicePricing from "./pages/DevicePricing";
 import ProductLookup from "./pages/ProductLookup";
 import CustomerForms from "./pages/CustomerForms";
 import RoutePlanner from "./pages/RoutePlanner";
+import SmartForms from "./pages/SmartForms";
 
 // ── NEW: Certificate Tracker ──
 import CertTracker from "./pages/CertTracker";
@@ -106,6 +107,7 @@ const App = () => (
             <Route path="/dashboard/product-lookup" element={<ProtectedRoute><ProductLookup /></ProtectedRoute>} />
             <Route path="/dashboard/customer-forms" element={<ProtectedRoute><CustomerForms /></ProtectedRoute>} />
             <Route path="/dashboard/ai-assistant" element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
+            <Route path="/dashboard/smart-forms" element={<ProtectedRoute><SmartForms /></ProtectedRoute>} />
 
             {/* Protected: QMS */}
             <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
