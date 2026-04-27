@@ -5,7 +5,7 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -50,6 +50,7 @@ const toolsNav = [
   { name: "Device Pricing",  href: "/dashboard/device-pricing",    icon: Package },
   { name: "Product Lookup",  href: "/dashboard/product-lookup",    icon: Search },
   { name: "Customer Forms",  href: "/dashboard/customer-forms",    icon: FileSignature },
+  { name: "AI Assistant",    href: "/dashboard/ai-assistant",      icon: Sparkles },
 ];
 
 const qmsNav = [
