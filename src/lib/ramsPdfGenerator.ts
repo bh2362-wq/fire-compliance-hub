@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { RamsDocument } from "@/services/ramsService";
 import { supabase } from "@/integrations/supabase/client";
 
+
 // ─── Color Palette ───────────────────────────────────────────────────────────
 const C = {
   black: [0, 0, 0] as [number, number, number],
@@ -1050,10 +1051,15 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
         } catch { /* skip */ }
       }
     } else if (autoSignatureNames[i]) {
-      // Auto handwriting-style signature
+      // Auto handwriting-style signature.
+      // NOTE: We use jsPDF's built-in Times italic at large size for the signature
+      // look. Embedding a true script font (Caveat/Dancing Script) was attempted
+      // but jsPDF v4's TTF parser crashes on these Google Fonts at runtime.
+      // Times italic renders identically across all browsers and printers since
+      // it's a PDF Standard 14 font (no font subsetting / glyph fallback).
       const name = autoSignatureNames[i]!;
-      msDoc.setFontSize(20);
       msDoc.setFont("times", "italic");
+      msDoc.setFontSize(22);
       msDoc.setTextColor(30, 41, 90);
       const sigTextW = msDoc.getTextWidth(name);
       const sigCenterX = x + (sigW - sigTextW) / 2;
