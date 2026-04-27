@@ -162,7 +162,7 @@ const SiteCard = ({
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Cpu className="w-3.5 h-3.5" />
-          {site.device_count ?? "—"} devices
+          {site.total_devices ?? "—"} devices
         </span>
         {site.status && site.status !== "active" && (
           <span className="badge-muted capitalize">{site.status}</span>
@@ -341,15 +341,16 @@ const Sites = () => {
         <DeviceImportDialog
           open={importOpen}
           onOpenChange={setImportOpen}
-          siteId={selectedSite.id}
-          siteName={selectedSite.name}
+          site={selectedSite}
+          onSuccess={() => { loadSites(); setImportOpen(false); }}
         />
       )}
       {siteToDelete && (
         <DeleteSiteDialog
           open={deleteDialogOpen}
           onOpenChange={setDeleteDialogOpen}
-          site={siteToDelete}
+          siteName={siteToDelete.name}
+          siteId={siteToDelete.id}
           onSuccess={() => { loadSites(); setDeleteDialogOpen(false); setSiteToDelete(null); }}
         />
       )}
