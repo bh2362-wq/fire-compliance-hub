@@ -74,20 +74,21 @@ const Dashboard = () => {
             .lte("visit_date", monthEnd),
           supabase.from("visits").select("id", { count: "exact", head: true })
             .in("status", ["scheduled", "in_progress", "pending_review"]),
-          // Overdue invoices (status = overdue or outstanding beyond 30 days)
-          supabase.from("invoices")
-            .select("id, total_amount")
-            .in("status", ["overdue", "sent"])
-            .lt("due_date", format(now, "yyyy-MM-dd")),
+          // Overdue invoices via Xero-synced records
+          supabase.from("xero_invoices")
+            .select("id, total_amount, status")
+            .in("status", ["AUTHORISED", "OVERDUE"]),
         ]);
 
       const pendingCount = visitsThisMonthResult.data?.filter(
         (v) => v.status === "scheduled" || v.status === "pending_review"
       ).length || 0;
 
-      const overdueInvoices = overdueResult.data || [];
+      const overdueInvoices = (overdueResult.data || []).filter(
+        (inv: any) => inv.status === "OVERDUE"
+      );
       const overdueTotal = overdueInvoices.reduce(
-        (sum, inv) => sum + (inv.total_amount || 0), 0
+        (sum: number, inv: any) => sum + (inv.total_amount || 0), 0
       );
 
       setStats({
