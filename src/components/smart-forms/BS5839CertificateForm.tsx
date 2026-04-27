@@ -238,6 +238,9 @@ export default function BS5839CertificateForm({
             <Button variant="ghost" size="sm" onClick={() => persist("draft")} disabled={saving}>
               <Save className="h-4 w-4 mr-1" /> Save Draft
             </Button>
+            <Button variant="outline" size="sm" onClick={handleDownloadDraftPdf} disabled={saving} title="Download a preview PDF without validation">
+              <FileDown className="h-4 w-4 mr-1" /> Draft PDF
+            </Button>
             {step < STEPS.length - 1 ? (
               <Button size="sm" onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>
                 Next <ChevronRight className="h-4 w-4 ml-1" />
