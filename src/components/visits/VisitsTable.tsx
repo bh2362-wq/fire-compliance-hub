@@ -1773,6 +1773,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         }}
         visitId={smartFormVisit?.id ?? null}
         siteId={smartFormVisit?.site_id ?? null}
+        customerId={(smartFormVisit as any)?.customer_id ?? null}
         prefill={smartFormPrefill ?? undefined}
         onSaved={onRefresh}
       />
