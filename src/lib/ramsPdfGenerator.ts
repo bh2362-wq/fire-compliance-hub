@@ -1066,14 +1066,21 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
         } catch { /* skip */ }
       }
     } else if (autoSignatureNames[i]) {
-      // Auto handwriting-style signature
+      // Auto handwriting-style signature using embedded Caveat font
+      registerSignatureFont(msDoc);
       const name = autoSignatureNames[i]!;
-      msDoc.setFontSize(20);
-      msDoc.setFont("times", "italic");
+      const hasCaveat = (msDoc as any).__caveatRegistered === true;
+      if (hasCaveat) {
+        msDoc.setFont("Caveat", "normal");
+        msDoc.setFontSize(32);
+      } else {
+        msDoc.setFont("times", "italic");
+        msDoc.setFontSize(20);
+      }
       msDoc.setTextColor(30, 41, 90);
       const sigTextW = msDoc.getTextWidth(name);
       const sigCenterX = x + (sigW - sigTextW) / 2;
-      msDoc.text(name, sigCenterX, msY + 15);
+      msDoc.text(name, sigCenterX, msY + 16);
     }
 
     if (sigNames[i]) {
