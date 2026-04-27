@@ -5,7 +5,8 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles,
+  ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -198,6 +199,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   ].some((p) => location.pathname.startsWith(p));
   const isQmsRoute = location.pathname.startsWith("/qms");
   const isCertRoute = location.pathname.startsWith("/dashboard/cert-tracker");
+  const isComplianceRoute = location.pathname.startsWith("/compliance");
 
   const handleSignOut = async () => {
     await signOut();
@@ -310,6 +312,27 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           collapsed={collapsed}
           isMobile={isMobile}
         />
+
+        {/* ── Compliance Validator (BS 5839-1) ── */}
+        <NavLink
+          to="/compliance"
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+              isActive || isComplianceRoute
+                ? "bg-primary/15 text-primary"
+                : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            )
+          }
+        >
+          <ShieldCheck className="w-[18px] h-[18px] flex-shrink-0" />
+          {(!collapsed || isMobile) && (
+            <span className="flex items-center gap-1.5">
+              Compliance
+              <span className="nav-new-badge">new</span>
+            </span>
+          )}
+        </NavLink>
 
         {/* ── New: Cert Tracker ── */}
         <NavLink

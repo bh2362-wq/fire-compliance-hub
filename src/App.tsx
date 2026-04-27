@@ -43,6 +43,12 @@ import RoutePlanner from "./pages/RoutePlanner";
 import CertTracker from "./pages/CertTracker";
 import AIAssistant from "./pages/AIAssistant";
 
+// ── Compliance Validator (BS 5839-1) ──
+import ComplianceDashboard from "./pages/compliance/ComplianceDashboard";
+import ComplianceCases from "./pages/compliance/ComplianceCases";
+import ComplianceCaseDetail from "./pages/compliance/ComplianceCaseDetail";
+import ComplianceReviewQueue from "./pages/compliance/ComplianceReviewQueue";
+
 // QMS Pages
 import QMSDashboard from "./pages/qms/QMSDashboard";
 import Documents from "./pages/qms/Documents";
@@ -122,6 +128,12 @@ const App = () => (
 
             {/* Protected: NEW — Certificate Tracker */}
             <Route path="/dashboard/cert-tracker" element={<ProtectedRoute><CertTracker /></ProtectedRoute>} />
+
+            {/* Protected: Compliance Validator (BS 5839-1) */}
+            <Route path="/compliance" element={<ProtectedRoute><ComplianceDashboard /></ProtectedRoute>} />
+            <Route path="/compliance/cases" element={<ProtectedRoute><ComplianceCases /></ProtectedRoute>} />
+            <Route path="/compliance/cases/:id" element={<ProtectedRoute><ComplianceCaseDetail /></ProtectedRoute>} />
+            <Route path="/compliance/review-queue" element={<ProtectedRoute><ComplianceReviewQueue /></ProtectedRoute>} />
 
             {/* Protected: Settings */}
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
