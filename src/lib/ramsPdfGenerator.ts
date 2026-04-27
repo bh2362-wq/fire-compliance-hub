@@ -991,6 +991,14 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   // ── Signatures section ──
   msCheckPage(40);
 
+  // Auto-populated signatories for Prepared By and Reviewed By.
+  // Customer box remains blank for manual signing.
+  const generatedDate = format(new Date(), "dd/MM/yyyy");
+  const autoPreparerName = "Mike Stone";
+  const autoPreparerTitle = "QA Manager";
+  const autoReviewerName = "B Holden";
+  const autoReviewerTitle = "Company Director";
+
   const sigLabels = [
     "Prepared By",
     "Reviewed By",
@@ -998,7 +1006,18 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
   ];
   const sigs = [document.preparer_signature, document.reviewer_signature, document.client_signature];
   const sigDates = [document.preparer_signed_at, document.reviewer_signed_at, document.client_signed_at];
-  const sigNames = [document.preparer_name, document.reviewer_name, document.client_name];
+  const sigNames = [
+    document.preparer_name || autoPreparerName,
+    document.reviewer_name || autoReviewerName,
+    document.client_name,
+  ];
+  const sigTitles = [autoPreparerTitle, autoReviewerTitle, ""];
+  // Auto-render handwriting-style signatures for prepared/reviewed when none provided
+  const autoSignatureNames: (string | null)[] = [
+    sigs[0] ? null : autoPreparerName,
+    sigs[1] ? null : autoReviewerName,
+    null,
+  ];
 
   const sigW = (msCW - 10) / 3;
   for (let i = 0; i < 3; i++) {
@@ -1030,15 +1049,23 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
           msDoc.addImage(sigVal, "PNG", x + 2, msY + 4, sigW - 4, 14, undefined, "FAST");
         } catch { /* skip */ }
       }
+    } else if (autoSignatureNames[i]) {
+      // Auto handwriting-style signature
+      const name = autoSignatureNames[i]!;
+      msDoc.setFontSize(20);
+      msDoc.setFont("times", "italic");
+      msDoc.setTextColor(30, 41, 90);
+      const sigTextW = msDoc.getTextWidth(name);
+      const sigCenterX = x + (sigW - sigTextW) / 2;
+      msDoc.text(name, sigCenterX, msY + 15);
     }
 
     if (sigNames[i]) {
       msDoc.setFontSize(7);
-      msDoc.setFont("helvetica", "normal");
+      msDoc.setFont("helvetica", "bold");
       msDoc.setTextColor(...C.textDark);
       msDoc.text(sanitize(sigNames[i]!), x, msY + 26);
       // Add title beneath name
-      const sigTitles = ["QA Manager", "Director", ""];
       if (sigTitles[i]) {
         msDoc.setFontSize(6.5);
         msDoc.setFont("helvetica", "italic");
@@ -1047,10 +1074,15 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
       }
     }
 
-    if (sigDates[i]) {
+    // Date: use signed_at if present; otherwise, for auto-signed boxes (0,1) use generation date
+    const dateStr = sigDates[i]
+      ? format(new Date(sigDates[i]!), "dd/MM/yyyy HH:mm")
+      : (i < 2 ? `Date: ${generatedDate}` : "");
+    if (dateStr) {
       msDoc.setFontSize(6.5);
+      msDoc.setFont("helvetica", "normal");
       msDoc.setTextColor(...C.textGrey);
-      msDoc.text(format(new Date(sigDates[i]!), "dd/MM/yyyy HH:mm"), x, msY + 34);
+      msDoc.text(dateStr, x, msY + 34);
     }
   }
 
