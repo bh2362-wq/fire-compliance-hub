@@ -59,6 +59,8 @@ import { fetchActiveSubcontractors, Subcontractor } from "@/services/subcontract
 import { ReassignVisitDialog } from "./ReassignVisitDialog";
 import { MergeSitesDialog } from "@/components/sites/MergeSitesDialog";
 import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
+import BS5839CertificateForm from "@/components/smart-forms/BS5839CertificateForm";
+import { BS5839Payload } from "@/services/smartFormService";
 import { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
 import { toast as sonnerToast } from "sonner";
@@ -208,6 +210,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   } | null>(null);
 
   const [reassignVisit, setReassignVisit] = useState<Visit | null>(null);
+  const [smartFormVisit, setSmartFormVisit] = useState<Visit | null>(null);
+  const [smartFormPrefill, setSmartFormPrefill] = useState<Partial<BS5839Payload> | null>(null);
   const [mergeSitesOpen, setMergeSitesOpen] = useState(false);
   const [ramsGenerating, setRamsGenerating] = useState(false);
   const [ramsOpen, setRamsOpen] = useState(false);
@@ -978,6 +982,35 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   <Package className="w-4 h-4 mr-2" />
                   Job Requirements
                  </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    try {
+                      const { data: siteData } = await supabase
+                        .from("sites")
+                        .select("name, address, customer:customers(name)")
+                        .eq("id", visit.site_id)
+                        .single();
+                      const siteName = siteData?.name || "";
+                      const siteAddr = siteData?.address || "";
+                      const customerName = (siteData?.customer as any)?.name || "";
+                      setSmartFormPrefill({
+                        date_of_service: visit.visit_date,
+                        premises_name: siteName,
+                        premises_address: siteAddr,
+                        responsible_person_name: customerName,
+                        job_number: (visit as any).job_number || undefined,
+                      });
+                      setSmartFormVisit(visit);
+                    } catch (err) {
+                      console.error("Smart form prefill failed:", err);
+                      setSmartFormPrefill({ date_of_service: visit.visit_date });
+                      setSmartFormVisit(visit);
+                    }
+                  }}
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  BS 5839 Smart Cert
+                </DropdownMenuItem>
                 {visit.visit_type === 'subcontract' && (
                   <DropdownMenuItem onClick={async () => {
                     try {
@@ -1682,6 +1715,19 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           setSelectedVisitIds(new Set());
           onRefresh?.();
         }}
+      />
+      <BS5839CertificateForm
+        open={!!smartFormVisit}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSmartFormVisit(null);
+            setSmartFormPrefill(null);
+          }
+        }}
+        visitId={smartFormVisit?.id ?? null}
+        siteId={smartFormVisit?.site_id ?? null}
+        prefill={smartFormPrefill ?? undefined}
+        onSaved={onRefresh}
       />
     </div>
   );
