@@ -7,6 +7,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { SessionTimeoutWarning } from "@/components/SessionTimeoutWarning";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+
+// Pages
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -37,6 +39,9 @@ import ProductLookup from "./pages/ProductLookup";
 import CustomerForms from "./pages/CustomerForms";
 import RoutePlanner from "./pages/RoutePlanner";
 
+// ── NEW: Certificate Tracker ──
+import CertTracker from "./pages/CertTracker";
+
 // QMS Pages
 import QMSDashboard from "./pages/qms/QMSDashboard";
 import Documents from "./pages/qms/Documents";
@@ -60,6 +65,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* Public */}
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -67,31 +73,39 @@ const App = () => (
             <Route path="/shared-report/:token" element={<SharedReport />} />
             <Route path="/accept-quote/:token" element={<AcceptQuote />} />
             <Route path="/accept-visit/:token" element={<AcceptVisit />} />
+
+            {/* Protected: Core */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
+            <Route path="/dashboard/visits" element={<ProtectedRoute><Visits /></ProtectedRoute>} />
+            <Route path="/dashboard/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/dashboard/upload" element={<ProtectedRoute><UploadDemo /></ProtectedRoute>} />
+
+            {/* Protected: Clients */}
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
             <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
             <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
             <Route path="/sites/:siteId" element={<ProtectedRoute><SiteDetail /></ProtectedRoute>} />
+            {/* Legacy /dashboard/sites routes kept for compatibility */}
             <Route path="/dashboard/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
             <Route path="/dashboard/sites/:siteId" element={<ProtectedRoute><SiteDetail /></ProtectedRoute>} />
-            <Route path="/dashboard/visits" element={<ProtectedRoute><Visits /></ProtectedRoute>} />
-            <Route path="/dashboard/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-            <Route path="/dashboard/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-            <Route path="/dashboard/upload" element={<ProtectedRoute><UploadDemo /></ProtectedRoute>} />
-            <Route path="/dashboard/reconciliation" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
-            <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/dashboard/email-logs" element={<ProtectedRoute><EmailLogs /></ProtectedRoute>} />
-            <Route path="/dashboard/credit-control" element={<ProtectedRoute><CreditControl /></ProtectedRoute>} />
+
+            {/* Protected: Finance */}
+            <Route path="/dashboard/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
             <Route path="/dashboard/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
+            <Route path="/dashboard/credit-control" element={<ProtectedRoute><CreditControl /></ProtectedRoute>} />
             <Route path="/dashboard/purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
+            <Route path="/dashboard/reconciliation" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
+
+            {/* Protected: Tools */}
+            <Route path="/dashboard/route-planner" element={<ProtectedRoute><RoutePlanner /></ProtectedRoute>} />
             <Route path="/dashboard/email-scanner" element={<ProtectedRoute><EmailScanner /></ProtectedRoute>} />
             <Route path="/dashboard/device-pricing" element={<ProtectedRoute><DevicePricing /></ProtectedRoute>} />
             <Route path="/dashboard/product-lookup" element={<ProtectedRoute><ProductLookup /></ProtectedRoute>} />
             <Route path="/dashboard/customer-forms" element={<ProtectedRoute><CustomerForms /></ProtectedRoute>} />
-            <Route path="/dashboard/route-planner" element={<ProtectedRoute><RoutePlanner /></ProtectedRoute>} />
-            
-            {/* QMS Routes */}
+
+            {/* Protected: QMS */}
             <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
             <Route path="/qms/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
             <Route path="/qms/ncrs" element={<ProtectedRoute><NCRs /></ProtectedRoute>} />
@@ -103,10 +117,17 @@ const App = () => (
             <Route path="/qms/management-review" element={<ProtectedRoute><ManagementReview /></ProtectedRoute>} />
             <Route path="/qms/rams" element={<ProtectedRoute><RAMS /></ProtectedRoute>} />
             <Route path="/qms/supplier-evaluations" element={<ProtectedRoute><SupplierEvaluations /></ProtectedRoute>} />
-            
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+            {/* Protected: NEW — Certificate Tracker */}
+            <Route path="/dashboard/cert-tracker" element={<ProtectedRoute><CertTracker /></ProtectedRoute>} />
+
+            {/* Protected: Settings */}
+            <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+
+            {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+
           <SessionTimeoutWarning />
           <CookieConsentBanner />
         </BrowserRouter>
