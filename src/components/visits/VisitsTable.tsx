@@ -985,20 +985,67 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 <DropdownMenuItem
                   onClick={async () => {
                     try {
-                      const { data: siteData } = await supabase
-                        .from("sites")
-                        .select("name, address, customer:customers(name)")
-                        .eq("id", visit.site_id)
-                        .single();
+                      // Pull site, customer + fire-alarm assets in parallel
+                      const [{ data: siteData }, { data: assets }] = await Promise.all([
+                        supabase
+                          .from("sites")
+                          .select(
+                            "name, address, city, postcode, contact_name, contact_email, contact_phone, total_devices, customer:customers(name, contact_name, contact_email, contact_phone, address, city, postcode)"
+                          )
+                          .eq("id", visit.site_id)
+                          .single(),
+                        supabase
+                          .from("site_assets")
+                          .select("asset_type, item_name, manufacturer, model, zones_count, loops_count")
+                          .eq("site_id", visit.site_id),
+                      ]);
+
                       const siteName = siteData?.name || "";
-                      const siteAddr = siteData?.address || "";
-                      const customerName = (siteData?.customer as any)?.name || "";
+                      const addrParts = [siteData?.address, siteData?.city, siteData?.postcode]
+                        .filter(Boolean)
+                        .join(", ");
+                      const customer: any = siteData?.customer || {};
+                      const customerName = customer?.name || "";
+                      const responsibleName =
+                        siteData?.contact_name || customer?.contact_name || customerName;
+                      const responsibleContact =
+                        siteData?.contact_email ||
+                        siteData?.contact_phone ||
+                        customer?.contact_email ||
+                        customer?.contact_phone ||
+                        "";
+
+                      // Find first Fire Alarm Panel asset (case-insensitive)
+                      const fireAssets = (assets ?? []).filter((a: any) =>
+                        /fire.*alarm|panel|fa\b/i.test(`${a.asset_type ?? ""} ${a.item_name ?? ""}`)
+                      );
+                      const panel: any = fireAssets[0] || null;
+                      const totalLoops = fireAssets.reduce(
+                        (n: number, a: any) => n + (Number(a.loops_count) || 0),
+                        0
+                      );
+
+                      const inferredType: BS5839Payload["system_type"] = panel
+                        ? totalLoops > 0
+                          ? "Addressable"
+                          : "Conventional"
+                        : "";
+
                       setSmartFormPrefill({
                         date_of_service: visit.visit_date,
-                        premises_name: siteName,
-                        premises_address: siteAddr,
-                        responsible_person_name: customerName,
                         job_number: (visit as any).job_number || undefined,
+                        // Premises
+                        premises_name: siteName,
+                        premises_address: addrParts,
+                        responsible_person_name: responsibleName,
+                        responsible_person_contact: responsibleContact,
+                        site_contact: siteData?.contact_name || "",
+                        // System (from site_assets)
+                        panel_manufacturer: panel?.manufacturer || "",
+                        panel_model: panel?.model || "",
+                        number_of_panels: fireAssets.length || "",
+                        approx_number_of_devices: (siteData?.total_devices as number) || "",
+                        system_type: inferredType,
                       });
                       setSmartFormVisit(visit);
                     } catch (err) {
