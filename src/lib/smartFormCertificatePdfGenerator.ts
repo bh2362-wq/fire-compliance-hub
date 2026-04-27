@@ -487,7 +487,7 @@ export async function generateBS5839CertificatePDF(
     autoTable(doc, {
       startY: y,
       head: [["#", "Location", "Description", "Severity", "BS Ref", "Recommended Action", "Status"]],
-      body: defectRows,
+      body: defectRows as never,
       theme: "grid",
       headStyles: { fillColor: C.sectionBg, textColor: C.textDark, fontStyle: "bold", fontSize: 8 },
       styles: { fontSize: 7.5, cellPadding: 1.6, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2, valign: "middle" },
@@ -535,7 +535,7 @@ export async function generateBS5839CertificatePDF(
     autoTable(doc, {
       startY: y,
       head: [["#", "Variation", "Justification", "Agreed?"]],
-      body: varRows,
+      body: varRows as never,
       theme: "grid",
       headStyles: { fillColor: C.sectionBg, textColor: C.textDark, fontStyle: "bold", fontSize: 8 },
       styles: { fontSize: 7.8, cellPadding: 1.6, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2 },
