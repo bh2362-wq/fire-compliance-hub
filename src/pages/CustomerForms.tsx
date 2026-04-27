@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Plus, ClipboardCheck, Trash2, Edit, Download, Eye } from "lucide-react";
+import { FileText, Plus, ClipboardCheck, Trash2, Edit, Download, Eye, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Badge as BadgeUI } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   FormTemplate,
@@ -21,6 +23,7 @@ import { format } from "date-fns";
 
 export default function CustomerForms() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +131,13 @@ export default function CustomerForms() {
               <ClipboardCheck className="h-4 w-4 mr-1" />
               Filled Forms ({submissions.length})
             </TabsTrigger>
+            <TabsTrigger value="smart">
+              <Sparkles className="h-4 w-4 mr-1" />
+              Smart Forms
+              <BadgeUI className="ml-1.5 h-4 px-1 text-[9px] bg-amber-500/15 text-amber-600 border-amber-500/30">
+                BETA
+              </BadgeUI>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="templates" className="mt-4">
@@ -233,6 +243,27 @@ export default function CustomerForms() {
                 })}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="smart" className="mt-4">
+            <Card className="border-primary/20">
+              <CardContent className="py-10 text-center space-y-4">
+                <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Smart Forms (Beta)</h3>
+                  <p className="text-sm text-muted-foreground max-w-xl mx-auto mt-1">
+                    Next-generation, multi-step compliance forms — starting with the
+                    BS 5839-1:2025 Inspection &amp; Servicing Certificate.
+                  </p>
+                </div>
+                <Button onClick={() => navigate("/dashboard/smart-forms")}>
+                  <Sparkles className="h-4 w-4 mr-1.5" />
+                  Open Smart Forms
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
