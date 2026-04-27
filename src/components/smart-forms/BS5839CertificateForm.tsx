@@ -119,18 +119,42 @@ export default function BS5839CertificateForm({
     }
   }
 
+  async function runPdf(payloadToUse: BS5839Payload) {
+    try {
+      await generateBS5839CertificatePDF(payloadToUse, {
+        autoSign: true,
+        engineerFallbackName: payload.engineer_declaration_name || payload.engineer_name,
+      });
+      toast.success("PDF generated");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      toast.error(`PDF generation failed: ${(err as Error)?.message || "unknown error"}`);
+    }
+  }
+
   async function handleGeneratePdf() {
     if (errors.length > 0) {
-      toast.error(`${errors.length} validation issue(s) — fix before generating`);
+      const first = errors[0];
+      toast.error(`${errors.length} issue(s) — first: ${first.message}`, {
+        action: { label: "Go to step", onClick: () => setStep(first.step - 1) },
+      });
       return;
     }
     const saved = await persist("completed");
-    if (!saved) return;
-    await generateBS5839CertificatePDF(saved.payload, {
-      autoSign: true,
-      engineerFallbackName: payload.engineer_declaration_name || payload.engineer_name,
+    if (!saved) {
+      // Save failed — still try to download from current payload so the user gets the file
+      await runPdf(payload);
+      return;
+    }
+    await runPdf(saved.payload);
+  }
+
+  async function handleDownloadDraftPdf() {
+    // Bypass validation — useful for previewing partial / draft certificates
+    await runPdf({
+      ...payload,
+      certificate_reference: payload.certificate_reference || "DRAFT-BS5839",
     });
-    toast.success("PDF generated");
   }
 
   // ── Step renderers ────────────────────────────────────────────────────────
