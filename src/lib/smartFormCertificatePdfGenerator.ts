@@ -343,7 +343,7 @@ export async function generateBS5839CertificatePDF(
       { content: "Status", styles: { halign: "center" } },
       { content: "Comment", styles: { halign: "left" } },
     ]],
-    body: checklistRows,
+    body: checklistRows as never,
     theme: "grid",
     headStyles: { fillColor: C.sectionBg, textColor: C.textDark, fontStyle: "bold", fontSize: 8.5 },
     styles: { fontSize: 8, cellPadding: 1.8, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2, valign: "middle" },
