@@ -1051,21 +1051,19 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
         } catch { /* skip */ }
       }
     } else if (autoSignatureNames[i]) {
-      // Auto handwriting-style signature using embedded Caveat font
-      registerSignatureFont(msDoc);
+      // Auto handwriting-style signature.
+      // NOTE: We use jsPDF's built-in Times italic at large size for the signature
+      // look. Embedding a true script font (Caveat/Dancing Script) was attempted
+      // but jsPDF v4's TTF parser crashes on these Google Fonts at runtime.
+      // Times italic renders identically across all browsers and printers since
+      // it's a PDF Standard 14 font (no font subsetting / glyph fallback).
       const name = autoSignatureNames[i]!;
-      const hasCaveat = (msDoc as any).__caveatRegistered === true;
-      if (hasCaveat) {
-        msDoc.setFont("Caveat", "normal");
-        msDoc.setFontSize(32);
-      } else {
-        msDoc.setFont("times", "italic");
-        msDoc.setFontSize(20);
-      }
+      msDoc.setFont("times", "italic");
+      msDoc.setFontSize(22);
       msDoc.setTextColor(30, 41, 90);
       const sigTextW = msDoc.getTextWidth(name);
       const sigCenterX = x + (sigW - sigTextW) / 2;
-      msDoc.text(name, sigCenterX, msY + 16);
+      msDoc.text(name, sigCenterX, msY + 15);
     }
 
     if (sigNames[i]) {
