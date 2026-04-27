@@ -17,7 +17,7 @@ import {
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
-  listSmartFormSubmissions,
+  getSmartFormSubmissions,
   deleteSmartFormSubmission,
   SmartFormSubmission,
   BS5839Payload,
@@ -45,7 +45,7 @@ export default function SmartForms() {
   const load = async () => {
     setLoading(true);
     try {
-      const subs = await listSmartFormSubmissions();
+      const subs = await getSmartFormSubmissions();
       setSubmissions(subs);
     } catch (err) {
       console.error("Failed to load smart forms:", err);
@@ -83,9 +83,12 @@ export default function SmartForms() {
 
   const handleDownload = async (sub: SmartFormSubmission) => {
     try {
-      await generateBS5839CertificatePDF(sub.payload as BS5839Payload, {
-        certificateReference: sub.certificate_reference,
-      });
+      const payload = {
+        ...(sub.payload as BS5839Payload),
+        certificate_reference:
+          (sub.payload as BS5839Payload)?.certificate_reference || sub.certificate_reference,
+      };
+      await generateBS5839CertificatePDF(payload);
     } catch (err) {
       console.error(err);
       toast.error("Failed to generate PDF");
