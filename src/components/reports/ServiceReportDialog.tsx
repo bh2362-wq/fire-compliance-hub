@@ -113,7 +113,27 @@ export function ServiceReportDialog({
    const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
    // BAFE prompt state
    const [showBafePrompt, setShowBafePrompt] = useState(false);
-   const [creatingBafe, setCreatingBafe] = useState(false);
+  const [creatingBafe, setCreatingBafe] = useState(false);
+  // Site edit state
+  const [showSiteEditDialog, setShowSiteEditDialog] = useState(false);
+  const [siteForEdit, setSiteForEdit] = useState<Site | null>(null);
+  const [siteRefreshKey, setSiteRefreshKey] = useState(0);
+
+  const handleOpenSiteEdit = async () => {
+    const { site, error } = await getSiteById(visit.site_id);
+    if (error || !site) {
+      toast.error("Failed to load site for editing");
+      return;
+    }
+    setSiteForEdit(site);
+    setShowSiteEditDialog(true);
+  };
+
+  const handleSiteEditSuccess = () => {
+    setShowSiteEditDialog(false);
+    setSiteRefreshKey((k) => k + 1);
+    toast.success("Site updated. Re-download the PDF and re-upload to SharePoint to apply the changes.");
+  };
   // Determine if report is locked (completed)
   const isLocked = report?.status === "completed";
 
