@@ -31,7 +31,9 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download, AlertCircle, PenTool, CalendarIcon, Lock, Mail } from "lucide-react";
+import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download, AlertCircle, PenTool, CalendarIcon, Lock, Mail, Building2 } from "lucide-react";
+import SiteFormDialog from "@/components/sites/SiteFormDialog";
+import { getSiteById, type Site } from "@/services/siteService";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -111,7 +113,27 @@ export function ServiceReportDialog({
    const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
    // BAFE prompt state
    const [showBafePrompt, setShowBafePrompt] = useState(false);
-   const [creatingBafe, setCreatingBafe] = useState(false);
+  const [creatingBafe, setCreatingBafe] = useState(false);
+  // Site edit state
+  const [showSiteEditDialog, setShowSiteEditDialog] = useState(false);
+  const [siteForEdit, setSiteForEdit] = useState<Site | null>(null);
+  const [siteRefreshKey, setSiteRefreshKey] = useState(0);
+
+  const handleOpenSiteEdit = async () => {
+    const { site, error } = await getSiteById(visit.site_id);
+    if (error || !site) {
+      toast.error("Failed to load site for editing");
+      return;
+    }
+    setSiteForEdit(site);
+    setShowSiteEditDialog(true);
+  };
+
+  const handleSiteEditSuccess = () => {
+    setShowSiteEditDialog(false);
+    setSiteRefreshKey((k) => k + 1);
+    toast.success("Site updated. Re-download the PDF and re-upload to SharePoint to apply the changes.");
+  };
   // Determine if report is locked (completed)
   const isLocked = report?.status === "completed";
 
@@ -632,6 +654,7 @@ export function ServiceReportDialog({
   }
 
   return (
+    <>
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle className="flex items-center gap-2 flex-wrap">
@@ -645,6 +668,16 @@ export function ServiceReportDialog({
               <span className="sm:hidden">Locked</span>
             </Badge>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleOpenSiteEdit}
+            className="ml-auto h-7 px-2 text-xs"
+          >
+            <Building2 className="w-3.5 h-3.5 mr-1" />
+            Edit Site
+          </Button>
         </ResponsiveDialogTitle>
         <ResponsiveDialogDescription className="truncate">
           {visit.visit_type} at {visit.sites?.name} - {visit.visit_date}
@@ -1246,6 +1279,13 @@ export function ServiceReportDialog({
            </div>
          </DialogContent>
        </Dialog>
-     </ResponsiveDialog>
-  );
+      </ResponsiveDialog>
+      <SiteFormDialog
+        open={showSiteEditDialog}
+        onOpenChange={setShowSiteEditDialog}
+        site={siteForEdit}
+        onSuccess={handleSiteEditSuccess}
+      />
+    </>
+   );
 }
