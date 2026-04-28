@@ -667,6 +667,16 @@ export function ServiceReportDialog({
               <span className="sm:hidden">Locked</span>
             </Badge>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleOpenSiteEdit}
+            className="ml-auto h-7 px-2 text-xs"
+          >
+            <Building2 className="w-3.5 h-3.5 mr-1" />
+            Edit Site
+          </Button>
         </ResponsiveDialogTitle>
         <ResponsiveDialogDescription className="truncate">
           {visit.visit_type} at {visit.sites?.name} - {visit.visit_date}
