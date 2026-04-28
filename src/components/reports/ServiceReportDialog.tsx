@@ -1278,6 +1278,13 @@ export function ServiceReportDialog({
            </div>
          </DialogContent>
        </Dialog>
-     </ResponsiveDialog>
-  );
+      </ResponsiveDialog>
+      <SiteFormDialog
+        open={showSiteEditDialog}
+        onOpenChange={setShowSiteEditDialog}
+        site={siteForEdit}
+        onSuccess={handleSiteEditSuccess}
+      />
+    </>
+   );
 }
