@@ -654,6 +654,7 @@ export function ServiceReportDialog({
   }
 
   return (
+    <>
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle className="flex items-center gap-2 flex-wrap">
