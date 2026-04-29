@@ -31,7 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { deleteXeroInvoice, approveInvoice, XeroOutstandingInvoice, InvoiceLineItem, fetchInvoiceDetail } from "@/services/xeroService";
+import { deleteXeroInvoice, approveInvoice, XeroOutstandingInvoice, InvoiceLineItem, fetchInvoiceDetail, downloadInvoicePdf } from "@/services/xeroService";
 import { ManualInvoiceDialog, EditInvoiceData } from "@/components/xero/ManualInvoiceDialog";
 import { CustomerOverdueDialog } from "@/components/credit-control/CustomerOverdueDialog";
 import {
@@ -123,6 +123,7 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
   const [isBulkApproving, setIsBulkApproving] = useState(false);
   const [showBulkApproveConfirm, setShowBulkApproveConfirm] = useState(false);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
   const [filters, setFilters] = useState<InvoiceFilters>({
     customer: "",
     status: "",
@@ -291,6 +292,19 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
 
   const openInXero = (invoiceId: string) => {
     window.open(`https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${invoiceId}`, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDownloadPdf = async (invoice: XeroInvoice) => {
+    setDownloadingPdfId(invoice.invoiceId);
+    try {
+      await downloadInvoicePdf(invoice.invoiceId, invoice.invoiceNumber);
+      toast({ title: "PDF Downloaded", description: `Invoice ${invoice.invoiceNumber}` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to download PDF";
+      toast({ title: "Download Failed", description: message, variant: "destructive" });
+    } finally {
+      setDownloadingPdfId(null);
+    }
   };
 
   useEffect(() => {
@@ -833,6 +847,17 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                                   >
                                     <ExternalLink className="h-4 w-4 mr-2" />
                                     Open in Xero
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleDownloadPdf(invoice)}
+                                    disabled={downloadingPdfId === invoice.invoiceId}
+                                  >
+                                    {downloadingPdfId === invoice.invoiceId ? (
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : (
+                                      <Download className="h-4 w-4 mr-2" />
+                                    )}
+                                    Download PDF
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   {invoice.status === "DRAFT" && (
