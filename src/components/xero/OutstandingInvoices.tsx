@@ -848,6 +848,17 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
                                     <ExternalLink className="h-4 w-4 mr-2" />
                                     Open in Xero
                                   </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleDownloadPdf(invoice)}
+                                    disabled={downloadingPdfId === invoice.invoiceId}
+                                  >
+                                    {downloadingPdfId === invoice.invoiceId ? (
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : (
+                                      <Download className="h-4 w-4 mr-2" />
+                                    )}
+                                    Download PDF
+                                  </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   {invoice.status === "DRAFT" && (
                                     <DropdownMenuItem
