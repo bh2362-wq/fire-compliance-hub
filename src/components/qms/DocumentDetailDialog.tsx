@@ -61,6 +61,7 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
   const [changesSummary, setChangesSummary] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
   const handleGeneratePDF = async () => {
     if (!document) return;
