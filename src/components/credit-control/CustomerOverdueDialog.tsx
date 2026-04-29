@@ -41,13 +41,14 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Mail, Loader2, FileText, BarChart3,
-  MoreHorizontal, Pencil, ShieldCheck, CheckCircle, Trash2, Eye,
+  MoreHorizontal, Pencil, ShieldCheck, CheckCircle, Trash2, Eye, Download,
 } from "lucide-react";
 import {
   XeroOutstandingInvoice,
   deleteXeroInvoice,
   approveInvoice,
   fetchInvoiceDetail,
+  downloadInvoicePdf,
   InvoiceLineItem,
 } from "@/services/xeroService";
 import { supabase } from "@/integrations/supabase/client";
@@ -304,6 +305,19 @@ export function CustomerOverdueDialog({
                                 <DropdownMenuItem onClick={() => setViewingInvoice(invoice)}>
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    try {
+                                      await downloadInvoicePdf(invoice.invoiceId, invoice.invoiceNumber);
+                                      toast.success(`Invoice ${invoice.invoiceNumber} downloaded`);
+                                    } catch (err) {
+                                      toast.error(err instanceof Error ? err.message : "Failed to download PDF");
+                                    }
+                                  }}
+                                >
+                                  <Download className="mr-2 h-4 w-4" />
+                                  Download PDF
                                 </DropdownMenuItem>
 
                                 {invoice.status === "DRAFT" && (
