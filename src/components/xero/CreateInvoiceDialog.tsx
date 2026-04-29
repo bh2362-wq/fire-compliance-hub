@@ -256,7 +256,69 @@ export function CreateInvoiceDialog({
     }
   }, [open, restoredFromCache]);
 
+  const loadAcceptedQuotation = async (): Promise<boolean> => {
+    // Try to find an accepted quotation for this visit (or its site)
+    try {
+      const { data: quotes } = await supabase
+        .from("quotations")
+        .select("id, quotation_number, title, summary, total_amount, po_number, client_po_number, status, client_accepted_at, vat_rate")
+        .eq("visit_id", visit.id)
+        .in("status", ["accepted", "customer_accepted"])
+        .order("client_accepted_at", { ascending: false })
+        .limit(1);
+
+      const quote = quotes?.[0];
+      if (!quote) return false;
+
+      const { data: items } = await supabase
+        .from("quotation_line_items")
+        .select("description, item_name, quantity, unit_price, total_price, sort_order, parent_id")
+        .eq("quotation_id", quote.id)
+        .is("parent_id", null)
+        .order("sort_order", { ascending: true });
+
+      const po = quote.client_po_number || quote.po_number || "";
+      setPoNumber(po);
+      setReference(`Quote ${quote.quotation_number}${quote.title ? ` - ${quote.title}` : ""}`);
+
+      const summaryLines: string[] = [];
+      summaryLines.push(`Per accepted Quotation ${quote.quotation_number}${quote.title ? ` - ${quote.title}` : ""}`);
+      if (quote.summary) summaryLines.push(quote.summary);
+      if (visit.sites?.name) summaryLines.push(`Site: ${visit.sites.name}`);
+      if (po) summaryLines.push(`PO: ${po}`);
+
+      const lineItemsFromQuote: InvoiceLineItem[] =
+        items && items.length > 0
+          ? items.map((it: any) => ({
+              description: [it.item_name, it.description].filter(Boolean).join(" - ") || it.description || "Quoted item",
+              quantity: Number(it.quantity) || 1,
+              unitAmount: Number(it.unit_price) || 0,
+            }))
+          : [
+              {
+                description: summaryLines.join("\n"),
+                quantity: 1,
+                unitAmount: Number(quote.total_amount) || 0,
+              },
+            ];
+
+      // Prepend a summary line referencing the quote
+      setLineItems([
+        { description: summaryLines.join("\n"), quantity: 1, unitAmount: 0 },
+        ...lineItemsFromQuote,
+      ]);
+      return true;
+    } catch (err) {
+      console.error("Failed to load accepted quotation:", err);
+      return false;
+    }
+  };
+
   const loadServiceContract = async () => {
+    // First, prefer accepted quotation if one exists for this visit
+    const usedQuote = await loadAcceptedQuotation();
+    if (usedQuote) return;
+
     // Skip contract auto-fill for callouts and remedial works
     if (SKIP_CONTRACT_AUTOFILL.includes(visit.visit_type)) {
       setPoNumber("");
