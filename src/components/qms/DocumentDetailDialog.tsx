@@ -31,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { generateQMSDocumentPDF } from "@/lib/qmsDocumentPdfGenerator";
+import { EmailDocumentDialog } from "./EmailDocumentDialog";
 
 interface DocumentDetailDialogProps {
   open: boolean;
