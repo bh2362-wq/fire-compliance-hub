@@ -6,70 +6,70 @@
 
 @layer base {
   :root {
-    /* ── Backgrounds ── */
-    --background:  222 20% 9%;
-    --foreground:  210 18% 92%;
+    /* ── Backgrounds: soft off-white neutral ── */
+    --background:  36 33% 97%;
+    --foreground:  222 25% 14%;
 
-    --card:            222 20% 12%;
-    --card-foreground: 210 18% 92%;
+    --card:            0 0% 100%;
+    --card-foreground: 222 25% 14%;
 
-    --popover:            222 20% 12%;
-    --popover-foreground: 210 18% 92%;
+    --popover:            0 0% 100%;
+    --popover-foreground: 222 25% 14%;
 
     /* ── Brand: Fire Orange ── */
     --primary:            25 92% 54%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary:            222 16% 18%;
-    --secondary-foreground: 210 18% 80%;
+    --secondary:            36 20% 92%;
+    --secondary-foreground: 222 25% 20%;
 
-    --muted:            222 16% 15%;
-    --muted-foreground: 215 14% 50%;
+    --muted:            36 20% 94%;
+    --muted-foreground: 222 12% 42%;
 
     /* ── Accent: amber glow ── */
     --accent:            35 96% 54%;
-    --accent-foreground: 222 20% 8%;
+    --accent-foreground: 222 25% 12%;
 
     /* ── Semantic ── */
-    --destructive:            0 62% 54%;
+    --destructive:            0 72% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --success:            152 58% 42%;
+    --success:            152 58% 38%;
     --success-foreground: 0 0% 100%;
 
-    --warning:            38 92% 52%;
-    --warning-foreground: 222 20% 8%;
+    --warning:            38 92% 48%;
+    --warning-foreground: 222 25% 12%;
 
-    --border: 222 16% 18%;
-    --input:  222 16% 20%;
+    --border: 36 18% 88%;
+    --input:  36 18% 90%;
     --ring:   25 92% 54%;
 
     --radius: 0.5rem;
 
-    /* ── Sidebar: near-black ── */
-    --sidebar-background:         222 24% 6%;
-    --sidebar-foreground:         210 18% 80%;
+    /* ── Sidebar: warm light cream ── */
+    --sidebar-background:         36 30% 95%;
+    --sidebar-foreground:         222 22% 22%;
     --sidebar-primary:            25 92% 54%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent:             222 20% 12%;
-    --sidebar-accent-foreground:  210 18% 80%;
-    --sidebar-border:             222 16% 12%;
+    --sidebar-accent:             36 25% 90%;
+    --sidebar-accent-foreground:  222 25% 18%;
+    --sidebar-border:             36 18% 86%;
     --sidebar-ring:               25 92% 54%;
 
     /* ── Gradients & Shadows ── */
-    --gradient-hero:   linear-gradient(135deg, hsl(222 24% 6%) 0%, hsl(222 20% 12%) 50%, hsl(222 20% 16%) 100%);
+    --gradient-hero:   linear-gradient(135deg, hsl(36 33% 97%) 0%, hsl(36 28% 94%) 50%, hsl(36 25% 90%) 100%);
     --gradient-accent: linear-gradient(135deg, hsl(25 92% 54%) 0%, hsl(35 96% 54%) 100%);
-    --gradient-card:   linear-gradient(180deg, hsl(222 20% 13%) 0%, hsl(222 20% 10%) 100%);
+    --gradient-card:   linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(36 30% 97%) 100%);
 
-    --shadow-sm: 0 1px 2px 0 hsl(222 24% 4% / 0.4);
-    --shadow-md: 0 4px 6px -1px hsl(222 24% 4% / 0.5), 0 2px 4px -1px hsl(222 24% 4% / 0.3);
-    --shadow-lg: 0 10px 15px -3px hsl(222 24% 4% / 0.6), 0 4px 6px -2px hsl(222 24% 4% / 0.4);
-    --shadow-xl: 0 20px 25px -5px hsl(222 24% 4% / 0.6), 0 10px 10px -5px hsl(222 24% 4% / 0.4);
-    --shadow-glow: 0 0 28px hsl(25 92% 54% / 0.18);
+    --shadow-sm: 0 1px 2px 0 hsl(222 25% 14% / 0.06);
+    --shadow-md: 0 4px 6px -1px hsl(222 25% 14% / 0.08), 0 2px 4px -1px hsl(222 25% 14% / 0.05);
+    --shadow-lg: 0 10px 15px -3px hsl(222 25% 14% / 0.1), 0 4px 6px -2px hsl(222 25% 14% / 0.06);
+    --shadow-xl: 0 20px 25px -5px hsl(222 25% 14% / 0.12), 0 10px 10px -5px hsl(222 25% 14% / 0.06);
+    --shadow-glow: 0 0 28px hsl(25 92% 54% / 0.22);
   }
 
   .dark {
-    /* Already dark by default */
+    /* Light theme is default; dark overrides intentionally omitted */
   }
 }
 
