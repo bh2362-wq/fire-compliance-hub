@@ -123,6 +123,7 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
   const [isBulkApproving, setIsBulkApproving] = useState(false);
   const [showBulkApproveConfirm, setShowBulkApproveConfirm] = useState(false);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
   const [filters, setFilters] = useState<InvoiceFilters>({
     customer: "",
     status: "",
