@@ -191,7 +191,11 @@ function ensureSpace(
   return yPos;
 }
 
-export async function generateQMSDocumentPDF(document: QMSDocument): Promise<void> {
+export function getQMSDocumentFileName(document: QMSDocument): string {
+  return `${document.document_number}-${document.title.replace(/[^a-zA-Z0-9]/g, "-")}.pdf`;
+}
+
+async function buildQMSDocumentPDF(document: QMSDocument): Promise<jsPDF> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
