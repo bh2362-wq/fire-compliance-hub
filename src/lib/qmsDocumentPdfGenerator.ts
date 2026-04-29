@@ -191,7 +191,11 @@ function ensureSpace(
   return yPos;
 }
 
-export async function generateQMSDocumentPDF(document: QMSDocument): Promise<void> {
+export function getQMSDocumentFileName(document: QMSDocument): string {
+  return `${document.document_number}-${document.title.replace(/[^a-zA-Z0-9]/g, "-")}.pdf`;
+}
+
+async function buildQMSDocumentPDF(document: QMSDocument): Promise<jsPDF> {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -362,6 +366,22 @@ export async function generateQMSDocumentPDF(document: QMSDocument): Promise<voi
   // Footer (page numbers + company line)
   addFooter(doc, pageWidth, margin, company);
 
-  const fileName = `${document.document_number}-${document.title.replace(/[^a-zA-Z0-9]/g, "-")}.pdf`;
-  doc.save(fileName);
+  return doc;
+}
+
+export async function generateQMSDocumentPDF(document: QMSDocument): Promise<void> {
+  const doc = await buildQMSDocumentPDF(document);
+  doc.save(getQMSDocumentFileName(document));
+}
+
+export async function generateQMSDocumentPDFBlob(document: QMSDocument): Promise<Blob> {
+  const doc = await buildQMSDocumentPDF(document);
+  return doc.output("blob");
+}
+
+export async function generateQMSDocumentPDFBase64(document: QMSDocument): Promise<string> {
+  const doc = await buildQMSDocumentPDF(document);
+  // jsPDF returns a base64 data URI when using "datauristring"; strip prefix
+  const dataUri = doc.output("datauristring");
+  return dataUri.split(",")[1] || "";
 }

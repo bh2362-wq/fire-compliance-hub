@@ -23,6 +23,7 @@ import {
   Hash,
   RefreshCw,
   Upload,
+  Mail,
 } from "lucide-react";
 import { format } from "date-fns";
 import { QMSDocument, fetchDocumentVersions, uploadDocumentVersion } from "@/services/qmsService";
@@ -30,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { generateQMSDocumentPDF } from "@/lib/qmsDocumentPdfGenerator";
+import { EmailDocumentDialog } from "./EmailDocumentDialog";
 
 interface DocumentDetailDialogProps {
   open: boolean;
@@ -59,6 +61,7 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
   const [changesSummary, setChangesSummary] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
 
   const handleGeneratePDF = async () => {
     if (!document) return;
@@ -160,16 +163,27 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
           )}
         </div>
 
-        {/* Generate Branded PDF */}
-        <Button
-          onClick={handleGeneratePDF}
-          disabled={generatingPdf}
-          className="w-full"
-          variant="outline"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          {generatingPdf ? "Generating..." : "Generate Branded PDF"}
-        </Button>
+        {/* Generate / Email Branded PDF */}
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            onClick={handleGeneratePDF}
+            disabled={generatingPdf}
+            variant="outline"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {generatingPdf ? "Generating..." : "Download PDF"}
+          </Button>
+          <Button onClick={() => setEmailDialogOpen(true)} variant="outline">
+            <Mail className="h-4 w-4 mr-2" />
+            Email Document
+          </Button>
+        </div>
+
+        <EmailDocumentDialog
+          open={emailDialogOpen}
+          onOpenChange={setEmailDialogOpen}
+          document={document}
+        />
 
         {/* Description */}
         {document.description && (
