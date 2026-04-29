@@ -294,6 +294,19 @@ export function OutstandingInvoices({ searchQuery = "" }: OutstandingInvoicesPro
     window.open(`https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${invoiceId}`, "_blank", "noopener,noreferrer");
   };
 
+  const handleDownloadPdf = async (invoice: XeroInvoice) => {
+    setDownloadingPdfId(invoice.invoiceId);
+    try {
+      await downloadInvoicePdf(invoice.invoiceId, invoice.invoiceNumber);
+      toast({ title: "PDF Downloaded", description: `Invoice ${invoice.invoiceNumber}` });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to download PDF";
+      toast({ title: "Download Failed", description: message, variant: "destructive" });
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
+
   useEffect(() => {
     fetchOutstandingInvoices();
   }, []);
