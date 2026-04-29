@@ -23,6 +23,7 @@ import {
   Hash,
   RefreshCw,
   Upload,
+  Mail,
 } from "lucide-react";
 import { format } from "date-fns";
 import { QMSDocument, fetchDocumentVersions, uploadDocumentVersion } from "@/services/qmsService";
