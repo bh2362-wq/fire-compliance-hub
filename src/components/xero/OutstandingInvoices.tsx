@@ -31,7 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { deleteXeroInvoice, approveInvoice, XeroOutstandingInvoice, InvoiceLineItem, fetchInvoiceDetail } from "@/services/xeroService";
+import { deleteXeroInvoice, approveInvoice, XeroOutstandingInvoice, InvoiceLineItem, fetchInvoiceDetail, downloadInvoicePdf } from "@/services/xeroService";
 import { ManualInvoiceDialog, EditInvoiceData } from "@/components/xero/ManualInvoiceDialog";
 import { CustomerOverdueDialog } from "@/components/credit-control/CustomerOverdueDialog";
 import {
