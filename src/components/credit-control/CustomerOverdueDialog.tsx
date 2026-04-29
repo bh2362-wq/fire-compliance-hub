@@ -41,13 +41,14 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Mail, Loader2, FileText, BarChart3,
-  MoreHorizontal, Pencil, ShieldCheck, CheckCircle, Trash2, Eye,
+  MoreHorizontal, Pencil, ShieldCheck, CheckCircle, Trash2, Eye, Download,
 } from "lucide-react";
 import {
   XeroOutstandingInvoice,
   deleteXeroInvoice,
   approveInvoice,
   fetchInvoiceDetail,
+  downloadInvoicePdf,
   InvoiceLineItem,
 } from "@/services/xeroService";
 import { supabase } from "@/integrations/supabase/client";
