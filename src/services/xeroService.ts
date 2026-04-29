@@ -309,6 +309,29 @@ export async function approveInvoice(invoiceId: string): Promise<{ success: bool
   return data;
 }
 
+export async function downloadInvoicePdf(invoiceId: string, invoiceNumber: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke("xero-invoice-pdf", {
+    body: { invoiceId },
+  });
+
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  if (!data?.pdfBase64) throw new Error("No PDF data returned");
+
+  const binary = atob(data.pdfBase64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `invoice-${invoiceNumber || invoiceId}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export async function fetchInvoiceDetail(invoiceId: string): Promise<XeroOutstandingInvoice> {
   const { data, error } = await supabase.functions.invoke("xero-invoice-detail", {
     body: { invoiceId },
