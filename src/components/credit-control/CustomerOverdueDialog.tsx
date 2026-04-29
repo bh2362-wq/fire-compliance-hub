@@ -306,6 +306,19 @@ export function CustomerOverdueDialog({
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Details
                                 </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    try {
+                                      await downloadInvoicePdf(invoice.invoiceId, invoice.invoiceNumber);
+                                      toast.success(`Invoice ${invoice.invoiceNumber} downloaded`);
+                                    } catch (err) {
+                                      toast.error(err instanceof Error ? err.message : "Failed to download PDF");
+                                    }
+                                  }}
+                                >
+                                  <Download className="mr-2 h-4 w-4" />
+                                  Download PDF
+                                </DropdownMenuItem>
 
                                 {invoice.status === "DRAFT" && (
                                   <>
