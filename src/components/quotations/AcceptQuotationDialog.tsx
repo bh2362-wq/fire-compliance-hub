@@ -100,10 +100,40 @@ export function AcceptQuotationDialog({
 
       if (updateError) throw updateError;
 
-      // 2. Create remedial visit linked to the quotation
+      // 2. Fetch quotation details + line items to populate the works description
+      const { data: quoteFull } = await supabase
+        .from("quotations")
+        .select("title, summary, total_amount, quotation_line_items(item_name, description, quantity, sort_order)")
+        .eq("id", quotation.id)
+        .single();
+
+      const lineItems = (quoteFull?.quotation_line_items || [])
+        .slice()
+        .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+
+      const worksLines: string[] = [];
+      worksLines.push(`Remedial works from quotation ${quotation.quotation_number}`);
+      if (poNumber) worksLines.push(`Customer PO: ${poNumber}`);
+      if (quoteFull?.title) worksLines.push(`Title: ${quoteFull.title}`);
+      if (quoteFull?.summary) worksLines.push(`\nSummary:\n${quoteFull.summary}`);
+      if (lineItems.length > 0) {
+        worksLines.push(`\nScope of works:`);
+        lineItems.forEach((li: any, idx: number) => {
+          const name = li.item_name || li.description || "Item";
+          const qty = li.quantity && li.quantity !== 1 ? ` (x${li.quantity})` : "";
+          worksLines.push(`${idx + 1}. ${name}${qty}`);
+          if (li.item_name && li.description && li.description !== li.item_name) {
+            worksLines.push(`   ${li.description}`);
+          }
+        });
+      }
+      if (quoteFull?.total_amount != null) {
+        worksLines.push(`\nQuoted total: £${Number(quoteFull.total_amount).toFixed(2)}`);
+      }
+
       const visitNotes = JSON.stringify({
         asset_type: "general",
-        user_notes: `Remedial works from ${quotation.quotation_number}${poNumber ? ` (PO: ${poNumber})` : ""}`,
+        user_notes: worksLines.join("\n"),
         quotation_number: quotation.quotation_number,
         po_number: poNumber || null,
       });
