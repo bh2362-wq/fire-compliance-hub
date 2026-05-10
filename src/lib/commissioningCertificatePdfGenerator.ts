@@ -31,8 +31,6 @@ function resultColor(r: string): [number, number, number] {
   return C.lightGrey;
 }
 
-}
-
 
 async function loadImageAsBase64(url: string): Promise<string | null> {
   try {
