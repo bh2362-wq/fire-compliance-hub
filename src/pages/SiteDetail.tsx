@@ -258,8 +258,13 @@ const SiteDetail = () => {
           </div>
         </div>
 
+        {/* BS 5839-1 Certificates */}
+        <CollapsibleSection title="BS 5839-1 Certificates" icon={ShieldCheck} defaultOpen={true}>
+          <SiteSmartCerts siteId={site.id} />
+        </CollapsibleSection>
+
         {/* BAFE SP203-1 Certificates */}
-        <CollapsibleSection title="BAFE SP203-1 Certificates" icon={ShieldCheck} defaultOpen={true}>
+        <CollapsibleSection title="BAFE Manual Records" icon={ShieldCheck} defaultOpen={false}>
           <SiteBafeCertificates siteId={site.id} />
         </CollapsibleSection>
 
