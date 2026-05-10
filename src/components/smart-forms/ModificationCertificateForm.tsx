@@ -46,10 +46,11 @@ interface Props {
   visitId?: string | null;
   siteId?: string | null;
   customerId?: string | null;
+  prefill?: Partial<ModificationPayload>;
   onSaved?: () => void;
 }
 
-export default function ModificationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, onSaved }: Props) {
+export default function ModificationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
@@ -57,8 +58,12 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) { setStep(0); setSubmissionId(null); setPayload(emptyPayload()); }
-  }, [open]);
+    if (open) {
+      setStep(0);
+      setSubmissionId(null);
+      setPayload(prefill ? { ...emptyPayload(), ...prefill } : emptyPayload());
+    }
+  }, [open, prefill]);
 
   const errors = useMemo(() => validateModification(payload), [payload]);
   const errorsByStep = useMemo(() => {
@@ -104,7 +109,7 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
       return;
     }
     const saved = await persist("completed");
-    await generateModificationCertificatePDF((saved?.payload as ModificationPayload) ?? payload, { autoSign: true });
+    await generateModificationCertificatePDF(saved?.payload ?? payload, { autoSign: true });
   }
 
   const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
