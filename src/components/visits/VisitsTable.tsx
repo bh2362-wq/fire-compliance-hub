@@ -63,6 +63,8 @@ import BS5839CertificateForm from "@/components/smart-forms/BS5839CertificateFor
 import InstallationCertificateForm from "@/components/smart-forms/InstallationCertificateForm";
 import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
 import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
+import { buildCertPrefill } from "@/services/certPrefillService";
+import { InstallationPayload, CommissioningPayload, ModificationPayload } from "@/services/newCertificateService";
 import { BS5839Payload } from "@/services/smartFormService";
 import { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
