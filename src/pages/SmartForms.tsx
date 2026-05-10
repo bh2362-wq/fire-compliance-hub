@@ -107,11 +107,12 @@ export default function SmartForms() {
   const handleDownload = async (sub: SmartFormSubmission) => {
     try {
       const p = sub.payload as any;
-      if (sub.form_type === "bs5839_installation") {
+      const ft = sub.form_type as string;
+      if (ft === "bs5839_installation") {
         await generateInstallationCertificatePDF(p, { autoSign: true });
-      } else if (sub.form_type === "bs5839_commissioning") {
+      } else if (ft === "bs5839_commissioning") {
         await generateCommissioningCertificatePDF(p, { autoSign: true });
-      } else if (sub.form_type === "bs5839_modification") {
+      } else if (ft === "bs5839_modification") {
         await generateModificationCertificatePDF(p, { autoSign: true });
       } else {
         await generateBS5839CertificatePDF(p, { autoSign: true });
