@@ -69,9 +69,9 @@ async function fetchAuditReadinessData() {
   };
 }
 
-export function BafeAuditReadinessChecklist() {
+export function FIAAuditReadinessChecklist() {
   const { data, isLoading } = useQuery({
-    queryKey: ["bafe-audit-readiness"],
+    queryKey: ["fia-audit-readiness"],
     queryFn: fetchAuditReadinessData,
   });
 
@@ -280,8 +280,8 @@ export function BafeAuditReadinessChecklist() {
               <ShieldCheck className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">BAFE SP203-1 Audit Readiness</CardTitle>
-              <CardDescription>Surveillance visit evidence checklist</CardDescription>
+              <CardTitle className="text-lg">FIA & ISO 9001:2015 Audit Readiness</CardTitle>
+              <CardDescription>FIA membership and ISO 9001 evidence checklist</CardDescription>
             </div>
           </div>
           <div className="text-right">
