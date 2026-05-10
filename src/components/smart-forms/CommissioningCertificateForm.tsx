@@ -45,6 +45,15 @@ interface Props {
   onSaved?: () => void;
 }
 
+function FieldRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+      {children}
+    </div>
+  );
+}
+
 export default function CommissioningCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
@@ -113,12 +122,7 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
     await generateCommissioningCertificatePDF((saved?.payload as CommissioningPayload) ?? payload, { autoSign: true });
   }
 
-  const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
-      {children}
-    </div>
-  );
+  const F = FieldRow;
 
   const renderStep = () => {
     switch (step) {
