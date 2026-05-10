@@ -291,4 +291,6 @@ export async function generateInstallationCertificatePDF(
   drawFooter();
   const filename = `${sanitize(payload.certificate_reference) || "Installation-Certificate"}.pdf`;
   doc.save(filename);
+  const base64 = doc.output("datauristring").split(",")[1] ?? "";
+  return { base64, fileName: filename };
 }
