@@ -39,10 +39,11 @@ interface Props {
   visitId?: string | null;
   siteId?: string | null;
   customerId?: string | null;
+  prefill?: Partial<InstallationPayload>;
   onSaved?: () => void;
 }
 
-export default function InstallationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, onSaved }: Props) {
+export default function InstallationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
@@ -50,8 +51,12 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) { setStep(0); setSubmissionId(null); setPayload(emptyPayload()); }
-  }, [open]);
+    if (open) {
+      setStep(0);
+      setSubmissionId(null);
+      setPayload(prefill ? { ...emptyPayload(), ...prefill } : emptyPayload());
+    }
+  }, [open, prefill]);
 
   const errors = useMemo(() => validateInstallation(payload), [payload]);
   const errorsByStep = useMemo(() => {
@@ -94,7 +99,7 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
       return;
     }
     const saved = await persist("completed");
-    await generateInstallationCertificatePDF((saved?.payload as InstallationPayload) ?? payload, { autoSign: true });
+    await generateInstallationCertificatePDF(saved?.payload ?? payload, { autoSign: true });
   }
 
   async function handleDraftPdf() {

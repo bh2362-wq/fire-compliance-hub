@@ -41,10 +41,11 @@ interface Props {
   visitId?: string | null;
   siteId?: string | null;
   customerId?: string | null;
+  prefill?: Partial<CommissioningPayload>;
   onSaved?: () => void;
 }
 
-export default function CommissioningCertificateForm({ open, onOpenChange, visitId, siteId, customerId, onSaved }: Props) {
+export default function CommissioningCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
@@ -52,8 +53,12 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) { setStep(0); setSubmissionId(null); setPayload(emptyPayload()); }
-  }, [open]);
+    if (open) {
+      setStep(0);
+      setSubmissionId(null);
+      setPayload(prefill ? { ...emptyPayload(), ...prefill } : emptyPayload());
+    }
+  }, [open, prefill]);
 
   const errors = useMemo(() => validateCommissioning(payload), [payload]);
   const errorsByStep = useMemo(() => {
@@ -105,7 +110,7 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
       return;
     }
     const saved = await persist("completed");
-    await generateCommissioningCertificatePDF((saved?.payload as CommissioningPayload) ?? payload, { autoSign: true });
+    await generateCommissioningCertificatePDF(saved?.payload ?? payload, { autoSign: true });
   }
 
   const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
