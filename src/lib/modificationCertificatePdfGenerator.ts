@@ -65,7 +65,7 @@ function fitToBox(naturalW: number, naturalH: number, maxW: number, maxH: number
 export async function generateModificationCertificatePDF(
   payload: ModificationPayload,
   options?: { autoSign?: boolean }
-): Promise<void> {
+): Promise<{ base64: string; fileName: string }> {
   const { data: company } = await supabase.from("company_settings").select("*").limit(1).maybeSingle();
   const logoUrl = company?.report_logo_url || company?.company_logo_url || null;
   const logoData = logoUrl ? await loadLogoWithSize(logoUrl) : null;
