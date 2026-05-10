@@ -1768,23 +1768,26 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       />
       <InstallationCertificateForm
         open={!!installCertVisit}
-        onOpenChange={(open) => { if (!open) setInstallCertVisit(null); }}
+        onOpenChange={(open) => { if (!open) { setInstallCertVisit(null); setInstallCertPrefill(null); } }}
         visitId={installCertVisit?.id ?? null}
         siteId={installCertVisit?.site_id ?? null}
+        prefill={installCertPrefill ?? undefined}
         onSaved={onRefresh}
       />
       <CommissioningCertificateForm
         open={!!commCertVisit}
-        onOpenChange={(open) => { if (!open) setCommCertVisit(null); }}
+        onOpenChange={(open) => { if (!open) { setCommCertVisit(null); setCommCertPrefill(null); } }}
         visitId={commCertVisit?.id ?? null}
         siteId={commCertVisit?.site_id ?? null}
+        prefill={commCertPrefill ?? undefined}
         onSaved={onRefresh}
       />
       <ModificationCertificateForm
         open={!!modCertVisit}
-        onOpenChange={(open) => { if (!open) setModCertVisit(null); }}
+        onOpenChange={(open) => { if (!open) { setModCertVisit(null); setModCertPrefill(null); } }}
         visitId={modCertVisit?.id ?? null}
         siteId={modCertVisit?.site_id ?? null}
+        prefill={modCertPrefill ?? undefined}
         onSaved={onRefresh}
       />
       <BS5839CertificateForm
