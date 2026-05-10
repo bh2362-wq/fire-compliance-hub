@@ -60,6 +60,9 @@ import { ReassignVisitDialog } from "./ReassignVisitDialog";
 import { MergeSitesDialog } from "@/components/sites/MergeSitesDialog";
 import { RamsDocumentDialog } from "@/components/rams/RamsDocumentDialog";
 import BS5839CertificateForm from "@/components/smart-forms/BS5839CertificateForm";
+import InstallationCertificateForm from "@/components/smart-forms/InstallationCertificateForm";
+import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
+import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
 import { BS5839Payload } from "@/services/smartFormService";
 import { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
@@ -212,6 +215,9 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [reassignVisit, setReassignVisit] = useState<Visit | null>(null);
   const [smartFormVisit, setSmartFormVisit] = useState<Visit | null>(null);
   const [smartFormPrefill, setSmartFormPrefill] = useState<Partial<BS5839Payload> | null>(null);
+  const [installCertVisit, setInstallCertVisit] = useState<Visit | null>(null);
+  const [commCertVisit, setCommCertVisit] = useState<Visit | null>(null);
+  const [modCertVisit, setModCertVisit] = useState<Visit | null>(null);
   const [mergeSitesOpen, setMergeSitesOpen] = useState(false);
   const [ramsGenerating, setRamsGenerating] = useState(false);
   const [ramsOpen, setRamsOpen] = useState(false);
@@ -982,82 +988,76 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   <Package className="w-4 h-4 mr-2" />
                   Job Requirements
                  </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={async () => {
-                    try {
-                      // Pull site, customer + fire-alarm assets in parallel
-                      const [{ data: siteData }, { data: assets }] = await Promise.all([
-                        supabase
-                          .from("sites")
-                          .select(
-                            "name, address, city, postcode, contact_name, contact_email, contact_phone, total_devices, customer:customers(name, contact_name, contact_email, contact_phone, address, city, postcode)"
-                          )
-                          .eq("id", visit.site_id)
-                          .single(),
-                        supabase
-                          .from("site_assets")
-                          .select("asset_type, item_name, manufacturer, model, zones_count, loops_count")
-                          .eq("site_id", visit.site_id),
-                      ]);
-
-                      const siteName = siteData?.name || "";
-                      const addrParts = [siteData?.address, siteData?.city, siteData?.postcode]
-                        .filter(Boolean)
-                        .join(", ");
-                      const customer: any = siteData?.customer || {};
-                      const customerName = customer?.name || "";
-                      const responsibleName =
-                        siteData?.contact_name || customer?.contact_name || customerName;
-                      const responsibleContact =
-                        siteData?.contact_email ||
-                        siteData?.contact_phone ||
-                        customer?.contact_email ||
-                        customer?.contact_phone ||
-                        "";
-
-                      // Find first Fire Alarm Panel asset (case-insensitive)
-                      const fireAssets = (assets ?? []).filter((a: any) =>
-                        /fire.*alarm|panel|fa\b/i.test(`${a.asset_type ?? ""} ${a.item_name ?? ""}`)
-                      );
-                      const panel: any = fireAssets[0] || null;
-                      const totalLoops = fireAssets.reduce(
-                        (n: number, a: any) => n + (Number(a.loops_count) || 0),
-                        0
-                      );
-
-                      const inferredType: BS5839Payload["system_type"] = panel
-                        ? totalLoops > 0
-                          ? "Addressable"
-                          : "Conventional"
-                        : "";
-
-                      setSmartFormPrefill({
-                        date_of_service: visit.visit_date,
-                        job_number: (visit as any).job_number || undefined,
-                        // Premises
-                        premises_name: siteName,
-                        premises_address: addrParts,
-                        responsible_person_name: responsibleName,
-                        responsible_person_contact: responsibleContact,
-                        site_contact: siteData?.contact_name || "",
-                        // System (from site_assets)
-                        panel_manufacturer: panel?.manufacturer || "",
-                        panel_model: panel?.model || "",
-                        number_of_panels: fireAssets.length || "",
-                        approx_number_of_devices: (siteData?.total_devices as number) || "",
-                        system_type: inferredType,
-                      });
-                      setSmartFormVisit(visit);
-                    } catch (err) {
-                      console.error("Smart form prefill failed:", err);
-                      setSmartFormPrefill({ date_of_service: visit.visit_date });
-                      setSmartFormVisit(visit);
-                    }
-                  }}
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  BS 5839 Smart Cert
-                </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Issue Certificate
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuPortal>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          try {
+                            const [{ data: siteData }, { data: assets }] = await Promise.all([
+                              supabase
+                                .from("sites")
+                                .select("name, address, city, postcode, contact_name, contact_email, contact_phone, total_devices, customer:customers(name, contact_name, contact_email, contact_phone, address, city, postcode)")
+                                .eq("id", visit.site_id)
+                                .single(),
+                              supabase
+                                .from("site_assets")
+                                .select("asset_type, item_name, manufacturer, model, zones_count, loops_count")
+                                .eq("site_id", visit.site_id),
+                            ]);
+                            const siteName = siteData?.name || "";
+                            const addrParts = [siteData?.address, siteData?.city, siteData?.postcode].filter(Boolean).join(", ");
+                            const customer: any = siteData?.customer || {};
+                            const responsibleName = siteData?.contact_name || customer?.contact_name || customer?.name || "";
+                            const responsibleContact = siteData?.contact_email || siteData?.contact_phone || customer?.contact_email || customer?.contact_phone || "";
+                            const fireAssets = (assets ?? []).filter((a: any) => /fire.*alarm|panel|fa\b/i.test(`${a.asset_type ?? ""} ${a.item_name ?? ""}`));
+                            const panel: any = fireAssets[0] || null;
+                            const totalLoops = fireAssets.reduce((n: number, a: any) => n + (Number(a.loops_count) || 0), 0);
+                            const inferredType: BS5839Payload["system_type"] = panel ? (totalLoops > 0 ? "Addressable" : "Conventional") : "";
+                            setSmartFormPrefill({
+                              date_of_service: visit.visit_date,
+                              job_number: (visit as any).job_number || undefined,
+                              premises_name: siteName,
+                              premises_address: addrParts,
+                              responsible_person_name: responsibleName,
+                              responsible_person_contact: responsibleContact,
+                              site_contact: siteData?.contact_name || "",
+                              panel_manufacturer: panel?.manufacturer || "",
+                              panel_model: panel?.model || "",
+                              number_of_panels: fireAssets.length || "",
+                              approx_number_of_devices: (siteData?.total_devices as number) || "",
+                              system_type: inferredType,
+                            });
+                            setSmartFormVisit(visit);
+                          } catch (err) {
+                            console.error("Smart form prefill failed:", err);
+                            setSmartFormPrefill({ date_of_service: visit.visit_date });
+                            setSmartFormVisit(visit);
+                          }
+                        }}
+                      >
+                        <Sparkles className="w-3.5 h-3.5 mr-2" />
+                        Inspection &amp; Servicing
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setInstallCertVisit(visit)}>
+                        <FileText className="w-3.5 h-3.5 mr-2" />
+                        Installation (FD/02)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCommCertVisit(visit)}>
+                        <ClipboardCheck className="w-3.5 h-3.5 mr-2" />
+                        Commissioning (FD/03)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setModCertVisit(visit)}>
+                        <Pencil className="w-3.5 h-3.5 mr-2" />
+                        Modification (FD/05)
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuPortal>
+                </DropdownMenuSub>
                 {visit.visit_type === 'subcontract' && (
                   <DropdownMenuItem onClick={async () => {
                     try {
@@ -1762,6 +1762,27 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           setSelectedVisitIds(new Set());
           onRefresh?.();
         }}
+      />
+      <InstallationCertificateForm
+        open={!!installCertVisit}
+        onOpenChange={(open) => { if (!open) setInstallCertVisit(null); }}
+        visitId={installCertVisit?.id ?? null}
+        siteId={installCertVisit?.site_id ?? null}
+        onSaved={onRefresh}
+      />
+      <CommissioningCertificateForm
+        open={!!commCertVisit}
+        onOpenChange={(open) => { if (!open) setCommCertVisit(null); }}
+        visitId={commCertVisit?.id ?? null}
+        siteId={commCertVisit?.site_id ?? null}
+        onSaved={onRefresh}
+      />
+      <ModificationCertificateForm
+        open={!!modCertVisit}
+        onOpenChange={(open) => { if (!open) setModCertVisit(null); }}
+        visitId={modCertVisit?.id ?? null}
+        siteId={modCertVisit?.site_id ?? null}
+        onSaved={onRefresh}
       />
       <BS5839CertificateForm
         open={!!smartFormVisit}
