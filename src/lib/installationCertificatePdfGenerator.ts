@@ -31,8 +31,6 @@ function yn(v: string | undefined): string {
   return v === "Yes" ? "YES" : v === "No" ? "NO" : "—";
 }
 
-}
-
 
 async function loadImageAsBase64(url: string): Promise<string | null> {
   try {
