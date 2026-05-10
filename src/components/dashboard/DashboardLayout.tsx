@@ -27,6 +27,7 @@ const coreNav = [
   { name: "Schedule",   href: "/dashboard/schedule",  icon: CalendarDays },
   { name: "Visits",     href: "/dashboard/visits",    icon: ClipboardList },
   { name: "Reports",    href: "/dashboard/reports",   icon: BarChart3 },
+  { name: "Defects",    href: "/dashboard/defects",   icon: ShieldAlert },
   { name: "Uploads",    href: "/dashboard/upload",    icon: Upload },
 ];
 

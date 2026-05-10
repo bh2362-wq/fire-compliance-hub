@@ -39,6 +39,7 @@ import ProductLookup from "./pages/ProductLookup";
 import CustomerForms from "./pages/CustomerForms";
 import RoutePlanner from "./pages/RoutePlanner";
 import SmartForms from "./pages/SmartForms";
+import Defects from "./pages/Defects";
 
 // ── NEW: Certificate Tracker ──
 import CertTracker from "./pages/CertTracker";
@@ -82,6 +83,7 @@ const App = () => (
             <Route path="/dashboard/visits" element={<ProtectedRoute><Visits /></ProtectedRoute>} />
             <Route path="/dashboard/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/dashboard/upload" element={<ProtectedRoute><UploadDemo /></ProtectedRoute>} />
+            <Route path="/dashboard/defects" element={<ProtectedRoute><Defects /></ProtectedRoute>} />
 
             {/* Protected: Clients */}
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
