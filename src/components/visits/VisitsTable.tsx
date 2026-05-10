@@ -1763,6 +1763,27 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           onRefresh?.();
         }}
       />
+      <InstallationCertificateForm
+        open={!!installCertVisit}
+        onOpenChange={(open) => { if (!open) setInstallCertVisit(null); }}
+        visitId={installCertVisit?.id ?? null}
+        siteId={installCertVisit?.site_id ?? null}
+        onSaved={onRefresh}
+      />
+      <CommissioningCertificateForm
+        open={!!commCertVisit}
+        onOpenChange={(open) => { if (!open) setCommCertVisit(null); }}
+        visitId={commCertVisit?.id ?? null}
+        siteId={commCertVisit?.site_id ?? null}
+        onSaved={onRefresh}
+      />
+      <ModificationCertificateForm
+        open={!!modCertVisit}
+        onOpenChange={(open) => { if (!open) setModCertVisit(null); }}
+        visitId={modCertVisit?.id ?? null}
+        siteId={modCertVisit?.site_id ?? null}
+        onSaved={onRefresh}
+      />
       <BS5839CertificateForm
         open={!!smartFormVisit}
         onOpenChange={(open) => {
