@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, FileText, Receipt, ClipboardCheck, Calendar, ArrowRight, AlertTriangle, Clock } from "lucide-react";
+import { Loader2, Plus, FileText, Receipt, ClipboardCheck, Calendar, ArrowRight, AlertTriangle, Clock, ScanSearch } from "lucide-react";
 
 interface ActionableVisit {
   id: string;
@@ -163,7 +163,7 @@ const QuickActions = () => {
       </div>
 
       {/* Quick shortcuts */}
-      <div className="p-4 border-b border-border grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="p-4 border-b border-border grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         <Button variant="outline" size="sm" className="justify-start" onClick={() => navigate("/dashboard/visits")}>
           <Plus className="w-4 h-4 mr-1.5" />
           New Visit
@@ -179,6 +179,10 @@ const QuickActions = () => {
         <Button variant="outline" size="sm" className="justify-start" onClick={() => navigate("/dashboard/invoices")}>
           <Receipt className="w-4 h-4 mr-1.5" />
           Invoices
+        </Button>
+        <Button variant="outline" size="sm" className="justify-start text-primary border-primary/30 hover:bg-primary/5" onClick={() => navigate("/dashboard/email-scanner")}>
+          <ScanSearch className="w-4 h-4 mr-1.5" />
+          Scan Email
         </Button>
       </div>
 

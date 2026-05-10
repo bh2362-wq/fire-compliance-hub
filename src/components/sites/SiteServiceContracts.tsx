@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, CalendarPlus, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import {
   ServiceContract,
@@ -12,6 +12,7 @@ import {
   deleteServiceContract,
   getServiceTypeLabel,
   getFrequencyLabel,
+  generateVisitsFromContract,
 } from "@/services/serviceContractService";
 import { ServiceContractDialog } from "./ServiceContractDialog";
 import { ContractAssetsDialog } from "./ContractAssetsDialog";
@@ -39,6 +40,24 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [assetsContract, setAssetsContract] = useState<ServiceContract | null>(null);
   const [promptAssetCreation, setPromptAssetCreation] = useState(false);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+
+  const handleGenerateVisits = async (contract: ServiceContract) => {
+    setGeneratingId(contract.id);
+    try {
+      const { created, skipped } = await generateVisitsFromContract(contract);
+      if (created === 0) {
+        toast.info(`No new visits created (${skipped} already exist)`);
+      } else {
+        toast.success(`Created ${created} visit${created === 1 ? "" : "s"}${skipped ? ` · ${skipped} skipped (already scheduled)` : ""}`);
+      }
+    } catch (err: any) {
+      console.error("Failed to generate visits:", err);
+      toast.error(err.message || "Failed to generate visits");
+    } finally {
+      setGeneratingId(null);
+    }
+  };
 
   useEffect(() => {
     loadContracts();
@@ -192,6 +211,20 @@ export function SiteServiceContracts({ siteId }: SiteServiceContractsProps) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleGenerateVisits(contract)}
+                      disabled={generatingId === contract.id}
+                      title="Generate scheduled visits from contract dates"
+                    >
+                      {generatingId === contract.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                      ) : (
+                        <CalendarPlus className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      Gen Visits
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"

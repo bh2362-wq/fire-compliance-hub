@@ -3563,6 +3563,85 @@ export type Database = {
           },
         ]
       }
+      site_defects: {
+        Row: {
+          category: number
+          created_at: string
+          description: string
+          id: string
+          location: string | null
+          notes: string | null
+          quotation_id: string | null
+          raised_at: string
+          raised_by: string | null
+          remediated_at: string | null
+          report_id: string | null
+          site_id: string
+          status: string
+          updated_at: string
+          user_id: string | null
+          visit_id: string | null
+        }
+        Insert: {
+          category: number
+          created_at?: string
+          description: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          quotation_id?: string | null
+          raised_at?: string
+          raised_by?: string | null
+          remediated_at?: string | null
+          report_id?: string | null
+          site_id: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          visit_id?: string | null
+        }
+        Update: {
+          category?: number
+          created_at?: string
+          description?: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          quotation_id?: string | null
+          raised_at?: string
+          raised_by?: string | null
+          remediated_at?: string | null
+          report_id?: string | null
+          site_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_defects_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "service_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_defects_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_defects_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_service_contracts: {
         Row: {
           contract_end: string | null
