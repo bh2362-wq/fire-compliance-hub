@@ -31,7 +31,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { toast } from "sonner";
-import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download, AlertCircle, PenTool, CalendarIcon, Lock, Mail, Building2 } from "lucide-react";
+import { Loader2, FileText, ClipboardCheck, Settings, FileCheck, Download, AlertCircle, PenTool, CalendarIcon, Lock, Mail, Building2, ShieldAlert } from "lucide-react";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import { getSiteById, type Site } from "@/services/siteService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,6 +57,7 @@ import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
  import { EmailReportDialog } from "./EmailReportDialog";
  import { getCompanySettings } from "@/services/companySettingsService";
  import { createBafeCertificate, generateBafeCertNumber } from "@/services/bafeCertificateService";
+ import { DefectFormDialog } from "@/components/defects/DefectFormDialog";
 
 interface VisitForReport {
   id: string;
@@ -114,6 +115,8 @@ export function ServiceReportDialog({
    // BAFE prompt state
    const [showBafePrompt, setShowBafePrompt] = useState(false);
   const [creatingBafe, setCreatingBafe] = useState(false);
+  const [showDefectDialog, setShowDefectDialog] = useState(false);
+  const [showRaiseDefectPrompt, setShowRaiseDefectPrompt] = useState(false);
   // Site edit state
   const [showSiteEditDialog, setShowSiteEditDialog] = useState(false);
   const [siteForEdit, setSiteForEdit] = useState<Site | null>(null);
@@ -420,12 +423,13 @@ export function ServiceReportDialog({
         });
       }
       if (complete) {
-         // Show invoice prompt if customer has Xero connection
-         if (customerInfo?.xero_contact_id) {
-           setShowInvoicePrompt(true);
-         } else {
-           setShowBafePrompt(true);
-         }
+        if (defectsFound && defectsFound.trim()) {
+          setShowRaiseDefectPrompt(true);
+        } else if (customerInfo?.xero_contact_id) {
+          setShowInvoicePrompt(true);
+        } else {
+          setShowBafePrompt(true);
+        }
       }
     } catch (error) {
       console.error("Failed to save report:", error);
@@ -499,8 +503,9 @@ export function ServiceReportDialog({
       if (visitError) throw visitError;
 
       toast.success(`Visit ${finalReportNumber || ""} completed successfully`);
-       // Show invoice prompt if customer has Xero connection
-       if (customerInfo?.xero_contact_id) {
+       if (defectsFound && defectsFound.trim()) {
+         setShowRaiseDefectPrompt(true);
+       } else if (customerInfo?.xero_contact_id) {
          setShowInvoicePrompt(true);
        } else {
          setShowBafePrompt(true);
@@ -891,11 +896,25 @@ export function ServiceReportDialog({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Defects Found</Label>
-                  <AIRewriteButton
-                    text={defectsFound}
-                    type="defects"
-                    onRewrite={setDefectsFound}
-                  />
+                  <div className="flex items-center gap-2">
+                    {defectsFound.trim() && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowDefectDialog(true)}
+                        className="h-7 px-2 text-xs border-destructive/40 text-destructive hover:bg-destructive/5"
+                      >
+                        <ShieldAlert className="h-3.5 w-3.5 mr-1" />
+                        Raise Defect
+                      </Button>
+                    )}
+                    <AIRewriteButton
+                      text={defectsFound}
+                      type="defects"
+                      onRewrite={setDefectsFound}
+                    />
+                  </div>
                 </div>
                 <Textarea
                   value={defectsFound}
@@ -1264,9 +1283,9 @@ export function ServiceReportDialog({
                  <FileCheck className="h-6 w-6 text-primary" />
                </div>
                <div>
-                 <h3 className="font-semibold text-foreground">BAFE SP203-1 Certificate</h3>
+                 <h3 className="font-semibold text-foreground">Site Maintenance Certificate</h3>
                  <p className="text-sm text-muted-foreground">
-                   Would you like to record a BAFE Maintenance Certificate for this site?
+                   Would you like to record a maintenance certificate for this site?
                  </p>
                </div>
              </div>
@@ -1274,6 +1293,72 @@ export function ServiceReportDialog({
                <Button variant="outline" onClick={handleBafeDecline}>Skip</Button>
                <Button onClick={handleBafeConfirm} disabled={creatingBafe}>
                  {creatingBafe ? "Recording..." : "Record Certificate"}
+               </Button>
+             </div>
+           </div>
+         </DialogContent>
+       </Dialog>
+
+       {/* Raise Defect — contextual from Defects Found field */}
+       <DefectFormDialog
+         open={showDefectDialog}
+         onOpenChange={setShowDefectDialog}
+         defaultSiteId={visit.site_id}
+         defaultVisitId={visit.id}
+         defaultDescription={defectsFound}
+         onCreated={() => {
+           setShowDefectDialog(false);
+           toast.success("Defect raised and added to the register");
+           if (customerInfo?.xero_contact_id) {
+             setShowInvoicePrompt(true);
+           } else {
+             setShowBafePrompt(true);
+           }
+         }}
+       />
+
+       {/* Raise Defect Prompt — shown after report completion when defects recorded */}
+       <Dialog open={showRaiseDefectPrompt} onOpenChange={setShowRaiseDefectPrompt}>
+         <DialogContent>
+           <div className="space-y-4">
+             <div className="flex items-start gap-3">
+               <div className="p-3 rounded-full bg-destructive/10">
+                 <ShieldAlert className="h-6 w-6 text-destructive" />
+               </div>
+               <div className="flex-1">
+                 <h3 className="font-semibold text-foreground">Defects recorded — raise them?</h3>
+                 <p className="text-sm text-muted-foreground mt-1">
+                   You recorded defects in this report. Add them to the Defect Register to track remediation and raise a remedial quote.
+                 </p>
+                 {defectsFound && (
+                   <p className="text-xs text-muted-foreground mt-2 italic line-clamp-3 border-l-2 border-destructive/30 pl-2">
+                     "{defectsFound}"
+                   </p>
+                 )}
+               </div>
+             </div>
+             <div className="flex justify-end gap-2">
+               <Button
+                 variant="outline"
+                 onClick={() => {
+                   setShowRaiseDefectPrompt(false);
+                   if (customerInfo?.xero_contact_id) {
+                     setShowInvoicePrompt(true);
+                   } else {
+                     setShowBafePrompt(true);
+                   }
+                 }}
+               >
+                 Skip
+               </Button>
+               <Button
+                 onClick={() => {
+                   setShowRaiseDefectPrompt(false);
+                   setShowDefectDialog(true);
+                 }}
+               >
+                 <ShieldAlert className="h-4 w-4 mr-2" />
+                 Raise Defect
                </Button>
              </div>
            </div>
