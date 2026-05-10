@@ -38,6 +38,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   defaultSiteId?: string;
   defaultVisitId?: string;
+  defaultDescription?: string;
   onCreated?: () => void;
 }
 
@@ -46,12 +47,13 @@ export function DefectFormDialog({
   onOpenChange,
   defaultSiteId,
   defaultVisitId,
+  defaultDescription,
   onCreated,
 }: Props) {
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [siteId, setSiteId] = useState<string>(defaultSiteId || "");
   const [category, setCategory] = useState<DefectCategory>(2);
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(defaultDescription || "");
   const [location, setLocation] = useState("");
   const [raisedBy, setRaisedBy] = useState("");
   const [notes, setNotes] = useState("");
@@ -60,7 +62,7 @@ export function DefectFormDialog({
   useEffect(() => {
     if (!open) return;
     setSiteId(defaultSiteId || "");
-    setDescription("");
+    setDescription(defaultDescription || "");
     setLocation("");
     setRaisedBy("");
     setNotes("");
