@@ -309,44 +309,26 @@ export interface NewCertSubmission {
   job_number?: string | null;
   user_id: string;
   engineer_id: string;
-  status?: "draft" | "completed";
 }
 
-export async function createNewCertSubmission(data: NewCertSubmission): Promise<{
-  id: string;
-  certificate_reference: string;
-  payload: InstallationPayload | CommissioningPayload | ModificationPayload;
-  form_type: string;
-  status: string;
-}> {
-  const { data: refData, error: refErr } = await supabase.rpc(
-    "get_next_smart_form_cert_ref",
-    { p_form_type: data.form_type }
-  );
-  if (refErr) throw refErr;
-  const certRef = (refData as string) ?? `CERT-${Date.now()}`;
-
-  const payloadWithRef = { ...(data.payload as any), certificate_reference: certRef };
-
+export async function createNewCertSubmission(data: NewCertSubmission) {
   const { data: row, error } = await supabase
     .from("smart_form_submissions")
     .insert({
       form_type: data.form_type,
-      certificate_reference: certRef,
-      payload: payloadWithRef as any,
-      status: data.status ?? "draft",
-      completed_at: data.status === "completed" ? new Date().toISOString() : null,
+      payload: data.payload as any,
+      status: "draft",
       visit_id: data.visit_id ?? null,
       site_id: data.site_id ?? null,
       customer_id: data.customer_id ?? null,
       job_number: data.job_number ?? null,
-      created_by: data.user_id,
+      user_id: data.user_id,
       engineer_id: data.engineer_id,
     })
     .select()
     .single();
   if (error) throw error;
-  return row as any;
+  return row;
 }
 
 export async function updateNewCertSubmission(
@@ -405,4 +387,118 @@ export function validateModification(p: ModificationPayload): CertError[] {
   if (!p.engineer_name) e.push({ step: 11, message: "Engineer name required" });
   if (!p.engineer_competency_confirmed) e.push({ step: 11, message: "Competency declaration required" });
   return e;
+}
+
+// ── Additional helpers added for cert tracker integration ─────────────────────
+
+const FORM_TO_BAFE_TYPE: Record<string, string> = {
+  "bs5839_installation":        "installation",
+  "bs5839_commissioning":       "commissioning",
+  "bs5839_modification":        "design",       // closest existing BAFE enum value
+  "bs5839_inspection_servicing":"maintenance",
+};
+
+/**
+ * Check if a completed cert already exists for this job+type+site.
+ * Returns the existing submission if a duplicate is found, null otherwise.
+ */
+export async function checkDuplicateJobCert(
+  siteId: string,
+  formType: string,
+  jobNumber: string | null | undefined
+): Promise<{ id: string; certificate_reference: string } | null> {
+  if (!jobNumber?.trim() || !siteId) return null;
+  const { data } = await supabase
+    .from("smart_form_submissions")
+    .select("id, certificate_reference")
+    .eq("site_id", siteId)
+    .eq("form_type", formType)
+    .eq("job_number", jobNumber.trim())
+    .eq("status", "completed")
+    .limit(1)
+    .maybeSingle();
+  return (data as { id: string; certificate_reference: string } | null) ?? null;
+}
+
+/**
+ * On cert completion, write a corresponding entry to site_bafe_certificates
+ * so the site page BAFE section and cert tracker stay in sync.
+ * Safe to call multiple times — checks for existing linked entry first.
+ */
+export async function autoRegisterCertToSite(
+  submissionId: string,
+  siteId: string,
+  formType: string,
+  certRef: string,
+  issuedDate: string,
+  engineerId: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const bafeType = FORM_TO_BAFE_TYPE[formType];
+  if (!bafeType || !siteId) return;
+
+  // Avoid duplicates — skip if already linked
+  const { data: existing } = await supabase
+    .from("site_bafe_certificates")
+    .select("id")
+    .eq("linked_form_submission_id", submissionId)
+    .maybeSingle();
+  if (existing) return;
+
+  await supabase.from("site_bafe_certificates").insert({
+    site_id: siteId,
+    certificate_type: bafeType,
+    certificate_number: certRef,
+    issued_date: issuedDate,
+    issued_by: engineerId,
+    expiry_date: null,
+    linked_form_submission_id: submissionId,
+    status: "valid",
+    notes: `Auto-registered from ${formType.replace(/_/g, " ")} smart form`,
+  } as any);
+}
+
+/**
+ * Fetch the most recent completed smart form submission of the given type
+ * for a site, and return its payload — used to prefill the next cert of the
+ * same type with the previously captured system details.
+ */
+export async function getLastCertPayload(
+  siteId: string,
+  formType: string
+): Promise<Record<string, unknown> | null> {
+  if (!siteId || !formType) return null;
+  const { data } = await supabase
+    .from("smart_form_submissions")
+    .select("payload, certificate_reference, completed_at")
+    .eq("site_id", siteId)
+    .eq("form_type", formType)
+    .eq("status", "completed")
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return data.payload as Record<string, unknown>;
+}
+
+/**
+ * Fetch all completed smart form submissions for a site, grouped by form type.
+ * Used by the site page to display issued certs.
+ */
+export async function getSiteCerts(siteId: string): Promise<{
+  id: string;
+  form_type: string;
+  certificate_reference: string;
+  completed_at: string | null;
+  job_number: string | null;
+  payload: Record<string, unknown>;
+}[]> {
+  const { data, error } = await supabase
+    .from("smart_form_submissions")
+    .select("id, form_type, certificate_reference, completed_at, job_number, payload")
+    .eq("site_id", siteId)
+    .eq("status", "completed")
+    .order("completed_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as any[];
 }

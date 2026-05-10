@@ -1,300 +1,248 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { getAllBafeCertificates, BafeCertificate } from "@/services/bafeCertificateService";
-import { getSites, Site } from "@/services/siteService";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Award, AlertTriangle, CheckCircle2, Clock, Search, Filter,
-  ShieldCheck, ShieldAlert, Shield, ArrowRight, RefreshCw, Download
+  Award, CheckCircle2, Search, RefreshCw, ArrowRight,
+  FileSignature, Lock, AlertTriangle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { differenceInDays, parseISO, format, isValid } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { format, parseISO, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 
-/* ── Types ──────────────────────────────────────────────────────────── */
-type CertStatus = "compliant" | "expiring_soon" | "expiring_30" | "expired" | "missing";
-type FilterType = "all" | "danger" | "warning" | "ok";
+// ── Cert types displayed as columns ──────────────────────────────────────────
+const CERT_COLS = [
+  { key: "bs5839_inspection_servicing", label: "IS Cert",       code: "IS" },
+  { key: "bs5839_installation",         label: "Installation",  code: "FD/02" },
+  { key: "bs5839_commissioning",        label: "Commissioning", code: "FD/03" },
+  { key: "bs5839_modification",         label: "Modification",  code: "FD/05" },
+] as const;
 
-const BAFE_TYPES = ["design", "installation", "commissioning", "maintenance"] as const;
-type BafeType = typeof BAFE_TYPES[number];
+type CertColKey = typeof CERT_COLS[number]["key"];
 
-const TYPE_LABELS: Record<BafeType, string> = {
-  design:        "Design",
-  installation:  "Installation",
-  commissioning: "Commissioning",
-  maintenance:   "Maintenance",
-};
-
-interface SiteCertRow {
-  site: Site;
-  certs: Partial<Record<BafeType, BafeCertificate>>;
-  overallStatus: CertStatus;
-  soonestExpiry?: number; // days
+interface CertEntry {
+  id: string;
+  certificate_reference: string;
+  completed_at: string | null;
+  job_number: string | null;
 }
 
-/* ── Helpers ─────────────────────────────────────────────────────────── */
-function certDays(cert?: BafeCertificate): number | null {
-  if (!cert?.expiry_date) return null;
-  const d = parseISO(cert.expiry_date);
-  if (!isValid(d)) return null;
-  return differenceInDays(d, new Date());
+interface SiteRow {
+  site_id: string;
+  site_name: string;
+  site_address: string | null;
+  certs: Partial<Record<CertColKey, CertEntry>>;
+  certCount: number;
 }
 
-function siteStatus(row: SiteCertRow): CertStatus {
-  const hasMissing = BAFE_TYPES.some((t) => !row.certs[t]);
-  if (hasMissing) return "missing";
+// ── Data fetcher ──────────────────────────────────────────────────────────────
+async function fetchCertTrackerData(): Promise<SiteRow[]> {
+  const { data, error } = await supabase
+    .from("smart_form_submissions")
+    .select(`
+      id,
+      form_type,
+      certificate_reference,
+      completed_at,
+      job_number,
+      site_id,
+      sites:site_id ( id, name, address )
+    `)
+    .eq("status", "completed")
+    .not("site_id", "is", null)
+    .order("completed_at", { ascending: false });
 
-  const days = BAFE_TYPES.map((t) => certDays(row.certs[t])).filter((d): d is number => d !== null);
-  const min  = Math.min(...days);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    form_type: string;
+    certificate_reference: string;
+    completed_at: string | null;
+    job_number: string | null;
+    site_id: string;
+    sites: { id: string; name: string; address: string | null } | null;
+  }[];
 
-  if (min < 0)   return "expired";
-  if (min <= 14) return "expiring_soon";
-  if (min <= 30) return "expiring_30";
-  return "compliant";
+  // Group by site_id — only keep latest per form_type per site
+  const siteMap = new Map<string, SiteRow>();
+
+  for (const row of rows) {
+    if (!row.site_id || !row.sites) continue;
+    const colKey = row.form_type as CertColKey;
+    const isKnownType = CERT_COLS.some((c) => c.key === colKey);
+    if (!isKnownType) continue;
+
+    if (!siteMap.has(row.site_id)) {
+      siteMap.set(row.site_id, {
+        site_id: row.site_id,
+        site_name: row.sites.name,
+        site_address: row.sites.address,
+        certs: {},
+        certCount: 0,
+      });
+    }
+
+    const sr = siteMap.get(row.site_id)!;
+    // Only store the first (most recent) of each type per site
+    if (!sr.certs[colKey]) {
+      sr.certs[colKey] = {
+        id: row.id,
+        certificate_reference: row.certificate_reference,
+        completed_at: row.completed_at,
+        job_number: row.job_number,
+      };
+    }
+  }
+
+  // Set cert count and return only sites with ≥1 cert
+  return Array.from(siteMap.values()).map((s) => ({
+    ...s,
+    certCount: Object.keys(s.certs).length,
+  }));
 }
 
-function getOverallStatus(row: SiteCertRow): CertStatus {
-  return siteStatus(row);
-}
-
-/* ── Cert cell ───────────────────────────────────────────────────────── */
-const CertCell = ({ cert, type }: { cert?: BafeCertificate; type: BafeType }) => {
-  if (!cert) {
+// ── Cert cell ─────────────────────────────────────────────────────────────────
+function CertCell({ entry }: { entry?: CertEntry }) {
+  if (!entry) {
     return (
-      <div className="flex flex-col items-start gap-0.5">
-        <span className="cert-pill-missing">Missing</span>
-      </div>
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+        N/A
+      </span>
     );
   }
 
-  const days = certDays(cert);
-  const expiryStr = cert.expiry_date ? format(parseISO(cert.expiry_date), "dd MMM yyyy") : "No expiry";
-
-  let pill = "cert-pill-ok";
-  let label = expiryStr;
-
-  if (days !== null) {
-    if (days < 0)   { pill = "cert-pill-danger"; label = `Expired ${Math.abs(days)}d ago`; }
-    else if (days <= 14) { pill = "cert-pill-danger"; label = `${days}d left`; }
-    else if (days <= 30) { pill = "cert-pill-warn";   label = `${days}d left`; }
-    else                 { pill = "cert-pill-ok";     label = expiryStr; }
-  }
+  const dateStr = entry.completed_at && isValid(parseISO(entry.completed_at))
+    ? format(parseISO(entry.completed_at), "dd MMM yyyy")
+    : "—";
 
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className={pill}>{label}</span>
-      {cert.certificate_number && (
-        <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-          {cert.certificate_number}
-        </span>
-      )}
+    <div className="space-y-0.5">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+        <CheckCircle2 className="w-2.5 h-2.5 mr-1" />
+        {dateStr}
+      </span>
+      <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[130px]">
+        {entry.certificate_reference}
+      </p>
     </div>
   );
-};
+}
 
-/* ── Row status badge ────────────────────────────────────────────────── */
-const StatusBadge = ({ status }: { status: CertStatus }) => {
-  switch (status) {
-    case "compliant":
-      return <span className="badge-ok flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />Compliant</span>;
-    case "expiring_soon":
-      return <span className="badge-danger flex items-center gap-1"><AlertTriangle className="w-3 h-3" />≤14 days</span>;
-    case "expiring_30":
-      return <span className="badge-warn flex items-center gap-1"><Clock className="w-3 h-3" />≤30 days</span>;
-    case "expired":
-      return <span className="badge-danger flex items-center gap-1"><AlertTriangle className="w-3 h-3" />Expired</span>;
-    case "missing":
-      return <span className="badge-muted flex items-center gap-1"><Shield className="w-3 h-3" />Missing certs</span>;
-  }
-};
-
-/* ── Summary stat card ───────────────────────────────────────────────── */
-const SummaryCard = ({
-  icon: Icon,
-  label,
-  value,
-  color,
-  active,
-  onClick,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: number;
-  color: "ok" | "warn" | "danger" | "muted";
-  active?: boolean;
-  onClick?: () => void;
-}) => {
-  const colorMap = {
-    ok:     "bg-success/10 text-success",
-    warn:   "bg-warning/10 text-warning",
-    danger: "bg-destructive/10 text-destructive",
-    muted:  "bg-muted text-muted-foreground",
-  };
-  const borderMap = {
-    ok:     "border-success/20 hover:border-success/40",
-    warn:   "border-warning/20 hover:border-warning/40",
-    danger: "border-destructive/20 hover:border-destructive/40",
-    muted:  "border-border hover:border-primary/20",
-  };
-
+// ── Summary stat ──────────────────────────────────────────────────────────────
+function StatCard({ label, value, sub }: { label: string; value: number; sub?: string }) {
   return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "bg-card rounded-xl border p-5 cursor-pointer transition-all",
-        borderMap[color],
-        active && "ring-2 ring-primary ring-offset-2 ring-offset-background"
-      )}
-    >
-      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center mb-3", colorMap[color])}>
-        <Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
-      </div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
-      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mt-1">{label}</p>
+    <div className="bg-card rounded-xl border border-border p-4">
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-0.5">{label}</p>
+      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
-};
+}
 
-/* ── Main Page ───────────────────────────────────────────────────────── */
-const CertTracker = () => {
+// ── Main page ─────────────────────────────────────────────────────────────────
+export default function CertTracker() {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<FilterType>("all");
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState<CertColKey | "all">("all");
 
-  const { data: certs = [], isLoading: certsLoading, refetch } = useQuery({
-    queryKey: ["all-bafe-certs"],
-    queryFn: getAllBafeCertificates,
+  const { data: rows = [], isLoading, refetch } = useQuery({
+    queryKey: ["cert-tracker-v2"],
+    queryFn: fetchCertTrackerData,
   });
 
-  const { data: sitesResult, isLoading: sitesLoading } = useQuery({
-    queryKey: ["all-sites"],
-    queryFn: async () => {
-      const { data } = await supabase.from("sites").select("*").eq("status", "active").order("name");
-      return (data || []) as Site[];
-    },
-  });
-
-  const sites = sitesResult || [];
-  const isLoading = certsLoading || sitesLoading;
-
-  /* Build site→cert map */
-  const rows: SiteCertRow[] = useMemo(() => {
-    return sites.map((site) => {
-      const siteCerts = certs.filter((c) => c.site_id === site.id);
-      const certMap: Partial<Record<BafeType, BafeCertificate>> = {};
-      BAFE_TYPES.forEach((t) => {
-        const found = siteCerts
-          .filter((c) => c.certificate_type === t)
-          .sort((a, b) => new Date(b.issued_date).getTime() - new Date(a.issued_date).getTime())[0];
-        if (found) certMap[t] = found;
-      });
-      const row: SiteCertRow = { site, certs: certMap, overallStatus: "compliant" };
-      row.overallStatus = getOverallStatus(row);
-      const days = BAFE_TYPES.map((t) => certDays(certMap[t])).filter((d): d is number => d !== null);
-      row.soonestExpiry = days.length > 0 ? Math.min(...days) : undefined;
-      return row;
+  // Summary counts per cert type
+  const counts = useMemo(() => {
+    const result: Record<CertColKey | "sites", number> = {
+      sites: rows.length,
+      bs5839_inspection_servicing: 0,
+      bs5839_installation: 0,
+      bs5839_commissioning: 0,
+      bs5839_modification: 0,
+    };
+    rows.forEach((r) => {
+      CERT_COLS.forEach((c) => { if (r.certs[c.key]) result[c.key]++; });
     });
-  }, [sites, certs]);
+    return result;
+  }, [rows]);
 
-  /* Summary counts */
-  const counts = {
-    compliant:    rows.filter((r) => r.overallStatus === "compliant").length,
-    expiring:     rows.filter((r) => r.overallStatus === "expiring_30" || r.overallStatus === "expiring_soon").length,
-    expired:      rows.filter((r) => r.overallStatus === "expired").length,
-    missing:      rows.filter((r) => r.overallStatus === "missing").length,
-  };
-
-  /* Filter + search */
-  const filtered = rows
-    .filter((r) => {
-      if (filterType === "danger")  return r.overallStatus === "expired" || r.overallStatus === "expiring_soon";
-      if (filterType === "warning") return r.overallStatus === "expiring_30";
-      if (filterType === "ok")      return r.overallStatus === "compliant";
-      return true;
-    })
-    .filter((r) => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return r.site.name.toLowerCase().includes(q) || r.site.address?.toLowerCase().includes(q);
-    })
-    .sort((a, b) => {
-      // Sort: expired first, then expiring, then missing, then compliant
-      const order: Record<CertStatus, number> = {
-        expired: 0, expiring_soon: 1, expiring_30: 2, missing: 3, compliant: 4,
-      };
-      return order[a.overallStatus] - order[b.overallStatus];
-    });
+  // Filter + search
+  const filtered = useMemo(() =>
+    rows
+      .filter((r) => {
+        if (filterType !== "all" && !r.certs[filterType]) return false;
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+          r.site_name.toLowerCase().includes(q) ||
+          r.site_address?.toLowerCase().includes(q) ||
+          Object.values(r.certs).some((c) =>
+            c?.certificate_reference.toLowerCase().includes(q)
+          )
+        );
+      })
+      .sort((a, b) => b.certCount - a.certCount), // sites with most certs first
+    [rows, filterType, search]
+  );
 
   return (
     <DashboardLayout>
-      <div className="space-y-5">
+      <div className="space-y-5 p-4 md:p-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h2 className="page-title flex items-center gap-2">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
               <Award className="w-6 h-6 text-primary" />
               Certificate Tracker
             </h2>
-            <p className="page-subtitle">BAFE SP203-1 compliance across all sites</p>
+            <p className="text-muted-foreground text-sm mt-1">
+              BS 5839-1:2025 issued certificates — only sites with at least one completed cert are shown
+            </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="text-xs">
-              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-              Refresh
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh
+          </Button>
         </div>
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <SummaryCard
-            icon={CheckCircle2}
-            label="Fully Compliant"
-            value={counts.compliant}
-            color="ok"
-            active={filterType === "ok"}
-            onClick={() => setFilterType(filterType === "ok" ? "all" : "ok")}
-          />
-          <SummaryCard
-            icon={Clock}
-            label="Expiring ≤30 days"
-            value={counts.expiring}
-            color="warn"
-            active={filterType === "warning"}
-            onClick={() => setFilterType(filterType === "warning" ? "all" : "warning")}
-          />
-          <SummaryCard
-            icon={AlertTriangle}
-            label="Expired / ≤14d"
-            value={counts.expired}
-            color="danger"
-            active={filterType === "danger"}
-            onClick={() => setFilterType(filterType === "danger" ? "all" : "danger")}
-          />
-          <SummaryCard
-            icon={Shield}
-            label="Missing Certs"
-            value={counts.missing}
-            color="muted"
+        {/* Summary stats */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <StatCard label="Sites with Certs" value={counts.sites} />
+          {CERT_COLS.map((c) => (
+            <StatCard key={c.key} label={c.label} value={counts[c.key]} sub={c.code} />
+          ))}
+        </div>
+
+        {/* Filter chips */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground mr-1">Filter by cert type:</span>
+          <button
             onClick={() => setFilterType("all")}
-          />
+            className={cn("px-3 py-1 rounded-full border text-xs font-medium transition-colors", filterType === "all" ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent/30")}
+          >
+            All sites
+          </button>
+          {CERT_COLS.map((c) => (
+            <button
+              key={c.key}
+              onClick={() => setFilterType(filterType === c.key ? "all" : c.key)}
+              className={cn("px-3 py-1 rounded-full border text-xs font-medium transition-colors", filterType === c.key ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-accent/30")}
+            >
+              {c.label} <span className="opacity-60">({counts[c.key]})</span>
+            </button>
+          ))}
         </div>
 
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search by site name or address..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-card border-border"
+            placeholder="Search site name, address or cert reference..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 bg-card"
           />
         </div>
 
@@ -302,113 +250,131 @@ const CertTracker = () => {
         {isLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-16 bg-card rounded-xl border border-border animate-pulse" />
+              <div key={i} className="h-16 bg-card rounded-xl border animate-pulse" />
             ))}
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="bg-card rounded-xl border p-12 text-center">
+            <FileSignature className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
+            <p className="font-semibold text-muted-foreground">
+              {rows.length === 0
+                ? "No completed certificates yet — complete a smart form cert to see it here"
+                : "No sites match your search"}
+            </p>
+          </div>
         ) : (
-          <div className="bg-card rounded-xl border border-border overflow-x-auto">
+          <div className="bg-card rounded-xl border overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap">
                     Site
                   </th>
-                  {BAFE_TYPES.map((t) => (
-                    <th
-                      key={t}
-                      className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap"
-                    >
-                      {TYPE_LABELS[t]}
+                  {CERT_COLS.map((c) => (
+                    <th key={c.key} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap">
+                      <div>{c.label}</div>
+                      <div className="text-[9px] font-normal opacity-60">{c.code}</div>
                     </th>
                   ))}
                   <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Status
+                    Certs
                   </th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
-                      No sites found
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((row) => (
+                {filtered.map((row) => {
+                  const allFour = row.certCount === CERT_COLS.length;
+                  return (
                     <tr
-                      key={row.site.id}
-                      className={cn(
-                        "border-b border-border/60 hover:bg-muted/30 transition-colors cursor-pointer last:border-0",
-                        (row.overallStatus === "expired" || row.overallStatus === "expiring_soon") &&
-                          "bg-destructive/4 hover:bg-destructive/8"
-                      )}
-                      onClick={() => navigate(`/sites/${row.site.id}`)}
+                      key={row.site_id}
+                      className="border-b border-border/60 hover:bg-muted/30 transition-colors cursor-pointer last:border-0"
+                      onClick={() => navigate(`/sites/${row.site_id}`)}
                     >
                       <td className="px-5 py-4">
-                        <p className="font-semibold text-foreground text-sm">{row.site.name}</p>
-                        {row.site.address && (
-                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[200px]">
-                            {row.site.address}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {allFour && <Lock className="w-3 h-3 text-green-600 flex-shrink-0" />}
+                          <div>
+                            <p className="font-semibold text-sm">{row.site_name}</p>
+                            {row.site_address && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[200px]">
+                                {row.site_address}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </td>
 
-                      {BAFE_TYPES.map((t) => (
-                        <td key={t} className="px-4 py-4">
-                          <CertCell cert={row.certs[t]} type={t} />
+                      {CERT_COLS.map((c) => (
+                        <td key={c.key} className="px-4 py-4">
+                          <CertCell entry={row.certs[c.key]} />
                         </td>
                       ))}
 
                       <td className="px-4 py-4">
-                        <StatusBadge status={row.overallStatus} />
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px]",
+                            allFour
+                              ? "border-green-500/40 text-green-700 bg-green-50 dark:bg-green-950/20"
+                              : "border-border text-muted-foreground"
+                          )}
+                        >
+                          {row.certCount} / {CERT_COLS.length}
+                        </Badge>
                       </td>
 
                       <td className="px-4 py-4">
                         <button
-                          onClick={(e) => { e.stopPropagation(); navigate(`/sites/${row.site.id}`); }}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/sites/${row.site_id}`); }}
                           className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                         >
                           <ArrowRight className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>
-                  ))
-                )}
+                  );
+                })}
               </tbody>
             </table>
+
+            <div className="px-5 py-3 border-t border-border/60 flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>Showing {filtered.length} of {rows.length} certified sites</span>
+              <span className="flex items-center gap-1">
+                <Lock className="w-3 h-3 text-green-600" /> = All 4 cert types issued
+              </span>
+            </div>
           </div>
         )}
 
-        {/* Context / guidance */}
-        <div className="grid md:grid-cols-2 gap-4 pt-2">
-          <div className="section-card">
-            <p className="section-card-title">BAFE SP203-1 Certificate Types</p>
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <div className="flex items-start gap-2">
-                <Award className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
-                <div><span className="text-foreground font-medium">Design</span> — System design approved by BAFE-registered designer</div>
-              </div>
-              <div className="flex items-start gap-2">
-                <Award className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
-                <div><span className="text-foreground font-medium">Installation</span> — Physical installation certified to BS 5839-1</div>
-              </div>
-              <div className="flex items-start gap-2">
-                <Award className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
-                <div><span className="text-foreground font-medium">Commissioning</span> — System fully tested and operational</div>
-              </div>
-              <div className="flex items-start gap-2">
-                <Award className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
-                <div><span className="text-foreground font-medium">Maintenance</span> — Annual maintenance carried out by BAFE-registered company</div>
-              </div>
+        {/* Info panel */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-card rounded-xl border p-4 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Certificate Types</p>
+            <div className="space-y-1.5 text-xs">
+              {CERT_COLS.map((c) => (
+                <div key={c.key} className="flex items-start gap-2">
+                  <Badge variant="outline" className="text-[9px] w-12 justify-center flex-shrink-0">{c.code}</Badge>
+                  <span className="text-muted-foreground"><span className="text-foreground font-medium">{c.label}</span> — {
+                    c.key === "bs5839_inspection_servicing" ? "Routine inspection and servicing per BS 5839-1 Annex G.6" :
+                    c.key === "bs5839_installation" ? "New system / extension installed per BS 5839-1 Annex E" :
+                    c.key === "bs5839_commissioning" ? "System fully tested and commissioned per BS 5839-1 Annex C" :
+                    "Alterations to existing certified system per BS 5839-1 Annex F"
+                  }</span>
+                </div>
+              ))}
             </div>
           </div>
-
-          <div className="new-feature-callout">
-            <p className="new-feature-label">✦ Suggested next step</p>
-            <p className="text-sm font-semibold text-foreground mb-1">Automated Cert Renewal Reminders</p>
+          <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-2">
+              <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
+              One cert per job rule
+            </p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              When a BAFE certificate is 60 days from expiry, automatically email the client and create a draft visit in the schedule. No manual tracking needed — the system chases renewals for you.
+              Each job number can only carry one completed certificate of each type per site. 
+              If you need to re-issue, create a new job reference. The system will warn you 
+              if a duplicate is detected before completion.
             </p>
           </div>
         </div>
@@ -416,6 +382,4 @@ const CertTracker = () => {
       </div>
     </DashboardLayout>
   );
-};
-
-export default CertTracker;
+}

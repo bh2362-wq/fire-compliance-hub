@@ -18,6 +18,7 @@ import {
   InstallationPayload, InstallVariationEntry, OutstandingWorkEntry,
   createNewCertSubmission, updateNewCertSubmission, validateInstallation,
 } from "@/services/newCertificateService";
+import { checkDuplicateJobCert, autoRegisterCertToSite } from "@/services/newCertificateService";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 
 const STEPS = [
@@ -41,24 +42,6 @@ interface Props {
   customerId?: string | null;
   prefill?: Partial<InstallationPayload>;
   onSaved?: () => void;
-}
-
-function FieldRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
-      {children}
-    </div>
-  );
-}
-
-function YesNoSelect({ value, onChange }: { value: string | undefined; onChange: (v: string) => void }) {
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-      <SelectContent><SelectItem value="Yes">Yes</SelectItem><SelectItem value="No">No</SelectItem></SelectContent>
-    </Select>
-  );
 }
 
 export default function InstallationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
@@ -101,7 +84,7 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
         toast.success(status === "completed" ? "Certificate completed" : "Draft saved");
         onSaved?.(); return r;
       } else {
-        const r = await createNewCertSubmission({ form_type: "bs5839_installation", payload, visit_id: visitId ?? null, site_id: siteId ?? null, customer_id: customerId ?? null, job_number: payload.job_number ?? null, user_id: user.id, engineer_id: user.id, status });
+        const r = await createNewCertSubmission({ form_type: "bs5839_installation", payload, visit_id: visitId ?? null, site_id: siteId ?? null, customer_id: customerId ?? null, job_number: payload.job_number ?? null, user_id: user.id, engineer_id: user.id });
         setSubmissionId(r.id);
         if (r.certificate_reference) up("certificate_reference", r.certificate_reference);
         toast.success(status === "completed" ? "Certificate completed" : "Draft saved");
@@ -112,30 +95,23 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
   }
 
   async function handleGeneratePdf() {
+    // Job duplicate check — one cert per job per type per site
+    if (payload.job_number?.trim() && siteId) {
+      const dup = await checkDuplicateJobCert(siteId, "bs5839_installation", payload.job_number);
+      if (dup) {
+        toast.warning(
+          `A completed installation cert already exists for job ${payload.job_number} — ref: ${dup.certificate_reference}. Edit that cert or use a new job number.`,
+          { duration: 7000 }
+        );
+        return;
+      }
+    }
     if (errors.length > 0) {
       toast.error(`${errors.length} issue(s) — first: ${errors[0].message}`, { action: { label: "Go to step", onClick: () => setStep(errors[0].step - 1) } });
       return;
     }
     const saved = await persist("completed");
-    if (!saved) return;
-    let pdf: { base64: string; fileName: string } | null = null;
-    try {
-      pdf = await generateInstallationCertificatePDF((saved?.payload as InstallationPayload) ?? payload, { autoSign: true });
-    } catch (err) {
-      console.error("PDF generation failed:", err);
-      toast.error("PDF generation failed");
-      return;
-    }
-    if (pdf && siteId) {
-      try {
-        const { uploadCertificateToSharePoint } = await import("@/lib/certSharePointUpload");
-        await uploadCertificateToSharePoint({ submissionId: saved.id, siteId, fileName: pdf.fileName, base64: pdf.base64 });
-        toast.success("Saved to SharePoint site folder");
-      } catch (err: any) {
-        console.error("SharePoint upload failed:", err);
-        toast.error(`SharePoint upload failed: ${err?.message || "unknown"}`);
-      }
-    }
+    await generateInstallationCertificatePDF(saved?.payload ?? payload, { autoSign: true });
   }
 
   async function handleDraftPdf() {
@@ -146,9 +122,18 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
   const progress = ((step + 1) / STEPS.length) * 100;
 
   // ── Field helpers ──────────────────────────────────────────────────────────
-  const F = FieldRow;
+  const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+      {children}
+    </div>
+  );
+
   const YNSelect = ({ field }: { field: keyof InstallationPayload }) => (
-    <YesNoSelect value={(payload[field] as string) || undefined} onChange={(v) => up(field, v as any)} />
+    <Select value={(payload[field] as string) || undefined} onValueChange={(v) => up(field, v as any)}>
+      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+      <SelectContent><SelectItem value="Yes">Yes</SelectItem><SelectItem value="No">No</SelectItem></SelectContent>
+    </Select>
   );
 
   // ── Step renderers ─────────────────────────────────────────────────────────

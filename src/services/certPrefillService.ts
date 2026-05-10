@@ -12,7 +12,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import { InstallationPayload, CommissioningPayload, ModificationPayload } from "@/services/newCertificateService";
+import { InstallationPayload, CommissioningPayload, ModificationPayload, getLastCertPayload } from "@/services/newCertificateService";
 
 interface SiteAssetRow {
   id: string;
@@ -292,5 +292,58 @@ export async function buildCertPrefill(
     system_category_changed: "No",
   };
 
-  return { installation, commissioning, modification };
+  // ── Merge last cert payloads for same form type on this site ─────────────────
+  // This means if you've issued an FD/02 for this site before, the new one comes
+  // pre-filled with all system details from the last one, overridden by fresh data.
+  const [lastInstall, lastComm, lastMod] = await Promise.allSettled([
+    getLastCertPayload(siteId, "bs5839_installation"),
+    getLastCertPayload(siteId, "bs5839_commissioning"),
+    getLastCertPayload(siteId, "bs5839_modification"),
+  ]);
+
+  // System-level fields that carry over from previous cert (panel details, areas etc.)
+  const CARRY_OVER_FIELDS: (keyof InstallationPayload)[] = [
+    "system_categories", "system_type", "panel_manufacturer", "panel_model",
+    "panel_software_version", "panel_serial_number", "number_of_zones",
+    "total_devices_installed", "areas_covered", "areas_excluded",
+    "cable_types_used", "standby_power_type", "battery_capacity_ah",
+    "standard_installed_to", "company_name", "company_address", "fia_member_number",
+  ];
+  // Fields that must NOT carry over (they are job-specific or sensitive)
+  const NEVER_CARRY = new Set([
+    "certificate_reference", "date_of_completion", "date_of_commissioning",
+    "date_of_modification", "job_number", "work_type",
+    "engineer_signature", "rp_signature", "engineer_signed_date", "rp_signed_date",
+    "variations", "outstanding_works", "variations_present", "outstanding_works_present",
+    "commissioning_tests", "post_mod_tests",
+  ]);
+
+  function mergeCarryOver<T extends Record<string, unknown>>(
+    fresh: Partial<T>,
+    last: Record<string, unknown> | null
+  ): Partial<T> {
+    if (!last) return fresh;
+    const merged = { ...fresh };
+    for (const key of CARRY_OVER_FIELDS) {
+      if (NEVER_CARRY.has(key)) continue;
+      // Only carry over if the fresh prefill didn't already get a value from site/asset data
+      const freshVal = (fresh as Record<string, unknown>)[key];
+      const lastVal = last[key];
+      const freshIsEmpty = freshVal === undefined || freshVal === "" || (Array.isArray(freshVal) && freshVal.length === 0);
+      if (freshIsEmpty && lastVal !== undefined && lastVal !== "") {
+        (merged as Record<string, unknown>)[key] = lastVal;
+      }
+    }
+    return merged;
+  }
+
+  const lastInstallPayload = lastInstall.status === "fulfilled" ? lastInstall.value : null;
+  const lastCommPayload    = lastComm.status === "fulfilled"    ? lastComm.value    : null;
+  const lastModPayload     = lastMod.status === "fulfilled"     ? lastMod.value     : null;
+
+  return {
+    installation:  mergeCarryOver<InstallationPayload>(installation, lastInstallPayload),
+    commissioning: mergeCarryOver<CommissioningPayload>(commissioning, lastCommPayload),
+    modification:  mergeCarryOver<ModificationPayload>(modification, lastModPayload),
+  };
 }
