@@ -309,6 +309,7 @@ export interface NewCertSubmission {
   job_number?: string | null;
   user_id: string;
   engineer_id: string;
+  status?: "draft" | "completed";
 }
 
 export async function createNewCertSubmission(data: NewCertSubmission): Promise<{
