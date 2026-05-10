@@ -4,170 +4,167 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Sparkles,
-  FileSignature,
-  Plus,
-  ClipboardCheck,
-  Eye,
-  Pencil,
-  Trash2,
-  FileDown,
-} from "lucide-react";
+import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
-  getSmartFormSubmissions,
-  deleteSmartFormSubmission,
-  SmartFormSubmission,
-  BS5839Payload,
+  getSmartFormSubmissions, deleteSmartFormSubmission,
+  SmartFormSubmission, BS5839Payload,
 } from "@/services/smartFormService";
 import BS5839CertificateForm from "@/components/smart-forms/BS5839CertificateForm";
+import InstallationCertificateForm from "@/components/smart-forms/InstallationCertificateForm";
+import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
+import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
+import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
+import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
+import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
 
-const BETA_FORMS = [
+type ActiveForm = "bs5839_inspection_servicing" | "bs5839_installation" | "bs5839_commissioning" | "bs5839_modification" | null;
+
+const ALL_FORMS = [
   {
-    key: "bs5839_inspection_servicing" as const,
-    name: "BS 5839-1:2025 Inspection & Servicing Certificate",
-    code: "BS5839-IS",
-    description:
-      "Annex G.6 model certificate for fire detection & alarm system inspection and servicing. Multi-step, mobile-optimised, audit-ready.",
+    key: "bs5839_inspection_servicing" as ActiveForm,
+    name: "Inspection & Servicing Certificate",
+    code: "IS / Annex G.6",
+    bafe: null,
+    description: "Routine inspection and servicing certificate for periodic maintenance visits. Multi-step, BS 5839-1:2025 compliant, with full BS checklist, defect register, and device testing record.",
     standard: "BS 5839-1:2025",
+    color: "text-blue-600",
+    bg: "bg-blue-50 dark:bg-blue-950/20 border-blue-200",
+  },
+  {
+    key: "bs5839_installation" as ActiveForm,
+    name: "Installation Certificate",
+    code: "FD/02 / Annex E",
+    bafe: "FD/02",
+    description: "Prescribed certificate issued by the installing organisation upon completion of a new installation, extension, replacement, or takeover. Records system specification, variations, outstanding works, and installer declaration.",
+    standard: "BS 5839-1:2025",
+    color: "text-green-700",
+    bg: "bg-green-50 dark:bg-green-950/20 border-green-200",
+  },
+  {
+    key: "bs5839_commissioning" as ActiveForm,
+    name: "Commissioning Certificate",
+    code: "FD/03 / Annex C",
+    bafe: "FD/03",
+    description: "Issued upon successful commissioning of a new system. Records all BS 5839-1 Cl. 45 commissioning tests, device testing percentage, system operational status, and responsible person acknowledgement.",
+    standard: "BS 5839-1:2025",
+    color: "text-purple-700",
+    bg: "bg-purple-50 dark:bg-purple-950/20 border-purple-200",
+  },
+  {
+    key: "bs5839_modification" as ActiveForm,
+    name: "Modification Certificate",
+    code: "FD/05 / Annex F",
+    bafe: "FD/05",
+    description: "Issued whenever alterations are made to an existing certified system (BS 5839-1 Cl. 46). Records the modification scope, references to original certificates, post-modification commissioning tests, and system status.",
+    standard: "BS 5839-1:2025",
+    color: "text-amber-700",
+    bg: "bg-amber-50 dark:bg-amber-950/20 border-amber-200",
   },
 ];
+
+function statusBadge(status: string) {
+  if (status === "completed" || status === "signed")
+    return <Badge className="bg-green-600/15 text-green-700 border-green-600/30 text-[10px]">Completed</Badge>;
+  return <Badge variant="outline" className="text-[10px]">Draft</Badge>;
+}
+
+function formTypeLabel(type: string) {
+  const f = ALL_FORMS.find((x) => x.key === type);
+  return f ? f.name : type;
+}
 
 export default function SmartForms() {
   const [submissions, setSubmissions] = useState<SmartFormSubmission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [formOpen, setFormOpen] = useState(false);
+  const [activeForm, setActiveForm] = useState<ActiveForm>(null);
   const [editing, setEditing] = useState<SmartFormSubmission | null>(null);
 
   const load = async () => {
     setLoading(true);
-    try {
-      const subs = await getSmartFormSubmissions();
-      setSubmissions(subs);
-    } catch (err) {
-      console.error("Failed to load smart forms:", err);
-      toast.error("Failed to load smart form submissions");
-    } finally {
-      setLoading(false);
-    }
+    try { setSubmissions(await getSmartFormSubmissions()); }
+    catch (err) { console.error(err); toast.error("Failed to load submissions"); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  const handleNew = () => {
-    setEditing(null);
-    setFormOpen(true);
-  };
+  const handleNew = (key: ActiveForm) => { setEditing(null); setActiveForm(key); };
 
   const handleEdit = (sub: SmartFormSubmission) => {
     setEditing(sub);
-    setFormOpen(true);
+    setActiveForm(sub.form_type as ActiveForm);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this smart form submission?")) return;
-    try {
-      await deleteSmartFormSubmission(id);
-      toast.success("Submission deleted");
-      load();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete");
-    }
+    if (!confirm("Delete this submission?")) return;
+    try { await deleteSmartFormSubmission(id); toast.success("Deleted"); load(); }
+    catch { toast.error("Failed to delete"); }
   };
 
   const handleDownload = async (sub: SmartFormSubmission) => {
     try {
-      const payload = {
-        ...(sub.payload as BS5839Payload),
-        certificate_reference:
-          (sub.payload as BS5839Payload)?.certificate_reference || sub.certificate_reference,
-      };
-      await generateBS5839CertificatePDF(payload);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to generate PDF");
-    }
+      const p = sub.payload as any;
+      const ft = sub.form_type as string;
+      if (ft === "bs5839_installation") {
+        await generateInstallationCertificatePDF(p, { autoSign: true });
+      } else if (ft === "bs5839_commissioning") {
+        await generateCommissioningCertificatePDF(p, { autoSign: true });
+      } else if (ft === "bs5839_modification") {
+        await generateModificationCertificatePDF(p, { autoSign: true });
+      } else {
+        await generateBS5839CertificatePDF(p, { autoSign: true });
+      }
+    } catch (err) { toast.error("Failed to generate PDF"); }
   };
 
-  const statusBadge = (status: string) => {
-    switch (status) {
-      case "completed":
-      case "signed":
-        return (
-          <Badge className="bg-primary/10 text-primary border-primary/20">
-            {status === "signed" ? "Signed" : "Completed"}
-          </Badge>
-        );
-      case "draft":
-        return <Badge variant="secondary">Draft</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const closeForm = () => { setActiveForm(null); setEditing(null); };
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="space-y-6 p-4 md:p-6">
+        <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight">Smart Forms</h1>
-              <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30">
-                BETA
-              </Badge>
-            </div>
-            <p className="text-muted-foreground mt-1">
-              Next-generation compliance forms — multi-step, mobile-first, and audit-ready.
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <FileSignature className="w-6 h-6 text-primary" />
+              Smart Forms
+              <Badge variant="secondary" className="ml-1">BS 5839-1:2025</Badge>
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Official BAFE-prescribed certificates — Installation (FD/02), Commissioning (FD/03), Modification (FD/05), and Inspection &amp; Servicing.
             </p>
           </div>
         </div>
 
         <Tabs defaultValue="forms">
           <TabsList>
-            <TabsTrigger value="forms">
-              <Sparkles className="h-4 w-4 mr-1" />
-              Available Forms
-            </TabsTrigger>
-            <TabsTrigger value="submissions">
-              <ClipboardCheck className="h-4 w-4 mr-1" />
-              My Submissions ({submissions.length})
-            </TabsTrigger>
+            <TabsTrigger value="forms"><Sparkles className="h-4 w-4 mr-1" />Available Certificates</TabsTrigger>
+            <TabsTrigger value="submissions"><ClipboardCheck className="h-4 w-4 mr-1" />My Submissions ({submissions.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="forms" className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {BETA_FORMS.map((f) => (
-                <Card
-                  key={f.key}
-                  className="hover:shadow-md transition-shadow border-primary/20"
-                >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {ALL_FORMS.map((f) => (
+                <Card key={f.key} className={`border transition-shadow hover:shadow-md ${f.bg}`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base leading-snug flex items-start gap-2">
-                        <FileSignature className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <CardTitle className={`text-base leading-snug flex items-start gap-2 ${f.color}`}>
+                        <FileSignature className="h-4 w-4 mt-0.5 flex-shrink-0" />
                         <span>{f.name}</span>
                       </CardTitle>
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="text-[10px]">
-                        {f.code}
-                      </Badge>
-                      <Badge variant="outline" className="text-[10px]">
-                        {f.standard}
-                      </Badge>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <Badge variant="outline" className="text-[10px]">{f.code}</Badge>
+                      {f.bafe && <Badge variant="outline" className="text-[10px] border-orange-400/50 text-orange-700 dark:text-orange-400">BAFE {f.bafe}</Badge>}
+                      <Badge variant="outline" className="text-[10px]">{f.standard}</Badge>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground mb-4">{f.description}</p>
-                    <Button size="sm" onClick={handleNew} className="w-full">
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Start New
+                    <Button size="sm" onClick={() => handleNew(f.key)} className="w-full">
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Start New
                     </Button>
                   </CardContent>
                 </Card>
@@ -179,16 +176,15 @@ export default function SmartForms() {
             {loading ? (
               <div className="text-center py-12 text-muted-foreground">Loading...</div>
             ) : submissions.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  <ClipboardCheck className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p>No smart form submissions yet. Start a new form above.</p>
-                </CardContent>
-              </Card>
+              <Card><CardContent className="py-12 text-center text-muted-foreground">
+                <ClipboardCheck className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p>No submissions yet. Start a new certificate above.</p>
+              </CardContent></Card>
             ) : (
               <div className="space-y-2">
                 {submissions.map((sub) => {
-                  const p = (sub.payload || {}) as BS5839Payload;
+                  const p = (sub.payload || {}) as any;
+                  const premisesName = p.premises_name || (p as BS5839Payload).premises_name || "";
                   return (
                     <Card key={sub.id} className="hover:shadow-sm transition-shadow">
                       <CardContent className="py-3 flex items-center justify-between gap-3">
@@ -197,44 +193,24 @@ export default function SmartForms() {
                           <div className="min-w-0">
                             <p className="font-medium text-sm truncate">
                               {sub.certificate_reference}
-                              {p.premises_name ? ` · ${p.premises_name}` : ""}
+                              {premisesName ? ` · ${premisesName}` : ""}
                             </p>
                             <p className="text-xs text-muted-foreground truncate">
-                              {format(new Date(sub.created_at), "dd MMM yyyy HH:mm")}
-                              {p.date_of_service ? ` · Service: ${p.date_of_service}` : ""}
+                              {formTypeLabel(sub.form_type)} · {format(new Date(sub.created_at), "dd MMM yyyy HH:mm")}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           {statusBadge(sub.status)}
                           {(sub.status === "completed" || sub.status === "signed") && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Download PDF"
-                              onClick={() => handleDownload(sub)}
-                            >
+                            <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
                               <FileDown className="h-4 w-4" />
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title={sub.status === "draft" ? "Edit" : "View"}
-                            onClick={() => handleEdit(sub)}
-                          >
-                            {sub.status === "draft" ? (
-                              <Pencil className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(sub)}>
+                            {sub.status === "draft" ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive"
-                            onClick={() => handleDelete(sub.id)}
-                          >
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(sub.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -248,13 +224,26 @@ export default function SmartForms() {
         </Tabs>
       </div>
 
+      {/* Form dialogs — only one open at a time */}
       <BS5839CertificateForm
-        open={formOpen}
-        onOpenChange={(o) => {
-          setFormOpen(o);
-          if (!o) setEditing(null);
-        }}
-        existing={editing}
+        open={activeForm === "bs5839_inspection_servicing"}
+        onOpenChange={(o) => { if (!o) closeForm(); }}
+        existing={editing?.form_type === "bs5839_inspection_servicing" ? editing : null}
+        onSaved={load}
+      />
+      <InstallationCertificateForm
+        open={activeForm === "bs5839_installation"}
+        onOpenChange={(o) => { if (!o) closeForm(); }}
+        onSaved={load}
+      />
+      <CommissioningCertificateForm
+        open={activeForm === "bs5839_commissioning"}
+        onOpenChange={(o) => { if (!o) closeForm(); }}
+        onSaved={load}
+      />
+      <ModificationCertificateForm
+        open={activeForm === "bs5839_modification"}
+        onOpenChange={(o) => { if (!o) closeForm(); }}
         onSaved={load}
       />
     </DashboardLayout>
