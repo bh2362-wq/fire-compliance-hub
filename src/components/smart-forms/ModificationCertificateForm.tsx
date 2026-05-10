@@ -112,21 +112,9 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
     await generateModificationCertificatePDF((saved?.payload as ModificationPayload) ?? payload, { autoSign: true });
   }
 
-  const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
-      {children}
-    </div>
-  );
-
+  const F = FieldRow;
   const YNField = ({ field, label }: { field: keyof ModificationPayload; label: string }) => (
-    <div className="flex items-center gap-2 p-2.5 rounded-md border bg-accent/5">
-      <Select value={(payload[field] as string) || undefined} onValueChange={(v) => up(field, v as any)}>
-        <SelectTrigger className="w-16 h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-        <SelectContent><SelectItem value="Yes">Yes</SelectItem><SelectItem value="No">No</SelectItem></SelectContent>
-      </Select>
-      <span className="text-xs flex-1">{label}</span>
-    </div>
+    <YesNoField value={(payload[field] as string) || undefined} onChange={(v) => up(field, v as any)} label={label} />
   );
 
   const renderStep = () => {
