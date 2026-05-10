@@ -19,6 +19,7 @@ import {
   DEFAULT_COMMISSIONING_TESTS,
   createNewCertSubmission, updateNewCertSubmission, validateCommissioning,
 } from "@/services/newCertificateService";
+import { checkDuplicateJobCert, autoRegisterCertToSite } from "@/services/newCertificateService";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 
 const STEPS = [
@@ -43,15 +44,6 @@ interface Props {
   customerId?: string | null;
   prefill?: Partial<CommissioningPayload>;
   onSaved?: () => void;
-}
-
-function FieldRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
-      {children}
-    </div>
-  );
 }
 
 export default function CommissioningCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
@@ -102,11 +94,21 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
     try {
       if (submissionId) {
         const r = await updateNewCertSubmission(submissionId, { payload, status, completed_at: status === "completed" ? new Date().toISOString() : null });
+        if (status === "completed" && r?.id && siteId) {
+          const p = (r.payload || payload) as any;
+          const issueDate = p.date_of_commissioning || new Date().toISOString().split('T')[0];
+          await autoRegisterCertToSite(r.id, siteId, "bs5839_commissioning", r.certificate_reference || "", issueDate, user.id, r.payload as any).catch(console.error);
+        }
         toast.success(status === "completed" ? "Certificate completed" : "Draft saved"); onSaved?.(); return r;
       } else {
-        const r = await createNewCertSubmission({ form_type: "bs5839_commissioning", payload, visit_id: visitId ?? null, site_id: siteId ?? null, customer_id: customerId ?? null, job_number: payload.job_number ?? null, user_id: user.id, engineer_id: user.id, status });
+        const r = await createNewCertSubmission({ form_type: "bs5839_commissioning", payload, visit_id: visitId ?? null, site_id: siteId ?? null, customer_id: customerId ?? null, job_number: payload.job_number ?? null, user_id: user.id, engineer_id: user.id });
         setSubmissionId(r.id);
         if (r.certificate_reference) up("certificate_reference", r.certificate_reference);
+        if (status === "completed" && submissionId && siteId) {
+          const p = (r.payload || payload) as any;
+          const issueDate = p.date_of_commissioning || new Date().toISOString().split('T')[0];
+          await autoRegisterCertToSite(submissionId, siteId, "bs5839_commissioning", r.certificate_reference || "", issueDate, user.id, p).catch(console.error);
+        }
         toast.success(status === "completed" ? "Certificate completed" : "Draft saved"); onSaved?.(); return r;
       }
     } catch (err) { console.error(err); toast.error("Failed to save"); return null; }
@@ -114,33 +116,31 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
   }
 
   async function handleGeneratePdf() {
+    // Job duplicate check — one cert per job per type per site
+    if (payload.job_number?.trim() && siteId) {
+      const dup = await checkDuplicateJobCert(siteId, "bs5839_commissioning", payload.job_number);
+      if (dup) {
+        toast.warning(
+          `A completed commissioning cert already exists for job ${payload.job_number} — ref: ${dup.certificate_reference}. Edit that cert or use a new job number.`,
+          { duration: 7000 }
+        );
+        return;
+      }
+    }
     if (errors.length > 0) {
       toast.error(`${errors.length} issue(s) — first: ${errors[0].message}`, { action: { label: "Go to step", onClick: () => setStep(errors[0].step - 1) } });
       return;
     }
     const saved = await persist("completed");
-    if (!saved) return;
-    let pdf: { base64: string; fileName: string } | null = null;
-    try {
-      pdf = await generateCommissioningCertificatePDF((saved?.payload as CommissioningPayload) ?? payload, { autoSign: true });
-    } catch (err) {
-      console.error("PDF generation failed:", err);
-      toast.error("PDF generation failed");
-      return;
-    }
-    if (pdf && siteId) {
-      try {
-        const { uploadCertificateToSharePoint } = await import("@/lib/certSharePointUpload");
-        await uploadCertificateToSharePoint({ submissionId: saved.id, siteId, fileName: pdf.fileName, base64: pdf.base64 });
-        toast.success("Saved to SharePoint site folder");
-      } catch (err: any) {
-        console.error("SharePoint upload failed:", err);
-        toast.error(`SharePoint upload failed: ${err?.message || "unknown"}`);
-      }
-    }
+    await generateCommissioningCertificatePDF(saved?.payload ?? payload, { autoSign: true });
   }
 
-  const F = FieldRow;
+  const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+      {children}
+    </div>
+  );
 
   const renderStep = () => {
     switch (step) {

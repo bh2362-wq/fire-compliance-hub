@@ -19,6 +19,7 @@ import {
   DEFAULT_POST_MOD_TESTS, ModificationReason,
   createNewCertSubmission, updateNewCertSubmission, validateModification,
 } from "@/services/newCertificateService";
+import { checkDuplicateJobCert, autoRegisterCertToSite } from "@/services/newCertificateService";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
 
 const STEPS = [
@@ -48,27 +49,6 @@ interface Props {
   customerId?: string | null;
   prefill?: Partial<ModificationPayload>;
   onSaved?: () => void;
-}
-
-function FieldRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
-      {children}
-    </div>
-  );
-}
-
-function YesNoField({ value, onChange, label }: { value: string | undefined; onChange: (v: string) => void; label: string }) {
-  return (
-    <div className="flex items-center gap-2 p-2.5 rounded-md border bg-accent/5">
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="w-16 h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-        <SelectContent><SelectItem value="Yes">Yes</SelectItem><SelectItem value="No">No</SelectItem></SelectContent>
-      </Select>
-      <span className="text-xs flex-1">{label}</span>
-    </div>
-  );
 }
 
 export default function ModificationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
@@ -113,11 +93,21 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
     try {
       if (submissionId) {
         const r = await updateNewCertSubmission(submissionId, { payload, status, completed_at: status === "completed" ? new Date().toISOString() : null });
+        if (status === "completed" && r?.id && siteId) {
+          const p = (r.payload || payload) as any;
+          const issueDate = p.date_of_modification || new Date().toISOString().split('T')[0];
+          await autoRegisterCertToSite(r.id, siteId, "bs5839_modification", r.certificate_reference || "", issueDate, user.id, r.payload as any).catch(console.error);
+        }
         toast.success(status === "completed" ? "Certificate completed" : "Draft saved"); onSaved?.(); return r;
       } else {
-        const r = await createNewCertSubmission({ form_type: "bs5839_modification", payload, visit_id: visitId ?? null, site_id: siteId ?? null, customer_id: customerId ?? null, job_number: payload.job_number ?? null, user_id: user.id, engineer_id: user.id, status });
+        const r = await createNewCertSubmission({ form_type: "bs5839_modification", payload, visit_id: visitId ?? null, site_id: siteId ?? null, customer_id: customerId ?? null, job_number: payload.job_number ?? null, user_id: user.id, engineer_id: user.id });
         setSubmissionId(r.id);
         if (r.certificate_reference) up("certificate_reference", r.certificate_reference);
+        if (status === "completed" && submissionId && siteId) {
+          const p = (r.payload || payload) as any;
+          const issueDate = p.date_of_modification || new Date().toISOString().split('T')[0];
+          await autoRegisterCertToSite(submissionId, siteId, "bs5839_modification", r.certificate_reference || "", issueDate, user.id, p).catch(console.error);
+        }
         toast.success(status === "completed" ? "Certificate completed" : "Draft saved"); onSaved?.(); return r;
       }
     } catch (err) { console.error(err); toast.error("Failed to save"); return null; }
@@ -125,35 +115,40 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
   }
 
   async function handleGeneratePdf() {
+    // Job duplicate check — one cert per job per type per site
+    if (payload.job_number?.trim() && siteId) {
+      const dup = await checkDuplicateJobCert(siteId, "bs5839_modification", payload.job_number);
+      if (dup) {
+        toast.warning(
+          `A completed modification cert already exists for job ${payload.job_number} — ref: ${dup.certificate_reference}. Edit that cert or use a new job number.`,
+          { duration: 7000 }
+        );
+        return;
+      }
+    }
     if (errors.length > 0) {
       toast.error(`${errors.length} issue(s) — first: ${errors[0].message}`, { action: { label: "Go", onClick: () => setStep(errors[0].step - 1) } });
       return;
     }
     const saved = await persist("completed");
-    if (!saved) return;
-    let pdf: { base64: string; fileName: string } | null = null;
-    try {
-      pdf = await generateModificationCertificatePDF((saved?.payload as ModificationPayload) ?? payload, { autoSign: true });
-    } catch (err) {
-      console.error("PDF generation failed:", err);
-      toast.error("PDF generation failed");
-      return;
-    }
-    if (pdf && siteId) {
-      try {
-        const { uploadCertificateToSharePoint } = await import("@/lib/certSharePointUpload");
-        await uploadCertificateToSharePoint({ submissionId: saved.id, siteId, fileName: pdf.fileName, base64: pdf.base64 });
-        toast.success("Saved to SharePoint site folder");
-      } catch (err: any) {
-        console.error("SharePoint upload failed:", err);
-        toast.error(`SharePoint upload failed: ${err?.message || "unknown"}`);
-      }
-    }
+    await generateModificationCertificatePDF(saved?.payload ?? payload, { autoSign: true });
   }
 
-  const F = FieldRow;
+  const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+      {children}
+    </div>
+  );
+
   const YNField = ({ field, label }: { field: keyof ModificationPayload; label: string }) => (
-    <YesNoField value={(payload[field] as string) || undefined} onChange={(v) => up(field, v as any)} label={label} />
+    <div className="flex items-center gap-2 p-2.5 rounded-md border bg-accent/5">
+      <Select value={(payload[field] as string) || undefined} onValueChange={(v) => up(field, v as any)}>
+        <SelectTrigger className="w-16 h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+        <SelectContent><SelectItem value="Yes">Yes</SelectItem><SelectItem value="No">No</SelectItem></SelectContent>
+      </Select>
+      <span className="text-xs flex-1">{label}</span>
+    </div>
   );
 
   const renderStep = () => {
