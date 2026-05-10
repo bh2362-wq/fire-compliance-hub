@@ -110,7 +110,7 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
       return;
     }
     const saved = await persist("completed");
-    await generateCommissioningCertificatePDF(saved?.payload ?? payload, { autoSign: true });
+    await generateCommissioningCertificatePDF((saved?.payload as CommissioningPayload) ?? payload, { autoSign: true });
   }
 
   const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
