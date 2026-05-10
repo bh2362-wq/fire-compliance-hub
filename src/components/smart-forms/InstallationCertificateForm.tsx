@@ -43,6 +43,24 @@ interface Props {
   onSaved?: () => void;
 }
 
+function FieldRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+      {children}
+    </div>
+  );
+}
+
+function YesNoSelect({ value, onChange }: { value: string | undefined; onChange: (v: string) => void }) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+      <SelectContent><SelectItem value="Yes">Yes</SelectItem><SelectItem value="No">No</SelectItem></SelectContent>
+    </Select>
+  );
+}
+
 export default function InstallationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
