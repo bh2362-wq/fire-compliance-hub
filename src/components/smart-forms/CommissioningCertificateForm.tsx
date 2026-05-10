@@ -104,7 +104,7 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
         const r = await updateNewCertSubmission(submissionId, { payload, status, completed_at: status === "completed" ? new Date().toISOString() : null });
         toast.success(status === "completed" ? "Certificate completed" : "Draft saved"); onSaved?.(); return r;
       } else {
-        const r = await createNewCertSubmission({ form_type: "bs5839_commissioning", payload, visit_id: visitId ?? null, site_id: siteId ?? null, customer_id: customerId ?? null, job_number: payload.job_number ?? null, user_id: user.id, engineer_id: user.id });
+        const r = await createNewCertSubmission({ form_type: "bs5839_commissioning", payload, visit_id: visitId ?? null, site_id: siteId ?? null, customer_id: customerId ?? null, job_number: payload.job_number ?? null, user_id: user.id, engineer_id: user.id, status });
         setSubmissionId(r.id);
         if (r.certificate_reference) up("certificate_reference", r.certificate_reference);
         toast.success(status === "completed" ? "Certificate completed" : "Draft saved"); onSaved?.(); return r;
@@ -119,7 +119,25 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
       return;
     }
     const saved = await persist("completed");
-    await generateCommissioningCertificatePDF((saved?.payload as CommissioningPayload) ?? payload, { autoSign: true });
+    if (!saved) return;
+    let pdf: { base64: string; fileName: string } | null = null;
+    try {
+      pdf = await generateCommissioningCertificatePDF((saved?.payload as CommissioningPayload) ?? payload, { autoSign: true });
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      toast.error("PDF generation failed");
+      return;
+    }
+    if (pdf && siteId) {
+      try {
+        const { uploadCertificateToSharePoint } = await import("@/lib/certSharePointUpload");
+        await uploadCertificateToSharePoint({ submissionId: saved.id, siteId, fileName: pdf.fileName, base64: pdf.base64 });
+        toast.success("Saved to SharePoint site folder");
+      } catch (err: any) {
+        console.error("SharePoint upload failed:", err);
+        toast.error(`SharePoint upload failed: ${err?.message || "unknown"}`);
+      }
+    }
   }
 
   const F = FieldRow;

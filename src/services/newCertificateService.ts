@@ -309,6 +309,7 @@ export interface NewCertSubmission {
   job_number?: string | null;
   user_id: string;
   engineer_id: string;
+  status?: "draft" | "completed";
 }
 
 export async function createNewCertSubmission(data: NewCertSubmission): Promise<{
@@ -333,7 +334,8 @@ export async function createNewCertSubmission(data: NewCertSubmission): Promise<
       form_type: data.form_type,
       certificate_reference: certRef,
       payload: payloadWithRef as any,
-      status: "draft",
+      status: data.status ?? "draft",
+      completed_at: data.status === "completed" ? new Date().toISOString() : null,
       visit_id: data.visit_id ?? null,
       site_id: data.site_id ?? null,
       customer_id: data.customer_id ?? null,
