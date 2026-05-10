@@ -94,7 +94,7 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
       return;
     }
     const saved = await persist("completed");
-    await generateInstallationCertificatePDF(saved?.payload ?? payload, { autoSign: true });
+    await generateInstallationCertificatePDF((saved?.payload as InstallationPayload) ?? payload, { autoSign: true });
   }
 
   async function handleDraftPdf() {
