@@ -354,5 +354,8 @@ export async function generateModificationCertificatePDF(
   }
 
   drawFooter();
-  doc.save(`${sanitize(payload.certificate_reference) || "Modification-Certificate"}.pdf`);
+  const fileName = `${sanitize(payload.certificate_reference) || "Modification-Certificate"}.pdf`;
+  doc.save(fileName);
+  const base64 = doc.output("datauristring").split(",")[1] ?? "";
+  return { base64, fileName };
 }
