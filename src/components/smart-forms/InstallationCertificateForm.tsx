@@ -128,18 +128,9 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
   const progress = ((step + 1) / STEPS.length) * 100;
 
   // ── Field helpers ──────────────────────────────────────────────────────────
-  const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
-      {children}
-    </div>
-  );
-
+  const F = FieldRow;
   const YNSelect = ({ field }: { field: keyof InstallationPayload }) => (
-    <Select value={(payload[field] as string) || undefined} onValueChange={(v) => up(field, v as any)}>
-      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-      <SelectContent><SelectItem value="Yes">Yes</SelectItem><SelectItem value="No">No</SelectItem></SelectContent>
-    </Select>
+    <YesNoSelect value={(payload[field] as string) || undefined} onChange={(v) => up(field, v as any)} />
   );
 
   // ── Step renderers ─────────────────────────────────────────────────────────
