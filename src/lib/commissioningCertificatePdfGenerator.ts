@@ -31,8 +31,6 @@ function resultColor(r: string): [number, number, number] {
   return C.lightGrey;
 }
 
-}
-
 
 async function loadImageAsBase64(url: string): Promise<string | null> {
   try {
@@ -65,7 +63,7 @@ function fitToBox(naturalW: number, naturalH: number, maxW: number, maxH: number
 export async function generateCommissioningCertificatePDF(
   payload: CommissioningPayload,
   options?: { autoSign?: boolean }
-): Promise<void> {
+): Promise<{ base64: string; fileName: string }> {
   const { data: company } = await supabase.from("company_settings").select("*").limit(1).maybeSingle();
   const logoUrl = company?.report_logo_url || company?.company_logo_url || null;
   const logoData = logoUrl ? await loadLogoWithSize(logoUrl) : null;
@@ -326,5 +324,8 @@ export async function generateCommissioningCertificatePDF(
   y += 42;
 
   drawFooter();
-  doc.save(`${sanitize(payload.certificate_reference) || "Commissioning-Certificate"}.pdf`);
+  const fileName = `${sanitize(payload.certificate_reference) || "Commissioning-Certificate"}.pdf`;
+  doc.save(fileName);
+  const base64 = doc.output("datauristring").split(",")[1] ?? "";
+  return { base64, fileName };
 }
