@@ -31,26 +31,44 @@ function yn(v: string | undefined): string {
   return v === "Yes" ? "YES" : v === "No" ? "NO" : "—";
 }
 
+}
+
+
 async function loadImageAsBase64(url: string): Promise<string | null> {
   try {
-    const r = await fetch(url);
-    const b = await r.blob();
-    return new Promise((res) => {
-      const fr = new FileReader();
-      fr.onloadend = () => res(fr.result as string);
-      fr.onerror = () => res(null);
-      fr.readAsDataURL(b);
-    });
+    const r = await fetch(url); const b = await r.blob();
+    return new Promise((res) => { const fr = new FileReader(); fr.onloadend = () => res(fr.result as string); fr.onerror = () => res(null); fr.readAsDataURL(b); });
   } catch { return null; }
+}
+
+/** Load logo and get natural dimensions for aspect-ratio-correct placement */
+async function loadLogoWithSize(url: string): Promise<{ base64: string; w: number; h: number } | null> {
+  const base64 = await loadImageAsBase64(url);
+  if (!base64) return null;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ base64, w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => resolve({ base64, w: 100, h: 100 }); // fallback square
+    img.src = base64;
+  });
+}
+
+/** Fit image into a bounding box preserving aspect ratio */
+function fitToBox(naturalW: number, naturalH: number, maxW: number, maxH: number): [number, number] {
+  const ratio = naturalW / naturalH;
+  let w = maxW;
+  let h = w / ratio;
+  if (h > maxH) { h = maxH; w = h * ratio; }
+  return [w, h];
 }
 
 export async function generateInstallationCertificatePDF(
   payload: InstallationPayload,
   options?: { autoSign?: boolean }
-): Promise<{ base64: string; fileName: string }> {
+): Promise<void> {
   const { data: company } = await supabase.from("company_settings").select("*").limit(1).maybeSingle();
   const logoUrl = company?.report_logo_url || company?.company_logo_url || null;
-  const logoB64 = logoUrl ? await loadImageAsBase64(logoUrl) : null;
+  const logoData = logoUrl ? await loadLogoWithSize(logoUrl) : null;
   const companyName = sanitize(company?.company_name) || "BHO Fire & Security Ltd";
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -65,8 +83,12 @@ export async function generateInstallationCertificatePDF(
     doc.setFillColor(...C.navyBg);
     doc.rect(ML, y, CW, 16, "F");
 
-    if (logoB64) {
-      try { doc.addImage(logoB64, "PNG", ML + 2, y + 1, 28, 14, undefined, "FAST"); } catch {}
+    if (logoData) {
+      try {
+        const [logoW, logoH] = fitToBox(logoData.w, logoData.h, 34, 13);
+        const logoY = y + 1.5 + (13 - logoH) / 2;
+        doc.addImage(logoData.base64, "PNG", ML + 2, logoY, logoW, logoH, undefined, "FAST");
+      } catch {}
     }
 
     doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.white);
@@ -291,6 +313,4 @@ export async function generateInstallationCertificatePDF(
   drawFooter();
   const filename = `${sanitize(payload.certificate_reference) || "Installation-Certificate"}.pdf`;
   doc.save(filename);
-  const base64 = doc.output("datauristring").split(",")[1] ?? "";
-  return { base64, fileName: filename };
 }
