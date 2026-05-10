@@ -50,6 +50,27 @@ interface Props {
   onSaved?: () => void;
 }
 
+function FieldRow({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+      {children}
+    </div>
+  );
+}
+
+function YesNoField({ value, onChange, label }: { value: string | undefined; onChange: (v: string) => void; label: string }) {
+  return (
+    <div className="flex items-center gap-2 p-2.5 rounded-md border bg-accent/5">
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-16 h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+        <SelectContent><SelectItem value="Yes">Yes</SelectItem><SelectItem value="No">No</SelectItem></SelectContent>
+      </Select>
+      <span className="text-xs flex-1">{label}</span>
+    </div>
+  );
+}
+
 export default function ModificationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
