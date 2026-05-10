@@ -296,5 +296,8 @@ export async function generateCommissioningCertificatePDF(
   y += 42;
 
   drawFooter();
-  doc.save(`${sanitize(payload.certificate_reference) || "Commissioning-Certificate"}.pdf`);
+  const fileName = `${sanitize(payload.certificate_reference) || "Commissioning-Certificate"}.pdf`;
+  doc.save(fileName);
+  const base64 = doc.output("datauristring").split(",")[1] ?? "";
+  return { base64, fileName };
 }
