@@ -140,7 +140,7 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
       return;
     }
     const saved = await persist("completed");
-    await generateModificationCertificatePDF(saved?.payload ?? payload, { autoSign: true });
+    await generateModificationCertificatePDF((saved?.payload ?? payload) as ModificationPayload, { autoSign: true });
   }
 
   const F = Field;
