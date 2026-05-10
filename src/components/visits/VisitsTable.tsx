@@ -63,6 +63,8 @@ import BS5839CertificateForm from "@/components/smart-forms/BS5839CertificateFor
 import InstallationCertificateForm from "@/components/smart-forms/InstallationCertificateForm";
 import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
 import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
+import { buildCertPrefill } from "@/services/certPrefillService";
+import { InstallationPayload, CommissioningPayload, ModificationPayload } from "@/services/newCertificateService";
 import { BS5839Payload } from "@/services/smartFormService";
 import { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
@@ -216,8 +218,12 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [smartFormVisit, setSmartFormVisit] = useState<Visit | null>(null);
   const [smartFormPrefill, setSmartFormPrefill] = useState<Partial<BS5839Payload> | null>(null);
   const [installCertVisit, setInstallCertVisit] = useState<Visit | null>(null);
+  const [installCertPrefill, setInstallCertPrefill] = useState<Partial<InstallationPayload> | null>(null);
   const [commCertVisit, setCommCertVisit] = useState<Visit | null>(null);
+  const [commCertPrefill, setCommCertPrefill] = useState<Partial<CommissioningPayload> | null>(null);
   const [modCertVisit, setModCertVisit] = useState<Visit | null>(null);
+  const [modCertPrefill, setModCertPrefill] = useState<Partial<ModificationPayload> | null>(null);
+  const [certPrefillLoading, setCertPrefillLoading] = useState(false);
   const [mergeSitesOpen, setMergeSitesOpen] = useState(false);
   const [ramsGenerating, setRamsGenerating] = useState(false);
   const [ramsOpen, setRamsOpen] = useState(false);
@@ -1043,17 +1049,14 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                         <Sparkles className="w-3.5 h-3.5 mr-2" />
                         Inspection &amp; Servicing
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setInstallCertVisit(visit)}>
-                        <FileText className="w-3.5 h-3.5 mr-2" />
-                        Installation (FD/02)
+                      <DropdownMenuItem disabled={certPrefillLoading} onClick={async () => { setCertPrefillLoading(true); try { const p = await buildCertPrefill(visit.id, visit.site_id, visit.visit_date, visit.visit_type, (visit as any).job_number); setInstallCertPrefill(p.installation); setInstallCertVisit(visit); } catch { setInstallCertPrefill(null); setInstallCertVisit(visit); } finally { setCertPrefillLoading(false); } }}>
+                        <FileText className="w-3.5 h-3.5 mr-2" />{certPrefillLoading ? "Loading..." : "Installation (FD/02)"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCommCertVisit(visit)}>
-                        <ClipboardCheck className="w-3.5 h-3.5 mr-2" />
-                        Commissioning (FD/03)
+                      <DropdownMenuItem disabled={certPrefillLoading} onClick={async () => { setCertPrefillLoading(true); try { const p = await buildCertPrefill(visit.id, visit.site_id, visit.visit_date, visit.visit_type, (visit as any).job_number); setCommCertPrefill(p.commissioning); setCommCertVisit(visit); } catch { setCommCertPrefill(null); setCommCertVisit(visit); } finally { setCertPrefillLoading(false); } }}>
+                        <ClipboardCheck className="w-3.5 h-3.5 mr-2" />{certPrefillLoading ? "Loading..." : "Commissioning (FD/03)"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setModCertVisit(visit)}>
-                        <Pencil className="w-3.5 h-3.5 mr-2" />
-                        Modification (FD/05)
+                      <DropdownMenuItem disabled={certPrefillLoading} onClick={async () => { setCertPrefillLoading(true); try { const p = await buildCertPrefill(visit.id, visit.site_id, visit.visit_date, visit.visit_type, (visit as any).job_number); setModCertPrefill(p.modification); setModCertVisit(visit); } catch { setModCertPrefill(null); setModCertVisit(visit); } finally { setCertPrefillLoading(false); } }}>
+                        <Pencil className="w-3.5 h-3.5 mr-2" />{certPrefillLoading ? "Loading..." : "Modification (FD/05)"}
                       </DropdownMenuItem>
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
@@ -1765,23 +1768,26 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       />
       <InstallationCertificateForm
         open={!!installCertVisit}
-        onOpenChange={(open) => { if (!open) setInstallCertVisit(null); }}
+        onOpenChange={(open) => { if (!open) { setInstallCertVisit(null); setInstallCertPrefill(null); } }}
         visitId={installCertVisit?.id ?? null}
         siteId={installCertVisit?.site_id ?? null}
+        prefill={installCertPrefill ?? undefined}
         onSaved={onRefresh}
       />
       <CommissioningCertificateForm
         open={!!commCertVisit}
-        onOpenChange={(open) => { if (!open) setCommCertVisit(null); }}
+        onOpenChange={(open) => { if (!open) { setCommCertVisit(null); setCommCertPrefill(null); } }}
         visitId={commCertVisit?.id ?? null}
         siteId={commCertVisit?.site_id ?? null}
+        prefill={commCertPrefill ?? undefined}
         onSaved={onRefresh}
       />
       <ModificationCertificateForm
         open={!!modCertVisit}
-        onOpenChange={(open) => { if (!open) setModCertVisit(null); }}
+        onOpenChange={(open) => { if (!open) { setModCertVisit(null); setModCertPrefill(null); } }}
         visitId={modCertVisit?.id ?? null}
         siteId={modCertVisit?.site_id ?? null}
+        prefill={modCertPrefill ?? undefined}
         onSaved={onRefresh}
       />
       <BS5839CertificateForm

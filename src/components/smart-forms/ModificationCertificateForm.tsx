@@ -109,7 +109,7 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
       return;
     }
     const saved = await persist("completed");
-    await generateModificationCertificatePDF(saved?.payload ?? payload, { autoSign: true });
+    await generateModificationCertificatePDF((saved?.payload as ModificationPayload) ?? payload, { autoSign: true });
   }
 
   const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
