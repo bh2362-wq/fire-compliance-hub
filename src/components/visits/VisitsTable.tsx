@@ -1049,17 +1049,14 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                         <Sparkles className="w-3.5 h-3.5 mr-2" />
                         Inspection &amp; Servicing
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setInstallCertVisit(visit)}>
-                        <FileText className="w-3.5 h-3.5 mr-2" />
-                        Installation (FD/02)
+                      <DropdownMenuItem disabled={certPrefillLoading} onClick={async () => { setCertPrefillLoading(true); try { const p = await buildCertPrefill(visit.id, visit.site_id, visit.visit_date, visit.visit_type, (visit as any).job_number); setInstallCertPrefill(p.installation); setInstallCertVisit(visit); } catch { setInstallCertPrefill(null); setInstallCertVisit(visit); } finally { setCertPrefillLoading(false); } }}>
+                        <FileText className="w-3.5 h-3.5 mr-2" />{certPrefillLoading ? "Loading..." : "Installation (FD/02)"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCommCertVisit(visit)}>
-                        <ClipboardCheck className="w-3.5 h-3.5 mr-2" />
-                        Commissioning (FD/03)
+                      <DropdownMenuItem disabled={certPrefillLoading} onClick={async () => { setCertPrefillLoading(true); try { const p = await buildCertPrefill(visit.id, visit.site_id, visit.visit_date, visit.visit_type, (visit as any).job_number); setCommCertPrefill(p.commissioning); setCommCertVisit(visit); } catch { setCommCertPrefill(null); setCommCertVisit(visit); } finally { setCertPrefillLoading(false); } }}>
+                        <ClipboardCheck className="w-3.5 h-3.5 mr-2" />{certPrefillLoading ? "Loading..." : "Commissioning (FD/03)"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setModCertVisit(visit)}>
-                        <Pencil className="w-3.5 h-3.5 mr-2" />
-                        Modification (FD/05)
+                      <DropdownMenuItem disabled={certPrefillLoading} onClick={async () => { setCertPrefillLoading(true); try { const p = await buildCertPrefill(visit.id, visit.site_id, visit.visit_date, visit.visit_type, (visit as any).job_number); setModCertPrefill(p.modification); setModCertVisit(visit); } catch { setModCertPrefill(null); setModCertVisit(visit); } finally { setCertPrefillLoading(false); } }}>
+                        <Pencil className="w-3.5 h-3.5 mr-2" />{certPrefillLoading ? "Loading..." : "Modification (FD/05)"}
                       </DropdownMenuItem>
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
