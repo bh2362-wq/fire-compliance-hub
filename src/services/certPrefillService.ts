@@ -318,7 +318,7 @@ export async function buildCertPrefill(
     "commissioning_tests", "post_mod_tests",
   ]);
 
-  function mergeCarryOver<T extends Record<string, unknown>>(
+  function mergeCarryOver<T extends object>(
     fresh: Partial<T>,
     last: Record<string, unknown> | null
   ): Partial<T> {

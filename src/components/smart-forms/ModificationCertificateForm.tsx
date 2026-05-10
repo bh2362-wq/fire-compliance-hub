@@ -51,6 +51,15 @@ interface Props {
   onSaved?: () => void;
 }
 
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
+      {children}
+    </div>
+  );
+}
+
 export default function ModificationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
@@ -131,15 +140,10 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
       return;
     }
     const saved = await persist("completed");
-    await generateModificationCertificatePDF(saved?.payload ?? payload, { autoSign: true });
+    await generateModificationCertificatePDF((saved?.payload ?? payload) as ModificationPayload, { autoSign: true });
   }
 
-  const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium">{label}{required && <span className="text-destructive ml-0.5">*</span>}</Label>
-      {children}
-    </div>
-  );
+  const F = Field;
 
   const YNField = ({ field, label }: { field: keyof ModificationPayload; label: string }) => (
     <div className="flex items-center gap-2 p-2.5 rounded-md border bg-accent/5">

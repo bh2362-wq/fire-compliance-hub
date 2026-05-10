@@ -312,17 +312,25 @@ export interface NewCertSubmission {
 }
 
 export async function createNewCertSubmission(data: NewCertSubmission) {
+  const { data: refData, error: refErr } = await supabase.rpc("get_next_smart_form_cert_ref", {
+    p_form_type: data.form_type,
+  });
+  if (refErr) throw refErr;
+  const certRef = refData as string;
+  const payloadWithRef = { ...data.payload, certificate_reference: certRef };
+
   const { data: row, error } = await supabase
     .from("smart_form_submissions")
     .insert({
       form_type: data.form_type,
-      payload: data.payload as any,
+      certificate_reference: certRef,
+      payload: payloadWithRef as unknown as never,
       status: "draft",
       visit_id: data.visit_id ?? null,
       site_id: data.site_id ?? null,
       customer_id: data.customer_id ?? null,
       job_number: data.job_number ?? null,
-      user_id: data.user_id,
+      created_by: data.user_id,
       engineer_id: data.engineer_id,
     })
     .select()
