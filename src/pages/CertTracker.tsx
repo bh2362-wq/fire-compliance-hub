@@ -48,8 +48,7 @@ async function fetchCertTrackerData(): Promise<SiteRow[]> {
       certificate_reference,
       completed_at,
       job_number,
-      site_id,
-      sites:site_id ( id, name, address )
+      site_id
     `)
     .eq("status", "completed")
     .not("site_id", "is", null)
@@ -63,14 +62,25 @@ async function fetchCertTrackerData(): Promise<SiteRow[]> {
     completed_at: string | null;
     job_number: string | null;
     site_id: string;
-    sites: { id: string; name: string; address: string | null } | null;
   }[];
+
+  // Fetch sites separately (no FK relationship between the two tables)
+  const siteIds = Array.from(new Set(rows.map((r) => r.site_id).filter(Boolean)));
+  const sitesById = new Map<string, { id: string; name: string; address: string | null }>();
+  if (siteIds.length > 0) {
+    const { data: sitesData } = await supabase
+      .from("sites")
+      .select("id, name, address")
+      .in("id", siteIds);
+    (sitesData ?? []).forEach((s: any) => sitesById.set(s.id, s));
+  }
 
   // Group by site_id — only keep latest per form_type per site
   const siteMap = new Map<string, SiteRow>();
 
   for (const row of rows) {
-    if (!row.site_id || !row.sites) continue;
+    const site = sitesById.get(row.site_id);
+    if (!site) continue;
     const colKey = row.form_type as CertColKey;
     const isKnownType = CERT_COLS.some((c) => c.key === colKey);
     if (!isKnownType) continue;
@@ -78,15 +88,14 @@ async function fetchCertTrackerData(): Promise<SiteRow[]> {
     if (!siteMap.has(row.site_id)) {
       siteMap.set(row.site_id, {
         site_id: row.site_id,
-        site_name: row.sites.name,
-        site_address: row.sites.address,
+        site_name: site.name,
+        site_address: site.address,
         certs: {},
         certCount: 0,
       });
     }
 
     const sr = siteMap.get(row.site_id)!;
-    // Only store the first (most recent) of each type per site
     if (!sr.certs[colKey]) {
       sr.certs[colKey] = {
         id: row.id,
@@ -97,7 +106,6 @@ async function fetchCertTrackerData(): Promise<SiteRow[]> {
     }
   }
 
-  // Set cert count and return only sites with ≥1 cert
   return Array.from(siteMap.values()).map((s) => ({
     ...s,
     certCount: Object.keys(s.certs).length,

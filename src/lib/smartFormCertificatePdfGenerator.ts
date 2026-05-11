@@ -97,7 +97,7 @@ function severityColor(sev: string): [number, number, number] {
 export async function generateBS5839CertificatePDF(
   payload: BS5839Payload,
   options?: { autoSign?: boolean; engineerFallbackName?: string }
-): Promise<void> {
+): Promise<{ base64: string; fileName: string }> {
   const company = await loadCompanySettings();
   const logoUrl = company?.report_logo_url || company?.company_logo_url || null;
   const logoBase64 = logoUrl ? await loadImageAsBase64(logoUrl) : null;
@@ -667,6 +667,9 @@ export async function generateBS5839CertificatePDF(
 
   // ── Footer & save ──
   drawFooter();
-  const filename = `${payload.certificate_reference || "BS5839-Certificate"}.pdf`;
-  doc.save(filename);
+  const fileName = `${payload.certificate_reference || "BS5839-Certificate"}.pdf`;
+  doc.save(fileName);
+  const dataUri = doc.output("datauristring");
+  const base64 = dataUri.split(",")[1] ?? "";
+  return { base64, fileName };
 }

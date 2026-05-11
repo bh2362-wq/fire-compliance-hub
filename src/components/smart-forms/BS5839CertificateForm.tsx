@@ -21,6 +21,9 @@ import {
   validatePayload, percentageTested, DEFAULT_CHECKLIST,
 } from "@/services/smartFormService";
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
+import { uploadCertificateToSharePoint } from "@/lib/certSharePointUpload";
+import { autoRegisterCertToSite } from "@/services/newCertificateService";
+import { createDefect, type DefectCategory } from "@/services/defectService";
 
 const STEPS = [
   "Header", "Premises", "System", "Service Org", "Checklist",
@@ -119,16 +122,49 @@ export default function BS5839CertificateForm({
     }
   }
 
-  async function runPdf(payloadToUse: BS5839Payload) {
+  function severityToCategory(sev: string | undefined): DefectCategory {
+    switch ((sev || "").toLowerCase()) {
+      case "critical": return 1;
+      case "major":    return 2;
+      default:         return 3; // Minor / Advisory / blank
+    }
+  }
+
+  async function pushDefectsToSiteDefects(submissionIdLocal: string) {
+    if (!siteId) return;
+    const list = (payload.defects ?? []).filter(d => d?.description?.trim());
+    if (list.length === 0) return;
+    let ok = 0;
+    for (const d of list) {
+      try {
+        await createDefect({
+          site_id: siteId,
+          visit_id: visitId ?? null,
+          description: [d.description, d.recommended_action ? `Recommended: ${d.recommended_action}` : ""].filter(Boolean).join("\n"),
+          location: d.location || null,
+          category: severityToCategory(d.severity),
+          status: "open",
+          raised_by: user?.id ?? null,
+          notes: d.bs_reference ? `${d.bs_reference} — from cert ${payload.certificate_reference || submissionIdLocal}` : `From cert ${payload.certificate_reference || submissionIdLocal}`,
+        });
+        ok++;
+      } catch (e) { console.error("defect push failed", e); }
+    }
+    if (ok > 0) toast.success(`${ok} defect${ok === 1 ? "" : "s"} added to Defects register`);
+  }
+
+  async function runPdf(payloadToUse: BS5839Payload): Promise<{ base64: string; fileName: string } | null> {
     try {
-      await generateBS5839CertificatePDF(payloadToUse, {
+      const res = await generateBS5839CertificatePDF(payloadToUse, {
         autoSign: true,
         engineerFallbackName: payload.engineer_declaration_name || payload.engineer_name,
       });
       toast.success("PDF generated");
+      return res;
     } catch (err) {
       console.error("PDF generation failed:", err);
       toast.error(`PDF generation failed: ${(err as Error)?.message || "unknown error"}`);
+      return null;
     }
   }
 
@@ -142,11 +178,41 @@ export default function BS5839CertificateForm({
     }
     const saved = await persist("completed");
     if (!saved) {
-      // Save failed — still try to download from current payload so the user gets the file
       await runPdf(payload);
       return;
     }
-    await runPdf(saved.payload);
+    const pdf = await runPdf(saved.payload);
+
+    // Upload to SharePoint and persist pdf_url
+    if (pdf && saved.id) {
+      try {
+        await uploadCertificateToSharePoint({
+          submissionId: saved.id,
+          siteId: siteId ?? null,
+          fileName: pdf.fileName,
+          base64: pdf.base64,
+        });
+      } catch (e) {
+        console.error("SharePoint upload failed", e);
+        toast.warning("Certificate saved but SharePoint upload failed");
+      }
+    }
+
+    // Auto-register to site BAFE list
+    if (siteId && user && saved.id && saved.certificate_reference) {
+      await autoRegisterCertToSite(
+        saved.id,
+        siteId,
+        "bs5839_inspection_servicing",
+        saved.certificate_reference,
+        new Date().toISOString().slice(0, 10),
+        user.id,
+        saved.payload as Record<string, unknown>,
+      ).catch(console.error);
+    }
+
+    // Push defects into the defects register so they flow to quotation
+    if (saved.id) await pushDefectsToSiteDefects(saved.id);
   }
 
   async function handleDownloadDraftPdf() {
