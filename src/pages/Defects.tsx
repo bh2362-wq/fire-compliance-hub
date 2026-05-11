@@ -330,8 +330,7 @@ export default function Defects() {
 
       {(() => {
         const selectedDefects = defects.filter((d) => selectedIds.includes(d.id));
-        const first = selectedDefects[0];
-        if (!first) return null;
+        if (!selectedDefects.length) return null;
         return (
           <AIDefectQuoteDialog
             open={aiQuoteOpen}
@@ -342,13 +341,13 @@ export default function Defects() {
               category: d.category,
               location: d.location,
               status: d.status,
+              site_id: d.site_id,
+              site_name: d.site?.name,
+              notes: d.notes,
             }))}
-            siteId={first.site_id}
-            siteName={first.site?.name || "site"}
-            customerId={first.site?.customer_id ?? null}
-            onQuoteCreated={(qid) => {
+            onQuoteCreated={() => {
               setSelectedIds([]);
-              navigate("/dashboard/quotations", { state: { openQuotationId: qid } });
+              load();
             }}
           />
         );
