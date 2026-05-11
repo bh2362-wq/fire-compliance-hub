@@ -193,9 +193,29 @@ ${defect.notes ? `\nAdditional notes:\n${defect.notes}` : ""}`;
               Cat 1 / 2 / 3 defect tracking with AI remedial quotation
             </p>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" /> Raise Defect
-          </Button>
+          <div className="flex gap-2">
+            {selectedIds.length > 0 && (
+              <Button
+                onClick={() => {
+                  const sel = defects.filter((d) => selectedIds.includes(d.id));
+                  const uniqueSites = new Set(sel.map((d) => d.site_id));
+                  if (uniqueSites.size > 1) {
+                    toast.error("Select defects from a single site to generate a quote");
+                    return;
+                  }
+                  setAiQuoteOpen(true);
+                }}
+                className="gap-2"
+                variant="default"
+              >
+                <Sparkles className="h-4 w-4" />
+                AI Quote ({selectedIds.length} defect{selectedIds.length !== 1 ? "s" : ""})
+              </Button>
+            )}
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" /> Raise Defect
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
