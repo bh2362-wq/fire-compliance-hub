@@ -803,14 +803,14 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
 
   // Empty state is handled after invoice filtering below
 
-  // Separate invoiced/completed and active visits
+  // Separate invoiced and active visits
   // A visit is considered invoiced if it has a xero_invoices record OR its status is 'invoiced'
-  // Completed visits are also removed from the active list (they live in Reports)
+  // Completed visits remain visible in the active list (grouped under "Completed") so they can be reviewed/unlocked
   const invoicedVisits = visits.filter(v => !!invoiceMap[v.id] || v.status === 'invoiced');
   // Sort confirmed visits to the top, then by date
   const statusPriority: Record<string, number> = { confirmed: 0, scheduled: 1, in_progress: 2, pending_review: 3 };
   const activeVisits = visits
-    .filter(v => !invoiceMap[v.id] && v.status !== 'invoiced' && v.status !== 'completed' && v.status !== 'cancelled')
+    .filter(v => !invoiceMap[v.id] && v.status !== 'invoiced' && v.status !== 'cancelled')
     .sort((a, b) => {
       const pa = statusPriority[a.status || ''] ?? 99;
       const pb = statusPriority[b.status || ''] ?? 99;
