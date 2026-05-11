@@ -113,60 +113,6 @@ export default function Defects() {
     }
   };
 
-  const handleAIRemedialQuote = async (defect: SiteDefect) => {
-    setAiBusyId(defect.id);
-    try {
-      const prompt = `You are a senior fire and life-safety engineer in the UK. Produce a concise, professional remedial scope of works for the defect below, suitable for a quotation to the client. Use UK English. Reference relevant standards (BS 5839-1, BS 5266, BS 9999, etc.) where appropriate. Output as 4-8 numbered bullet points covering: investigation, parts/labour, testing, certification. Do not include pricing.
-
-Defect category: Cat ${defect.category}
-Site: ${defect.site?.name || "site"}
-Location: ${defect.location || "not specified"}
-Description:
-${defect.description}
-${defect.notes ? `\nAdditional notes:\n${defect.notes}` : ""}`;
-
-      const { data, error } = await supabase.functions.invoke("ai-text-enhance", {
-        body: {
-          text: prompt,
-          mode: "raw",
-          model: "google/gemini-2.5-flash",
-        },
-      });
-
-      let scope = "";
-      if (error) {
-        console.warn("AI enhance failed, falling back to basic scope:", error);
-      } else {
-        scope = (data as any)?.enhanced_text || (data as any)?.text || "";
-      }
-      if (!scope) {
-        scope = `Remedial works for Cat ${defect.category} defect at ${defect.site?.name || "site"}${defect.location ? ` (${defect.location})` : ""}:\n\n${defect.description}\n\n1. Attend site and investigate root cause.\n2. Replace / repair affected components.\n3. Functional test and recommission per BS 5839-1.\n4. Issue updated certification and update logbook.`;
-      }
-
-      // Mark defect as quoted
-      await updateDefect(defect.id, { status: "quoted" });
-
-      // Navigate to quotations with prefilled scope
-      navigate("/dashboard/quotations", {
-        state: {
-          prefillFromDefect: {
-            defectId: defect.id,
-            siteId: defect.site_id,
-            customerId: defect.site?.customer_id,
-            title: `Remedial works — Cat ${defect.category} defect${defect.location ? ` at ${defect.location}` : ""}`,
-            scope,
-          },
-        },
-      });
-      toast.success("Defect marked as quoted");
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Failed to generate remedial quote");
-    } finally {
-      setAiBusyId(null);
-    }
-  };
-
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
@@ -338,12 +284,6 @@ ${defect.notes ? `\nAdditional notes:\n${defect.notes}` : ""}`;
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="pointer-events-auto">
-                            {d.status === "open" && (
-                              <DropdownMenuItem onClick={() => handleAIRemedialQuote(d)}>
-                                <Sparkles className="h-4 w-4 mr-2 text-primary" />
-                                AI — Raise Remedial Quote
-                              </DropdownMenuItem>
-                            )}
                             <DropdownMenuItem onClick={() => handleStatusChange(d.id, "remediated")}>
                               <CheckCircle2 className="h-4 w-4 mr-2 text-success" />
                               Mark Remediated
