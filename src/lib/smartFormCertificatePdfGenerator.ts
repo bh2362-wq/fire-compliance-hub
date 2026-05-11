@@ -325,7 +325,7 @@ export async function generateBS5839CertificatePDF(
     startY: y,
     body: [
       [{ content: "Company", styles: { fontStyle: "bold" } }, sanitize(payload.company_name || companyName)],
-      [{ content: "Company Address", styles: { fontStyle: "bold" } }, sanitize(payload.company_address || "")],
+      [{ content: "Company Address", styles: { fontStyle: "bold" } }, sanitize(payload.company_address || [company?.address, company?.city, company?.postcode].filter(Boolean).join(", ") || "")],
       [{ content: "Engineer Name", styles: { fontStyle: "bold" } }, sanitize(payload.engineer_name || "")],
       [
         { content: "Competency Confirmed", styles: { fontStyle: "bold" } },
