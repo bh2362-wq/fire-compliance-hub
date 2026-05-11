@@ -47,6 +47,8 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AIDefectQuoteDialog } from "@/components/defects/AIDefectQuoteDialog";
 import {
   listDefects,
   updateDefect,
@@ -68,6 +70,8 @@ export default function Defects() {
   const [createOpen, setCreateOpen] = useState(false);
   const [aiBusyId, setAiBusyId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [aiQuoteOpen, setAiQuoteOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -189,9 +193,29 @@ ${defect.notes ? `\nAdditional notes:\n${defect.notes}` : ""}`;
               Cat 1 / 2 / 3 defect tracking with AI remedial quotation
             </p>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" /> Raise Defect
-          </Button>
+          <div className="flex gap-2">
+            {selectedIds.length > 0 && (
+              <Button
+                onClick={() => {
+                  const sel = defects.filter((d) => selectedIds.includes(d.id));
+                  const uniqueSites = new Set(sel.map((d) => d.site_id));
+                  if (uniqueSites.size > 1) {
+                    toast.error("Select defects from a single site to generate a quote");
+                    return;
+                  }
+                  setAiQuoteOpen(true);
+                }}
+                className="gap-2"
+                variant="default"
+              >
+                <Sparkles className="h-4 w-4" />
+                AI Quote ({selectedIds.length} defect{selectedIds.length !== 1 ? "s" : ""})
+              </Button>
+            )}
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" /> Raise Defect
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -261,6 +285,13 @@ ${defect.notes ? `\nAdditional notes:\n${defect.notes}` : ""}`;
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={defects.length > 0 && selectedIds.length === defects.length}
+                        onCheckedChange={(v) => setSelectedIds(v ? defects.map((d) => d.id) : [])}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead>Cat</TableHead>
                     <TableHead>Site</TableHead>
                     <TableHead>Description</TableHead>
@@ -272,7 +303,16 @@ ${defect.notes ? `\nAdditional notes:\n${defect.notes}` : ""}`;
                 </TableHeader>
                 <TableBody>
                   {defects.map((d) => (
-                    <TableRow key={d.id}>
+                    <TableRow key={d.id} data-state={selectedIds.includes(d.id) ? "selected" : undefined}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.includes(d.id)}
+                          onCheckedChange={(v) =>
+                            setSelectedIds((prev) => (v ? [...prev, d.id] : prev.filter((id) => id !== d.id)))
+                          }
+                          aria-label={`Select defect ${d.id}`}
+                        />
+                      </TableCell>
                       <TableCell><DefectCategoryBadge category={d.category} /></TableCell>
                       <TableCell>
                         <div className="font-medium">{d.site?.name || "—"}</div>
@@ -347,6 +387,32 @@ ${defect.notes ? `\nAdditional notes:\n${defect.notes}` : ""}`;
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {(() => {
+        const selectedDefects = defects.filter((d) => selectedIds.includes(d.id));
+        const first = selectedDefects[0];
+        if (!first) return null;
+        return (
+          <AIDefectQuoteDialog
+            open={aiQuoteOpen}
+            onOpenChange={setAiQuoteOpen}
+            defects={selectedDefects.map((d) => ({
+              id: d.id,
+              description: d.description,
+              category: d.category,
+              location: d.location,
+              status: d.status,
+            }))}
+            siteId={first.site_id}
+            siteName={first.site?.name || "site"}
+            customerId={first.site?.customer_id ?? null}
+            onQuoteCreated={(qid) => {
+              setSelectedIds([]);
+              navigate("/dashboard/quotations", { state: { openQuotationId: qid } });
+            }}
+          />
+        );
+      })()}
     </DashboardLayout>
   );
 }
