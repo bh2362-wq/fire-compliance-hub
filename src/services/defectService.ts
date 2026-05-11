@@ -3,6 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 export type DefectCategory = 1 | 2 | 3;
 export type DefectStatus = "open" | "quoted" | "remediated" | "accepted_risk";
 
+export interface Defect {
+  id: string;
+  description: string;
+  category: DefectCategory;
+  location?: string | null;
+  status?: DefectStatus;
+  site_id?: string;
+  site_name?: string;
+  notes?: string | null;
+}
 export interface SiteDefect {
   id: string;
   site_id: string;
