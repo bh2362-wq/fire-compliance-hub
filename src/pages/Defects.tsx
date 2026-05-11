@@ -285,6 +285,13 @@ ${defect.notes ? `\nAdditional notes:\n${defect.notes}` : ""}`;
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={defects.length > 0 && selectedIds.length === defects.length}
+                        onCheckedChange={(v) => setSelectedIds(v ? defects.map((d) => d.id) : [])}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead>Cat</TableHead>
                     <TableHead>Site</TableHead>
                     <TableHead>Description</TableHead>
@@ -296,7 +303,16 @@ ${defect.notes ? `\nAdditional notes:\n${defect.notes}` : ""}`;
                 </TableHeader>
                 <TableBody>
                   {defects.map((d) => (
-                    <TableRow key={d.id}>
+                    <TableRow key={d.id} data-state={selectedIds.includes(d.id) ? "selected" : undefined}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.includes(d.id)}
+                          onCheckedChange={(v) =>
+                            setSelectedIds((prev) => (v ? [...prev, d.id] : prev.filter((id) => id !== d.id)))
+                          }
+                          aria-label={`Select defect ${d.id}`}
+                        />
+                      </TableCell>
                       <TableCell><DefectCategoryBadge category={d.category} /></TableCell>
                       <TableCell>
                         <div className="font-medium">{d.site?.name || "—"}</div>
