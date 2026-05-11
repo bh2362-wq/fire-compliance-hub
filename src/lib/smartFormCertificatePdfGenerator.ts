@@ -516,7 +516,7 @@ export async function generateBS5839CertificatePDF(
         5: { cellWidth: CW - 8 - 26 - 50 - 18 - 18 - 22 },
         6: { cellWidth: 22, halign: "center" },
       },
-      margin: { left: ML, right: MR },
+      margin: { left: ML, right: MR, top: 44 },
       didDrawPage: () => {
         if (doc.getCurrentPageInfo().pageNumber > page) {
           page = doc.getCurrentPageInfo().pageNumber;
