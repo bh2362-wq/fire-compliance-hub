@@ -70,6 +70,8 @@ export default function Defects() {
   const [createOpen, setCreateOpen] = useState(false);
   const [aiBusyId, setAiBusyId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [aiQuoteOpen, setAiQuoteOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
