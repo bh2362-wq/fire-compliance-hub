@@ -120,6 +120,18 @@ export default function SmartForms() {
     } catch (err) { toast.error("Failed to generate PDF"); }
   };
 
+  const buildMailto = (sub: SmartFormSubmission) => {
+    const p = (sub.payload || {}) as any;
+    const to = p.responsible_person_email || "";
+    const premises = p.premises_name || "";
+    const ref = sub.certificate_reference || "";
+    const certType = formTypeLabel(sub.form_type);
+    const dateStr = sub.completed_at ? format(new Date(sub.completed_at), "dd MMMM yyyy") : "";
+    const subject = `Fire Detection & Alarm System Certificate – ${premises} – ${ref}`;
+    const body = `Please find attached your ${certType} certificate for ${premises}, reference ${ref}, dated ${dateStr}. This certificate has been issued in accordance with BS 5839-1:2025. Please retain this document for your records. If you have any questions please do not hesitate to contact us.`;
+    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
   const closeForm = () => { setActiveForm(null); setEditing(null); };
 
   return (
