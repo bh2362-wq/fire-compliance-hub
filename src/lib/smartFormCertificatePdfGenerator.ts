@@ -131,9 +131,10 @@ export async function generateBS5839CertificatePDF(
   function drawHeader() {
     let yPos = 8;
 
-    if (logoBase64) {
+    if (logoData) {
       try {
-        doc.addImage(logoBase64, "PNG", ML, yPos - 2, 32, 28, undefined, "FAST");
+        const [logoW, logoH] = fitToBox(logoData.w, logoData.h, 34, 28);
+        doc.addImage(logoData.base64, "PNG", ML, yPos - 2, logoW, logoH, undefined, "FAST");
       } catch {
         doc.setTextColor(...C.textDark);
         doc.setFontSize(14);
