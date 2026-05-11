@@ -124,6 +124,45 @@ async function fetchCertTrackerData(): Promise<SiteRow[]> {
 }
 
 // ── Cert cell ─────────────────────────────────────────────────────────────────
+const CERT_TYPE_LABELS: Record<CertColKey, string> = {
+  bs5839_inspection_servicing: "Inspection & Servicing",
+  bs5839_installation: "Installation",
+  bs5839_commissioning: "Commissioning",
+  bs5839_modification: "Modification",
+};
+
+async function downloadCertPdf(entry: CertEntry) {
+  try {
+    const p = entry.payload || {};
+    if (entry.form_type === "bs5839_installation") {
+      await generateInstallationCertificatePDF(p, { autoSign: true });
+    } else if (entry.form_type === "bs5839_commissioning") {
+      await generateCommissioningCertificatePDF(p, { autoSign: true });
+    } else if (entry.form_type === "bs5839_modification") {
+      await generateModificationCertificatePDF(p, { autoSign: true });
+    } else {
+      await generateBS5839CertificatePDF(p, { autoSign: true });
+    }
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to generate PDF");
+  }
+}
+
+function buildCertMailto(entry: CertEntry) {
+  const p = entry.payload || {};
+  const to = p.responsible_person_email || "";
+  const premises = p.premises_name || "";
+  const ref = entry.certificate_reference || "";
+  const certType = CERT_TYPE_LABELS[entry.form_type] || "";
+  const dateStr = entry.completed_at && isValid(parseISO(entry.completed_at))
+    ? format(parseISO(entry.completed_at), "dd MMMM yyyy")
+    : "";
+  const subject = `Fire Detection & Alarm System Certificate – ${premises} – ${ref}`;
+  const body = `Please find attached your ${certType} certificate for ${premises}, reference ${ref}, dated ${dateStr}. This certificate has been issued in accordance with BS 5839-1:2025. Please retain this document for your records. If you have any questions please do not hesitate to contact us.`;
+  return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 function CertCell({ entry }: { entry?: CertEntry }) {
   if (!entry) {
     return (
@@ -146,6 +185,23 @@ function CertCell({ entry }: { entry?: CertEntry }) {
       <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[130px]">
         {entry.certificate_reference}
       </p>
+      <div className="flex items-center gap-1 pt-0.5">
+        <button
+          onClick={(e) => { e.stopPropagation(); downloadCertPdf(entry); }}
+          title="Download PDF"
+          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <FileDown className="w-3 h-3" />
+        </button>
+        <a
+          href={buildCertMailto(entry)}
+          onClick={(e) => e.stopPropagation()}
+          title="Email to responsible person"
+          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Mail className="w-3 h-3" />
+        </a>
+      </div>
     </div>
   );
 }
