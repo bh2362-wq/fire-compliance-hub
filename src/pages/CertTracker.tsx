@@ -33,6 +33,8 @@ interface CertEntry {
   certificate_reference: string;
   completed_at: string | null;
   job_number: string | null;
+  form_type: CertColKey;
+  payload: any;
 }
 
 interface SiteRow {
