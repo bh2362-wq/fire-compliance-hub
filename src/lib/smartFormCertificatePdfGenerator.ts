@@ -364,7 +364,7 @@ export async function generateBS5839CertificatePDF(
     headStyles: { fillColor: C.sectionBg, textColor: C.textDark, fontStyle: "bold", fontSize: 8.5 },
     styles: { fontSize: 8, cellPadding: 1.8, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2, valign: "middle" },
     columnStyles: { 0: { cellWidth: CW * 0.45 }, 1: { cellWidth: 22 }, 2: { cellWidth: CW - CW * 0.45 - 22 } },
-    margin: { left: ML, right: MR },
+    margin: { left: ML, right: MR, top: 44 },
     didDrawPage: () => {
       // re-draw header for any page break inside the table
       if (doc.getCurrentPageInfo().pageNumber > page) {
