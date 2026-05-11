@@ -43,19 +43,34 @@ async function loadCompanySettings(): Promise<CompanySettings | null> {
   return data;
 }
 
-async function loadImageAsBase64(url: string): Promise<string | null> {
+async function loadImageWithSize(url: string): Promise<{ base64: string; w: number; h: number } | null> {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
-    return new Promise((resolve) => {
+    const base64 = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
+      reader.onerror = () => resolve("");
       reader.readAsDataURL(blob);
+    });
+    if (!base64) return null;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ base64, w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => resolve({ base64, w: 100, h: 100 });
+      img.src = base64;
     });
   } catch {
     return null;
   }
+}
+
+function fitToBox(nw: number, nh: number, maxW: number, maxH: number): [number, number] {
+  const ratio = nw / nh;
+  let w = maxW;
+  let h = w / ratio;
+  if (h > maxH) { h = maxH; w = h * ratio; }
+  return [w, h];
 }
 
 function sanitize(text: string | null | undefined): string {
