@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown } from "lucide-react";
+import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -120,6 +120,18 @@ export default function SmartForms() {
     } catch (err) { toast.error("Failed to generate PDF"); }
   };
 
+  const buildMailto = (sub: SmartFormSubmission) => {
+    const p = (sub.payload || {}) as any;
+    const to = p.responsible_person_email || "";
+    const premises = p.premises_name || "";
+    const ref = sub.certificate_reference || "";
+    const certType = formTypeLabel(sub.form_type);
+    const dateStr = sub.completed_at ? format(new Date(sub.completed_at), "dd MMMM yyyy") : "";
+    const subject = `Fire Detection & Alarm System Certificate – ${premises} – ${ref}`;
+    const body = `Please find attached your ${certType} certificate for ${premises}, reference ${ref}, dated ${dateStr}. This certificate has been issued in accordance with BS 5839-1:2025. Please retain this document for your records. If you have any questions please do not hesitate to contact us.`;
+    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
   const closeForm = () => { setActiveForm(null); setEditing(null); };
 
   return (
@@ -203,9 +215,16 @@ export default function SmartForms() {
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           {statusBadge(sub.status)}
                           {(sub.status === "completed" || sub.status === "signed") && (
-                            <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
-                              <FileDown className="h-4 w-4" />
-                            </Button>
+                            <>
+                              <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
+                                <FileDown className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" title="Email to responsible person" asChild>
+                                <a href={buildMailto(sub)}>
+                                  <Mail className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            </>
                           )}
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(sub)}>
                             {sub.status === "draft" ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
