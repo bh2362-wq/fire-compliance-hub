@@ -4,7 +4,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Award, CheckCircle2, Search, RefreshCw, ArrowRight,
-  FileSignature, Lock, AlertTriangle,
+  FileSignature, Lock, AlertTriangle, FileDown, Mail,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { format, parseISO, isValid } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
+import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
+import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
+import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
 
 // ── Cert types displayed as columns ──────────────────────────────────────────
 const CERT_COLS = [
