@@ -387,6 +387,32 @@ ${defect.notes ? `\nAdditional notes:\n${defect.notes}` : ""}`;
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {(() => {
+        const selectedDefects = defects.filter((d) => selectedIds.includes(d.id));
+        const first = selectedDefects[0];
+        if (!first) return null;
+        return (
+          <AIDefectQuoteDialog
+            open={aiQuoteOpen}
+            onOpenChange={setAiQuoteOpen}
+            defects={selectedDefects.map((d) => ({
+              id: d.id,
+              description: d.description,
+              category: d.category,
+              location: d.location,
+              status: d.status,
+            }))}
+            siteId={first.site_id}
+            siteName={first.site?.name || "site"}
+            customerId={first.site?.customer_id ?? null}
+            onQuoteCreated={(qid) => {
+              setSelectedIds([]);
+              navigate("/dashboard/quotations", { state: { openQuotationId: qid } });
+            }}
+          />
+        );
+      })()}
     </DashboardLayout>
   );
 }
