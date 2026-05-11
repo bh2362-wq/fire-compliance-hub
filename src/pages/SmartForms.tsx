@@ -215,9 +215,16 @@ export default function SmartForms() {
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           {statusBadge(sub.status)}
                           {(sub.status === "completed" || sub.status === "signed") && (
-                            <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
-                              <FileDown className="h-4 w-4" />
-                            </Button>
+                            <>
+                              <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
+                                <FileDown className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" title="Email to responsible person" asChild>
+                                <a href={buildMailto(sub)}>
+                                  <Mail className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            </>
                           )}
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(sub)}>
                             {sub.status === "draft" ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
