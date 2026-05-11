@@ -115,7 +115,7 @@ export async function generateBS5839CertificatePDF(
 ): Promise<{ base64: string; fileName: string }> {
   const company = await loadCompanySettings();
   const logoUrl = company?.report_logo_url || company?.company_logo_url || null;
-  const logoBase64 = logoUrl ? await loadImageAsBase64(logoUrl) : null;
+  const logoData = logoUrl ? await loadImageWithSize(logoUrl) : null;
   const companyName = sanitize(company?.company_name) || "BHO Fire Ltd";
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
