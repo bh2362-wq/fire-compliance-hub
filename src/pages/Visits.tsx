@@ -64,6 +64,14 @@ const Visits = () => {
 
   const openCount = counts.open;
 
+  const filteredVisits = useMemo(() => {
+    if (statusFilter === "all") return visits;
+    if (statusFilter === "open") {
+      return visits.filter((v) => ["scheduled", "in_progress", "pending_review"].includes(v.status));
+    }
+    return visits.filter((v) => v.status === statusFilter);
+  }, [visits, statusFilter]);
+
   return (
     <DashboardLayout>
       <div className="space-y-5">
@@ -163,7 +171,7 @@ const Visits = () => {
         {/* Visits table */}
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           <VisitsTable
-            visits={visits}
+            visits={filteredVisits}
             loading={loading}
             onRefresh={refetch}
             initialEditVisitId={initialVisitId || undefined}
