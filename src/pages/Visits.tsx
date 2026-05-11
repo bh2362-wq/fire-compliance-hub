@@ -171,7 +171,7 @@ const Visits = () => {
         {/* Visits table */}
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           <VisitsTable
-            visits={visits}
+            visits={filteredVisits}
             loading={loading}
             onRefresh={refetch}
             initialEditVisitId={initialVisitId || undefined}
