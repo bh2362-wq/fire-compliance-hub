@@ -55,7 +55,8 @@ async function fetchCertTrackerData(): Promise<SiteRow[]> {
       certificate_reference,
       completed_at,
       job_number,
-      site_id
+      site_id,
+      payload
     `)
     .eq("status", "completed")
     .not("site_id", "is", null)
@@ -69,6 +70,7 @@ async function fetchCertTrackerData(): Promise<SiteRow[]> {
     completed_at: string | null;
     job_number: string | null;
     site_id: string;
+    payload: any;
   }[];
 
   // Fetch sites separately (no FK relationship between the two tables)
@@ -109,6 +111,8 @@ async function fetchCertTrackerData(): Promise<SiteRow[]> {
         certificate_reference: row.certificate_reference,
         completed_at: row.completed_at,
         job_number: row.job_number,
+        form_type: colKey,
+        payload: row.payload,
       };
     }
   }
