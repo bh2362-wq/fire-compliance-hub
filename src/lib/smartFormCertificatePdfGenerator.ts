@@ -43,19 +43,34 @@ async function loadCompanySettings(): Promise<CompanySettings | null> {
   return data;
 }
 
-async function loadImageAsBase64(url: string): Promise<string | null> {
+async function loadImageWithSize(url: string): Promise<{ base64: string; w: number; h: number } | null> {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
-    return new Promise((resolve) => {
+    const base64 = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
+      reader.onerror = () => resolve("");
       reader.readAsDataURL(blob);
+    });
+    if (!base64) return null;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ base64, w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => resolve({ base64, w: 100, h: 100 });
+      img.src = base64;
     });
   } catch {
     return null;
   }
+}
+
+function fitToBox(nw: number, nh: number, maxW: number, maxH: number): [number, number] {
+  const ratio = nw / nh;
+  let w = maxW;
+  let h = w / ratio;
+  if (h > maxH) { h = maxH; w = h * ratio; }
+  return [w, h];
 }
 
 function sanitize(text: string | null | undefined): string {
@@ -100,7 +115,7 @@ export async function generateBS5839CertificatePDF(
 ): Promise<{ base64: string; fileName: string }> {
   const company = await loadCompanySettings();
   const logoUrl = company?.report_logo_url || company?.company_logo_url || null;
-  const logoBase64 = logoUrl ? await loadImageAsBase64(logoUrl) : null;
+  const logoData = logoUrl ? await loadImageWithSize(logoUrl) : null;
   const companyName = sanitize(company?.company_name) || "BHO Fire Ltd";
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -116,9 +131,10 @@ export async function generateBS5839CertificatePDF(
   function drawHeader() {
     let yPos = 8;
 
-    if (logoBase64) {
+    if (logoData) {
       try {
-        doc.addImage(logoBase64, "PNG", ML, yPos - 2, 32, 28, undefined, "FAST");
+        const [logoW, logoH] = fitToBox(logoData.w, logoData.h, 34, 28);
+        doc.addImage(logoData.base64, "PNG", ML, yPos - 2, logoW, logoH, undefined, "FAST");
       } catch {
         doc.setTextColor(...C.textDark);
         doc.setFontSize(14);
@@ -309,7 +325,7 @@ export async function generateBS5839CertificatePDF(
     startY: y,
     body: [
       [{ content: "Company", styles: { fontStyle: "bold" } }, sanitize(payload.company_name || companyName)],
-      [{ content: "Company Address", styles: { fontStyle: "bold" } }, sanitize(payload.company_address || "")],
+      [{ content: "Company Address", styles: { fontStyle: "bold" } }, sanitize(payload.company_address || [company?.address, company?.city, company?.postcode].filter(Boolean).join(", ") || "")],
       [{ content: "Engineer Name", styles: { fontStyle: "bold" } }, sanitize(payload.engineer_name || "")],
       [
         { content: "Competency Confirmed", styles: { fontStyle: "bold" } },
@@ -348,7 +364,7 @@ export async function generateBS5839CertificatePDF(
     headStyles: { fillColor: C.sectionBg, textColor: C.textDark, fontStyle: "bold", fontSize: 8.5 },
     styles: { fontSize: 8, cellPadding: 1.8, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2, valign: "middle" },
     columnStyles: { 0: { cellWidth: CW * 0.45 }, 1: { cellWidth: 22 }, 2: { cellWidth: CW - CW * 0.45 - 22 } },
-    margin: { left: ML, right: MR },
+    margin: { left: ML, right: MR, top: 44 },
     didDrawPage: () => {
       // re-draw header for any page break inside the table
       if (doc.getCurrentPageInfo().pageNumber > page) {
@@ -500,7 +516,7 @@ export async function generateBS5839CertificatePDF(
         5: { cellWidth: CW - 8 - 26 - 50 - 18 - 18 - 22 },
         6: { cellWidth: 22, halign: "center" },
       },
-      margin: { left: ML, right: MR },
+      margin: { left: ML, right: MR, top: 44 },
       didDrawPage: () => {
         if (doc.getCurrentPageInfo().pageNumber > page) {
           page = doc.getCurrentPageInfo().pageNumber;
