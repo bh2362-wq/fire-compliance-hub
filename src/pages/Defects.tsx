@@ -47,6 +47,8 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AIDefectQuoteDialog } from "@/components/defects/AIDefectQuoteDialog";
 import {
   listDefects,
   updateDefect,
