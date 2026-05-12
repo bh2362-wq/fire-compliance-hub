@@ -182,7 +182,7 @@ export async function uploadPriceList(
     const { error } = await supabase
       .from("price_list_items")
       .update({ is_active: false })
-      .neq("id", "00000000-0000-0000-0000-000000000000"); // update all
+      .gte("created_at", "1970-01-01");
     if (error) errors.push(`Could not deactivate old items: ${error.message}`);
   }
 
