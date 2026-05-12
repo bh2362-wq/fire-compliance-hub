@@ -183,11 +183,27 @@ Return ONLY this JSON (no other text):
       if (fnError) throw new Error(fnError.message);
       if (fnData?.error) throw new Error(fnData.error);
 
-      const rawText: string = fnData?.content || "";
+      const rawText: string = typeof fnData?.content === "string"
+        ? fnData.content
+        : Array.isArray(fnData?.content)
+          ? fnData.content.find((c: { type: string; text?: string }) => c.type === "text")?.text || ""
+          : "";
       let parsed: { quote_lines: SmartQuoteLine[] };
       try {
-        parsed = JSON.parse(rawText.replace(/```json|```/g, "").trim());
+        let cleaned = rawText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+        const start = cleaned.search(/[{[]/);
+        const isArr = start !== -1 && cleaned[start] === "[";
+        const end = cleaned.lastIndexOf(isArr ? "]" : "}");
+        if (start === -1 || end === -1) throw new Error("no json");
+        cleaned = cleaned.substring(start, end + 1)
+          .replace(/,\s*}/g, "}")
+          .replace(/,\s*]/g, "]")
+          // eslint-disable-next-line no-control-regex
+          .replace(/[\x00-\x1F\x7F]/g, "");
+        const obj = JSON.parse(cleaned);
+        parsed = Array.isArray(obj) ? { quote_lines: obj } : obj;
       } catch {
+        console.error("Quote parse failed. Raw:", rawText.slice(0, 500));
         throw new Error("AI returned unexpected format — try again");
       }
 
