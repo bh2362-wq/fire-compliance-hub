@@ -3353,6 +3353,60 @@ export type Database = {
         }
         Relationships: []
       }
+      scanned_emails: {
+        Row: {
+          body_preview: string | null
+          created_at: string
+          from_address: string | null
+          from_name: string | null
+          has_attachments: boolean | null
+          id: string
+          importance: string | null
+          is_read: boolean | null
+          mailbox: string
+          message_id: string
+          raw: Json | null
+          received_at: string | null
+          scanned_at: string
+          subject: string | null
+          to_recipients: Json | null
+        }
+        Insert: {
+          body_preview?: string | null
+          created_at?: string
+          from_address?: string | null
+          from_name?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          importance?: string | null
+          is_read?: boolean | null
+          mailbox: string
+          message_id: string
+          raw?: Json | null
+          received_at?: string | null
+          scanned_at?: string
+          subject?: string | null
+          to_recipients?: Json | null
+        }
+        Update: {
+          body_preview?: string | null
+          created_at?: string
+          from_address?: string | null
+          from_name?: string | null
+          has_attachments?: boolean | null
+          id?: string
+          importance?: string | null
+          is_read?: boolean | null
+          mailbox?: string
+          message_id?: string
+          raw?: Json | null
+          received_at?: string | null
+          scanned_at?: string
+          subject?: string | null
+          to_recipients?: Json | null
+        }
+        Relationships: []
+      }
       service_reports: {
         Row: {
           checklist: Json
