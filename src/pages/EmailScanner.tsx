@@ -71,6 +71,7 @@ const EmailScanner = () => {
   const [smartLines, setSmartLines] = useState<SmartQuoteLine[]>([]);
   const [showSmartQuote, setShowSmartQuote] = useState(false);
   const [activeTab, setActiveTab] = useState("scanner");
+  const [pendingPdfs, setPendingPdfs] = useState<{ name: string; contentBytes: string }[]>([]);
   const [supplierPreview, setSupplierPreview] = useState<{ rows: ParsedPriceRow[]; sourceName: string } | null>(null);
 
   // Load price list
@@ -94,7 +95,11 @@ const EmailScanner = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("scan-email", {
-        body: { emailContent: emailContent.trim(), mode },
+        body: {
+          emailContent: emailContent.trim(),
+          mode,
+          pdfAttachments: pendingPdfs,
+        },
       });
       if (error) throw error;
       if (data?.success && data?.data) {
@@ -117,13 +122,19 @@ const EmailScanner = () => {
     }
   };
 
-  function handleInboxScan(emailBody: string, subject: string, from: string) {
+  function handleInboxScan(
+    emailBody: string,
+    subject: string,
+    from: string,
+    pdfAttachments?: { name: string; contentBytes: string }[]
+  ) {
     setEmailContent(emailBody);
+    setPendingPdfs(pdfAttachments || []);
     setActiveTab("scanner");
-    toast.success(`Email from ${from} loaded — click Smart Quote or Book Visit`);
   }
 
   async function handleSupplierPreview(rows: ParsedPriceRow[], sourceName: string) {
+    if (!user) return;
     setSupplierPreview({ rows, sourceName });
     setActiveTab("pricelist");
     toast.success(`${rows.length} items from ${sourceName} — review and import in Price List tab`);
@@ -136,6 +147,7 @@ const EmailScanner = () => {
     setScanMode(null);
     setShowSmartQuote(false);
     setSmartLines([]);
+    setPendingPdfs([]);
   };
 
   const handleProceedToQuote = () => {
