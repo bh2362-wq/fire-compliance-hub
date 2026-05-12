@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import {
   Upload, Download, Trash2, RefreshCw, Search,
-  AlertCircle, CheckCircle2, FileSpreadsheet, Plus, Pencil,
+  AlertCircle, CheckCircle2, FileSpreadsheet, Plus, Pencil, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
