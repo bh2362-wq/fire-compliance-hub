@@ -79,8 +79,13 @@ export function InboxBrowser({ onScanEmail }: Props) {
       ].join("\n");
 
       // Fetch PDFs (up to 3)
+      // Graph API sometimes returns application/octet-stream for PDFs - always check filename too
       const pdfList = (attsResult.attachments || [])
-        .filter(a => a.contentType?.includes("pdf") || a.name?.toLowerCase().endsWith(".pdf"))
+        .filter(a =>
+          a.contentType?.toLowerCase().includes("pdf") ||
+          a.name?.toLowerCase().endsWith(".pdf") ||
+          (a.contentType === "application/octet-stream" && a.name?.toLowerCase().endsWith(".pdf"))
+        )
         .slice(0, 3);
 
       let pdfAttachments: { name: string; contentBytes: string }[] = [];
@@ -214,10 +219,14 @@ export function InboxBrowser({ onScanEmail }: Props) {
                 <div className="flex items-start gap-2 justify-between">
                   <div className="min-w-0">
                     <p className={cn("text-xs truncate", !msg.isRead ? "font-semibold" : "font-medium")}>
-                      {msg.from?.name || msg.from?.address || "Unknown sender"}
-                      <span className="text-muted-foreground font-normal ml-1.5">
-                        {msg.from?.address}
-                      </span>
+                      {msg.from?.name && msg.from.name !== msg.from?.address
+                        ? msg.from.name
+                        : msg.from?.address || "Unknown sender"}
+                      {msg.from?.address && msg.from?.name !== msg.from?.address && (
+                        <span className="text-muted-foreground font-normal ml-1.5">
+                          {msg.from.address}
+                        </span>
+                      )}
                     </p>
                     <p className={cn("text-xs truncate mt-0.5", !msg.isRead ? "font-semibold text-foreground" : "text-muted-foreground")}>
                       {msg.subject || "(no subject)"}
