@@ -31,7 +31,14 @@ Deno.serve(async (req) => {
     const systemOverride: string | undefined = body?.system;
     const documentText: string | undefined = body?.documentText;
     const mode: string = body?.mode || "chat"; // chat | analyze | summarise
-    const model: string = body?.model || "claude-3-5-sonnet-20241022";
+    const requestedModel: string = body?.model || "claude-sonnet-4-5";
+    // Map deprecated/invalid model aliases to currently-available Anthropic models
+    const MODEL_ALIASES: Record<string, string> = {
+      "claude-sonnet-4-20250514": "claude-sonnet-4-5",
+      "claude-sonnet-4": "claude-sonnet-4-5",
+      "claude-3-5-sonnet-latest": "claude-3-5-sonnet-20241022",
+    };
+    const model: string = MODEL_ALIASES[requestedModel] || requestedModel;
 
     if (messages.length === 0 && !documentText) {
       return new Response(
