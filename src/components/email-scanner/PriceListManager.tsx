@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils";
 import {
   getPriceList, uploadPriceList, deletePriceListItem,
   parsePriceListCsv, downloadPriceListTemplate,
-  type PriceListItem, type ParsedPriceRow,
+  getExcelSheets, parseExcelSheet,
+  type PriceListItem, type ParsedPriceRow, type ExcelSheetInfo,
 } from "@/services/priceListService";
 
 export function PriceListManager() {
@@ -30,6 +31,9 @@ export function PriceListManager() {
   const [uploading, setUploading] = useState(false);
   const [replaceAll, setReplaceAll] = useState(false);
   const [search, setSearch] = useState("");
+  const [excelBuffer, setExcelBuffer] = useState<ArrayBuffer | null>(null);
+  const [excelSheets, setExcelSheets] = useState<ExcelSheetInfo[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>("");
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["price-list"],
@@ -39,18 +43,59 @@ export function PriceListManager() {
   const activeItems = items.filter(i => i.is_active);
 
   function parseFile(file: File) {
-    if (!file.name.endsWith(".csv") && !file.type.includes("csv")) {
-      toast.error("Please upload a .csv file");
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls") || file.name.endsWith(".xlsm");
+    const isCsv   = file.name.endsWith(".csv") || file.type.includes("csv");
+
+    if (!isExcel && !isCsv) {
+      toast.error("Please upload a .csv, .xlsx, or .xls file");
       return;
     }
+
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const parsed = parsePriceListCsv(e.target?.result as string);
-      if (parsed.length === 0) { toast.error("No valid rows found — check column headers"); return; }
-      setPreview(parsed);
-      toast.success(`${parsed.length} items parsed — review below before importing`);
-    };
-    reader.readAsText(file);
+
+    if (isExcel) {
+      reader.onload = (e) => {
+        const buffer = e.target?.result as ArrayBuffer;
+        const sheets = getExcelSheets(buffer);
+        if (sheets.length === 0) { toast.error("No sheets found in workbook"); return; }
+        setExcelBuffer(buffer);
+        setExcelSheets(sheets);
+        if (sheets.length === 1) {
+          // Auto-select the only sheet
+          const rows = parseExcelSheet(buffer, sheets[0].name);
+          if (rows.length === 0) { toast.error("No valid rows found — check column headers"); return; }
+          setSelectedSheet(sheets[0].name);
+          setPreview(rows);
+          toast.success(`${rows.length} items parsed from "${sheets[0].name}"`);
+        } else {
+          // Multiple sheets — let user choose
+          setSelectedSheet("");
+          setPreview([]);
+          toast.info(`${sheets.length} sheets found — select which one to import`);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.onload = (e) => {
+        const parsed = parsePriceListCsv(e.target?.result as string);
+        if (parsed.length === 0) { toast.error("No valid rows found — check column headers"); return; }
+        setExcelBuffer(null);
+        setExcelSheets([]);
+        setSelectedSheet("");
+        setPreview(parsed);
+        toast.success(`${parsed.length} items parsed — review below before importing`);
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  function handleSheetSelect(sheetName: string) {
+    if (!excelBuffer) return;
+    setSelectedSheet(sheetName);
+    const rows = parseExcelSheet(excelBuffer, sheetName);
+    if (rows.length === 0) { toast.error("No valid rows in that sheet"); return; }
+    setPreview(rows);
+    toast.success(`${rows.length} items parsed from "${sheetName}"`);
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -119,7 +164,7 @@ export function PriceListManager() {
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} className="gap-1.5 text-xs">
             <Upload className="h-3.5 w-3.5" />Upload CSV
           </Button>
-          <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={e => { if (e.target.files?.[0]) parseFile(e.target.files[0]); e.target.value = ""; }} />
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.xlsm,text/csv" className="hidden" onChange={e => { if (e.target.files?.[0]) parseFile(e.target.files[0]); e.target.value = ""; }} />
         </div>
       </div>
 
@@ -214,9 +259,34 @@ export function PriceListManager() {
             <FileSpreadsheet className="w-8 h-8 mx-auto mb-2 text-muted-foreground/60" />
             <p className="text-sm font-medium">Drop your CSV here or click to browse</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Required: Description, Unit Cost. Optional: Part Number, Manufacturer, Category, Labour
+              CSV, Excel (.xlsx/.xls) — Required: Description, Unit Cost. Optional: Part Number, Manufacturer, Category, Labour
             </p>
           </div>
+
+          {/* Excel sheet selector */}
+          {excelSheets.length > 1 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold">Select sheet to import:</p>
+              <div className="grid grid-cols-2 gap-2">
+                {excelSheets.map(sheet => (
+                  <button
+                    key={sheet.name}
+                    type="button"
+                    onClick={() => handleSheetSelect(sheet.name)}
+                    className={cn(
+                      "text-left px-3 py-2 rounded-lg border text-xs transition-colors",
+                      selectedSheet === sheet.name
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border hover:bg-accent/30"
+                    )}
+                  >
+                    <p className="font-medium truncate">{sheet.name}</p>
+                    <p className="opacity-70 mt-0.5">{sheet.rowCount} rows</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {preview.length > 0 && (
             <>

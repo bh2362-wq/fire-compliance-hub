@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from "xlsx";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -88,6 +89,31 @@ function parsePrice(v: string): number {
   const cleaned = v.replace(/[£$€,\s]/g, "");
   const n = parseFloat(cleaned);
   return isNaN(n) ? 0 : n;
+}
+
+
+// ── Excel parsing ──────────────────────────────────────────────────────────────
+
+export interface ExcelSheetInfo {
+  name: string;
+  rowCount: number;
+}
+
+export function getExcelSheets(buffer: ArrayBuffer): ExcelSheetInfo[] {
+  const wb = XLSX.read(buffer, { type: "array" });
+  return wb.SheetNames.map((name) => {
+    const ws = wb.Sheets[name];
+    const range = ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]) : { e: { r: 0 } };
+    return { name, rowCount: Math.max(0, range.e.r) };
+  });
+}
+
+export function parseExcelSheet(buffer: ArrayBuffer, sheetName: string): ParsedPriceRow[] {
+  const wb = XLSX.read(buffer, { type: "array" });
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return [];
+  const csvText = XLSX.utils.sheet_to_csv(ws, { blankrows: false } as any);
+  return parsePriceListCsv(csvText);
 }
 
 export function parsePriceListCsv(csvText: string): ParsedPriceRow[] {
