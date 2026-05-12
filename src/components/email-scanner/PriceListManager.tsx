@@ -52,13 +52,15 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
 
   // Load incoming preview rows from email scanner
   const previewLoadedRef = useRef<string | null>(null);
-  if (initialPreview && previewLoadedRef.current !== initialPreview.sourceName) {
-    previewLoadedRef.current = initialPreview.sourceName;
-    setPreview(initialPreview.rows);
-    setActiveTab("upload");
-    setParseResult({ rows: initialPreview.rows, allPricesZero: false } as ParseResult);
-    onPreviewConsumed?.();
-  }
+  useEffect(() => {
+    if (initialPreview && previewLoadedRef.current !== initialPreview.sourceName) {
+      previewLoadedRef.current = initialPreview.sourceName;
+      setPreview(initialPreview.rows);
+      setActiveTab("upload");
+      setParseResult({ rows: initialPreview.rows, allPricesZero: false } as ParseResult);
+      onPreviewConsumed?.();
+    }
+  }, [initialPreview, onPreviewConsumed]);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["price-list"],
