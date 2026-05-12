@@ -94,9 +94,28 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
   const [newSiteCity, setNewSiteCity] = useState(data.site_city || "");
   const [newSitePostcode, setNewSitePostcode] = useState(data.site_postcode || "");
 
-  const [lineItems, setLineItems] = useState<LineItem[]>(
-    [{ description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }]
-  );
+  const [lineItems, setLineItems] = useState<LineItem[]>(() => {
+    const smart = (data as any).smart_lines;
+    if (smart && Array.isArray(smart) && smart.length > 0) {
+      return smart.map((l: any) => {
+        const cost = Number(l.unit_cost) || 0;
+        const labour = Number(l.labour_cost) || 0;
+        const qty = Number(l.quantity) || 1;
+        return {
+          description: [
+            l.description || "",
+            l.manufacturer && l.manufacturer !== l.description ? l.manufacturer : null,
+            l.part_number ? `[${l.part_number}]` : null,
+          ].filter(Boolean).join(" — "),
+          quantity: qty,
+          unit_price: cost,
+          labour_cost: labour,
+          total_price: (cost + labour) * qty,
+        };
+      });
+    }
+    return [{ description: "", quantity: 1, unit_price: 0, labour_cost: 0, total_price: 0 }];
+  });
 
   useEffect(() => {
     const fetchData = async () => {
