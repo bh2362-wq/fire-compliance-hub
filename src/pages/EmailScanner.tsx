@@ -310,7 +310,7 @@ const EmailScanner = () => {
               <TabsTrigger value="supplier" className="gap-1.5">
                 <Building2 className="w-3.5 h-3.5" />Suppliers
               </TabsTrigger>
-              <TabsTrigger value="whatsapp" className="gap-1.5">
+              <TabsTrigger value="whatsapp" className="gap-1.5 text-green-700">
                 <MessageCircle className="w-3.5 h-3.5" />WhatsApp
               </TabsTrigger>
               <TabsTrigger value="pricelist" className="gap-1.5">
