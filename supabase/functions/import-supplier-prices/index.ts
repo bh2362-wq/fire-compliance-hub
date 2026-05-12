@@ -20,7 +20,7 @@ const corsHeaders = {
 };
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
-const MAILBOX = "admin@bhofire.com";
+const MAILBOX = "ben@bhofire.com";
 
 // Suppliers to watch — name used for price_list_items.manufacturer fallback
 const WATCHED_SUPPLIERS = [
@@ -81,12 +81,16 @@ Deno.serve(async (req) => {
 
     for (const supplier of WATCHED_SUPPLIERS) {
       // Build filter: sender domain + optional name filter (adam for BAWFS)
-      const domainFilter = `from/emailAddress/address ne null`;
-      const url = `${GRAPH}/users/${MAILBOX}/messages?$select=id,subject,from,receivedDateTime,hasAttachments&$filter=hasAttachments eq true and receivedDateTime ge ${since}&$top=20&$orderby=receivedDateTime desc`;
+      const filter = encodeURIComponent(`hasAttachments eq true and receivedDateTime ge ${since}`);
+      const orderby = encodeURIComponent(`receivedDateTime desc`);
+      const select = encodeURIComponent(`id,subject,from,receivedDateTime,hasAttachments`);
+      const url = `${GRAPH}/users/${MAILBOX}/messages?$select=${select}&$filter=${filter}&$top=20&$orderby=${orderby}`;
 
       const r = await fetch(url, { headers: auth });
       if (!r.ok) {
-        results.errors.push(`Graph error for ${supplier.name}: ${r.status}`);
+        const errBody = await r.text();
+        console.error(`Graph error for ${supplier.name}: ${r.status} ${errBody}`);
+        results.errors.push(`Graph error for ${supplier.name}: ${r.status} - ${errBody.slice(0, 200)}`);
         continue;
       }
 
