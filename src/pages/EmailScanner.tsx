@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Mail, FileSpreadsheet, ClipboardList, Sparkles,
   AlertCircle, CheckCircle2, Building2, User, MapPin, Phone,
-  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox, Tag,
+  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox, Tag, MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
