@@ -1,0 +1,245 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Mail, Loader2, RefreshCw, Scan, Search,
+  Paperclip, AlertCircle, ChevronLeft, ChevronRight, Inbox,
+} from "lucide-react";
+import { toast } from "sonner";
+import { format, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
+import {
+  listInbox, getMessage, searchEmails, type OutlookMessage,
+} from "@/services/outlookEmailService";
+
+// ── Known client senders ──────────────────────────────────────────────────────
+const CLIENT_DOMAINS = [
+  "panachefire.co.uk", "churchesfire.com", "towerbm.com",
+  "brentwood.gov.uk", "camden.gov.uk", "nhs.uk",
+];
+
+function isClientEmail(msg: OutlookMessage): boolean {
+  const addr = msg.from?.address?.toLowerCase() || "";
+  return CLIENT_DOMAINS.some(d => addr.endsWith(d));
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+interface Props {
+  onScanEmail: (content: string, subject: string, from: string) => void;
+}
+
+export function InboxBrowser({ onScanEmail }: Props) {
+  const [filter, setFilter] = useState<"all" | "unread" | "clients">("all");
+  const [search, setSearch] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const LIMIT = 20;
+
+  // Fetch inbox
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ["outlook-inbox", offset, searchQuery],
+    queryFn: async () => {
+      if (searchQuery) {
+        return searchEmails(searchQuery, LIMIT);
+      }
+      return listInbox({ limit: LIMIT, offset });
+    },
+    staleTime: 1000 * 60 * 2, // 2 min
+    retry: 1,
+  });
+
+  const allMessages: OutlookMessage[] = data?.messages || [];
+
+  const filtered = allMessages.filter(msg => {
+    if (filter === "unread") return !msg.isRead;
+    if (filter === "clients") return isClientEmail(msg);
+    return true;
+  });
+
+  async function handleScan(msg: OutlookMessage) {
+    setLoadingId(msg.id);
+    try {
+      const detail = await getMessage(msg.id);
+      if (!detail.body || detail.body.length < 10) {
+        toast.error("Email body is empty or could not be read");
+        return;
+      }
+      const fullContent = `From: ${detail.from?.name || ""} <${detail.from?.address || ""}>\nSubject: ${detail.subject}\nDate: ${format(parseISO(detail.receivedDateTime), "dd MMM yyyy HH:mm")}\n\n${detail.body}`;
+      onScanEmail(fullContent, detail.subject, detail.from?.address || "");
+      toast.success(`Email loaded — click Smart Quote or Book Visit to process`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load email");
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  function handleSearch() {
+    setSearchQuery(search);
+    setOffset(0);
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <p className="text-xs font-semibold flex items-center gap-1.5">
+            <Inbox className="w-3.5 h-3.5" />Inbox — admin@bhofire.com
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Click Scan on any email to load it into the scanner
+          </p>
+        </div>
+        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs"
+          onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={cn("w-3 h-3", isFetching && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSearch()}
+            placeholder="Search subject, sender, body…"
+            className="pl-8 h-8 text-sm"
+          />
+        </div>
+        <Button size="sm" className="h-8 px-3 text-xs" onClick={handleSearch}>Search</Button>
+        {searchQuery && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs"
+            onClick={() => { setSearch(""); setSearchQuery(""); setOffset(0); }}>
+            Clear
+          </Button>
+        )}
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-1.5">
+        {(["all", "unread", "clients"] as const).map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={cn(
+              "text-[11px] px-2.5 py-1 rounded-full border transition-colors",
+              filter === f ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent/30"
+            )}>
+            {f === "all" ? "All" : f === "unread" ? "Unread" : "Clients"}
+            {f === "unread" && allMessages.filter(m => !m.isRead).length > 0 && (
+              <span className="ml-1 bg-primary-foreground/20 text-primary-foreground rounded-full px-1">
+                {allMessages.filter(m => !m.isRead).length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Email list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-10 text-muted-foreground gap-2 text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" />Loading inbox…
+        </div>
+      ) : error ? (
+        <div className="flex items-start gap-2 p-3 rounded-lg border border-destructive/40 bg-destructive/5 text-xs text-destructive">
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">Could not connect to Outlook</p>
+            <p className="mt-0.5 text-muted-foreground">Check that MICROSOFT_TENANT_ID, MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET are set in Supabase Edge Function secrets, and that the app has Mail.Read permission on the mailbox.</p>
+          </div>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground text-sm">
+          <Mail className="w-6 h-6 mx-auto mb-1.5 opacity-40" />
+          {searchQuery ? `No emails matching "${searchQuery}"` : "No emails in this filter"}
+        </div>
+      ) : (
+        <div className="divide-y divide-border/50 border rounded-lg overflow-hidden">
+          {filtered.map(msg => (
+            <div key={msg.id}
+              className={cn(
+                "flex items-start gap-3 px-3 py-2.5 hover:bg-accent/20 transition-colors",
+                !msg.isRead && "bg-primary/5 border-l-2 border-l-primary"
+              )}>
+              {/* Unread dot */}
+              <div className="flex-shrink-0 mt-1.5">
+                {!msg.isRead
+                  ? <div className="w-2 h-2 rounded-full bg-primary" />
+                  : <div className="w-2 h-2 rounded-full bg-transparent" />}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start gap-2 justify-between">
+                  <div className="min-w-0">
+                    <p className={cn("text-xs truncate", !msg.isRead ? "font-semibold" : "font-medium")}>
+                      {msg.from?.name || msg.from?.address || "Unknown sender"}
+                      <span className="text-muted-foreground font-normal ml-1.5">
+                        {msg.from?.address}
+                      </span>
+                    </p>
+                    <p className={cn("text-xs truncate mt-0.5", !msg.isRead ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                      {msg.subject || "(no subject)"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">{msg.bodyPreview}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                      {format(parseISO(msg.receivedDateTime), "dd MMM HH:mm")}
+                    </span>
+                    <div className="flex gap-1">
+                      {msg.hasAttachments && <Paperclip className="w-3 h-3 text-muted-foreground/60" />}
+                      {isClientEmail(msg) && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-blue-300/60 text-blue-700">client</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scan button */}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs gap-1 flex-shrink-0 self-center"
+                onClick={() => handleScan(msg)}
+                disabled={loadingId === msg.id}
+              >
+                {loadingId === msg.id
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : <Scan className="w-3 h-3" />}
+                Scan
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!searchQuery && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>Showing {offset + 1}–{offset + (filtered.length || 0)}</span>
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0"
+              disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - LIMIT))}>
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 w-7 p-0"
+              disabled={(data?.messages?.length || 0) < LIMIT}
+              onClick={() => setOffset(offset + LIMIT)}>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
