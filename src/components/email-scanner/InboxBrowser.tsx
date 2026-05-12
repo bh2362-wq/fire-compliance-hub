@@ -11,7 +11,8 @@ import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
-  listInbox, getMessage, searchEmails, type OutlookMessage,
+  listInbox, getMessage, searchEmails, listAttachments, getAttachment,
+  type OutlookMessage,
 } from "@/services/outlookEmailService";
 
 // ── Known client senders ──────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ function isClientEmail(msg: OutlookMessage): boolean {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
-  onScanEmail: (content: string, subject: string, from: string) => void;
+  onScanEmail: (content: string, subject: string, from: string, pdfAttachments?: { name: string; contentBytes: string }[]) => void;
 }
 
 export function InboxBrowser({ onScanEmail }: Props) {
@@ -63,14 +64,46 @@ export function InboxBrowser({ onScanEmail }: Props) {
   async function handleScan(msg: OutlookMessage) {
     setLoadingId(msg.id);
     try {
-      const detail = await getMessage(msg.id);
-      if (!detail.body || detail.body.length < 10) {
-        toast.error("Email body is empty or could not be read");
+      const [detail, attsResult] = await Promise.all([
+        getMessage(msg.id),
+        msg.hasAttachments ? listAttachments(msg.id) : Promise.resolve({ attachments: [] }),
+      ]);
+
+      const bodyText = detail.body || "";
+      const fullContent = [
+        `From: ${detail.from?.name || ""} <${detail.from?.address || ""}>`,
+        `Subject: ${detail.subject}`,
+        `Date: ${format(parseISO(detail.receivedDateTime), "dd MMM yyyy HH:mm")}`,
+        "",
+        bodyText || "(no body text — content may be in attached PDF)",
+      ].join("\n");
+
+      // Fetch PDFs (up to 3)
+      const pdfList = (attsResult.attachments || [])
+        .filter(a => a.contentType?.includes("pdf") || a.name?.toLowerCase().endsWith(".pdf"))
+        .slice(0, 3);
+
+      let pdfAttachments: { name: string; contentBytes: string }[] = [];
+
+      if (pdfList.length > 0) {
+        toast.info(`Reading ${pdfList.length} PDF${pdfList.length !== 1 ? "s" : ""}…`);
+        const results = await Promise.allSettled(
+          pdfList.map(a => getAttachment(msg.id, a.id))
+        );
+        pdfAttachments = results
+          .filter((r): r is PromiseFulfilledResult<{ name: string; contentType: string; contentBytes: string }> => r.status === "fulfilled")
+          .map(r => ({ name: r.value.name, contentBytes: r.value.contentBytes }));
+      }
+
+      if (!bodyText && pdfAttachments.length === 0) {
+        toast.error("Email is empty and has no readable attachments");
         return;
       }
-      const fullContent = `From: ${detail.from?.name || ""} <${detail.from?.address || ""}>\nSubject: ${detail.subject}\nDate: ${format(parseISO(detail.receivedDateTime), "dd MMM yyyy HH:mm")}\n\n${detail.body}`;
-      onScanEmail(fullContent, detail.subject, detail.from?.address || "");
-      toast.success(`Email loaded — click Smart Quote or Book Visit to process`);
+
+      onScanEmail(fullContent, detail.subject, detail.from?.address || "", pdfAttachments);
+
+      const pdfNote = pdfAttachments.length > 0 ? ` + ${pdfAttachments.length} PDF${pdfAttachments.length !== 1 ? "s" : ""}` : "";
+      toast.success(`Email loaded${pdfNote} — click Smart Quote or Book Visit`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to load email");
     } finally {
