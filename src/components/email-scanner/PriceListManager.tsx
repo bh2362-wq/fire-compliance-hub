@@ -35,6 +35,7 @@ export function PriceListManager() {
   const [excelSheets, setExcelSheets] = useState<ExcelSheetInfo[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>("");
   const [sheetSearch, setSheetSearch] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<string>("list");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ unit_cost: string; labour_cost: string; description: string; manufacturer: string; part_number: string }>({ unit_cost: "", labour_cost: "", description: "", manufacturer: "", part_number: "" });
 
@@ -69,12 +70,14 @@ export function PriceListManager() {
           if (rows.length === 0) { toast.error("No valid rows found — check column headers"); return; }
           setSelectedSheet(sheets[0].name);
           setPreview(rows);
+          setActiveTab("upload");
           toast.success(`${rows.length} items parsed from "${sheets[0].name}"`);
         } else {
           // Multiple sheets — let user choose
           setSelectedSheet("");
           setPreview([]);
-          toast.info(`${sheets.length} sheets found — select which one to import`);
+          setActiveTab("upload");
+          toast.info(`${sheets.length} sheets found — select a sheet below to import`);
         }
       };
       reader.readAsArrayBuffer(file);
@@ -86,6 +89,7 @@ export function PriceListManager() {
         setExcelSheets([]);
         setSelectedSheet("");
         setPreview(parsed);
+        setActiveTab("upload");
         toast.success(`${parsed.length} items parsed — review below before importing`);
       };
       reader.readAsText(file);
@@ -197,7 +201,7 @@ export function PriceListManager() {
         </div>
       </div>
 
-      <Tabs defaultValue={preview.length ? "upload" : "list"}>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="h-8">
           <TabsTrigger value="list" className="text-xs">
             Current List <Badge variant="secondary" className="ml-1 text-[9px]">{activeItems.length}</Badge>
