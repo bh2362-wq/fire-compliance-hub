@@ -466,7 +466,10 @@ const EmailScanner = () => {
             <TabsContent value="pricelist" className="mt-4">
               <Card>
                 <CardContent className="pt-5">
-                  <PriceListManager />
+                  <PriceListManager
+                    initialPreview={supplierPreview}
+                    onPreviewConsumed={() => setSupplierPreview(null)}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
