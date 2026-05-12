@@ -12,8 +12,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { pdfBase64, filename = "document.pdf", supplierName = "" } = await req.json();
-    if (!pdfBase64) throw new Error("pdfBase64 required");
+    const { pdfBase64, emailText = "", filename = "document.pdf", supplierName = "" } = await req.json();
+    if (!pdfBase64 && !emailText) throw new Error("pdfBase64 or emailText required");
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
