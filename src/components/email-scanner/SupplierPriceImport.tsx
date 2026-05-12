@@ -24,6 +24,7 @@ import {
   getExcelSheets, parseExcelSheetFull, parsePriceListCsvWithOverrides,
   uploadPriceList, type ParsedPriceRow,
 } from "@/services/priceListService";
+import { supabase } from "@/integrations/supabase/client";
 
 // ── Supplier Price Import ──────────────────────────────────────────────────────
 
@@ -51,45 +52,65 @@ function SupplierEmailRow({
 
   async function importAttachment(att: OutlookAttachment) {
     setLoading(true);
+    const isPdf = att.contentType?.toLowerCase().includes("pdf") || att.name?.toLowerCase().endsWith(".pdf");
+
     try {
-      const { contentBytes, contentType } = await getAttachment(msg.id, att.id);
-      const buffer = base64ToArrayBuffer(contentBytes);
+      const { contentBytes } = await getAttachment(msg.id, att.id);
+      const sourceName = `${msg.supplierName || "Supplier"} — ${att.name}`;
 
-      let rows: ParsedPriceRow[] = [];
+      if (isPdf) {
+        // PDF: extract prices via Claude AI
+        toast.info(`Reading PDF with AI — extracting part numbers and prices…`);
+        const { data: fnData, error: fnError } = await supabase.functions.invoke("extract-pdf-prices", {
+          body: { pdfBase64: contentBytes, filename: att.name, supplierName: msg.supplierName || "" },
+        });
+        if (fnError) throw new Error(fnError.message);
+        if (fnData?.error) throw new Error(fnData.error);
 
-      if (isCsv(att)) {
-        // CSV: decode to text
-        const text = new TextDecoder().decode(buffer);
-        const result = parsePriceListCsvWithOverrides(text);
-        rows = result.rows;
+        const rows: ParsedPriceRow[] = (fnData?.rows || []).map((r: any, i: number) => ({
+          ...r,
+          unit_cost: Number(r.unit_cost) || 0,
+          labour_cost: Number(r.labour_cost) || 0,
+          _rowIndex: i + 1,
+        }));
+
+        if (rows.length === 0) {
+          toast.warning(`No priced items found in ${att.name} — the PDF may not contain a price list`);
+          return;
+        }
+
+        onImport(rows, sourceName);
+        toast.success(`${rows.length} prices extracted from ${att.name} by AI`);
       } else {
-        // Excel: use SheetJS
-        const sheets = getExcelSheets(buffer);
-        if (sheets.length === 0) throw new Error("No sheets found in workbook");
-        // Auto-pick the sheet with the most rows
-        const best = sheets.reduce((a, b) => b.rowCount > a.rowCount ? b : a);
-        const result = parseExcelSheetFull(buffer, best.name);
-        rows = result.rows;
-        if (result.allPricesZero && sheets.length > 1) {
-          // Try other sheets
-          for (const sheet of sheets) {
-            const r = parseExcelSheetFull(buffer, sheet.name);
-            if (!r.allPricesZero && r.rows.length > 0) {
-              rows = r.rows;
-              break;
+        // Excel / CSV: parse client-side
+        const buffer = base64ToArrayBuffer(contentBytes);
+        let rows: ParsedPriceRow[] = [];
+
+        if (isCsv(att)) {
+          const text = new TextDecoder().decode(buffer);
+          const result = parsePriceListCsvWithOverrides(text);
+          rows = result.rows;
+        } else {
+          const sheets = getExcelSheets(buffer);
+          if (sheets.length === 0) throw new Error("No sheets found in workbook");
+          const best = sheets.reduce((a, b) => b.rowCount > a.rowCount ? b : a);
+          const result = parseExcelSheetFull(buffer, best.name);
+          rows = result.rows;
+          if (result.allPricesZero && sheets.length > 1) {
+            for (const sheet of sheets) {
+              const r = parseExcelSheetFull(buffer, sheet.name);
+              if (!r.allPricesZero && r.rows.length > 0) { rows = r.rows; break; }
             }
           }
         }
-      }
 
-      if (rows.length === 0) {
-        toast.error("No valid rows found in attachment");
-        return;
+        if (rows.length === 0) {
+          toast.error("No valid rows found in attachment — check column headers");
+          return;
+        }
+        onImport(rows, sourceName);
+        toast.success(`${rows.length} items parsed from ${att.name}`);
       }
-
-      const sourceName = `${msg.supplierName || "Supplier"} — ${att.name}`;
-      onImport(rows, sourceName);
-      toast.success(`${rows.length} items parsed from ${att.name}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to import attachment");
     } finally {
@@ -97,7 +118,11 @@ function SupplierEmailRow({
     }
   }
 
-  const spreadsheetAtts = (attachments || []).filter(a => isSpreadsheet(a) || isCsv(a));
+  const spreadsheetAtts = (attachments || []).filter(a => 
+    isSpreadsheet(a) || isCsv(a) ||
+    a.contentType?.toLowerCase().includes("pdf") ||
+    a.name?.toLowerCase().endsWith(".pdf")
+  );
 
   return (
     <div className="border rounded-lg p-3 space-y-2">

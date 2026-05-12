@@ -10,10 +10,11 @@ import {
 } from "@/components/ui/table";
 import {
   Upload, Download, Trash2, RefreshCw, Search,
-  AlertCircle, CheckCircle2, FileSpreadsheet, Plus, Pencil,
+  AlertCircle, CheckCircle2, FileSpreadsheet, Plus, Pencil, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   getPriceList, uploadPriceList, deletePriceListItem, updatePriceListItem,
@@ -29,6 +30,8 @@ export function PriceListManager() {
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<ParsedPriceRow[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [runningCron, setRunningCron] = useState(false);
   const [replaceAll, setReplaceAll] = useState(false);
   const [search, setSearch] = useState("");
   const [excelBuffer, setExcelBuffer] = useState<ArrayBuffer | null>(null);
@@ -192,6 +195,44 @@ export function PriceListManager() {
     } catch { toast.error("Failed to update"); }
   }
 
+  async function handlePurgeAll() {
+    if (!confirm(`Delete ALL ${items.filter(i => i.is_active).length} active price list items? This cannot be undone.`)) return;
+    setPurging(true);
+    try {
+      const { error } = await supabase
+        .from("price_list_items")
+        .delete()
+        .gte("created_at", "1970-01-01");
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["price-list"] });
+      toast.success("Price list cleared");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to purge");
+    } finally {
+      setPurging(false);
+    }
+  }
+
+  async function handleRunCron() {
+    setRunningCron(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("import-supplier-prices", {});
+      if (error) throw new Error(error.message);
+      const { imported = 0, updated = 0, errors = [] } = data || {};
+      qc.invalidateQueries({ queryKey: ["price-list"] });
+      if (imported > 0 || updated > 0) {
+        toast.success(`Import complete — ${imported} new items, ${updated} prices updated`);
+      } else {
+        toast.info("No new prices found in recent supplier emails");
+      }
+      if (errors.length > 0) errors.forEach((e: string) => toast.error(e));
+    } catch (err: any) {
+      toast.error(err.message || "Import failed — check Outlook connection and API key");
+    } finally {
+      setRunningCron(false);
+    }
+  }
+
   const filtered = items.filter(i => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -219,12 +260,20 @@ export function PriceListManager() {
             {activeItems.length} active items — used by Email Scanner to auto-price quotes
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={downloadPriceListTemplate} className="gap-1.5 text-xs">
-            <Download className="h-3.5 w-3.5" />Template CSV
+            <Download className="h-3.5 w-3.5" />Template
           </Button>
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} className="gap-1.5 text-xs">
-            <Upload className="h-3.5 w-3.5" />Upload CSV / Excel
+            <Upload className="h-3.5 w-3.5" />Upload
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleRunCron} disabled={runningCron} className="gap-1.5 text-xs">
+            {runningCron ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Import from Email
+          </Button>
+          <Button variant="outline" size="sm" onClick={handlePurgeAll} disabled={purging || items.length === 0} className="gap-1.5 text-xs border-destructive/40 text-destructive hover:bg-destructive/5">
+            {purging ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            Purge All
           </Button>
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.xlsm,text/csv" className="hidden" onChange={e => { if (e.target.files?.[0]) parseFile(e.target.files[0]); e.target.value = ""; }} />
         </div>
