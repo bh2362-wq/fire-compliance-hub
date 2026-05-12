@@ -117,8 +117,17 @@ Deno.serve(async (req) => {
       ? data.content.map((c: any) => c?.text || "").join("\n").trim()
       : "";
 
+    console.log("claude-chat response", JSON.stringify({
+      model: data?.model,
+      stop_reason: data?.stop_reason,
+      usage: data?.usage,
+      text_length: text.length,
+      text_head: text.slice(0, 400),
+      text_tail: text.slice(-200),
+    }));
+
     return new Response(
-      JSON.stringify({ content: text, model: data?.model, usage: data?.usage }),
+      JSON.stringify({ content: text, model: data?.model, usage: data?.usage, stop_reason: data?.stop_reason }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: unknown) {
