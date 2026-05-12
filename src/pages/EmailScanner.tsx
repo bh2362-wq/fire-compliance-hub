@@ -134,7 +134,6 @@ const EmailScanner = () => {
   }
 
   async function handleSupplierPreview(rows: ParsedPriceRow[], sourceName: string) {
-    if (!user) return;
     setSupplierPreview({ rows, sourceName });
     setActiveTab("pricelist");
     toast.success(`${rows.length} items from ${sourceName} — review and import in Price List tab`);
