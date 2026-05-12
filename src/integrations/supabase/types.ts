@@ -1704,6 +1704,66 @@ export type Database = {
           },
         ]
       }
+      price_list_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          is_active: boolean | null
+          keywords: string[] | null
+          labour_cost: number | null
+          manufacturer: string | null
+          markup_pct: number | null
+          model: string | null
+          notes: string | null
+          part_number: string | null
+          short_name: string | null
+          unit_cost: number | null
+          updated_at: string
+          upload_batch: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          labour_cost?: number | null
+          manufacturer?: string | null
+          markup_pct?: number | null
+          model?: string | null
+          notes?: string | null
+          part_number?: string | null
+          short_name?: string | null
+          unit_cost?: number | null
+          updated_at?: string
+          upload_batch?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          labour_cost?: number | null
+          manufacturer?: string | null
+          markup_pct?: number | null
+          model?: string | null
+          notes?: string | null
+          part_number?: string | null
+          short_name?: string | null
+          unit_cost?: number | null
+          updated_at?: string
+          upload_batch?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
