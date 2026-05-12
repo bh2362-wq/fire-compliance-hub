@@ -211,7 +211,7 @@ Rules:
 - PPE: always include helmet, hiviz, boots for construction sites; add specific items for fire alarm work (e.g. gloves for handling devices)
 - 6-10 Do's and 6-10 Don'ts — make them specific to fire alarm work
 - Do's/Don'ts should be based on the actual hazards in the RAMS, not generic
-- All mandatory PPE for fire alarm contractors on construction sites should be mandatory: true`;
+- All mandatory PPE for fire alarm contractors on construction sites should be mandatory: true``;
 
       const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-chat", {
         body: {
@@ -459,9 +459,9 @@ Rules:
     return (
       <div className="space-y-3">
         {fields.map(([k, label]) => (
-          <div key={k} className="space-y-1.5">
+          <div key={k as string} className="space-y-1.5">
             <Label className="text-xs font-semibold">{label}</Label>
-            <Textarea rows={2} value={workLocation[k] || ""} onChange={e => setWorkLocation(prev => ({ ...prev, [k]: e.target.value }))} className="text-sm" />
+            <Textarea rows={2} value={workLocation[k as keyof VTBWorkLocation] || ""} onChange={e => setWorkLocation(prev => ({ ...prev, [k]: e.target.value }))} className="text-sm" />
           </div>
         ))}
       </div>
