@@ -19,7 +19,30 @@ Deno.serve(async (req) => {
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
     // Strip data URI prefix if present
-    const b64 = pdfBase64.includes(",") ? pdfBase64.split(",")[1] : pdfBase64;
+    const b64 = pdfBase64 ? (pdfBase64.includes(",") ? pdfBase64.split(",")[1] : pdfBase64) : null;
+
+    type Block =
+      | { type: "document"; source: { type: "base64"; media_type: "application/pdf"; data: string }; title?: string }
+      | { type: "text"; text: string };
+
+    const userContent: Block[] = [];
+    if (b64) {
+      userContent.push({
+        type: "document",
+        source: { type: "base64", media_type: "application/pdf", data: b64 },
+        title: filename,
+      });
+    }
+    if (emailText) {
+      userContent.push({
+        type: "text",
+        text: `Email body / quotation text${supplierName ? ` from ${supplierName}` : ""}:\n\n${emailText}`,
+      });
+    }
+    userContent.push({
+      type: "text",
+      text: `Extract every fire alarm part with a price from the ${b64 ? "attached document" : "text above"}${supplierName ? ` (supplier: ${supplierName})` : ""}.`,
+    });
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -31,7 +54,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 4096,
-        system: `You are a fire alarm parts pricing extractor. Read supplier invoices and price lists and extract every identifiable line item.
+        system: `You are a fire alarm parts pricing extractor. Read supplier invoices, quotations, price lists or pricing emails and extract every identifiable line item.
 
 Return ONLY a valid JSON array — no other text, no markdown fences:
 [
@@ -51,23 +74,8 @@ Rules:
 - labour_cost = installation labour cost if shown separately, otherwise 0
 - manufacturer: infer from part number prefix if not stated (S4- = Gent, E80 = Hochiki, etc.)
 - category: Detector | Sounder | VAD | MCP | Panel | Cable | Interface | Battery | Other
-- Return [] if document contains no extractable pricing`,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "document",
-                source: { type: "base64", media_type: "application/pdf", data: b64 },
-                title: filename,
-              },
-              {
-                type: "text",
-                text: `Extract all fire alarm parts and pricing from this ${supplierName ? supplierName + " " : ""}document.`,
-              },
-            ],
-          },
-        ],
+- Return [] if no extractable pricing`,
+        messages: [{ role: "user", content: userContent }],
       }),
     });
 
