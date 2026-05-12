@@ -132,7 +132,11 @@ Return ONLY this exact JSON structure, no other text:
         throw new Error(`AI request failed: ${fnError.message}`);
       }
 
-      const rawText = fnData?.content?.find((c: { type: string }) => c.type === "text")?.text || "";
+      const rawText: string = typeof fnData?.content === "string"
+        ? fnData.content
+        : Array.isArray(fnData?.content)
+          ? fnData.content.find((c: { type: string }) => c.type === "text")?.text || ""
+          : "";
 
       let parsed: { quote_title: string; summary: string; line_items: LineItem[] };
       try {
