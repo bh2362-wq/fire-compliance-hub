@@ -125,16 +125,14 @@ Return ONLY this exact JSON structure, no other text:
             role: "user",
             content: `Generate a remedial works quotation for the following defects found at ${siteName}.\n\nUrgency: ${urgency}\n\nDefects:\n${defectList}`,
           }],
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`AI request failed: ${err.slice(0, 200)}`);
+      if (fnError) {
+        throw new Error(`AI request failed: ${fnError.message}`);
       }
 
-      const data = await response.json();
-      const rawText = data.content?.find((c: { type: string }) => c.type === "text")?.text || "";
+      const rawText = fnData?.content?.find((c: { type: string }) => c.type === "text")?.text || "";
 
       let parsed: { quote_title: string; summary: string; line_items: LineItem[] };
       try {
