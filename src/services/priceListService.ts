@@ -229,6 +229,44 @@ export function parsePriceListCsv(csvText: string): ParsedPriceRow[] {
 export function parsePriceListCsvFull(csvText: string): ParseResult {
   return parsePriceListCsvWithOverrides(csvText);
 }
+  const lines = csvText.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  const rawHeaders = splitCsvLine(lines[0]);
+  const headers = rawHeaders.map(normaliseHeader);
+  const fieldMap: Record<number, keyof ParsedPriceRow> = {};
+  headers.forEach((h, i) => {
+    const mapped = HEADER_MAP[h];
+    if (mapped) fieldMap[i] = mapped;
+  });
+
+  const rows: ParsedPriceRow[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = splitCsvLine(lines[i]);
+    const raw: Record<string, string> = {};
+    Object.entries(fieldMap).forEach(([colIdx, field]) => {
+      raw[field] = values[parseInt(colIdx)] ?? "";
+    });
+
+    const description = (raw.description || "").trim();
+    if (!description) continue;
+
+    rows.push({
+      part_number: raw.part_number?.trim() || undefined,
+      description,
+      short_name: raw.short_name?.trim() || undefined,
+      category: raw.category?.trim() || undefined,
+      manufacturer: raw.manufacturer?.trim() || undefined,
+      model: raw.model?.trim() || undefined,
+      unit_cost: parsePrice(raw.unit_cost),
+      labour_cost: parsePrice(raw.labour_cost),
+      _rowIndex: i,
+    });
+  }
+
+  return rows;
+}
 
 // ── CRUD ───────────────────────────────────────────────────────────────────────
 
@@ -301,6 +339,32 @@ export async function updatePriceListItem(id: string, updates: Partial<PriceList
 export async function deletePriceListItem(id: string): Promise<void> {
   const { error } = await supabase.from("price_list_items").delete().eq("id", id);
   if (error) throw error;
+}
+
+// ── Price list lookup ─────────────────────────────────────────────────────────
+
+/** Search price list by part number (exact first, then fuzzy) or description */
+export async function findPriceListMatch(query: string): Promise<PriceListItem[]> {
+  if (!query.trim()) return [];
+  const q = query.trim();
+
+  // 1. Exact part number match
+  const { data: exact } = await supabase
+    .from("price_list_items")
+    .select("*")
+    .ilike("part_number", q)
+    .eq("is_active", true)
+    .limit(3);
+  if (exact && exact.length > 0) return exact as unknown as PriceListItem[];
+
+  // 2. Fuzzy: part number contains OR description contains
+  const { data: fuzzy } = await supabase
+    .from("price_list_items")
+    .select("*")
+    .or(`part_number.ilike.%${q}%,description.ilike.%${q}%`)
+    .eq("is_active", true)
+    .limit(5);
+  return (fuzzy ?? []) as unknown as PriceListItem[];
 }
 
 // ── Context builder for Claude ─────────────────────────────────────────────────
