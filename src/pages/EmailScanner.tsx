@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Mail, FileSpreadsheet, ClipboardList, Sparkles,
   AlertCircle, CheckCircle2, Building2, User, MapPin, Phone,
-  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox, Tag,
+  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox, Tag, MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -309,6 +309,9 @@ const EmailScanner = () => {
               <TabsTrigger value="supplier" className="gap-1.5">
                 <Building2 className="w-3.5 h-3.5" />Suppliers
               </TabsTrigger>
+              <TabsTrigger value="whatsapp" className="gap-1.5">
+                <MessageCircle className="w-3.5 h-3.5" />WhatsApp
+              </TabsTrigger>
               <TabsTrigger value="pricelist" className="gap-1.5">
                 <BookOpen className="w-3.5 h-3.5" />Price List
                 {priceList.length > 0 && <Badge variant="secondary" className="ml-1 text-[9px]">{priceList.length}</Badge>}
@@ -462,7 +465,61 @@ const EmailScanner = () => {
               </Card>
             </TabsContent>
 
-            {/* ── Price list tab ── */}
+            {/* ── WhatsApp tab ── */}
+            <TabsContent value="whatsapp" className="mt-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-green-600" />
+                    WhatsApp Scanner
+                  </CardTitle>
+                  <CardDescription>
+                    Paste a WhatsApp conversation to scan for quote requests and service calls
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-lg border border-green-200/60 bg-green-50 dark:bg-green-950/20 p-3 text-xs text-green-800 dark:text-green-400 space-y-1">
+                    <p className="font-semibold">How to use:</p>
+                    <p>1. Open WhatsApp Desktop or web.whatsapp.com</p>
+                    <p>2. Open a conversation containing a service request or quote enquiry</p>
+                    <p>3. Select all the messages (Ctrl+A in the chat) and copy</p>
+                    <p>4. Paste below and click Smart Quote or Book Visit</p>
+                  </div>
+                  <Textarea
+                    value={emailContent}
+                    onChange={e => setEmailContent(e.target.value)}
+                    placeholder={"Paste WhatsApp conversation here…\n\ne.g.\nJohn Smith: Hi, we need some smoke detectors replacing at our office, about 12 of them. Can you quote?\nJohn Smith: We're on a Gent system, second floor only"}
+                    className="min-h-[240px] text-sm resize-none"
+                  />
+                  {emailContent.trim() && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        onClick={() => handleScan("quote")}
+                        disabled={scanning}
+                        className="w-full gap-2"
+                      >
+                        {scanning && scanMode === "quote"
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <Sparkles className="w-4 h-4" />}
+                        Smart Quote
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleScan("visit")}
+                        disabled={scanning}
+                        className="w-full gap-2"
+                      >
+                        {scanning && scanMode === "visit"
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <ClipboardList className="w-4 h-4" />}
+                        Book Visit
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="pricelist" className="mt-4">
               <Card>
                 <CardContent className="pt-5">
