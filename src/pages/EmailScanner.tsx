@@ -374,6 +374,15 @@ const EmailScanner = () => {
                           Bulk Visits
                         </Button>
                       </div>
+                      <Button
+                        variant="outline"
+                        onClick={handleImportPrices}
+                        disabled={scanning || (!emailContent.trim() && pendingPdfs.length === 0)}
+                        className="w-full gap-1.5 text-sm"
+                      >
+                        {scanning && scanMode === null ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tag className="w-3.5 h-3.5" />}
+                        Import Prices to Price List
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
