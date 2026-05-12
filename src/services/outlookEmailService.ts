@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 export interface OutlookMessage {
   id: string;
   subject: string;
-  from: { name: string; address: string };
+  from: { name: string; address: string } | null;
   toRecipients: { emailAddress: { name: string; address: string } }[];
   receivedDateTime: string;
   isRead: boolean;

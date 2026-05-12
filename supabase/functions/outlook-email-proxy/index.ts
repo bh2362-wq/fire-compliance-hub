@@ -46,6 +46,16 @@ serve(async (req) => {
     const token = await getAppToken();
     const auth = { Authorization: `Bearer ${token}` };
 
+    // Flatten Graph API message shape: from.emailAddress.{name,address} → from.{name,address}
+    function flattenMessage(m: any) {
+      return {
+        ...m,
+        from: m.from?.emailAddress
+          ? { name: m.from.emailAddress.name || m.from.emailAddress.address || "Unknown", address: m.from.emailAddress.address || "" }
+          : m.from || { name: "Unknown", address: "" },
+      };
+    }
+
     // ── list_inbox ─────────────────────────────────────────────────────────────
     if (action === "list_inbox") {
       const top = Math.min(limit, 50);
@@ -57,7 +67,7 @@ serve(async (req) => {
       const r = await fetch(url, { headers: auth });
       if (!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
       const data = await r.json();
-      return json({ messages: data.value || [], nextLink: data["@odata.nextLink"] });
+      return json({ messages: (data.value || []).map(flattenMessage), nextLink: data["@odata.nextLink"] });
     }
 
     // ── search ─────────────────────────────────────────────────────────────────
@@ -68,7 +78,7 @@ serve(async (req) => {
       const r = await fetch(url, { headers: auth });
       if (!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
       const data = await r.json();
-      return json({ messages: data.value || [] });
+      return json({ messages: (data.value || []).map(flattenMessage) });
     }
 
     // ── get_message ────────────────────────────────────────────────────────────
@@ -138,7 +148,7 @@ serve(async (req) => {
         if (!r.ok) continue;
         const data = await r.json();
         const msgs = (data.value || []).filter((m: any) => m.hasAttachments);
-        results.push(...msgs.map((m: any) => ({ ...m, supplierName: s.name })));
+        results.push(...msgs.map((m: any) => ({ ...flattenMessage(m), supplierName: s.name })));
       }
       results.sort((a, b) =>
         new Date(b.receivedDateTime).getTime() - new Date(a.receivedDateTime).getTime()
@@ -185,7 +195,7 @@ serve(async (req) => {
             const matchedSupplier = supplierEmails.find(s => senderAddr.includes(s.split("@")[1]));
             if (matchedSupplier) {
               seen.add(msg.id);
-              results.push({ ...msg, supplierEmail: matchedSupplier });
+              results.push({ ...flattenMessage(msg), supplierEmail: matchedSupplier });
             }
           }
         } catch (e) {
