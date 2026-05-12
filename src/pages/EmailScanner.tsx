@@ -33,6 +33,7 @@ import { SmartQuoteGenerator } from "@/components/email-scanner/SmartQuoteGenera
 import { getPriceList, type PriceListItem, uploadPriceList, type ParsedPriceRow } from "@/services/priceListService";
 import { InboxBrowser } from "@/components/email-scanner/InboxBrowser";
 import { SupplierPriceImport } from "@/components/email-scanner/SupplierPriceImport";
+import { WhatsAppScanner } from "@/components/email-scanner/WhatsAppScanner";
 import type { SmartQuoteLine } from "@/components/email-scanner/SmartQuoteGenerator";
 
 export interface ExtractedEmailData {
