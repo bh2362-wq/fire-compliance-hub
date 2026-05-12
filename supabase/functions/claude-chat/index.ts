@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 4096,
+        max_tokens: 16000,
         system,
         messages: finalMessages.map((m) => ({ role: m.role, content: m.content })),
       }),
