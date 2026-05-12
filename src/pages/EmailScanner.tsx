@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Mail, FileSpreadsheet, ClipboardList, Sparkles,
   AlertCircle, CheckCircle2, Building2, User, MapPin, Phone,
-  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings,
+  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -30,7 +30,9 @@ import { EmailScannerVisitFlow } from "@/components/email-scanner/EmailScannerVi
 import { EmailScannerBulkVisitFlow } from "@/components/email-scanner/EmailScannerBulkVisitFlow";
 import { PriceListManager } from "@/components/email-scanner/PriceListManager";
 import { SmartQuoteGenerator } from "@/components/email-scanner/SmartQuoteGenerator";
-import { getPriceList, type PriceListItem } from "@/services/priceListService";
+import { getPriceList, type PriceListItem, uploadPriceList, type ParsedPriceRow } from "@/services/priceListService";
+import { InboxBrowser } from "@/components/email-scanner/InboxBrowser";
+import { SupplierPriceImport } from "@/components/email-scanner/SupplierPriceImport";
 import type { SmartQuoteLine } from "@/components/email-scanner/SmartQuoteGenerator";
 
 export interface ExtractedEmailData {
@@ -69,6 +71,7 @@ const EmailScanner = () => {
   const [smartLines, setSmartLines] = useState<SmartQuoteLine[]>([]);
   const [showSmartQuote, setShowSmartQuote] = useState(false);
   const [activeTab, setActiveTab] = useState("scanner");
+  const [supplierPreview, setSupplierPreview] = useState<{ rows: ParsedPriceRow[]; sourceName: string } | null>(null);
 
   // Load price list
   const { data: priceList = [] } = useQuery({
@@ -113,6 +116,19 @@ const EmailScanner = () => {
       setScanning(false);
     }
   };
+
+  function handleInboxScan(emailBody: string, subject: string, from: string) {
+    setEmailContent(emailBody);
+    setActiveTab("scanner");
+    toast.success(`Email from ${from} loaded — click Smart Quote or Book Visit`);
+  }
+
+  async function handleSupplierPreview(rows: ParsedPriceRow[], sourceName: string) {
+    if (!user) return;
+    setSupplierPreview({ rows, sourceName });
+    setActiveTab("pricelist");
+    toast.success(`${rows.length} items from ${sourceName} — review and import in Price List tab`);
+  }
 
   const handleReset = () => {
     setExtractedData(null);
@@ -225,6 +241,12 @@ const EmailScanner = () => {
             <TabsList>
               <TabsTrigger value="scanner" className="gap-1.5">
                 <Mail className="w-3.5 h-3.5" />Scanner
+              </TabsTrigger>
+              <TabsTrigger value="inbox" className="gap-1.5">
+                <Inbox className="w-3.5 h-3.5" />Inbox
+              </TabsTrigger>
+              <TabsTrigger value="supplier" className="gap-1.5">
+                <Building2 className="w-3.5 h-3.5" />Suppliers
               </TabsTrigger>
               <TabsTrigger value="pricelist" className="gap-1.5">
                 <BookOpen className="w-3.5 h-3.5" />Price List
@@ -350,6 +372,24 @@ const EmailScanner = () => {
                   )}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* ── Inbox tab ── */}
+            <TabsContent value="inbox" className="mt-4">
+              <Card>
+                <CardContent className="pt-4">
+                  <InboxBrowser onScanEmail={handleInboxScan} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ── Supplier tab ── */}
+            <TabsContent value="supplier" className="mt-4">
+              <Card>
+                <CardContent className="pt-4">
+                  <SupplierPriceImport onPreviewReady={handleSupplierPreview} />
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* ── Price list tab ── */}
