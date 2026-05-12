@@ -15,13 +15,13 @@ import { Switch } from "@/components/ui/switch";
 import {
   Sparkles, Loader2, BookOpen, Globe, AlertTriangle,
   CheckCircle2, Trash2, Plus, RefreshCw, ShieldCheck,
-  ArrowRight, XCircle, HelpCircle,
+  ArrowRight, XCircle, HelpCircle, Search, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import type { PriceListItem } from "@/services/priceListService";
-import { buildPriceListContext } from "@/services/priceListService";
+import { buildPriceListContext, findPriceListMatch } from "@/services/priceListService";
 
 export type PriceSource = "price_list" | "ai_estimate" | "web_search";
 
@@ -105,7 +105,13 @@ export function SmartQuoteGenerator({
   const [includeLabour, setIncludeLabour] = useState(true);
   const [verifying, setVerifying]         = useState(false);
   const [verifyingId, setVerifyingId]     = useState<string | null>(null);
-  const [verifications, setVerifications] = useState<Record<string, PartVerification>>({});
+  const [verifications, setVerifications]   = useState<Record<string, PartVerification>>({});
+  const [rematchingId, setRematchingId]     = useState<string | null>(null);
+  const [showLookup, setShowLookup]         = useState(false);
+  const [lookupQuery, setLookupQuery]       = useState("");
+  const [lookupResults, setLookupResults]   = useState<PriceListItem[]>([]);
+  const [lookupLoading, setLookupLoading]   = useState(false);
+  const [lookupSearched, setLookupSearched] = useState(false);
 
   function uid() { return Math.random().toString(36).slice(2, 10); }
 
@@ -183,27 +189,11 @@ Return ONLY this JSON (no other text):
       if (fnError) throw new Error(fnError.message);
       if (fnData?.error) throw new Error(fnData.error);
 
-      const rawText: string = typeof fnData?.content === "string"
-        ? fnData.content
-        : Array.isArray(fnData?.content)
-          ? fnData.content.find((c: { type: string; text?: string }) => c.type === "text")?.text || ""
-          : "";
+      const rawText: string = fnData?.content || "";
       let parsed: { quote_lines: SmartQuoteLine[] };
       try {
-        let cleaned = rawText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-        const start = cleaned.search(/[{[]/);
-        const isArr = start !== -1 && cleaned[start] === "[";
-        const end = cleaned.lastIndexOf(isArr ? "]" : "}");
-        if (start === -1 || end === -1) throw new Error("no json");
-        cleaned = cleaned.substring(start, end + 1)
-          .replace(/,\s*}/g, "}")
-          .replace(/,\s*]/g, "]")
-          // eslint-disable-next-line no-control-regex
-          .replace(/[\x00-\x1F\x7F]/g, "");
-        const obj = JSON.parse(cleaned);
-        parsed = Array.isArray(obj) ? { quote_lines: obj } : obj;
+        parsed = JSON.parse(rawText.replace(/```json|```/g, "").trim());
       } catch {
-        console.error("Quote parse failed. Raw:", rawText.slice(0, 500));
         throw new Error("AI returned unexpected format — try again");
       }
 
@@ -359,6 +349,226 @@ For each item verify whether the part number matches the description. Return ONL
     onLinesGenerated(updated, includeLabour);
   }
 
+  // ── Re-match a line against price list + Claude ──────────────────────────────
+  async function rematchLine(lineId: string) {
+    const line = lines.find(l => l.id === lineId);
+    if (!line) return;
+    const query = (line.part_number || line.description || "").trim();
+    if (!query) { toast.error("Enter a part number or description first"); return; }
+
+    setRematchingId(lineId);
+    try {
+      // 1. Search price list
+      const matches = await findPriceListMatch(query);
+      if (matches.length === 1) {
+        // Exact or single match — apply directly
+        const m = matches[0];
+        setLines(prev => {
+          const updated = prev.map(l => l.id !== lineId ? l : {
+            ...l,
+            description: m.description,
+            manufacturer: m.manufacturer || l.manufacturer,
+            model: m.model || l.model,
+            part_number: m.part_number || l.part_number,
+            category: m.category || l.category,
+            unit_cost: m.unit_cost,
+            labour_cost: m.labour_cost,
+            price_source: "price_list" as PriceSource,
+            confidence: "High" as const,
+            price_list_match: m.description,
+            ai_note: `Matched from price list by re-match: ${m.part_number || m.description}`,
+            total: (m.unit_cost + (includeLabour ? m.labour_cost : 0)) * l.quantity,
+          });
+          onLinesGenerated(updated, includeLabour);
+          return updated;
+        });
+        toast.success(`Matched: ${m.description} — £${m.unit_cost}`);
+        return;
+      }
+      if (matches.length > 1) {
+        // Multiple matches — pick the best one (highest part_number similarity) via Claude
+        const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-chat", {
+          body: {
+            model: "claude-sonnet-4-5",
+            system: `You are a fire alarm parts specialist. Given a search query and a list of price list matches, return the index (0-based) of the BEST match. Consider part number similarity, description match, and context. Return ONLY a JSON number: {"best_index": 0}`,
+            messages: [{
+              role: "user",
+              content: `Search query: "${query}"
+Matches:
+${matches.map((m, i) => `${i}: [${m.part_number || "—"}] ${m.description} (${m.manufacturer || ""})`).join("
+")}
+
+Which is the best match?`
+            }],
+          },
+        });
+        if (!fnError && fnData?.content) {
+          try {
+            const parsed = JSON.parse(fnData.content.replace(/```json|```/g, "").trim());
+            const idx = Math.min(Math.max(0, parsed.best_index || 0), matches.length - 1);
+            const m = matches[idx];
+            setLines(prev => {
+              const updated = prev.map(l => l.id !== lineId ? l : {
+                ...l,
+                description: m.description,
+                manufacturer: m.manufacturer || l.manufacturer,
+                model: m.model || l.model,
+                part_number: m.part_number || l.part_number,
+                category: m.category || l.category,
+                unit_cost: m.unit_cost,
+                labour_cost: m.labour_cost,
+                price_source: "price_list" as PriceSource,
+                confidence: "High" as const,
+                price_list_match: m.description,
+                ai_note: `Matched from price list (best of ${matches.length}): ${m.part_number || m.description}`,
+                total: (m.unit_cost + (includeLabour ? m.labour_cost : 0)) * l.quantity,
+              });
+              onLinesGenerated(updated, includeLabour);
+              return updated;
+            });
+            toast.success(`Matched: ${m.description} — £${m.unit_cost}`);
+            return;
+          } catch { /* fall through to AI */ }
+        }
+      }
+
+      // 2. Not in price list — ask Claude to identify + estimate price
+      const priceCtx = buildPriceListContext(priceList.slice(0, 80)); // keep prompt short
+      const { data: fnData2, error: fnError2 } = await supabase.functions.invoke("claude-chat", {
+        body: {
+          model: "claude-sonnet-4-5",
+          system: `You are a fire alarm parts specialist for BHO Fire & Security Ltd. Identify this fire alarm component and provide pricing. Use the price list context if a similar item exists. Return ONLY JSON:
+{"description":"full professional description","manufacturer":"brand","model":"model name","part_number":"correct part number if known","category":"Detector|Sounder|VAD|MCP|Panel|Cable|Other","unit_cost":0.00,"labour_cost":0.00,"confidence":"High|Medium|Low","note":"brief explanation"}`,
+          messages: [{
+            role: "user",
+            content: `Identify this fire alarm component: "${query}"
+
+Price list for reference:
+${priceCtx}`,
+          }],
+        },
+      });
+      if (fnError2 || fnData2?.error) throw new Error(fnError2?.message || fnData2?.error || "AI error");
+      const rawText: string = fnData2?.content || "";
+      const parsed = JSON.parse(rawText.replace(/```json|```/g, "").trim());
+      setLines(prev => {
+        const updated = prev.map(l => l.id !== lineId ? l : {
+          ...l,
+          description: parsed.description || l.description,
+          manufacturer: parsed.manufacturer || l.manufacturer,
+          model: parsed.model || l.model,
+          part_number: parsed.part_number || l.part_number,
+          category: parsed.category || l.category,
+          unit_cost: parsed.unit_cost || l.unit_cost,
+          labour_cost: parsed.labour_cost || l.labour_cost,
+          price_source: "ai_estimate" as PriceSource,
+          confidence: parsed.confidence || "Medium",
+          ai_note: parsed.note || "Re-matched by AI",
+          total: ((parsed.unit_cost || l.unit_cost) + (includeLabour ? (parsed.labour_cost || l.labour_cost) : 0)) * l.quantity,
+        });
+        onLinesGenerated(updated, includeLabour);
+        return updated;
+      });
+      toast.success("AI identified component — check price before sending");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Re-match failed");
+    } finally {
+      setRematchingId(null);
+    }
+  }
+
+  // ── Lookup + add new line ─────────────────────────────────────────────────────
+  async function runLookup() {
+    if (!lookupQuery.trim()) return;
+    setLookupLoading(true);
+    setLookupSearched(false);
+    try {
+      const matches = await findPriceListMatch(lookupQuery.trim());
+      setLookupResults(matches);
+      setLookupSearched(true);
+      if (matches.length === 0) toast.info("Not in price list — try AI lookup below");
+    } catch (err: unknown) {
+      toast.error("Price list search failed");
+    } finally {
+      setLookupLoading(false);
+    }
+  }
+
+  function addFromPriceList(item: PriceListItem) {
+    const nl: SmartQuoteLine = {
+      id: uid(),
+      description: item.description,
+      manufacturer: item.manufacturer || "",
+      model: item.model || "",
+      part_number: item.part_number || "",
+      category: item.category || "Other",
+      quantity: 1,
+      unit_cost: item.unit_cost,
+      labour_cost: item.labour_cost,
+      total: item.unit_cost + (includeLabour ? item.labour_cost : 0),
+      price_source: "price_list",
+      confidence: "High",
+      price_list_match: item.description,
+      ai_note: "Added via price list lookup",
+    };
+    const updated = [...lines, nl];
+    setLines(updated);
+    onLinesGenerated(updated, includeLabour);
+    setShowLookup(false);
+    setLookupQuery("");
+    setLookupResults([]);
+    setLookupSearched(false);
+    toast.success(`Added: ${item.description}`);
+  }
+
+  async function addWithAILookup() {
+    if (!lookupQuery.trim()) return;
+    setLookupLoading(true);
+    try {
+      const priceCtx = buildPriceListContext(priceList.slice(0, 80));
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-chat", {
+        body: {
+          model: "claude-sonnet-4-5",
+          system: `You are a fire alarm parts specialist. Identify this component and provide a quote line. Return ONLY JSON:
+{"description":"professional description","manufacturer":"brand","model":"model","part_number":"part number if known","category":"Detector|Sounder|VAD|MCP|Panel|Cable|Other","unit_cost":0.00,"labour_cost":0.00,"confidence":"High|Medium|Low","note":"explanation"}`,
+          messages: [{ role: "user", content: `Identify and price: "${lookupQuery}"
+
+Price list:
+${priceCtx}` }],
+        },
+      });
+      if (fnError || fnData?.error) throw new Error(fnError?.message || fnData?.error);
+      const parsed = JSON.parse((fnData?.content || "").replace(/```json|```/g, "").trim());
+      const nl: SmartQuoteLine = {
+        id: uid(),
+        description: parsed.description || lookupQuery,
+        manufacturer: parsed.manufacturer || "",
+        model: parsed.model || "",
+        part_number: parsed.part_number || "",
+        category: parsed.category || "Other",
+        quantity: 1,
+        unit_cost: parsed.unit_cost || 0,
+        labour_cost: parsed.labour_cost || 0,
+        total: (parsed.unit_cost || 0) + (includeLabour ? (parsed.labour_cost || 0) : 0),
+        price_source: "ai_estimate",
+        confidence: parsed.confidence || "Medium",
+        ai_note: parsed.note || "Added via AI lookup",
+      };
+      const updated = [...lines, nl];
+      setLines(updated);
+      onLinesGenerated(updated, includeLabour);
+      setShowLookup(false);
+      setLookupQuery("");
+      setLookupResults([]);
+      setLookupSearched(false);
+      toast.success("Line added via AI lookup — verify price before sending");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "AI lookup failed");
+    } finally {
+      setLookupLoading(false);
+    }
+  }
+
   function toggleLabour(val: boolean) {
     setIncludeLabour(val);
     const updated = lines.map(l => ({
@@ -469,28 +679,47 @@ For each item verify whether the part number matches the description. Return ONL
                     </div>
                   </div>
 
-                  {(line.manufacturer || line.model || line.part_number) && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="flex gap-2 text-[10px] text-muted-foreground flex-wrap">
-                        {line.manufacturer && <span className="font-medium text-foreground">{line.manufacturer}</span>}
-                        {line.model && <span>• {line.model}</span>}
-                        {line.part_number && (
-                          <span className={cn("font-mono", v?.status === "incorrect" && "line-through text-red-500")}>
-                            • {line.part_number}
-                          </span>
+                  {/* Editable part number row with re-match */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {line.manufacturer && (
+                      <span className="text-[10px] font-medium text-foreground">{line.manufacturer}</span>
+                    )}
+                    {line.model && <span className="text-[10px] text-muted-foreground">• {line.model}</span>}
+                    <div className="flex items-center gap-1 flex-1 min-w-[140px]">
+                      <span className="text-[10px] text-muted-foreground">•</span>
+                      <input
+                        value={line.part_number}
+                        onChange={e => updateLine(line.id, "part_number", e.target.value)}
+                        placeholder="Part number…"
+                        className={cn(
+                          "flex-1 text-[11px] font-mono bg-transparent border-0 border-b border-dashed border-border/60 focus:outline-none focus:border-primary px-0.5 py-0 min-w-[80px] max-w-[140px]",
+                          v?.status === "incorrect" && "line-through text-red-500"
                         )}
-                        {line.price_list_match && <span className="text-green-600">• {line.price_list_match}</span>}
-                      </div>
-                      {(line.part_number || line.manufacturer) && !v && (
-                        <button onClick={() => verifyOne(line)} disabled={isVerifyingThis || verifying}
-                          className="text-[9px] text-muted-foreground hover:text-primary underline flex items-center gap-0.5 flex-shrink-0">
-                          {isVerifyingThis
-                            ? <><Loader2 className="w-2.5 h-2.5 animate-spin" />checking…</>
-                            : <><ShieldCheck className="w-2.5 h-2.5" />verify</>}
-                        </button>
-                      )}
+                        onKeyDown={e => { if (e.key === "Enter") rematchLine(line.id); }}
+                      />
+                      <button
+                        title="Re-match against price list"
+                        onClick={() => rematchLine(line.id)}
+                        disabled={rematchingId === line.id}
+                        className="p-0.5 rounded hover:bg-accent/40 text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                      >
+                        {rematchingId === line.id
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <RefreshCw className="w-3 h-3" />}
+                      </button>
                     </div>
-                  )}
+                    {line.price_list_match && (
+                      <span className="text-[10px] text-green-600 truncate">✓ {line.price_list_match}</span>
+                    )}
+                    {(line.part_number || line.manufacturer) && !v && (
+                      <button onClick={() => verifyOne(line)} disabled={isVerifyingThis || verifying}
+                        className="text-[9px] text-muted-foreground hover:text-primary underline flex items-center gap-0.5 flex-shrink-0">
+                        {isVerifyingThis
+                          ? <><Loader2 className="w-2.5 h-2.5 animate-spin" />checking…</>
+                          : <><ShieldCheck className="w-2.5 h-2.5" />verify</>}
+                      </button>
+                    )}
+                  </div>
 
                   {v && v.status !== "correct" && (
                     <div className={cn("rounded-md p-2.5 space-y-1.5 text-xs",
@@ -572,9 +801,82 @@ For each item verify whether the part number matches the description. Return ONL
         })}
       </div>
 
-      <Button variant="outline" size="sm" className="w-full h-8 gap-1 text-xs" onClick={addLine}>
-        <Plus className="h-3.5 w-3.5" />Add Line Item
-      </Button>
+      {/* Add & Lookup form */}
+      {!showLookup ? (
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1 h-8 gap-1 text-xs" onClick={addLine}>
+            <Plus className="h-3.5 w-3.5" />Add Blank Line
+          </Button>
+          <Button variant="outline" size="sm" className="flex-1 h-8 gap-1 text-xs" onClick={() => setShowLookup(true)}>
+            <Search className="h-3.5 w-3.5" />Add &amp; Lookup
+          </Button>
+        </div>
+      ) : (
+        <div className="rounded-lg border bg-muted/30 p-3 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold">Find &amp; add item</p>
+            <button className="text-[11px] text-muted-foreground hover:text-foreground underline"
+              onClick={() => { setShowLookup(false); setLookupQuery(""); setLookupResults([]); setLookupSearched(false); }}>
+              Cancel
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={lookupQuery}
+              onChange={e => setLookupQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") runLookup(); }}
+              placeholder="Type part number or description — e.g. S4-715, VAD, sounder base…"
+              className="flex-1 h-8 text-sm px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+              autoFocus
+            />
+            <Button size="sm" className="h-8 gap-1 text-xs" onClick={runLookup} disabled={!lookupQuery.trim() || lookupLoading}>
+              {lookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+              Search
+            </Button>
+          </div>
+
+          {/* Price list results */}
+          {lookupResults.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] text-muted-foreground font-semibold">
+                {lookupResults.length} match{lookupResults.length !== 1 ? "es" : ""} in price list:
+              </p>
+              {lookupResults.map(item => (
+                <button key={item.id} onClick={() => addFromPriceList(item)}
+                  className="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md border border-border hover:bg-accent/40 hover:border-primary/40 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{item.description}</p>
+                    <div className="flex gap-2 text-[10px] text-muted-foreground mt-0.5">
+                      {item.manufacturer && <span>{item.manufacturer}</span>}
+                      {item.part_number && <span className="font-mono">{item.part_number}</span>}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-semibold">£{Number(item.unit_cost).toFixed(2)}</p>
+                    {item.labour_cost > 0 && <p className="text-[10px] text-muted-foreground">+£{Number(item.labour_cost).toFixed(2)} labour</p>}
+                  </div>
+                  <Plus className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Not found — AI lookup option */}
+          {lookupSearched && lookupResults.length === 0 && (
+            <div className="space-y-2">
+              <p className="text-[11px] text-muted-foreground">
+                "{lookupQuery}" not found in price list
+              </p>
+              <Button variant="outline" size="sm" className="w-full h-8 gap-1.5 text-xs"
+                onClick={addWithAILookup} disabled={lookupLoading}>
+                {lookupLoading
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Looking up…</>
+                  : <><Wand2 className="w-3.5 h-3.5" />AI lookup — identify &amp; estimate price</>}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="rounded-lg border bg-muted/30 p-3">
         <div className="flex items-center justify-between flex-wrap gap-4 text-sm">
