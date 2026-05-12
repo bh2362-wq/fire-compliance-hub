@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import type { PriceListItem } from "@/services/priceListService";
 import { buildPriceListContext } from "@/services/priceListService";
 
@@ -111,11 +112,7 @@ export function SmartQuoteGenerator({
           ).join("\n")
         : `(No structured requirements extracted — use the email text and scope below)`;
 
-      const tools = useWebSearch ? [{
-        type: "web_search_20250305",
-        name: "web_search",
-      }] : [];
-
+      // web search not available through edge function — note for future
       const systemPrompt = `You are a fire alarm quoting specialist for BHO Fire & Security Ltd, a UK fire alarm contractor.
 
 Your job: read the email / scope of works and produce accurate, priced quote line items for a fire alarm job.
@@ -177,29 +174,18 @@ ${requirements}
 
 Please identify every device/material/labour item needed and produce priced quote lines. Be specific about manufacturers if mentioned. Include cable and labour as separate line items.`;
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 2000,
-          ...(tools.length > 0 ? { tools } : {}),
+      const { data, error: fnError } = await supabase.functions.invoke("claude-chat", {
+        body: {
           system: systemPrompt,
           messages: [{ role: "user", content: userMsg }],
-        }),
+          model: "claude-sonnet-4-20250514",
+        },
       });
 
-      if (!response.ok) throw new Error(`API error ${response.status}`);
+      if (fnError) throw new Error(fnError.message || "Edge function error");
+      if (data?.error) throw new Error(data.error);
 
-      const data = await response.json();
-
-      // Extract text from response (may be after web search tool use)
-      let rawText = "";
-      if (data.content) {
-        for (const block of data.content) {
-          if (block.type === "text") rawText += block.text;
-        }
-      }
+      const rawText: string = data?.content || "";
 
       let parsed: { quote_lines: SmartQuoteLine[] };
       try {

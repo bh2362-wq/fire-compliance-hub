@@ -90,12 +90,9 @@ export function AIDefectQuoteDialog({ open, onOpenChange, defects, onQuoteCreate
       const hasCat2 = defects.some(d => d.category === 2);
       const urgency = hasCat1 ? "URGENT — Cat 1 immediate danger defects present" : hasCat2 ? "Cat 2 urgent defects present" : "Advisory defects";
 
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-chat", {
+        body: {
           model: "claude-sonnet-4-20250514",
-          max_tokens: 1500,
           system: `You are a fire alarm engineering quotation specialist for BHO Fire & Security Ltd, a UK fire alarm contractor based in Kent. 
 Generate professional remedial works quotation content from defect descriptions found during a BS 5839-1 inspection.
 
