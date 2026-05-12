@@ -34,6 +34,7 @@ export function PriceListManager() {
   const [excelBuffer, setExcelBuffer] = useState<ArrayBuffer | null>(null);
   const [excelSheets, setExcelSheets] = useState<ExcelSheetInfo[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>("");
+  const [sheetSearch, setSheetSearch] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ unit_cost: string; labour_cost: string; description: string; manufacturer: string; part_number: string }>({ unit_cost: "", labour_cost: "", description: "", manufacturer: "", part_number: "" });
 
@@ -292,26 +293,51 @@ export function PriceListManager() {
           </div>
 
           {/* Excel sheet selector */}
-          {excelSheets.length > 1 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold">Select sheet to import:</p>
-              <div className="grid grid-cols-2 gap-2">
-                {excelSheets.map(sheet => (
-                  <button
-                    key={sheet.name}
-                    type="button"
-                    onClick={() => handleSheetSelect(sheet.name)}
-                    className={cn(
-                      "text-left px-3 py-2 rounded-lg border text-xs transition-colors",
-                      selectedSheet === sheet.name
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border hover:bg-accent/30"
-                    )}
-                  >
-                    <p className="font-medium truncate">{sheet.name}</p>
-                    <p className="opacity-70 mt-0.5">{sheet.rowCount} rows</p>
-                  </button>
-                ))}
+          {excelSheets.length > 0 && (
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/30">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold">
+                  Select sheet to import
+                  <span className="ml-1.5 text-muted-foreground font-normal">({excelSheets.length} sheets found)</span>
+                </p>
+                {selectedSheet && (
+                  <span className="text-[10px] text-green-700 dark:text-green-400 font-medium flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    {selectedSheet}
+                  </span>
+                )}
+              </div>
+              {excelSheets.length > 6 && (
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input
+                    value={sheetSearch}
+                    onChange={e => setSheetSearch(e.target.value)}
+                    placeholder="Search sheet names…"
+                    className="pl-8 h-8 text-xs"
+                  />
+                </div>
+              )}
+              <div className="max-h-48 overflow-y-auto rounded-md border bg-background divide-y divide-border">
+                {excelSheets
+                  .filter(s => !sheetSearch || s.name.toLowerCase().includes(sheetSearch.toLowerCase()))
+                  .map(sheet => (
+                    <button
+                      key={sheet.name}
+                      type="button"
+                      onClick={() => { setSheetSearch(""); handleSheetSelect(sheet.name); }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-xs transition-colors flex items-center justify-between gap-2 hover:bg-accent/40",
+                        selectedSheet === sheet.name && "bg-primary/10 text-primary font-semibold"
+                      )}
+                    >
+                      <span className="truncate">{sheet.name}</span>
+                      <span className="text-muted-foreground flex-shrink-0">{sheet.rowCount} rows</span>
+                    </button>
+                  ))}
+                {excelSheets.filter(s => !sheetSearch || s.name.toLowerCase().includes(sheetSearch.toLowerCase())).length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-3">No sheets match "{sheetSearch}"</p>
+                )}
               </div>
             </div>
           )}
