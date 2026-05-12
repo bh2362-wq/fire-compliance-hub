@@ -54,17 +54,43 @@ export const PRICE_LIST_CATEGORIES = [
 //   Labour / Labour Cost / Labour (£) / Fit / Install                 → labour_cost
 
 const HEADER_MAP: Record<string, keyof ParsedPriceRow> = {
-  part_no: "part_number", part_number: "part_number", partno: "part_number", sku: "part_number", ref: "part_number", reference: "part_number",
-  description: "description", product: "description", item: "description", name: "description", item_name: "description",
-  short_name: "short_name", short: "short_name", display: "short_name",
-  category: "category", type: "category",
+  // Part number
+  part_no: "part_number", part_number: "part_number", partno: "part_number", part: "part_number",
+  sku: "part_number", code: "part_number", product_code: "part_number", item_code: "part_number",
+  ref: "part_number", reference: "part_number", cat_no: "part_number", cat: "part_number",
+  catalogue_no: "part_number", catalog_no: "part_number", article: "part_number", article_no: "part_number",
+  stock_code: "part_number", order_code: "part_number",
+  // Description
+  description: "description", product: "description", item: "description", name: "description",
+  item_name: "description", product_name: "description", product_description: "description",
+  title: "description", goods: "description", detail: "description", details: "description",
+  // Short name
+  short_name: "short_name", short: "short_name", display: "short_name", short_description: "short_name",
+  // Category
+  category: "category", type: "category", group: "category", product_group: "category",
+  product_type: "category", range: "category", family: "category",
+  // Manufacturer
   manufacturer: "manufacturer", make: "manufacturer", brand: "manufacturer", mfr: "manufacturer",
-  model: "model",
-  unit_cost: "unit_cost", cost: "unit_cost", price: "unit_cost", buy_price: "unit_cost",
-  unit_price: "unit_cost", our_price: "unit_cost", sell_price: "unit_cost",
+  supplier: "manufacturer", vendor: "manufacturer", produced_by: "manufacturer",
+  // Model
+  model: "model", model_no: "model", model_number: "model", series: "model",
+  // Unit cost — all the aliases a supplier might use
+  unit_cost: "unit_cost", cost: "unit_cost", price: "unit_cost",
+  buy_price: "unit_cost", unit_price: "unit_cost", our_price: "unit_cost", sell_price: "unit_cost",
+  trade_price: "unit_cost", net_price: "unit_cost", nett_price: "unit_cost", nett: "unit_cost",
+  list_price: "unit_cost", rrp: "unit_cost", msrp: "unit_cost",
+  cost_price: "unit_cost", purchase_price: "unit_cost", wholesale_price: "unit_cost",
+  each: "unit_cost", rate: "unit_cost", charge: "unit_cost", amount: "unit_cost",
+  ex_vat: "unit_cost", excl_vat: "unit_cost", exc_vat: "unit_cost",
+  net: "unit_cost", trade: "unit_cost", dealer_price: "unit_cost",
   "£": "unit_cost", "unit_(£)": "unit_cost", "unit_cost_(£)": "unit_cost",
+  "price_(£)": "unit_cost", "cost_(£)": "unit_cost", "trade_(£)": "unit_cost",
+  "net_(£)": "unit_cost", "rrp_(£)": "unit_cost", "each_(£)": "unit_cost",
+  // Labour
   labour: "labour_cost", labour_cost: "labour_cost", "labour_(£)": "labour_cost",
-  fit: "labour_cost", install: "labour_cost", fitting: "labour_cost",
+  labor: "labour_cost", labor_cost: "labour_cost", fit: "labour_cost",
+  install: "labour_cost", fitting: "labour_cost", install_cost: "labour_cost",
+  installation: "labour_cost", service: "labour_cost", fit_cost: "labour_cost",
 };
 
 function normaliseHeader(h: string): string {
@@ -116,7 +142,93 @@ export function parseExcelSheet(buffer: ArrayBuffer, sheetName: string): ParsedP
   return parsePriceListCsv(csvText);
 }
 
+export function parseExcelSheetFull(
+  buffer: ArrayBuffer,
+  sheetName: string,
+  overrides: Partial<Record<keyof ParsedPriceRow, number>> = {}
+): ParseResult {
+  const wb = XLSX.read(buffer, { type: "array" });
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return { rows: [], detectedHeaders: [], mappedColumns: {}, unmappedHeaders: [], allPricesZero: true };
+  const csvText = XLSX.utils.sheet_to_csv(ws, { blankrows: false } as any);
+  return parsePriceListCsvWithOverrides(csvText, overrides);
+}
+
+export interface ParseResult {
+  rows: ParsedPriceRow[];
+  detectedHeaders: string[];           // raw header names from the file
+  mappedColumns: Record<string, string>; // field name -> raw header that mapped to it
+  unmappedHeaders: string[];           // headers we couldn't map
+  allPricesZero: boolean;
+}
+
+export function parsePriceListCsvWithOverrides(
+  csvText: string,
+  overrides: Partial<Record<keyof ParsedPriceRow, number>> = {}
+): ParseResult {
+  const lines = csvText.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return { rows: [], detectedHeaders: [], mappedColumns: {}, unmappedHeaders: [], allPricesZero: true };
+
+  const rawHeaders = splitCsvLine(lines[0]);
+  const normalisedHeaders = rawHeaders.map(normaliseHeader);
+
+  // Build field map from auto-detection + manual overrides
+  const fieldMap: Record<number, keyof ParsedPriceRow> = {};
+  const mappedColumns: Record<string, string> = {};
+
+  normalisedHeaders.forEach((h, i) => {
+    const mapped = HEADER_MAP[h];
+    if (mapped && !fieldMap[i]) {
+      fieldMap[i] = mapped;
+      mappedColumns[mapped] = rawHeaders[i];
+    }
+  });
+
+  // Apply manual overrides (column index → field)
+  Object.entries(overrides).forEach(([field, colIdx]) => {
+    if (colIdx !== undefined && colIdx >= 0) {
+      fieldMap[colIdx] = field as keyof ParsedPriceRow;
+      mappedColumns[field] = rawHeaders[colIdx];
+    }
+  });
+
+  const unmappedHeaders = rawHeaders.filter((_, i) => !fieldMap[i]);
+
+  const rows: ParsedPriceRow[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const values = splitCsvLine(lines[i]);
+    const raw: Record<string, string> = {};
+    Object.entries(fieldMap).forEach(([colIdx, field]) => {
+      raw[field] = values[parseInt(colIdx)] ?? "";
+    });
+    const description = (raw.description || "").trim();
+    if (!description) continue;
+    rows.push({
+      part_number: raw.part_number?.trim() || undefined,
+      description,
+      short_name: raw.short_name?.trim() || undefined,
+      category: raw.category?.trim() || undefined,
+      manufacturer: raw.manufacturer?.trim() || undefined,
+      model: raw.model?.trim() || undefined,
+      unit_cost: parsePrice(raw.unit_cost),
+      labour_cost: parsePrice(raw.labour_cost),
+      _rowIndex: i,
+    });
+  }
+
+  const allPricesZero = rows.length > 0 && rows.every(r => r.unit_cost === 0);
+
+  return { rows, detectedHeaders: rawHeaders, mappedColumns, unmappedHeaders, allPricesZero };
+}
+
 export function parsePriceListCsv(csvText: string): ParsedPriceRow[] {
+  return parsePriceListCsvWithOverrides(csvText).rows;
+}
+
+// Keep legacy signature for backward compat
+export function parsePriceListCsvFull(csvText: string): ParseResult {
+  return parsePriceListCsvWithOverrides(csvText);
+}
   const lines = csvText.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) return [];
 
