@@ -4236,6 +4236,93 @@ export type Database = {
           },
         ]
       }
+      visual_task_briefings: {
+        Row: {
+          activity: string
+          ai_generated: boolean | null
+          client_name: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          donts: Json
+          dos: Json
+          id: string
+          ppe_required: Json
+          prepared_by: string | null
+          prepared_date: string | null
+          principal_contractor: string | null
+          project_reference: string | null
+          rams_document_id: string | null
+          reviewed_by: string | null
+          risk_level: string
+          site_id: string | null
+          status: string
+          task_steps: Json
+          team_roles: Json
+          title: string
+          updated_at: string
+          version: number
+          vtb_reference: string
+          work_location: Json
+        }
+        Insert: {
+          activity: string
+          ai_generated?: boolean | null
+          client_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          donts?: Json
+          dos?: Json
+          id?: string
+          ppe_required?: Json
+          prepared_by?: string | null
+          prepared_date?: string | null
+          principal_contractor?: string | null
+          project_reference?: string | null
+          rams_document_id?: string | null
+          reviewed_by?: string | null
+          risk_level?: string
+          site_id?: string | null
+          status?: string
+          task_steps?: Json
+          team_roles?: Json
+          title: string
+          updated_at?: string
+          version?: number
+          vtb_reference?: string
+          work_location?: Json
+        }
+        Update: {
+          activity?: string
+          ai_generated?: boolean | null
+          client_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          donts?: Json
+          dos?: Json
+          id?: string
+          ppe_required?: Json
+          prepared_by?: string | null
+          prepared_date?: string | null
+          principal_contractor?: string | null
+          project_reference?: string | null
+          rams_document_id?: string | null
+          reviewed_by?: string | null
+          risk_level?: string
+          site_id?: string | null
+          status?: string
+          task_steps?: Json
+          team_roles?: Json
+          title?: string
+          updated_at?: string
+          version?: number
+          vtb_reference?: string
+          work_location?: Json
+        }
+        Relationships: []
+      }
       xero_connections: {
         Row: {
           access_token: string
