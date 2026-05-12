@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Mail, FileSpreadsheet, ClipboardList, Sparkles,
   AlertCircle, CheckCircle2, Building2, User, MapPin, Phone,
-  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox,
+  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox, Tag,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -117,6 +117,57 @@ const EmailScanner = () => {
       }
     } catch (err: any) {
       toast.error(err.message || "Scan failed");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleImportPrices = async () => {
+    if (!emailContent.trim() && pendingPdfs.length === 0) {
+      toast.error("Paste an email or attach a PDF first");
+      return;
+    }
+    setScanning(true);
+    setScanMode(null);
+    try {
+      const allRows: ParsedPriceRow[] = [];
+      const sourceParts: string[] = [];
+
+      // Extract from each PDF attachment
+      for (const pdf of pendingPdfs) {
+        const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
+          body: { pdfBase64: pdf.contentBytes, filename: pdf.name },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        const rows = (data?.rows || []) as any[];
+        rows.forEach((r, i) => allRows.push({ ...r, _rowIndex: allRows.length + i + 1 } as ParsedPriceRow));
+        if (rows.length > 0) sourceParts.push(pdf.name);
+      }
+
+      // Extract from email body text
+      if (emailContent.trim()) {
+        const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
+          body: { emailText: emailContent.trim(), filename: "email-body" },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        const rows = (data?.rows || []) as any[];
+        rows.forEach((r, i) => allRows.push({ ...r, _rowIndex: allRows.length + i + 1 } as ParsedPriceRow));
+        if (rows.length > 0) sourceParts.push("email body");
+      }
+
+      if (allRows.length === 0) {
+        toast.warning("No priced items found — make sure the email/PDF contains part numbers and prices");
+        return;
+      }
+
+      const sourceName = `Email scan — ${sourceParts.join(", ")}`;
+      setSupplierPreview({ rows: allRows, sourceName });
+      setActiveTab("pricelist");
+      toast.success(`${allRows.length} priced items extracted — review and import in Price List tab`);
+    } catch (err: any) {
+      toast.error(err.message || "Price extraction failed");
     } finally {
       setScanning(false);
     }
@@ -323,6 +374,15 @@ const EmailScanner = () => {
                           Bulk Visits
                         </Button>
                       </div>
+                      <Button
+                        variant="outline"
+                        onClick={handleImportPrices}
+                        disabled={scanning || (!emailContent.trim() && pendingPdfs.length === 0)}
+                        className="w-full gap-1.5 text-sm"
+                      >
+                        {scanning && scanMode === null ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tag className="w-3.5 h-3.5" />}
+                        Import Prices to Price List
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -406,7 +466,10 @@ const EmailScanner = () => {
             <TabsContent value="pricelist" className="mt-4">
               <Card>
                 <CardContent className="pt-5">
-                  <PriceListManager />
+                  <PriceListManager
+                    initialPreview={supplierPreview}
+                    onPreviewConsumed={() => setSupplierPreview(null)}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

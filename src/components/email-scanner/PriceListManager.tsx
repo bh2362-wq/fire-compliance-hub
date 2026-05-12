@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,12 @@ import {
   type PriceListItem, type ParsedPriceRow, type ExcelSheetInfo, type ParseResult,
 } from "@/services/priceListService";
 
-export function PriceListManager() {
+interface PriceListManagerProps {
+  initialPreview?: { rows: ParsedPriceRow[]; sourceName: string } | null;
+  onPreviewConsumed?: () => void;
+}
+
+export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceListManagerProps = {}) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -44,6 +49,18 @@ export function PriceListManager() {
   const [rawCsvText, setRawCsvText] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ unit_cost: string; labour_cost: string; description: string; manufacturer: string; part_number: string }>({ unit_cost: "", labour_cost: "", description: "", manufacturer: "", part_number: "" });
+
+  // Load incoming preview rows from email scanner
+  const previewLoadedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (initialPreview && previewLoadedRef.current !== initialPreview.sourceName) {
+      previewLoadedRef.current = initialPreview.sourceName;
+      setPreview(initialPreview.rows);
+      setActiveTab("upload");
+      setParseResult({ rows: initialPreview.rows, allPricesZero: false } as ParseResult);
+      onPreviewConsumed?.();
+    }
+  }, [initialPreview, onPreviewConsumed]);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["price-list"],
