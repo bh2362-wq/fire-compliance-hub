@@ -10,13 +10,13 @@ import {
 } from "@/components/ui/table";
 import {
   Upload, Download, Trash2, RefreshCw, Search,
-  AlertCircle, CheckCircle2, FileSpreadsheet, Plus,
+  AlertCircle, CheckCircle2, FileSpreadsheet, Plus, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
-  getPriceList, uploadPriceList, deletePriceListItem,
+  getPriceList, uploadPriceList, deletePriceListItem, updatePriceListItem,
   parsePriceListCsv, downloadPriceListTemplate,
   getExcelSheets, parseExcelSheet,
   type PriceListItem, type ParsedPriceRow, type ExcelSheetInfo,
@@ -34,6 +34,8 @@ export function PriceListManager() {
   const [excelBuffer, setExcelBuffer] = useState<ArrayBuffer | null>(null);
   const [excelSheets, setExcelSheets] = useState<ExcelSheetInfo[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{ unit_cost: string; labour_cost: string; description: string; manufacturer: string; part_number: string }>({ unit_cost: "", labour_cost: "", description: "", manufacturer: "", part_number: "" });
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["price-list"],
@@ -130,6 +132,32 @@ export function PriceListManager() {
     } catch { toast.error("Failed to remove"); }
   }
 
+  function startEdit(item: PriceListItem) {
+    setEditingId(item.id);
+    setEditValues({
+      unit_cost: String(item.unit_cost),
+      labour_cost: String(item.labour_cost),
+      description: item.description,
+      manufacturer: item.manufacturer || "",
+      part_number: item.part_number || "",
+    });
+  }
+
+  async function saveEdit(id: string) {
+    try {
+      await updatePriceListItem(id, {
+        description: editValues.description,
+        manufacturer: editValues.manufacturer || null,
+        part_number: editValues.part_number || null,
+        unit_cost: parseFloat(editValues.unit_cost) || 0,
+        labour_cost: parseFloat(editValues.labour_cost) || 0,
+      });
+      setEditingId(null);
+      qc.invalidateQueries({ queryKey: ["price-list"] });
+      toast.success("Item updated");
+    } catch { toast.error("Failed to update"); }
+  }
+
   const filtered = items.filter(i => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -162,7 +190,7 @@ export function PriceListManager() {
             <Download className="h-3.5 w-3.5" />Template CSV
           </Button>
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} className="gap-1.5 text-xs">
-            <Upload className="h-3.5 w-3.5" />Upload CSV
+            <Upload className="h-3.5 w-3.5" />Upload CSV / Excel
           </Button>
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.xlsm,text/csv" className="hidden" onChange={e => { if (e.target.files?.[0]) parseFile(e.target.files[0]); e.target.value = ""; }} />
         </div>
@@ -257,7 +285,7 @@ export function PriceListManager() {
             )}
           >
             <FileSpreadsheet className="w-8 h-8 mx-auto mb-2 text-muted-foreground/60" />
-            <p className="text-sm font-medium">Drop your CSV here or click to browse</p>
+            <p className="text-sm font-medium">Drop CSV or Excel file here, or click to browse</p>
             <p className="text-xs text-muted-foreground mt-1">
               CSV, Excel (.xlsx/.xls) — Required: Description, Unit Cost. Optional: Part Number, Manufacturer, Category, Labour
             </p>
