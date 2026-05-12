@@ -122,6 +122,57 @@ const EmailScanner = () => {
     }
   };
 
+  const handleImportPrices = async () => {
+    if (!emailContent.trim() && pendingPdfs.length === 0) {
+      toast.error("Paste an email or attach a PDF first");
+      return;
+    }
+    setScanning(true);
+    setScanMode(null);
+    try {
+      const allRows: ParsedPriceRow[] = [];
+      const sourceParts: string[] = [];
+
+      // Extract from each PDF attachment
+      for (const pdf of pendingPdfs) {
+        const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
+          body: { pdfBase64: pdf.contentBytes, filename: pdf.name },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        const rows = (data?.rows || []) as any[];
+        rows.forEach((r, i) => allRows.push({ ...r, _rowIndex: allRows.length + i + 1 } as ParsedPriceRow));
+        if (rows.length > 0) sourceParts.push(pdf.name);
+      }
+
+      // Extract from email body text
+      if (emailContent.trim()) {
+        const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
+          body: { emailText: emailContent.trim(), filename: "email-body" },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        const rows = (data?.rows || []) as any[];
+        rows.forEach((r, i) => allRows.push({ ...r, _rowIndex: allRows.length + i + 1 } as ParsedPriceRow));
+        if (rows.length > 0) sourceParts.push("email body");
+      }
+
+      if (allRows.length === 0) {
+        toast.warning("No priced items found — make sure the email/PDF contains part numbers and prices");
+        return;
+      }
+
+      const sourceName = `Email scan — ${sourceParts.join(", ")}`;
+      setSupplierPreview({ rows: allRows, sourceName });
+      setActiveTab("pricelist");
+      toast.success(`${allRows.length} priced items extracted — review and import in Price List tab`);
+    } catch (err: any) {
+      toast.error(err.message || "Price extraction failed");
+    } finally {
+      setScanning(false);
+    }
+  };
+
   function handleInboxScan(
     emailBody: string,
     subject: string,
