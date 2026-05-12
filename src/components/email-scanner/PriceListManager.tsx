@@ -17,9 +17,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
   getPriceList, uploadPriceList, deletePriceListItem, updatePriceListItem,
-  parsePriceListCsv, downloadPriceListTemplate,
-  getExcelSheets, parseExcelSheet,
-  type PriceListItem, type ParsedPriceRow, type ExcelSheetInfo,
+  parsePriceListCsvWithOverrides, downloadPriceListTemplate,
+  getExcelSheets, parseExcelSheetFull,
+  type PriceListItem, type ParsedPriceRow, type ExcelSheetInfo, type ParseResult,
 } from "@/services/priceListService";
 
 export function PriceListManager() {
@@ -36,6 +36,9 @@ export function PriceListManager() {
   const [selectedSheet, setSelectedSheet] = useState<string>("");
   const [sheetSearch, setSheetSearch] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("list");
+  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
+  const [colOverrides, setColOverrides] = useState<Partial<Record<string, number>>>({});
+  const [rawCsvText, setRawCsvText] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ unit_cost: string; labour_cost: string; description: string; manufacturer: string; part_number: string }>({ unit_cost: "", labour_cost: "", description: "", manufacturer: "", part_number: "" });
 
@@ -45,6 +48,23 @@ export function PriceListManager() {
   });
 
   const activeItems = items.filter(i => i.is_active);
+
+  function applyParseResult(result: ParseResult, sheetLabel?: string) {
+    setParseResult(result);
+    setColOverrides({});
+    setPreview(result.rows);
+    setActiveTab("upload");
+    if (result.rows.length === 0) {
+      toast.error("No valid rows found — check column headers");
+      return;
+    }
+    if (result.allPricesZero) {
+      toast.warning(`${result.rows.length} rows parsed but prices are all £0 — use the column mapper below to fix this`);
+    } else {
+      const label = sheetLabel ? ` from "${sheetLabel}"` : "";
+      toast.success(`${result.rows.length} items parsed${label}`);
+    }
+  }
 
   function parseFile(file: File) {
     const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls") || file.name.endsWith(".xlsm");
@@ -64,16 +84,12 @@ export function PriceListManager() {
         if (sheets.length === 0) { toast.error("No sheets found in workbook"); return; }
         setExcelBuffer(buffer);
         setExcelSheets(sheets);
+        setRawCsvText("");
         if (sheets.length === 1) {
-          // Auto-select the only sheet
-          const rows = parseExcelSheet(buffer, sheets[0].name);
-          if (rows.length === 0) { toast.error("No valid rows found — check column headers"); return; }
+          const result = parseExcelSheetFull(buffer, sheets[0].name);
           setSelectedSheet(sheets[0].name);
-          setPreview(rows);
-          setActiveTab("upload");
-          toast.success(`${rows.length} items parsed from "${sheets[0].name}"`);
+          applyParseResult(result, sheets[0].name);
         } else {
-          // Multiple sheets — let user choose
           setSelectedSheet("");
           setPreview([]);
           setActiveTab("upload");
@@ -83,14 +99,13 @@ export function PriceListManager() {
       reader.readAsArrayBuffer(file);
     } else {
       reader.onload = (e) => {
-        const parsed = parsePriceListCsv(e.target?.result as string);
-        if (parsed.length === 0) { toast.error("No valid rows found — check column headers"); return; }
+        const csv = e.target?.result as string;
         setExcelBuffer(null);
         setExcelSheets([]);
         setSelectedSheet("");
-        setPreview(parsed);
-        setActiveTab("upload");
-        toast.success(`${parsed.length} items parsed — review below before importing`);
+        setRawCsvText(csv);
+        const result = parsePriceListCsvWithOverrides(csv);
+        applyParseResult(result);
       };
       reader.readAsText(file);
     }
@@ -99,10 +114,24 @@ export function PriceListManager() {
   function handleSheetSelect(sheetName: string) {
     if (!excelBuffer) return;
     setSelectedSheet(sheetName);
-    const rows = parseExcelSheet(excelBuffer, sheetName);
-    if (rows.length === 0) { toast.error("No valid rows in that sheet"); return; }
-    setPreview(rows);
-    toast.success(`${rows.length} items parsed from "${sheetName}"`);
+    setSheetSearch("");
+    const result = parseExcelSheetFull(excelBuffer, sheetName);
+    applyParseResult(result, sheetName);
+  }
+
+  function applyColumnOverride(field: string, colIdx: number) {
+    const newOverrides = { ...colOverrides, [field]: colIdx };
+    setColOverrides(newOverrides);
+    // Re-parse with updated overrides
+    if (excelBuffer && selectedSheet) {
+      const result = parseExcelSheetFull(excelBuffer, selectedSheet, newOverrides as any);
+      setParseResult(result);
+      setPreview(result.rows);
+    } else if (rawCsvText) {
+      const result = parsePriceListCsvWithOverrides(rawCsvText, newOverrides as any);
+      setParseResult(result);
+      setPreview(result.rows);
+    }
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -343,6 +372,52 @@ export function PriceListManager() {
                   <p className="text-xs text-muted-foreground text-center py-3">No sheets match "{sheetSearch}"</p>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Column mapper — shown when prices are all zero */}
+          {parseResult && parseResult.allPricesZero && parseResult.detectedHeaders.length > 0 && (
+            <div className="p-3 rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-950/20 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-800 dark:text-amber-400">Prices not detected automatically</p>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-500 mt-0.5">
+                    We found these columns: <span className="font-mono">{parseResult.detectedHeaders.join(", ")}</span>
+                  </p>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-500">Select which column contains the price:</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                {[
+                  { field: "unit_cost", label: "Price / Unit Cost column *" },
+                  { field: "description", label: "Description column" },
+                  { field: "labour_cost", label: "Labour column (optional)" },
+                ].map(({ field, label }) => (
+                  <div key={field} className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</label>
+                    <select
+                      className="w-full h-8 text-xs rounded-md border border-input bg-background px-2"
+                      value={colOverrides[field] !== undefined ? String(colOverrides[field]) : (
+                        parseResult.mappedColumns[field]
+                          ? String(parseResult.detectedHeaders.indexOf(parseResult.mappedColumns[field]))
+                          : ""
+                      )}
+                      onChange={e => { if (e.target.value !== "") applyColumnOverride(field, parseInt(e.target.value)); }}
+                    >
+                      <option value="">— select column —</option>
+                      {parseResult.detectedHeaders.map((h, i) => (
+                        <option key={i} value={String(i)}>{h || `Column ${i + 1}`}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              {!parseResult.allPricesZero && (
+                <p className="text-[11px] text-green-700 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Prices detected — review preview below
+                </p>
+              )}
             </div>
           )}
 
