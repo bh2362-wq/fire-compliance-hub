@@ -229,44 +229,6 @@ export function parsePriceListCsv(csvText: string): ParsedPriceRow[] {
 export function parsePriceListCsvFull(csvText: string): ParseResult {
   return parsePriceListCsvWithOverrides(csvText);
 }
-  const lines = csvText.split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) return [];
-
-  const rawHeaders = splitCsvLine(lines[0]);
-  const headers = rawHeaders.map(normaliseHeader);
-  const fieldMap: Record<number, keyof ParsedPriceRow> = {};
-  headers.forEach((h, i) => {
-    const mapped = HEADER_MAP[h];
-    if (mapped) fieldMap[i] = mapped;
-  });
-
-  const rows: ParsedPriceRow[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = splitCsvLine(lines[i]);
-    const raw: Record<string, string> = {};
-    Object.entries(fieldMap).forEach(([colIdx, field]) => {
-      raw[field] = values[parseInt(colIdx)] ?? "";
-    });
-
-    const description = (raw.description || "").trim();
-    if (!description) continue;
-
-    rows.push({
-      part_number: raw.part_number?.trim() || undefined,
-      description,
-      short_name: raw.short_name?.trim() || undefined,
-      category: raw.category?.trim() || undefined,
-      manufacturer: raw.manufacturer?.trim() || undefined,
-      model: raw.model?.trim() || undefined,
-      unit_cost: parsePrice(raw.unit_cost),
-      labour_cost: parsePrice(raw.labour_cost),
-      _rowIndex: i,
-    });
-  }
-
-  return rows;
-}
 
 // ── CRUD ───────────────────────────────────────────────────────────────────────
 
