@@ -63,7 +63,8 @@ serve(async (req) => {
     // ── search ─────────────────────────────────────────────────────────────────
     if (action === "search") {
       if (!query) throw new Error("query required for search");
-      const url = `${GRAPH}/users/${mailbox}/messages?$search="${encodeURIComponent(query)}"&$select=${MSG_SELECT}&$top=${Math.min(limit, 50)}`;
+      const searchVal = encodeURIComponent(`"${query}"`);
+      const url = `${GRAPH}/users/${mailbox}/messages?$search=${searchVal}&$select=${MSG_SELECT}&$top=${Math.min(limit, 50)}`;
       const r = await fetch(url, { headers: auth });
       if (!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
       const data = await r.json();
@@ -146,27 +147,59 @@ serve(async (req) => {
     }
 
     // ── purchase_history ───────────────────────────────────────────────────────
-    // Search BAWFS/Huvo emails for a part number to find last purchase price
+    // Search BAWFS/Huvo emails for a part number to find last purchase price.
+    // NOTE: Graph API does not allow combining $search + $filter in one request.
+    // Fix: search broadly (no sender filter), then post-filter by supplier email.
+    // Also try multiple search variants because KQL treats hyphens as separators.
     if (action === "purchase_history") {
       if (!query) throw new Error("query (part number) required");
-      const suppliers = ["sales@huvo.co.uk", "admin@bawfs.com"];
-      const results = [];
-      for (const supplierEmail of suppliers) {
-        const url = `${GRAPH}/users/${mailbox}/messages?$search="${encodeURIComponent(query)}"&$select=${MSG_SELECT}&$top=10&$filter=from/emailAddress/address eq '${supplierEmail}'`;
+      const supplierEmails = ["sales@huvo.co.uk", "admin@bawfs.com"];
+
+      // Build multiple search variants for robustness
+      // e.g. "S4-711" → try "S4-711" and "S4 711" (KQL hyphen handling)
+      const variants = [
+        query,
+        query.replace(/-/g, " "),        // S4 711
+        query.replace(/-/g, ""),         // S4711
+        query.toUpperCase(),
+        query.toLowerCase(),
+      ].filter((v, i, arr) => arr.indexOf(v) === i); // dedupe
+
+      const seen = new Set<string>();
+      const results: any[] = [];
+
+      for (const variant of variants) {
+        // Wrap in quotes for exact phrase matching
+        const searchVal = encodeURIComponent(`"${variant}"`);
+        const url = `${GRAPH}/users/${mailbox}/messages?$search=${searchVal}&$select=${MSG_SELECT}&$top=25&$orderby=receivedDateTime desc`;
         try {
           const r = await fetch(url, { headers: auth });
-          if (!r.ok) continue;
+          if (!r.ok) {
+            console.error("Search variant failed:", variant, r.status, await r.text());
+            continue;
+          }
           const data = await r.json();
-          results.push(...(data.value || []).map((m: any) => ({
-            ...m,
-            supplierEmail,
-          })));
-        } catch { continue; }
+          for (const msg of (data.value || [])) {
+            if (seen.has(msg.id)) continue;
+            const senderAddr = msg.from?.emailAddress?.address?.toLowerCase() || "";
+            const matchedSupplier = supplierEmails.find(s => senderAddr.includes(s.split("@")[1]));
+            if (matchedSupplier) {
+              seen.add(msg.id);
+              results.push({ ...msg, supplierEmail: matchedSupplier });
+            }
+          }
+        } catch (e) {
+          console.error("Search error:", e);
+          continue;
+        }
+        // Stop early if we found results
+        if (results.length >= 10) break;
       }
+
       results.sort((a, b) =>
         new Date(b.receivedDateTime).getTime() - new Date(a.receivedDateTime).getTime()
       );
-      return json({ messages: results });
+      return json({ messages: results.slice(0, 15) });
     }
 
     throw new Error(`Unknown action: ${action}`);
