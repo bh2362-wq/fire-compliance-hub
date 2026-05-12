@@ -59,9 +59,15 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-reader", {});
       if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
 
-      const parsed: WaChat[] = (data?.chats || []).map((c: any) => ({
+      // Server can't actually read WhatsApp Web — fall back to paste mode.
+      if (data?.requiresPasteMode || !data?.chats?.length) {
+        setMode("paste");
+        toast.info(data?.message || "Switched to paste mode — paste your WhatsApp conversation below");
+        return;
+      }
+
+      const parsed: WaChat[] = (data.chats || []).map((c: any) => ({
         ...c,
         isBusiness: isBusinessContact(c.name, c.preview),
       }));
@@ -74,12 +80,8 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
       toast.success(`${parsed.length} chats — ${business} business contacts, ${unread} unread`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to read WhatsApp";
-      if (msg.includes("not connected") || msg.includes("permission")) {
-        toast.error("Chrome extension not connected — use paste mode below");
-        setMode("paste");
-      } else {
-        toast.error(msg);
-      }
+      toast.error(msg);
+      setMode("paste");
     } finally {
       setLoading(false);
     }
