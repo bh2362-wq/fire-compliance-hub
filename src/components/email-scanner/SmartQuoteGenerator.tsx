@@ -393,12 +393,7 @@ For each item verify whether the part number matches the description. Return ONL
             system: `You are a fire alarm parts specialist. Given a search query and a list of price list matches, return the index (0-based) of the BEST match. Consider part number similarity, description match, and context. Return ONLY a JSON number: {"best_index": 0}`,
             messages: [{
               role: "user",
-              content: `Search query: "${query}"
-Matches:
-${matches.map((m, i) => `${i}: [${m.part_number || "—"}] ${m.description} (${m.manufacturer || ""})`).join("
-")}
-
-Which is the best match?`
+              content: `Search query: "${query}"\nMatches:\n${matches.map((m, i) => `${i}: [${m.part_number || "—"}] ${m.description} (${m.manufacturer || ""})`).join("\n")}\n\nWhich is the best match?`
             }],
           },
         });
