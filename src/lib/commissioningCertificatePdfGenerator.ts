@@ -112,7 +112,7 @@ export async function generateCommissioningCertificatePDF(
         { content: san(t.result || "—"),
           styles:  { halign: "center", fontStyle: "bold", fontSize: 8,
                      fillColor: statusFill(t.result), textColor: statusText(t.result) } },
-        san(t.notes || ""),
+        san(t.comment || ""),
       ]) as never,
       theme:  "grid",
       margin: { left: MARGIN, right: MARGIN },
@@ -150,7 +150,7 @@ export async function generateCommissioningCertificatePDF(
     autoTable(doc, {
       startY: y,
       head:   [["#", "ITEM", "RESPONSIBLE", "DUE DATE"]],
-      body:   outstanding.map((o, i) => [String(i+1), san(o.description), san(o.responsible_party || "—"), san(o.target_date || "—")]) as never,
+      body:   outstanding.map((o, i) => [String(i+1), san(o.description), san(o.responsibility || "—"), san(o.target_date || "—")]) as never,
       theme:  "grid",
       margin: { left: MARGIN, right: MARGIN },
       tableWidth: cw,
