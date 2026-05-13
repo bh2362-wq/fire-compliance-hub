@@ -256,7 +256,7 @@ Return ONLY this exact JSON structure, no other text:
       onQuoteCreated();
 
       // Navigate to the quotation
-      navigate(`/dashboard/quotations/${quotation.id}`);
+      navigate(`/dashboard/quotations?id=${quotation.id}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create quotation";
       toast.error(message);
