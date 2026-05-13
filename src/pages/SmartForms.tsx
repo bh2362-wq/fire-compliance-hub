@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail, Wind } from "lucide-react";
+import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail, Wind, Zap, Droplets } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,8 @@ import InstallationCertificateForm from "@/components/smart-forms/InstallationCe
 import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
 import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
 import ASDCommissioningForm from "@/components/smart-forms/ASDCommissioningForm";
+import EmergencyLightingForm from "@/components/smart-forms/EmergencyLightingForm";
+import DryRiserForm from "@/components/smart-forms/DryRiserForm";
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
@@ -83,6 +85,8 @@ export default function SmartForms() {
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
   const [editing, setEditing] = useState<SmartFormSubmission | null>(null);
   const [asdFormOpen, setAsdFormOpen] = useState(false);
+  const [elFormOpen, setElFormOpen] = useState(false);
+  const [drFormOpen, setDrFormOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -150,9 +154,17 @@ export default function SmartForms() {
               Official BAFE-prescribed certificates — Installation (FD/02), Commissioning (FD/03), Modification (FD/05), and Inspection &amp; Servicing.
             </p>
           </div>
-          <Button variant="outline" onClick={() => setAsdFormOpen(true)} className="gap-1.5">
-            <Wind className="w-4 h-4" />ASD Commissioning
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setAsdFormOpen(true)} className="gap-1.5">
+              <Wind className="w-4 h-4" />ASD Commissioning
+            </Button>
+            <Button variant="outline" onClick={() => setElFormOpen(true)} className="gap-1.5">
+              <Zap className="w-4 h-4 text-yellow-500" />Emergency Lighting
+            </Button>
+            <Button variant="outline" onClick={() => setDrFormOpen(true)} className="gap-1.5">
+              <Droplets className="w-4 h-4 text-blue-500" />Dry Riser
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="forms">
@@ -273,6 +285,16 @@ export default function SmartForms() {
       <ASDCommissioningForm
         open={asdFormOpen}
         onOpenChange={setAsdFormOpen}
+        onSaved={load}
+      />
+      <EmergencyLightingForm
+        open={elFormOpen}
+        onOpenChange={setElFormOpen}
+        onSaved={load}
+      />
+      <DryRiserForm
+        open={drFormOpen}
+        onOpenChange={setDrFormOpen}
         onSaved={load}
       />
     </DashboardLayout>

@@ -46,6 +46,7 @@ import {
   ShieldAlert,
   Loader2,
   Trash2,
+  Shield,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AIDefectQuoteDialog } from "@/components/defects/AIDefectQuoteDialog";
@@ -59,6 +60,7 @@ import {
 } from "@/services/defectService";
 import { DefectCategoryBadge, DefectStatusBadge } from "@/components/defects/DefectBadge";
 import { DefectFormDialog } from "@/components/defects/DefectFormDialog";
+import DeclinationOfWorksForm from "@/components/defects/DeclinationOfWorksForm";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Defects() {
@@ -72,6 +74,7 @@ export default function Defects() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aiQuoteOpen, setAiQuoteOpen] = useState(false);
+  const [declinationDefectId, setDeclinationDefectId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -156,6 +159,16 @@ export default function Defects() {
               >
                 <Sparkles className="h-4 w-4" />
                 AI Quote ({selectedIds.length} defect{selectedIds.length !== 1 ? "s" : ""})
+              </Button>
+            )}
+            {selectedIds.length === 1 && (
+              <Button
+                variant="outline"
+                onClick={() => setDeclinationDefectId(selectedIds[0])}
+                className="gap-1.5"
+              >
+                <Shield className="h-4 w-4 text-amber-500" />
+                Declination of Works
               </Button>
             )}
             <Button onClick={() => setCreateOpen(true)}>
@@ -352,6 +365,15 @@ export default function Defects() {
           />
         );
       })()}
+      {declinationDefectId && (
+        <DeclinationOfWorksForm
+          open={!!declinationDefectId}
+          onOpenChange={(o) => { if (!o) setDeclinationDefectId(null); }}
+          defectId={declinationDefectId}
+          siteId={defects.find((d) => d.id === declinationDefectId)?.site_id}
+          onSaved={() => { setDeclinationDefectId(null); load(); }}
+        />
+      )}
     </DashboardLayout>
   );
 }
