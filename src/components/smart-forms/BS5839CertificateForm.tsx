@@ -23,6 +23,7 @@ import {
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
 import { uploadCertificateToSharePoint } from "@/lib/certSharePointUpload";
 import { autoRegisterCertToSite } from "@/services/newCertificateService";
+import { ComplianceChecker } from "@/components/smart-forms/ComplianceChecker";
 import { createDefect, updateDefect, type DefectCategory } from "@/services/defectService";
 import { DefectImportPanel } from "@/components/smart-forms/DefectImportPanel";
 import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
