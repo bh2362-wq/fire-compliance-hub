@@ -205,6 +205,48 @@ export type Database = {
         }
         Relationships: []
       }
+      compliance_audit_trail: {
+        Row: {
+          actor: string | null
+          actor_ip: string | null
+          customer_id: string | null
+          description: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          occurred_at: string
+          site_id: string | null
+        }
+        Insert: {
+          actor?: string | null
+          actor_ip?: string | null
+          customer_id?: string | null
+          description: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          site_id?: string | null
+        }
+        Update: {
+          actor?: string | null
+          actor_ip?: string | null
+          customer_id?: string | null
+          description?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          site_id?: string | null
+        }
+        Relationships: []
+      }
       contract_assets: {
         Row: {
           contract_id: string
@@ -945,6 +987,86 @@ export type Database = {
         }
         Relationships: []
       }
+      declination_of_works: {
+        Row: {
+          bho_representative: string | null
+          bho_signature: string | null
+          created_at: string
+          customer_id: string | null
+          defect_id: string | null
+          defect_notice_id: string | null
+          id: string
+          premises_address: string | null
+          premises_name: string
+          recommended_works: string
+          responsible_person_name: string
+          responsible_person_role: string | null
+          risk_accepted_statement: string | null
+          risk_statement: string
+          signature: string | null
+          signed_by: string
+          signed_date: string
+          signed_ip: string | null
+          site_id: string | null
+          standard_reference: string | null
+          witnessed_by: string | null
+        }
+        Insert: {
+          bho_representative?: string | null
+          bho_signature?: string | null
+          created_at?: string
+          customer_id?: string | null
+          defect_id?: string | null
+          defect_notice_id?: string | null
+          id?: string
+          premises_address?: string | null
+          premises_name: string
+          recommended_works: string
+          responsible_person_name: string
+          responsible_person_role?: string | null
+          risk_accepted_statement?: string | null
+          risk_statement: string
+          signature?: string | null
+          signed_by: string
+          signed_date: string
+          signed_ip?: string | null
+          site_id?: string | null
+          standard_reference?: string | null
+          witnessed_by?: string | null
+        }
+        Update: {
+          bho_representative?: string | null
+          bho_signature?: string | null
+          created_at?: string
+          customer_id?: string | null
+          defect_id?: string | null
+          defect_notice_id?: string | null
+          id?: string
+          premises_address?: string | null
+          premises_name?: string
+          recommended_works?: string
+          responsible_person_name?: string
+          responsible_person_role?: string | null
+          risk_accepted_statement?: string | null
+          risk_statement?: string
+          signature?: string | null
+          signed_by?: string
+          signed_date?: string
+          signed_ip?: string | null
+          site_id?: string | null
+          standard_reference?: string | null
+          witnessed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "declination_of_works_defect_notice_id_fkey"
+            columns: ["defect_notice_id"]
+            isOneToOne: false
+            referencedRelation: "defect_notices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       default_service_types: {
         Row: {
           created_at: string
@@ -974,6 +1096,81 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      defect_notices: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          acknowledgement_method: string | null
+          acknowledgement_status: string
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          defect_category: string
+          defect_description: string
+          defect_id: string | null
+          escalation_level: string
+          id: string
+          next_escalation_at: string | null
+          recommended_action: string | null
+          responsible_person_email: string | null
+          responsible_person_name: string
+          responsible_person_phone: string | null
+          risk_description: string | null
+          sent_at: string
+          site_id: string | null
+          standard_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledgement_method?: string | null
+          acknowledgement_status?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          defect_category: string
+          defect_description: string
+          defect_id?: string | null
+          escalation_level?: string
+          id?: string
+          next_escalation_at?: string | null
+          recommended_action?: string | null
+          responsible_person_email?: string | null
+          responsible_person_name: string
+          responsible_person_phone?: string | null
+          risk_description?: string | null
+          sent_at?: string
+          site_id?: string | null
+          standard_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledgement_method?: string | null
+          acknowledgement_status?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          defect_category?: string
+          defect_description?: string
+          defect_id?: string | null
+          escalation_level?: string
+          id?: string
+          next_escalation_at?: string | null
+          recommended_action?: string | null
+          responsible_person_email?: string | null
+          responsible_person_name?: string
+          responsible_person_phone?: string | null
+          risk_description?: string | null
+          sent_at?: string
+          site_id?: string | null
+          standard_reference?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1537,6 +1734,50 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_log: {
+        Row: {
+          channel: string
+          error_message: string | null
+          external_id: string | null
+          id: string
+          message_body: string | null
+          notice_id: string | null
+          recipient: string
+          sent_at: string
+          status: string | null
+        }
+        Insert: {
+          channel: string
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          message_body?: string | null
+          notice_id?: string | null
+          recipient: string
+          sent_at?: string
+          status?: string | null
+        }
+        Update: {
+          channel?: string
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          message_body?: string | null
+          notice_id?: string | null
+          recipient?: string
+          sent_at?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_log_notice_id_fkey"
+            columns: ["notice_id"]
+            isOneToOne: false
+            referencedRelation: "defect_notices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outlook_calendar_sync: {
         Row: {
           appointment_id: string
@@ -1703,6 +1944,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      portal_access: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          customer_id: string
+          email: string
+          id: string
+          is_active: boolean | null
+          last_login_at: string | null
+          login_count: number | null
+          name: string
+          role: string | null
+          site_id: string | null
+          token_expires_at: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          customer_id: string
+          email: string
+          id?: string
+          is_active?: boolean | null
+          last_login_at?: string | null
+          login_count?: number | null
+          name: string
+          role?: string | null
+          site_id?: string | null
+          token_expires_at?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          customer_id?: string
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          last_login_at?: string | null
+          login_count?: number | null
+          name?: string
+          role?: string | null
+          site_id?: string | null
+          token_expires_at?: string | null
+        }
+        Relationships: []
       }
       price_list_items: {
         Row: {
@@ -3676,6 +3962,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_compliance_scores: {
+        Row: {
+          created_at: string
+          dry_riser_score: number | null
+          emergency_lighting_score: number | null
+          fire_alarm_score: number | null
+          fire_door_score: number | null
+          id: string
+          last_calculated_at: string
+          open_cat1_count: number | null
+          open_cat2_count: number | null
+          open_cat3_count: number | null
+          overall_score: number | null
+          overdue_certs_count: number | null
+          portable_equipment_score: number | null
+          site_id: string
+          trajectory: string | null
+          unacknowledged_notices: number | null
+        }
+        Insert: {
+          created_at?: string
+          dry_riser_score?: number | null
+          emergency_lighting_score?: number | null
+          fire_alarm_score?: number | null
+          fire_door_score?: number | null
+          id?: string
+          last_calculated_at?: string
+          open_cat1_count?: number | null
+          open_cat2_count?: number | null
+          open_cat3_count?: number | null
+          overall_score?: number | null
+          overdue_certs_count?: number | null
+          portable_equipment_score?: number | null
+          site_id: string
+          trajectory?: string | null
+          unacknowledged_notices?: number | null
+        }
+        Update: {
+          created_at?: string
+          dry_riser_score?: number | null
+          emergency_lighting_score?: number | null
+          fire_alarm_score?: number | null
+          fire_door_score?: number | null
+          id?: string
+          last_calculated_at?: string
+          open_cat1_count?: number | null
+          open_cat2_count?: number | null
+          open_cat3_count?: number | null
+          overall_score?: number | null
+          overdue_certs_count?: number | null
+          portable_equipment_score?: number | null
+          site_id?: string
+          trajectory?: string | null
+          unacknowledged_notices?: number | null
+        }
+        Relationships: []
       }
       site_defects: {
         Row: {
