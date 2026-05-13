@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail, Zap } from "lucide-react";
+import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail, Zap, Wind, Droplets } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -16,13 +16,15 @@ import InstallationCertificateForm from "@/components/smart-forms/InstallationCe
 import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
 import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
 import EmergencyLightingForm from "@/components/smart-forms/EmergencyLightingForm";
+import ASDServiceForm from "@/components/smart-forms/ASDServiceForm";
+import DryRiserForm from "@/components/smart-forms/DryRiserForm";
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
 
 type BS5839Form = "bs5839_inspection_servicing" | "bs5839_installation" | "bs5839_commissioning" | "bs5839_modification";
-type ActiveForm = BS5839Form | "el" | null;
+type ActiveForm = BS5839Form | "el" | "asd" | "dr" | null;
 
 // ── Cert catalogue ────────────────────────────────────────────────────────────
 const FIRE_ALARM_FORMS = [
@@ -84,6 +86,28 @@ const OTHER_FORMS = [
     bg: "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200",
     icon: Zap,
   },
+  {
+    key: "asd" as ActiveForm,
+    name: "ASD Service Certificate",
+    code: "BS EN 54-20",
+    bafe: null,
+    description: "Annual service with airflow baseline verification (±20% FIA CoP §8.3). Covers pre-service checks, pipe flow readings, cleaning, system checks and fault recording.",
+    standard: "BS EN 54-20:2006+A1:2012",
+    color: "text-sky-700",
+    bg: "bg-sky-50 dark:bg-sky-950/20 border-sky-200",
+    icon: Wind,
+  },
+  {
+    key: "dr" as ActiveForm,
+    name: "Dry Riser Certificate",
+    code: "BS 9990",
+    bafe: null,
+    description: "6-monthly visual inspection and annual hydraulic pressure test at 12 bar for 15 minutes per BS 9990:2015. Includes full landing valve floor record.",
+    standard: "BS 9990:2015",
+    color: "text-blue-700",
+    bg: "bg-blue-50 dark:bg-blue-950/20 border-blue-200",
+    icon: Droplets,
+  },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -107,6 +131,12 @@ function formTypeLabel(type: string) {
       annual_discharge: "EL Annual Discharge",
     };
     return labels[sub] ?? type;
+  }
+  if (type.startsWith("asd_")) {
+    return type === "asd_annual_service" ? "ASD Annual Service" : "ASD Commissioning";
+  }
+  if (type.startsWith("dr_")) {
+    return type === "dr_visual" ? "Dry Riser Visual Inspection" : "Dry Riser Pressure Test";
   }
   return type;
 }
@@ -132,7 +162,9 @@ export default function SmartForms() {
   const handleEdit = (sub: SmartFormSubmission) => {
     setEditing(sub);
     const ft = sub.form_type as string;
-    if (ft.startsWith("el_")) { setActiveForm("el"); return; }
+    if (ft.startsWith("el_"))  { setActiveForm("el");  return; }
+    if (ft.startsWith("asd_")) { setActiveForm("asd"); return; }
+    if (ft.startsWith("dr_"))  { setActiveForm("dr");  return; }
     setActiveForm(sub.form_type as ActiveForm);
   };
 
@@ -155,6 +187,12 @@ export default function SmartForms() {
       } else if (ft.startsWith("el_")) {
         const { generateELCertificatePDF } = await import("@/lib/emergencyLightingPdfGenerator");
         await generateELCertificatePDF(p);
+      } else if (ft.startsWith("asd_")) {
+        const { generateASDCertificatePDF } = await import("@/lib/asdCertificatePdfGenerator");
+        await generateASDCertificatePDF(p);
+      } else if (ft.startsWith("dr_")) {
+        const { generateDRCertificatePDF } = await import("@/lib/dryRiserCertificatePdfGenerator");
+        await generateDRCertificatePDF(p);
       } else {
         await generateBS5839CertificatePDF(p, { autoSign: true });
       }
@@ -308,6 +346,16 @@ export default function SmartForms() {
       />
       <EmergencyLightingForm
         open={activeForm === "el"}
+        onOpenChange={(o) => { if (!o) closeForm(); }}
+        onSaved={load}
+      />
+      <ASDServiceForm
+        open={activeForm === "asd"}
+        onOpenChange={(o) => { if (!o) closeForm(); }}
+        onSaved={load}
+      />
+      <DryRiserForm
+        open={activeForm === "dr"}
         onOpenChange={(o) => { if (!o) closeForm(); }}
         onSaved={load}
       />
