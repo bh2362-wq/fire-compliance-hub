@@ -74,6 +74,7 @@ export default function Defects() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aiQuoteOpen, setAiQuoteOpen] = useState(false);
+  const [declinationDefectId, setDeclinationDefectId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
