@@ -101,6 +101,7 @@ export interface DefectEntry {
   bs_reference?: string;
   recommended_action: string;
   photo_url?: string;
+  _register_id?: string;   // set when imported from site_defects register
   status: "Open" | "Closed" | "Requires Quote" | "";
 }
 
