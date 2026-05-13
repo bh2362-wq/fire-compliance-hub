@@ -85,6 +85,8 @@ export default function SmartForms() {
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
   const [editing, setEditing] = useState<SmartFormSubmission | null>(null);
   const [asdFormOpen, setAsdFormOpen] = useState(false);
+  const [elFormOpen, setElFormOpen] = useState(false);
+  const [drFormOpen, setDrFormOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
