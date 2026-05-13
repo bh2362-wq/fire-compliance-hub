@@ -5,7 +5,7 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -53,6 +53,7 @@ const toolsNav = [
   { name: "Customer Forms",  href: "/dashboard/customer-forms",    icon: FileSignature },
   { name: "Smart Forms",     href: "/dashboard/smart-forms",       icon: Sparkles },
   { name: "AI Assistant",    href: "/dashboard/ai-assistant",      icon: Sparkles },
+  { name: "References",      href: "/dashboard/reference",         icon: BookOpen },
 ];
 
 const qmsNav = [
@@ -197,7 +198,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isToolsRoute = [
     "/dashboard/email-scanner", "/dashboard/device-pricing",
     "/dashboard/product-lookup", "/dashboard/customer-forms", "/dashboard/route-planner",
-    "/dashboard/smart-forms", "/dashboard/ai-assistant",
+    "/dashboard/smart-forms", "/dashboard/ai-assistant", "/dashboard/reference",
   ].some((p) => location.pathname.startsWith(p));
   const isQmsRoute = location.pathname.startsWith("/qms");
   const isCertRoute = location.pathname.startsWith("/dashboard/cert-tracker");
