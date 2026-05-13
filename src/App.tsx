@@ -44,6 +44,7 @@ import Defects from "./pages/Defects";
 // ── NEW: Certificate Tracker ──
 import CertTracker from "./pages/CertTracker";
 import AIAssistant from "./pages/AIAssistant";
+import ReferenceGuides from "./pages/ReferenceGuides";
 
 // QMS Pages
 import QMSDashboard from "./pages/qms/QMSDashboard";
@@ -110,6 +111,7 @@ const App = () => (
             <Route path="/dashboard/customer-forms" element={<ProtectedRoute><CustomerForms /></ProtectedRoute>} />
             <Route path="/dashboard/ai-assistant" element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
             <Route path="/dashboard/smart-forms" element={<ProtectedRoute><SmartForms /></ProtectedRoute>} />
+            <Route path="/dashboard/reference" element={<ProtectedRoute><ReferenceGuides /></ProtectedRoute>} />
 
             {/* Protected: QMS */}
             <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
