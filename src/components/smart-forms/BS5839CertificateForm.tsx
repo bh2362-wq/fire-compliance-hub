@@ -59,6 +59,7 @@ export default function BS5839CertificateForm({
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [payload, setPayload] = useState<BS5839Payload>(buildEmptyPayload());
   const [saving, setSaving] = useState(false);
+  const [linkedSiteId, setLinkedSiteId] = useState<string | null>(siteId ?? null);
 
   useEffect(() => {
     if (!open) return;
