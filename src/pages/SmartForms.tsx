@@ -287,6 +287,16 @@ export default function SmartForms() {
         onOpenChange={setAsdFormOpen}
         onSaved={load}
       />
+      <EmergencyLightingForm
+        open={elFormOpen}
+        onOpenChange={setElFormOpen}
+        onSaved={load}
+      />
+      <DryRiserForm
+        open={drFormOpen}
+        onOpenChange={setDrFormOpen}
+        onSaved={load}
+      />
     </DashboardLayout>
   );
 }
