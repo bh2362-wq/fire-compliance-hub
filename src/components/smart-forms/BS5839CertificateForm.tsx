@@ -23,6 +23,7 @@ import {
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
 import { uploadCertificateToSharePoint } from "@/lib/certSharePointUpload";
 import { autoRegisterCertToSite } from "@/services/newCertificateService";
+import { ComplianceChecker } from "@/components/smart-forms/ComplianceChecker";
 import { createDefect, updateDefect, type DefectCategory } from "@/services/defectService";
 import { DefectImportPanel } from "@/components/smart-forms/DefectImportPanel";
 import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
@@ -822,6 +823,7 @@ function PreviewStep({ payload, errors }: { payload: BS5839Payload; errors: { st
           </div>
         </CardContent>
       </Card>
+      <ComplianceChecker payload={payload as unknown as Record<string, unknown>} formType="bs5839_inspection_servicing" />
       <p className="text-[11px] text-muted-foreground text-center">Click <strong>Complete &amp; Download PDF</strong> below to finalise.</p>
     </div>
   );
