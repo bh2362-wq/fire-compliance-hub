@@ -270,6 +270,11 @@ export default function SmartForms() {
         onOpenChange={(o) => { if (!o) closeForm(); }}
         onSaved={load}
       />
+      <ASDCommissioningForm
+        open={asdFormOpen}
+        onOpenChange={setAsdFormOpen}
+        onSaved={load}
+      />
     </DashboardLayout>
   );
 }
