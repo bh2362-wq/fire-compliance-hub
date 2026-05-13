@@ -184,10 +184,10 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
         ...(status === "completed" ? { completed_at: new Date().toISOString() } : {}),
       };
       if (submissionId) {
-        const { error } = await supabase.from("smart_form_submissions").update(row).eq("id", submissionId);
+        const { error } = await supabase.from("smart_form_submissions").update(row as any).eq("id", submissionId);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from("smart_form_submissions").insert(row).select("id").single();
+        const { data, error } = await supabase.from("smart_form_submissions").insert(row as any).select("id").single();
         if (error) throw error;
         setSubmissionId((data as any).id);
       }
@@ -199,8 +199,8 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
 
   async function handleDownload() {
     try {
-      const { generateASDCertificatePDF } = await import("@/lib/asdCertificatePdfGenerator");
-      await generateASDCertificatePDF(payload as any);
+      const { generateASDCommissioningPDF } = await import("@/lib/asdCommissioningPdfGenerator");
+      await generateASDCommissioningPDF(payload as any);
     } catch { toast.error("PDF generation failed"); }
   }
 

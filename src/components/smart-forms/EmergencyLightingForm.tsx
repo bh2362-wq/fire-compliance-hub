@@ -221,10 +221,10 @@ export default function EmergencyLightingForm({ open, onOpenChange, visitId, sit
         ...(status === "completed" ? { completed_at: new Date().toISOString() } : {}),
       };
       if (submissionId) {
-        const { error } = await supabase.from("smart_form_submissions").update(row).eq("id", submissionId);
+        const { error } = await supabase.from("smart_form_submissions").update(row as any).eq("id", submissionId);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from("smart_form_submissions").insert(row).select("id").single();
+        const { data, error } = await supabase.from("smart_form_submissions").insert(row as any).select("id").single();
         if (error) throw error;
         setSubmissionId((data as any).id);
       }

@@ -123,7 +123,7 @@ export async function generateInstallationCertificatePDF(
     autoTable(doc, {
       startY: y,
       head:   [["#", "VARIATION", "JUSTIFICATION", "AGREED?"]],
-      body:   variations.map((v, i) => [String(i+1), san(v.description), san(v.justification), san(v.agreed_with_responsible_person || "—")]) as never,
+      body:   variations.map((v, i) => [String(i+1), san(v.description), san(v.justification), san(v.agreed_with_rp || "—")]) as never,
       theme:  "grid",
       margin: { left: MARGIN, right: MARGIN },
       tableWidth: cw,
@@ -146,7 +146,7 @@ export async function generateInstallationCertificatePDF(
     autoTable(doc, {
       startY: y,
       head:   [["#", "DESCRIPTION", "RESPONSIBLE", "DUE DATE"]],
-      body:   outstanding.map((o, i) => [String(i+1), san(o.description), san(o.responsible_party||"—"), san(o.target_date||"—")]) as never,
+      body:   outstanding.map((o, i) => [String(i+1), san(o.description), san(o.responsibility||"—"), san(o.target_date||"—")]) as never,
       theme:  "grid",
       margin: { left: MARGIN, right: MARGIN },
       tableWidth: cw,

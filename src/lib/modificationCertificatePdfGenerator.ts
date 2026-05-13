@@ -108,7 +108,7 @@ export async function generateModificationCertificatePDF(
     ["Panel Changes",            payload.panel_changes === "Yes" ? `Yes — ${san(payload.panel_changes_description || "")}` : "No"],
     ["Cable Additions",          payload.cable_additions === "Yes" ? `Yes — ${san(payload.cable_additions_description || "")}` : "No"],
     ["Ancillary Changes",        payload.ancillary_changes === "Yes" ? `Yes — ${san(payload.ancillary_description || "")}` : "No"],
-  ].filter(([,v]) => v && v !== "No" || true));
+  ].filter(([,v]) => v && v !== "No" || true) as [string, string][]);
 
   // 03 System After Modification
   y = checkPage(doc, pw, y, 25, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
@@ -135,7 +135,7 @@ export async function generateModificationCertificatePDF(
         { content: san(t.result || "—"),
           styles:  { halign: "center", fontStyle: "bold", fontSize: 8,
                      fillColor: statusFill(t.result), textColor: statusText(t.result) } },
-        san(t.notes || ""),
+        san(t.comment || ""),
       ]) as never,
       theme:  "grid",
       margin: { left: MARGIN, right: MARGIN },
@@ -167,7 +167,7 @@ export async function generateModificationCertificatePDF(
     autoTable(doc, {
       startY: y,
       head:   [["#", "VARIATION", "JUSTIFICATION", "AGREED?"]],
-      body:   variations.map((v, i) => [String(i+1), san(v.description), san(v.justification), san(v.agreed_with_responsible_person || "—")]) as never,
+      body:   variations.map((v, i) => [String(i+1), san(v.description), san(v.justification), san(v.agreed_with_rp || "—")]) as never,
       theme:  "grid",
       margin: { left: MARGIN, right: MARGIN },
       tableWidth: cw,
@@ -190,7 +190,7 @@ export async function generateModificationCertificatePDF(
     autoTable(doc, {
       startY: y,
       head:   [["#", "DESCRIPTION", "RESPONSIBLE", "DUE DATE"]],
-      body:   outstanding.map((o, i) => [String(i+1), san(o.description), san(o.responsible_party||"—"), san(o.target_date||"—")]) as never,
+      body:   outstanding.map((o, i) => [String(i+1), san(o.description), san(o.responsibility||"—"), san(o.target_date||"—")]) as never,
       theme:  "grid",
       margin: { left: MARGIN, right: MARGIN },
       tableWidth: cw,

@@ -188,11 +188,11 @@ export default function SmartForms() {
         const { generateELCertificatePDF } = await import("@/lib/emergencyLightingPdfGenerator");
         await generateELCertificatePDF(p);
       } else if (ft.startsWith("asd_")) {
-        const { generateASDCertificatePDF } = await import("@/lib/asdCertificatePdfGenerator");
-        await generateASDCertificatePDF(p);
+        const { generateASDCommissioningPDF } = await import("@/lib/asdCommissioningPdfGenerator");
+        await generateASDCommissioningPDF(p);
       } else if (ft.startsWith("dr_")) {
-        const { generateDRCertificatePDF } = await import("@/lib/dryRiserCertificatePdfGenerator");
-        await generateDRCertificatePDF(p);
+        const { generateDryRiserPDF } = await import("@/lib/dryRiserPdfGenerator");
+        await generateDryRiserPDF(p);
       } else {
         await generateBS5839CertificatePDF(p, { autoSign: true });
       }
