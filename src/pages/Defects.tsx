@@ -46,6 +46,7 @@ import {
   ShieldAlert,
   Loader2,
   Trash2,
+  Shield,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AIDefectQuoteDialog } from "@/components/defects/AIDefectQuoteDialog";
