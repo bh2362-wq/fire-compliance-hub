@@ -150,6 +150,9 @@ export default function SmartForms() {
               Official BAFE-prescribed certificates — Installation (FD/02), Commissioning (FD/03), Modification (FD/05), and Inspection &amp; Servicing.
             </p>
           </div>
+          <Button variant="outline" onClick={() => setAsdFormOpen(true)} className="gap-1.5">
+            <Wind className="w-4 h-4" />ASD Commissioning
+          </Button>
         </div>
 
         <Tabs defaultValue="forms">
