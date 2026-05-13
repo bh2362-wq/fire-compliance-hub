@@ -24,6 +24,7 @@ import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGener
 import { uploadCertificateToSharePoint } from "@/lib/certSharePointUpload";
 import { autoRegisterCertToSite } from "@/services/newCertificateService";
 import { createDefect, type DefectCategory } from "@/services/defectService";
+import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
 
 const STEPS = [
   "Header", "Premises", "System", "Service Org", "Checklist",
@@ -58,6 +59,7 @@ export default function BS5839CertificateForm({
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [payload, setPayload] = useState<BS5839Payload>(buildEmptyPayload());
   const [saving, setSaving] = useState(false);
+  const [linkedSiteId, setLinkedSiteId] = useState<string | null>(siteId ?? null);
 
   useEffect(() => {
     if (!open) return;
@@ -253,6 +255,20 @@ export default function BS5839CertificateForm({
           </div>
           <Progress value={progress} className="h-1 mt-3" />
         </DialogHeader>
+
+        {!existing && (
+          <div className="px-4 pt-3 pb-1 border-b">
+            <SitePrefillPanel
+              formType="bs5839_inspection_servicing"
+              siteId={linkedSiteId || siteId}
+              onSiteSelected={setLinkedSiteId}
+              onPrefillApplied={(fields, batteryHint) => {
+                setPayload(prev => ({ ...prev, ...fields } as BS5839Payload));
+                if (batteryHint) setPayload(prev => ({ ...prev, battery_age_years: batteryHint.suggested_age } as BS5839Payload));
+              }}
+            />
+          </div>
+        )}
 
         {/* Step pills */}
         <div className="px-4 py-2 border-b shrink-0 overflow-x-auto">
