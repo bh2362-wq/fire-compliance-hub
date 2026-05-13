@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail, Zap, Wind, Droplets } from "lucide-react";
+import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail, Zap, Wind, Droplets, ShieldAlert } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -17,14 +17,16 @@ import CommissioningCertificateForm from "@/components/smart-forms/Commissioning
 import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
 import EmergencyLightingForm from "@/components/smart-forms/EmergencyLightingForm";
 import ASDServiceForm from "@/components/smart-forms/ASDServiceForm";
+import ASDCommissioningForm from "@/components/smart-forms/ASDCommissioningForm";
 import DryRiserForm from "@/components/smart-forms/DryRiserForm";
+import DeclinationForm from "@/components/smart-forms/DeclinationForm";
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
 
 type BS5839Form = "bs5839_inspection_servicing" | "bs5839_installation" | "bs5839_commissioning" | "bs5839_modification";
-type ActiveForm = BS5839Form | "el" | "asd" | "dr" | null;
+type ActiveForm = BS5839Form | "el" | "asd" | "asd_comm" | "dr" | "declination" | null;
 
 // ── Cert catalogue ────────────────────────────────────────────────────────────
 const FIRE_ALARM_FORMS = [
@@ -98,6 +100,17 @@ const OTHER_FORMS = [
     icon: Wind,
   },
   {
+    key: "asd_comm" as ActiveForm,
+    name: "ASD Commissioning Certificate",
+    code: "BS EN 54-20",
+    bafe: null,
+    description: "Full commissioning certificate for new ASD installations or modifications. Records EN 54-20 class, pipe design vs measured flow, transport time tests, and panel signal verification.",
+    standard: "BS EN 54-20:2006+A1:2012",
+    color: "text-cyan-700",
+    bg: "bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200",
+    icon: Wind,
+  },
+  {
     key: "dr" as ActiveForm,
     name: "Dry Riser Certificate",
     code: "BS 9990",
@@ -107,6 +120,17 @@ const OTHER_FORMS = [
     color: "text-blue-700",
     bg: "bg-blue-50 dark:bg-blue-950/20 border-blue-200",
     icon: Droplets,
+  },
+  {
+    key: "declination" as ActiveForm,
+    name: "Declination of Recommended Works",
+    code: "Legal",
+    bafe: null,
+    description: "Legal document recording that the responsible person has been advised of fire safety works, understands the risk, and has declined. Protects BHO Fire's liability.",
+    standard: "RR(FS)O 2005",
+    color: "text-red-700",
+    bg: "bg-red-50 dark:bg-red-950/20 border-red-200",
+    icon: ShieldAlert,
   },
 ];
 
@@ -121,23 +145,16 @@ function formTypeLabel(type: string) {
   const all = [...FIRE_ALARM_FORMS, ...OTHER_FORMS];
   const f = all.find((x) => x.key === type);
   if (f) return f.name;
-  // EL sub-types
   if (type.startsWith("el_")) {
-    const sub = type.replace("el_", "");
     const labels: Record<string, string> = {
-      commissioning: "EL Commissioning",
-      periodic: "EL Periodic (EPM6C)",
-      monthly_log: "EL Monthly Log",
-      annual_discharge: "EL Annual Discharge",
+      commissioning: "EL Commissioning", periodic: "EL Periodic (EPM6C)",
+      monthly_log: "EL Monthly Log",     annual_discharge: "EL Annual Discharge",
     };
-    return labels[sub] ?? type;
+    return labels[type.replace("el_", "")] ?? type;
   }
-  if (type.startsWith("asd_")) {
-    return type === "asd_annual_service" ? "ASD Annual Service" : "ASD Commissioning";
-  }
-  if (type.startsWith("dr_")) {
-    return type === "dr_visual" ? "Dry Riser Visual Inspection" : "Dry Riser Pressure Test";
-  }
+  if (type.startsWith("asd_")) return type === "asd_annual_service" ? "ASD Annual Service" : "ASD Commissioning";
+  if (type.startsWith("dr_"))  return type.includes("visual") ? "Dry Riser Visual Inspection" : "Dry Riser Pressure Test";
+  if (type === "declination_of_works") return "Declination of Recommended Works";
   return type;
 }
 
@@ -162,9 +179,11 @@ export default function SmartForms() {
   const handleEdit = (sub: SmartFormSubmission) => {
     setEditing(sub);
     const ft = sub.form_type as string;
-    if (ft.startsWith("el_"))  { setActiveForm("el");  return; }
-    if (ft.startsWith("asd_")) { setActiveForm("asd"); return; }
-    if (ft.startsWith("dr_"))  { setActiveForm("dr");  return; }
+    if (ft.startsWith("el_"))             { setActiveForm("el");          return; }
+    if (ft === "asd_commissioning")        { setActiveForm("asd_comm");    return; }
+    if (ft.startsWith("asd_"))             { setActiveForm("asd");         return; }
+    if (ft.startsWith("dr_"))              { setActiveForm("dr");          return; }
+    if (ft === "declination_of_works")     { setActiveForm("declination"); return; }
     setActiveForm(sub.form_type as ActiveForm);
   };
 
@@ -193,6 +212,9 @@ export default function SmartForms() {
       } else if (ft.startsWith("dr_")) {
         const { generateDryRiserPDF } = await import("@/lib/dryRiserPdfGenerator");
         await generateDryRiserPDF(p);
+      } else if (ft === "declination_of_works") {
+        const { generateDeclinationPDF } = await import("@/lib/declinationPdfGenerator");
+        await generateDeclinationPDF(p);
       } else {
         await generateBS5839CertificatePDF(p, { autoSign: true });
       }
@@ -204,10 +226,8 @@ export default function SmartForms() {
     const to = p.responsible_person_email || p.responsible_email || "";
     const premises = p.premises_name || "";
     const ref = sub.certificate_reference || "";
-    const certType = formTypeLabel(sub.form_type);
-    const dateStr = sub.completed_at ? format(new Date(sub.completed_at), "dd MMMM yyyy") : "";
     const subject = `Fire Safety Certificate – ${premises} – ${ref}`;
-    const body = `Please find attached your ${certType} certificate for ${premises}, reference ${ref}, dated ${dateStr}. Please retain this document for your fire safety records. If you have any questions please do not hesitate to contact us.`;
+    const body = `Please find attached your ${formTypeLabel(sub.form_type)} for ${premises}, reference ${ref}. Please retain this document for your fire safety records.`;
     return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
@@ -220,27 +240,21 @@ export default function SmartForms() {
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <FileSignature className="w-6 h-6 text-primary" />
-              Smart Forms
+              <FileSignature className="w-6 h-6 text-primary" /> Smart Forms
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              Official BAFE-prescribed certificates — BS 5839-1:2025 · BS 5266-1:2016
+              BAFE-prescribed certificates and compliance documents — BS 5839-1:2025 · BS 5266-1:2016 · BS EN 54-20 · BS 9990:2015
             </p>
           </div>
         </div>
 
         <Tabs defaultValue="forms">
           <TabsList>
-            <TabsTrigger value="forms">
-              <Sparkles className="h-4 w-4 mr-1" />Available Certificates
-            </TabsTrigger>
-            <TabsTrigger value="submissions">
-              <ClipboardCheck className="h-4 w-4 mr-1" />My Submissions ({submissions.length})
-            </TabsTrigger>
+            <TabsTrigger value="forms"><Sparkles className="h-4 w-4 mr-1" />Available ({FIRE_ALARM_FORMS.length + OTHER_FORMS.length})</TabsTrigger>
+            <TabsTrigger value="submissions"><ClipboardCheck className="h-4 w-4 mr-1" />My Submissions ({submissions.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="forms" className="mt-4 space-y-6">
-            {/* Fire Alarm certificates */}
             <div>
               <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                 <Badge variant="outline">BS 5839-1:2025</Badge> Fire Alarm Certificates
@@ -251,8 +265,6 @@ export default function SmartForms() {
                 ))}
               </div>
             </div>
-
-            {/* Other discipline certificates */}
             <div>
               <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                 <Badge variant="outline">Other Disciplines</Badge>
@@ -285,8 +297,7 @@ export default function SmartForms() {
                           <FileSignature className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                           <div className="min-w-0">
                             <p className="font-medium text-sm truncate">
-                              {sub.certificate_reference}
-                              {premisesName ? ` · ${premisesName}` : ""}
+                              {sub.certificate_reference}{premisesName ? ` · ${premisesName}` : ""}
                             </p>
                             <p className="text-xs text-muted-foreground truncate">
                               {formTypeLabel(sub.form_type)} · {format(new Date(sub.created_at), "dd MMM yyyy HH:mm")}
@@ -300,7 +311,7 @@ export default function SmartForms() {
                               <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
                                 <FileDown className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" title="Email to responsible person" asChild>
+                              <Button variant="ghost" size="icon" title="Email" asChild>
                                 <a href={buildMailto(sub)}><Mail className="h-4 w-4" /></a>
                               </Button>
                             </>
@@ -322,7 +333,7 @@ export default function SmartForms() {
         </Tabs>
       </div>
 
-      {/* ── Form dialogs — one open at a time ─────────────────────────────── */}
+      {/* ── Dialogs ──────────────────────────────────────────────────────────── */}
       <BS5839CertificateForm
         open={activeForm === "bs5839_inspection_servicing"}
         onOpenChange={(o) => { if (!o) closeForm(); }}
@@ -354,8 +365,18 @@ export default function SmartForms() {
         onOpenChange={(o) => { if (!o) closeForm(); }}
         onSaved={load}
       />
+      <ASDCommissioningForm
+        open={activeForm === "asd_comm"}
+        onOpenChange={(o) => { if (!o) closeForm(); }}
+        onSaved={load}
+      />
       <DryRiserForm
         open={activeForm === "dr"}
+        onOpenChange={(o) => { if (!o) closeForm(); }}
+        onSaved={load}
+      />
+      <DeclinationForm
+        open={activeForm === "declination"}
         onOpenChange={(o) => { if (!o) closeForm(); }}
         onSaved={load}
       />
@@ -363,7 +384,7 @@ export default function SmartForms() {
   );
 }
 
-// ── Shared card component ─────────────────────────────────────────────────────
+// ── Shared card ───────────────────────────────────────────────────────────────
 function FormCard({ form, onNew }: { form: typeof FIRE_ALARM_FORMS[0]; onNew: () => void }) {
   const Icon = form.icon;
   return (
