@@ -236,7 +236,7 @@ Return ONLY this exact JSON structure, no other text:
         regulation_reference: item.regulation_reference || null,
         notes: item.notes || null,
         priority: item.priority,
-        sort_ord: idx,
+        sort_order: idx,
       }));
 
       const { error: liErr } = await supabase
