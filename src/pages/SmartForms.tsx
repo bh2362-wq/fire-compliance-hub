@@ -15,6 +15,7 @@ import BS5839CertificateForm from "@/components/smart-forms/BS5839CertificateFor
 import InstallationCertificateForm from "@/components/smart-forms/InstallationCertificateForm";
 import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
 import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
+import ASDCommissioningForm from "@/components/smart-forms/ASDCommissioningForm";
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
