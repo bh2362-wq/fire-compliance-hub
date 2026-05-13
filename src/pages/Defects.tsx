@@ -365,6 +365,15 @@ export default function Defects() {
           />
         );
       })()}
+      {declinationDefectId && (
+        <DeclinationOfWorksForm
+          open={!!declinationDefectId}
+          onOpenChange={(o) => { if (!o) setDeclinationDefectId(null); }}
+          defectId={declinationDefectId}
+          siteId={defects.find((d) => d.id === declinationDefectId)?.site_id}
+          onSaved={() => { setDeclinationDefectId(null); load(); }}
+        />
+      )}
     </DashboardLayout>
   );
 }
