@@ -16,6 +16,8 @@ import InstallationCertificateForm from "@/components/smart-forms/InstallationCe
 import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
 import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
 import ASDCommissioningForm from "@/components/smart-forms/ASDCommissioningForm";
+import EmergencyLightingForm from "@/components/smart-forms/EmergencyLightingForm";
+import DryRiserForm from "@/components/smart-forms/DryRiserForm";
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
