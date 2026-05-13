@@ -108,7 +108,7 @@ export async function generateModificationCertificatePDF(
     ["Panel Changes",            payload.panel_changes === "Yes" ? `Yes — ${san(payload.panel_changes_description || "")}` : "No"],
     ["Cable Additions",          payload.cable_additions === "Yes" ? `Yes — ${san(payload.cable_additions_description || "")}` : "No"],
     ["Ancillary Changes",        payload.ancillary_changes === "Yes" ? `Yes — ${san(payload.ancillary_description || "")}` : "No"],
-  ].filter(([,v]) => v && v !== "No" || true));
+  ].filter(([,v]) => v && v !== "No" || true) as [string, string][]);
 
   // 03 System After Modification
   y = checkPage(doc, pw, y, 25, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
