@@ -333,7 +333,7 @@ export default function BS5839CertificateForm({
             {step === 5 && <Step6 payload={payload} update={update} />}
             {step === 6 && <Step7 payload={payload} update={update} />}
             {step === 7 && <Step8 payload={payload} update={update} />}
-            {step === 8 && <Step9 payload={payload} update={update} siteId={siteId} />}
+            {step === 8 && <Step9 payload={payload} update={update} siteId={linkedSiteId || siteId} />}
             {step === 9 && <Step10 payload={payload} update={update} />}
             {step === 10 && <Step11 payload={payload} update={update} />}
             {step === 11 && <Step12 payload={payload} update={update} />}
