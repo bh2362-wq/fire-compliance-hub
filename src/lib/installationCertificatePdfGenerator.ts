@@ -1,316 +1,197 @@
+/**
+ * BS 5839-1 Installation Certificate PDF Generator (FD/02)
+ * Drop-in replacement — function signature preserved.
+ */
+
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
 import { InstallationPayload } from "@/services/newCertificateService";
+import {
+  loadLogoData, loadCompany, san,
+  drawCertHeader, drawPage2Header, drawCertTitle,
+  drawInfoCards, drawSiteBar, drawSectionHeader,
+  drawStandardBar, drawSignatureBox,
+  drawMasterFooter, kvTable, checkPage,
+  COLORS, MARGIN,
+} from "./certPdfMasterTemplate";
 
-const C = {
-  black:       [0, 0, 0]       as [number, number, number],
-  white:       [255, 255, 255] as [number, number, number],
-  textDark:    [0, 0, 0]       as [number, number, number],
-  textGrey:    [80, 80, 80]    as [number, number, number],
-  borderGrey:  [180, 180, 180] as [number, number, number],
-  lightGrey:   [242, 242, 242] as [number, number, number],
-  sectionBg:   [217, 217, 217] as [number, number, number],
-  yellowBanner:[255, 255, 204] as [number, number, number],
-  green:       [146, 208, 80]  as [number, number, number],
-  amber:       [255, 192, 0]   as [number, number, number],
-  red:         [220, 38, 38]   as [number, number, number],
-  navyBg:      [30, 41, 90]    as [number, number, number],
-};
-
-function sanitize(t: string | null | undefined): string {
-  if (!t) return "";
-  return String(t)
-    .replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')
-    .replace(/\u2013/g, "-").replace(/\u2014/g, "--").replace(/\u00A0/g, " ")
-    .replace(/[^\x00-\x7F\xA3\xC0-\xFF]/g, "").trim();
-}
-
-function yn(v: string | undefined): string {
-  return v === "Yes" ? "YES" : v === "No" ? "NO" : "—";
-}
-
-
-async function loadImageAsBase64(url: string): Promise<string | null> {
-  try {
-    const r = await fetch(url); const b = await r.blob();
-    return new Promise((res) => { const fr = new FileReader(); fr.onloadend = () => res(fr.result as string); fr.onerror = () => res(null); fr.readAsDataURL(b); });
-  } catch { return null; }
-}
-
-/** Load logo and get natural dimensions for aspect-ratio-correct placement */
-async function loadLogoWithSize(url: string): Promise<{ base64: string; w: number; h: number } | null> {
-  const base64 = await loadImageAsBase64(url);
-  if (!base64) return null;
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve({ base64, w: img.naturalWidth, h: img.naturalHeight });
-    img.onerror = () => resolve({ base64, w: 100, h: 100 }); // fallback square
-    img.src = base64;
-  });
-}
-
-/** Fit image into a bounding box preserving aspect ratio */
-function fitToBox(naturalW: number, naturalH: number, maxW: number, maxH: number): [number, number] {
-  const ratio = naturalW / naturalH;
-  let w = maxW;
-  let h = w / ratio;
-  if (h > maxH) { h = maxH; w = h * ratio; }
-  return [w, h];
-}
+const TITLE = "System Installation Certificate";
 
 export async function generateInstallationCertificatePDF(
   payload: InstallationPayload,
   options?: { autoSign?: boolean }
 ): Promise<{ base64: string; fileName: string }> {
-  const { data: company } = await supabase.from("company_settings").select("*").limit(1).maybeSingle();
-  const logoUrl = company?.report_logo_url || company?.company_logo_url || null;
-  const logoData = logoUrl ? await loadLogoWithSize(logoUrl) : null;
-  const companyName = sanitize(company?.company_name) || "BHO Fire & Security Ltd";
 
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pw = doc.internal.pageSize.getWidth();
-  const ph = doc.internal.pageSize.getHeight();
-  const ML = 12, MR = 12, CW = pw - ML - MR;
-  let page = 1, y = 0;
+  const company = await loadCompany();
+  const logo    = await loadLogoData(company.report_logo_url || company.company_logo_url);
+  const companyName = san(company.company_name) || "BHO Fire Ltd";
 
-  function drawHeader() {
-    y = 8;
-    // Navy bar
-    doc.setFillColor(...C.navyBg);
-    doc.rect(ML, y, CW, 16, "F");
+  const doc  = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pw   = doc.internal.pageSize.getWidth();
+  const certRef = san(payload.certificate_reference || "INST-CERT");
+  const dateStr = payload.date_of_completion
+    ? format(new Date(payload.date_of_completion), "dd MMMM yyyy") : "";
+  const standard = san(payload.standard_installed_to || "BS 5839-1:2017+A2:2019");
+  const engName  = san(payload.engineer_name || "");
 
-    if (logoData) {
-      try {
-        const [logoW, logoH] = fitToBox(logoData.w, logoData.h, 34, 13);
-        const logoY = y + 1.5 + (13 - logoH) / 2;
-        doc.addImage(logoData.base64, "PNG", ML + 2, logoY, logoW, logoH, undefined, "FAST");
-      } catch {}
-    }
+  // ── PAGE 1 ────────────────────────────────────────────────────────────────
+  let y = drawCertHeader(doc, pw, logo, company);
 
-    doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.white);
-    doc.text("FIRE DETECTION & ALARM SYSTEM", pw / 2, y + 6, { align: "center" });
-    doc.setFontSize(9); doc.setFont("helvetica", "normal");
-    doc.text("INSTALLATION CERTIFICATE   |   BS 5839-1:2025 Annex E   |   BAFE FD/02", pw / 2, y + 12, { align: "center" });
+  y = drawCertTitle(doc, pw, y + 8,
+    certRef, "CERTIFICATE", `Fire Alarm System — ${TITLE}`, standard);
 
-    const certRef = sanitize(payload.certificate_reference) || "DRAFT";
-    doc.setFontSize(7.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.white);
-    doc.text(`Cert: ${certRef}`, pw - MR - 2, y + 6, { align: "right" });
-    doc.setFont("helvetica", "normal");
-    doc.text(`Issuer: ${companyName}`, pw - MR - 2, y + 12, { align: "right" });
-
-    y += 20;
-  }
-
-  function drawFooter() {
-    for (let p = 1; p <= doc.getNumberOfPages(); p++) {
-      doc.setPage(p);
-      doc.setFontSize(6.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.textGrey);
-      doc.text(`${companyName}  |  Installation Certificate  |  BS 5839-1:2025`, ML, ph - 5);
-      doc.text(`Page ${p} of ${doc.getNumberOfPages()}  |  Ref: ${sanitize(payload.certificate_reference) || "DRAFT"}`, pw - MR, ph - 5, { align: "right" });
-      doc.setDrawColor(...C.borderGrey); doc.setLineWidth(0.3);
-      doc.line(ML, ph - 7, pw - MR, ph - 7);
-    }
-  }
-
-  function drawSection(title: string) {
-    if (y > ph - 50) { doc.addPage(); drawHeader(); page++; }
-    doc.setFillColor(...C.sectionBg);
-    doc.rect(ML, y, CW, 6, "F");
-    doc.setFontSize(8.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.textDark);
-    doc.text(title, ML + 3, y + 4.2);
-    y += 7;
-  }
-
-  function checkPage(needed: number) {
-    if (y + needed > ph - 18) { doc.addPage(); drawHeader(); page++; }
-  }
-
-  function twoCol(rows: [string, string][], labelW = 52) {
-    autoTable(doc, {
-      startY: y,
-      body: rows.map(([l, v]) => [{ content: l, styles: { fontStyle: "bold", fillColor: C.lightGrey } }, v]),
-      theme: "grid",
-      styles: { fontSize: 8.5, cellPadding: 2.2, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2 },
-      columnStyles: { 0: { cellWidth: labelW }, 1: { cellWidth: CW - labelW } },
-      margin: { left: ML, right: MR },
-    });
-    y = (doc as any).lastAutoTable.finalY + 4;
-  }
-
-  // ── PAGE 1 ──────────────────────────────────────────────────────────────────
-  drawHeader();
-
-  // Cert header row
-  drawSection("1. Certificate Details");
-  twoCol([
-    ["Certificate Reference", sanitize(payload.certificate_reference) || "(Auto-generated on save)"],
-    ["Date of Completion", payload.date_of_completion ? format(new Date(payload.date_of_completion), "dd MMMM yyyy") : "—"],
-    ["Job / Contract Reference", sanitize(payload.job_number) || "—"],
-    ["Nature of Works", sanitize(payload.work_type) || "—"],
+  y = drawInfoCards(doc, pw, y, [
+    { label: "CERTIFICATE REFERENCE", value: certRef },
+    { label: "DATE OF COMPLETION",    value: dateStr },
+    { label: "JOB NUMBER",            value: san(payload.job_number || "—") },
+    { label: "WORK TYPE",             value: san(payload.work_type || "—") },
+  ], [
+    { label: "SITE",           value: san(payload.premises_name || "") },
+    { label: "SITE CONTACT",   value: san(payload.responsible_person_name || "") },
+    { label: "", value: san(payload.responsible_person_telephone || ""), plain: true },
+    { label: "", value: san(payload.responsible_person_email || ""),     plain: true },
   ]);
 
-  drawSection("2. Premises Details");
-  twoCol([
-    ["Premises Name", sanitize(payload.premises_name)],
-    ["Address", sanitize(payload.premises_address)],
-    ["Postcode", sanitize(payload.premises_postcode)],
-    ["Occupancy Type", sanitize(payload.occupancy_type)],
+  y = drawSiteBar(doc, pw, y,
+    [payload.premises_address, payload.premises_postcode].filter(Boolean).join(", "));
+
+  y = drawStandardBar(doc, pw, y, standard, engName || companyName);
+
+  drawSignatureBox(doc, pw, y,
+    { name: engName,
+      date: payload.engineer_signed_date ? format(new Date(payload.engineer_signed_date), "dd/MM/yyyy") : dateStr,
+      sig:  options?.autoSign && !payload.engineer_signature ? `typed:${engName}` : payload.engineer_signature },
+    { name: san(payload.rp_name_signed || ""),
+      date: payload.rp_signed_date ? format(new Date(payload.rp_signed_date), "dd/MM/yyyy") : "",
+      sig:  payload.rp_signature });
+
+  // ── PAGE 2 ────────────────────────────────────────────────────────────────
+  doc.addPage();
+  y = drawPage2Header(doc, pw, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
+
+  // 01 Premises & Responsible Person
+  y = drawSectionHeader(doc, pw, y, "01   PREMISES & RESPONSIBLE PERSON");
+  y = kvTable(doc, pw, y, [
+    ["Premises Name",     payload.premises_name || "—"],
+    ["Address",           [payload.premises_address, payload.premises_postcode].filter(Boolean).join(", ") || "—"],
+    ["Occupancy Type",    payload.occupancy_type || "—"],
+    ["Responsible Person",payload.responsible_person_name || "—"],
+    ["RP Position",       payload.responsible_person_position || "—"],
+    ["RP Telephone",      payload.responsible_person_telephone || "—"],
+    ["RP Email",          payload.responsible_person_email || "—"],
   ]);
 
-  drawSection("3. Responsible Person");
-  twoCol([
-    ["Name", sanitize(payload.responsible_person_name)],
-    ["Position / Title", sanitize(payload.responsible_person_position)],
-    ["Telephone", sanitize(payload.responsible_person_telephone)],
-    ["Email", sanitize(payload.responsible_person_email)],
+  // 02 System Details
+  y = checkPage(doc, pw, y, 30, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
+  y = drawSectionHeader(doc, pw, y, "02   SYSTEM DETAILS");
+  y = kvTable(doc, pw, y, [
+    ["System Categories",         (payload.system_categories ?? []).join(", ") || "—"],
+    ["System Type",                payload.system_type || "—"],
+    ["Panel Manufacturer",         payload.panel_manufacturer || "—"],
+    ["Panel Model",                payload.panel_model || "—"],
+    ["Panel Software Version",     payload.panel_software_version || "—"],
+    ["Panel Serial Number",        payload.panel_serial_number || "—"],
+    ["Number of Zones",            String(payload.number_of_zones ?? "—")],
+    ["Total Devices Installed",    String(payload.total_devices_installed ?? "—")],
+    ["Areas Covered",              payload.areas_covered || "—"],
+    ["Areas Excluded",             payload.areas_excluded || "—"],
   ]);
 
-  drawSection("4. System Details");
-  twoCol([
-    ["System Category (BS 5839-1)", (payload.system_categories ?? []).join(", ") || "—"],
-    ["System Type", sanitize(payload.system_type)],
-    ["Panel Manufacturer", sanitize(payload.panel_manufacturer)],
-    ["Panel Model", sanitize(payload.panel_model)],
-    ["Panel Software Version", sanitize(payload.panel_software_version) || "—"],
-    ["Panel Serial Number", sanitize(payload.panel_serial_number) || "—"],
-    ["Number of Zones", payload.number_of_zones ? String(payload.number_of_zones) : "—"],
-    ["Total Devices Installed", payload.total_devices_installed ? String(payload.total_devices_installed) : "—"],
-    ["Areas Covered by System", sanitize(payload.areas_covered) || "—"],
-    ["Areas Excluded from System", sanitize(payload.areas_excluded) || "None"],
+  // 03 Installation Details
+  y = checkPage(doc, pw, y, 30, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
+  y = drawSectionHeader(doc, pw, y, "03   INSTALLATION DETAILS");
+  y = kvTable(doc, pw, y, [
+    ["Standard Installed To",      standard],
+    ["Cable Types Used",           payload.cable_types_used || "—"],
+    ["Standby Power Type",         payload.standby_power_type || "—"],
+    ["Battery Capacity",           payload.battery_capacity_ah || "—"],
+    ["As-Installed Drawings",      payload.as_installed_drawings_provided || "—"],
+    ["O&M Manual Provided",        payload.om_manual_provided || "—"],
+    ["Log Book Provided",          payload.logbook_provided || "—"],
+    ["Description of Works",       payload.description_of_works || "—"],
   ]);
 
-  drawSection("5. Installation Details");
-  twoCol([
-    ["Standard Installed To", sanitize(payload.standard_installed_to) || "BS 5839-1:2017+A2:2019"],
-    ["Cable Types Used", sanitize(payload.cable_types_used) || "—"],
-    ["Standby Power Type", sanitize(payload.standby_power_type) || "—"],
-    ["Battery Capacity (Ah)", sanitize(payload.battery_capacity_ah) || "—"],
-    ["As-Installed Drawings Provided", yn(payload.as_installed_drawings_provided)],
-    ["O&M Manual Provided", yn(payload.om_manual_provided)],
-    ["System Log Book Provided", yn(payload.logbook_provided)],
-  ]);
-
-  checkPage(30);
-  autoTable(doc, {
-    startY: y,
-    head: [["Description of Installation Works"]],
-    body: [[sanitize(payload.description_of_works) || "—"]],
-    theme: "grid",
-    headStyles: { fillColor: C.sectionBg, textColor: C.textDark, fontStyle: "bold", fontSize: 8 },
-    styles: { fontSize: 8.5, cellPadding: 3, textColor: C.textDark, lineColor: C.borderGrey, lineWidth: 0.2 },
-    margin: { left: ML, right: MR },
-  });
-  y = (doc as any).lastAutoTable.finalY + 4;
-
-  // Variations
-  drawSection("6. Variations from Specification (BS 5839-1 Cl. 5)");
-  if (payload.variations_present !== "Yes" || !payload.variations?.length) {
-    autoTable(doc, {
-      startY: y,
-      body: [[{ content: payload.variations_present === "No" ? "No variations from the agreed specification." : "Not declared.", styles: { halign: "center", fontStyle: "italic", textColor: C.textGrey, fillColor: C.lightGrey } }]],
-      theme: "grid", styles: { fontSize: 8.5, cellPadding: 3, lineColor: C.borderGrey, lineWidth: 0.2 }, margin: { left: ML, right: MR },
-    });
+  // 04 Variations
+  const variations = payload.variations ?? [];
+  y = checkPage(doc, pw, y, 20, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
+  y = drawSectionHeader(doc, pw, y, `04   VARIATIONS FROM SPECIFICATION  (${variations.length})`);
+  if (payload.variations_present !== "Yes" || variations.length === 0) {
+    y = kvTable(doc, pw, y, [["", payload.variations_present === "No" ? "No variations from specification." : "Not declared."]]);
   } else {
+    const cw = pw - MARGIN * 2;
     autoTable(doc, {
       startY: y,
-      head: [["#", "Variation Description", "Justification", "BS Clause", "Agreed with RP?"]],
-      body: (payload.variations || []).map((v, i) => [String(i + 1), sanitize(v.description), sanitize(v.justification), sanitize(v.bs_clause) || "—", v.agreed_with_rp || "—"]),
-      theme: "grid",
-      headStyles: { fillColor: C.sectionBg, textColor: C.textDark, fontStyle: "bold", fontSize: 8 },
-      styles: { fontSize: 7.8, cellPadding: 2, lineColor: C.borderGrey, lineWidth: 0.2 },
-      columnStyles: { 0: { cellWidth: 8, halign: "center" }, 3: { cellWidth: 20 }, 4: { cellWidth: 22, halign: "center" } },
-      margin: { left: ML, right: MR },
+      head:   [["#", "VARIATION", "JUSTIFICATION", "AGREED?"]],
+      body:   variations.map((v, i) => [String(i+1), san(v.description), san(v.justification), san(v.agreed_with_responsible_person || "—")]) as never,
+      theme:  "grid",
+      margin: { left: MARGIN, right: MARGIN },
+      tableWidth: cw,
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: "bold", fontSize: 7.5 },
+      styles: { fontSize: 8, cellPadding: 3, textColor: COLORS.textSec, lineColor: COLORS.border, lineWidth: 0.15 },
+      alternateRowStyles: { fillColor: COLORS.bgLight },
+      columnStyles: { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: cw*0.38 }, 2: { cellWidth: cw*0.38 }, 3: { cellWidth: cw*0.24-8 } },
     });
+    y = (doc as any).lastAutoTable.finalY + 6;
   }
-  y = (doc as any).lastAutoTable.finalY + 4;
 
-  // Outstanding works
-  drawSection("7. Outstanding Works");
-  if (payload.outstanding_works_present !== "Yes" || !payload.outstanding_works?.length) {
-    autoTable(doc, {
-      startY: y,
-      body: [[{ content: payload.outstanding_works_present === "No" ? "No outstanding works at time of issue." : "Not declared.", styles: { halign: "center", fontStyle: "italic", textColor: C.textGrey, fillColor: C.lightGrey } }]],
-      theme: "grid", styles: { fontSize: 8.5, cellPadding: 3, lineColor: C.borderGrey, lineWidth: 0.2 }, margin: { left: ML, right: MR },
-    });
+  // 05 Outstanding Works
+  const outstanding = payload.outstanding_works ?? [];
+  y = checkPage(doc, pw, y, 20, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
+  y = drawSectionHeader(doc, pw, y, `05   OUTSTANDING WORKS  (${outstanding.length})`);
+  if (outstanding.length === 0) {
+    y = kvTable(doc, pw, y, [["", "No outstanding works."]]);
   } else {
+    const cw = pw - MARGIN * 2;
     autoTable(doc, {
       startY: y,
-      head: [["#", "Description", "Target Date", "Responsibility"]],
-      body: (payload.outstanding_works || []).map((w, i) => [String(i + 1), sanitize(w.description), sanitize(w.target_date) || "—", sanitize(w.responsibility) || "—"]),
-      theme: "grid",
-      headStyles: { fillColor: C.sectionBg, textColor: C.textDark, fontStyle: "bold", fontSize: 8 },
-      styles: { fontSize: 8.5, cellPadding: 2, lineColor: C.borderGrey, lineWidth: 0.2 },
-      columnStyles: { 0: { cellWidth: 8, halign: "center" }, 2: { cellWidth: 28 }, 3: { cellWidth: 36 } },
-      margin: { left: ML, right: MR },
+      head:   [["#", "DESCRIPTION", "RESPONSIBLE", "DUE DATE"]],
+      body:   outstanding.map((o, i) => [String(i+1), san(o.description), san(o.responsible_party||"—"), san(o.target_date||"—")]) as never,
+      theme:  "grid",
+      margin: { left: MARGIN, right: MARGIN },
+      tableWidth: cw,
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: "bold", fontSize: 7.5 },
+      styles: { fontSize: 8, cellPadding: 3, textColor: COLORS.textSec, lineColor: COLORS.border, lineWidth: 0.15 },
+      alternateRowStyles: { fillColor: COLORS.bgLight },
+      columnStyles: { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: cw*0.55 }, 2: { cellWidth: cw*0.25 }, 3: { cellWidth: cw*0.2-8 } },
     });
+    y = (doc as any).lastAutoTable.finalY + 6;
   }
-  y = (doc as any).lastAutoTable.finalY + 4;
 
-  // Installer Declaration
-  checkPage(70);
-  drawSection("8. Installer Declaration");
-  autoTable(doc, {
-    startY: y,
-    body: [[{
-      content: "I/We certify that the fire detection and fire alarm system described in this certificate has been installed in accordance with BS 5839-1:2025 (or the version current at the time of design) and the agreed specification. The system is ready for commissioning. Any variations from the specification are recorded above.",
-      styles: { fontStyle: "italic", fillColor: C.yellowBanner, cellPadding: 3 },
-    }]],
-    theme: "grid", styles: { fontSize: 8.5, lineColor: C.borderGrey, lineWidth: 0.2 }, margin: { left: ML, right: MR },
-  });
-  y = (doc as any).lastAutoTable.finalY + 3;
-
-  twoCol([
-    ["Company Name", sanitize(payload.company_name) || companyName],
-    ["Company Address", sanitize(payload.company_address) || sanitize(company?.address) || ""],
-    ["FIA Member Number", sanitize(payload.fia_member_number) || "—"],
-    ["BAFE SP203 Registration", sanitize(payload.bafe_registration) || "N/A"],
-    ["Engineer Name", sanitize(payload.engineer_name)],
-    ["Position", sanitize(payload.engineer_position)],
+  // 06 Installer Declaration
+  y = checkPage(doc, pw, y, 30, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
+  y = drawSectionHeader(doc, pw, y, "06   INSTALLER DECLARATION");
+  y = kvTable(doc, pw, y, [
+    ["Company",              payload.company_name || companyName],
+    ["FIA Member No.",       payload.fia_member_number || "—"],
+    ["BAFE Registration",    payload.bafe_registration || "—"],
+    ["Engineer",             engName],
+    ["Engineer Position",    payload.engineer_position || "—"],
+    ["Competency Confirmed", payload.engineer_competency_confirmed ? "YES — competent person under BS 5839-1" : "NO"],
   ]);
 
-  // Signature boxes
-  checkPage(48);
-  const engineerName = sanitize(payload.engineer_name) || "";
-  const sigW = (CW - 8) / 2;
-  const sigPairs = [
-    { label: "Engineer Signature", sig: payload.engineer_signature, name: engineerName, date: payload.engineer_signed_date, autoSign: options?.autoSign },
-    { label: "Responsible Person Acknowledgement", sig: payload.rp_signature, name: sanitize(payload.rp_name_signed), date: payload.rp_signed_date, autoSign: false },
-  ];
+  doc.setFillColor(...COLORS.ambBg); doc.setDrawColor(...COLORS.ambBd); doc.setLineWidth(0.5);
+  const declText = `I certify that this fire alarm system has been installed in accordance with ${standard} and the design specification. The system is in the condition stated. This certificate should be retained by the responsible person.`;
+  const lines = doc.splitTextToSize(declText, pw - MARGIN * 2 - 12);
+  const declH = lines.length * 5.5 + 8;
+  doc.roundedRect(MARGIN, y, pw - MARGIN * 2, declH, 2, 2, "FD");
+  doc.setFont("helvetica", "italic"); doc.setFontSize(8.5);
+  doc.setTextColor(...COLORS.ambDark);
+  lines.forEach((l: string, i: number) => doc.text(l, MARGIN + 6, y + 6 + i * 5.5));
+  y += declH + 6;
 
-  for (let i = 0; i < 2; i++) {
-    const sp = sigPairs[i];
-    const x = ML + i * (sigW + 8);
-    doc.setFontSize(7.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.textGrey);
-    doc.text(sp.label, x, y);
-    doc.setFillColor(...C.lightGrey); doc.setDrawColor(...C.borderGrey); doc.setLineWidth(0.3);
-    doc.roundedRect(x, y + 2, sigW, 22, 1, 1, "FD");
+  y = checkPage(doc, pw, y, 50, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
+  drawSignatureBox(doc, pw, y,
+    { name: engName,
+      date: payload.engineer_signed_date ? format(new Date(payload.engineer_signed_date), "dd/MM/yyyy") : dateStr,
+      sig:  options?.autoSign && !payload.engineer_signature ? `typed:${engName}` : payload.engineer_signature },
+    { name: san(payload.rp_name_signed || ""),
+      date: payload.rp_signed_date ? format(new Date(payload.rp_signed_date), "dd/MM/yyyy") : "",
+      sig:  payload.rp_signature },
+    "ACKNOWLEDGEMENT & SIGNATURES");
 
-    if (sp.sig) {
-      const sv = sp.sig;
-      if (sv.startsWith("typed:")) {
-        const n = sv.replace("typed:", "");
-        doc.setFontSize(18); doc.setFont("helvetica", "bolditalic"); doc.setTextColor(...C.textDark);
-        const w = doc.getTextWidth(n);
-        doc.text(n, x + (sigW - w) / 2, y + 16);
-      } else {
-        try { doc.addImage(sv, "PNG", x + 2, y + 4, sigW - 4, 16, undefined, "FAST"); } catch {}
-      }
-    } else if (sp.autoSign && sp.name) {
-      doc.setFont("times", "italic"); doc.setFontSize(22); doc.setTextColor(30, 41, 90);
-      const w = doc.getTextWidth(sp.name);
-      doc.text(sp.name, x + (sigW - w) / 2, y + 16);
-    }
-
-    if (sp.name) { doc.setFontSize(7); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.textDark); doc.text(sp.name, x, y + 28); }
-    if (sp.date) { doc.setFontSize(6.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.textGrey); doc.text(`Date: ${format(new Date(sp.date), "dd/MM/yyyy")}`, x, y + 33); }
-  }
-  y += 42;
-
-  drawFooter();
-  const fileName = `${sanitize(payload.certificate_reference) || "Installation-Certificate"}.pdf`;
+  drawMasterFooter(doc, pw);
+  const fileName = `${certRef}.pdf`;
   doc.save(fileName);
-  const base64 = doc.output("datauristring").split(",")[1] ?? "";
-  return { base64, fileName };
+  return { base64: (doc.output("datauristring").split(",")[1]) ?? "", fileName };
 }
