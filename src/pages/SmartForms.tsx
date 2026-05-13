@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail, Wind, Zap, Droplets } from "lucide-react";
+import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -15,59 +15,78 @@ import BS5839CertificateForm from "@/components/smart-forms/BS5839CertificateFor
 import InstallationCertificateForm from "@/components/smart-forms/InstallationCertificateForm";
 import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
 import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
-import ASDCommissioningForm from "@/components/smart-forms/ASDCommissioningForm";
 import EmergencyLightingForm from "@/components/smart-forms/EmergencyLightingForm";
-import DryRiserForm from "@/components/smart-forms/DryRiserForm";
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
 
-type ActiveForm = "bs5839_inspection_servicing" | "bs5839_installation" | "bs5839_commissioning" | "bs5839_modification" | null;
+type BS5839Form = "bs5839_inspection_servicing" | "bs5839_installation" | "bs5839_commissioning" | "bs5839_modification";
+type ActiveForm = BS5839Form | "el" | null;
 
-const ALL_FORMS = [
+// ── Cert catalogue ────────────────────────────────────────────────────────────
+const FIRE_ALARM_FORMS = [
   {
     key: "bs5839_inspection_servicing" as ActiveForm,
     name: "Inspection & Servicing Certificate",
     code: "IS / Annex G.6",
     bafe: null,
-    description: "Routine inspection and servicing certificate for periodic maintenance visits. Multi-step, BS 5839-1:2025 compliant, with full BS checklist, defect register, and device testing record.",
+    description: "Routine periodic maintenance certificate. Multi-step, BS 5839-1:2025 compliant, with full BS checklist, defect register, device testing and battery check.",
     standard: "BS 5839-1:2025",
     color: "text-blue-600",
     bg: "bg-blue-50 dark:bg-blue-950/20 border-blue-200",
+    icon: FileSignature,
   },
   {
     key: "bs5839_installation" as ActiveForm,
     name: "Installation Certificate",
     code: "FD/02 / Annex E",
     bafe: "FD/02",
-    description: "Prescribed certificate issued by the installing organisation upon completion of a new installation, extension, replacement, or takeover. Records system specification, variations, outstanding works, and installer declaration.",
+    description: "Issued upon completion of new installation, extension, replacement or takeover. Records system spec, variations, outstanding works, and installer declaration.",
     standard: "BS 5839-1:2025",
     color: "text-green-700",
     bg: "bg-green-50 dark:bg-green-950/20 border-green-200",
+    icon: FileSignature,
   },
   {
     key: "bs5839_commissioning" as ActiveForm,
     name: "Commissioning Certificate",
     code: "FD/03 / Annex C",
     bafe: "FD/03",
-    description: "Issued upon successful commissioning of a new system. Records all BS 5839-1 Cl. 45 commissioning tests, device testing percentage, system operational status, and responsible person acknowledgement.",
+    description: "Issued upon successful commissioning. Records all BS 5839-1 Cl. 45 commissioning tests, device testing, system operational status, and RP acknowledgement.",
     standard: "BS 5839-1:2025",
     color: "text-purple-700",
     bg: "bg-purple-50 dark:bg-purple-950/20 border-purple-200",
+    icon: FileSignature,
   },
   {
     key: "bs5839_modification" as ActiveForm,
     name: "Modification Certificate",
     code: "FD/05 / Annex F",
     bafe: "FD/05",
-    description: "Issued whenever alterations are made to an existing certified system (BS 5839-1 Cl. 46). Records the modification scope, references to original certificates, post-modification commissioning tests, and system status.",
+    description: "Issued when alterations are made to a certified system (BS 5839-1 Cl. 46). Records modification scope, original cert refs, post-mod commissioning tests.",
     standard: "BS 5839-1:2025",
     color: "text-amber-700",
     bg: "bg-amber-50 dark:bg-amber-950/20 border-amber-200",
+    icon: FileSignature,
   },
 ];
 
+const OTHER_FORMS = [
+  {
+    key: "el" as ActiveForm,
+    name: "Emergency Lighting Certificate",
+    code: "EPM6C",
+    bafe: null,
+    description: "Commissioning, periodic inspection (EPM6C Annex M), monthly test log, and annual full discharge test. Covers BS 5266-1, BS EN 50172 and BS EN 1838.",
+    standard: "BS 5266-1:2016",
+    color: "text-yellow-700",
+    bg: "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200",
+    icon: Zap,
+  },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function statusBadge(status: string) {
   if (status === "completed" || status === "signed")
     return <Badge className="bg-green-600/15 text-green-700 border-green-600/30 text-[10px]">Completed</Badge>;
@@ -75,18 +94,29 @@ function statusBadge(status: string) {
 }
 
 function formTypeLabel(type: string) {
-  const f = ALL_FORMS.find((x) => x.key === type);
-  return f ? f.name : type;
+  const all = [...FIRE_ALARM_FORMS, ...OTHER_FORMS];
+  const f = all.find((x) => x.key === type);
+  if (f) return f.name;
+  // EL sub-types
+  if (type.startsWith("el_")) {
+    const sub = type.replace("el_", "");
+    const labels: Record<string, string> = {
+      commissioning: "EL Commissioning",
+      periodic: "EL Periodic (EPM6C)",
+      monthly_log: "EL Monthly Log",
+      annual_discharge: "EL Annual Discharge",
+    };
+    return labels[sub] ?? type;
+  }
+  return type;
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function SmartForms() {
   const [submissions, setSubmissions] = useState<SmartFormSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
   const [editing, setEditing] = useState<SmartFormSubmission | null>(null);
-  const [asdFormOpen, setAsdFormOpen] = useState(false);
-  const [elFormOpen, setElFormOpen] = useState(false);
-  const [drFormOpen, setDrFormOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -101,6 +131,8 @@ export default function SmartForms() {
 
   const handleEdit = (sub: SmartFormSubmission) => {
     setEditing(sub);
+    const ft = sub.form_type as string;
+    if (ft.startsWith("el_")) { setActiveForm("el"); return; }
     setActiveForm(sub.form_type as ActiveForm);
   };
 
@@ -120,26 +152,30 @@ export default function SmartForms() {
         await generateCommissioningCertificatePDF(p, { autoSign: true });
       } else if (ft === "bs5839_modification") {
         await generateModificationCertificatePDF(p, { autoSign: true });
+      } else if (ft.startsWith("el_")) {
+        const { generateELCertificatePDF } = await import("@/lib/emergencyLightingPdfGenerator");
+        await generateELCertificatePDF(p);
       } else {
         await generateBS5839CertificatePDF(p, { autoSign: true });
       }
-    } catch (err) { toast.error("Failed to generate PDF"); }
+    } catch (err) { console.error(err); toast.error("Failed to generate PDF"); }
   };
 
   const buildMailto = (sub: SmartFormSubmission) => {
     const p = (sub.payload || {}) as any;
-    const to = p.responsible_person_email || "";
+    const to = p.responsible_person_email || p.responsible_email || "";
     const premises = p.premises_name || "";
     const ref = sub.certificate_reference || "";
     const certType = formTypeLabel(sub.form_type);
     const dateStr = sub.completed_at ? format(new Date(sub.completed_at), "dd MMMM yyyy") : "";
-    const subject = `Fire Detection & Alarm System Certificate – ${premises} – ${ref}`;
-    const body = `Please find attached your ${certType} certificate for ${premises}, reference ${ref}, dated ${dateStr}. This certificate has been issued in accordance with BS 5839-1:2025. Please retain this document for your records. If you have any questions please do not hesitate to contact us.`;
+    const subject = `Fire Safety Certificate – ${premises} – ${ref}`;
+    const body = `Please find attached your ${certType} certificate for ${premises}, reference ${ref}, dated ${dateStr}. Please retain this document for your fire safety records. If you have any questions please do not hesitate to contact us.`;
     return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   const closeForm = () => { setActiveForm(null); setEditing(null); };
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout>
       <div className="space-y-6 p-4 md:p-6">
@@ -148,56 +184,46 @@ export default function SmartForms() {
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <FileSignature className="w-6 h-6 text-primary" />
               Smart Forms
-              <Badge variant="secondary" className="ml-1">BS 5839-1:2025</Badge>
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">
-              Official BAFE-prescribed certificates — Installation (FD/02), Commissioning (FD/03), Modification (FD/05), and Inspection &amp; Servicing.
+              Official BAFE-prescribed certificates — BS 5839-1:2025 · BS 5266-1:2016
             </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setAsdFormOpen(true)} className="gap-1.5">
-              <Wind className="w-4 h-4" />ASD Commissioning
-            </Button>
-            <Button variant="outline" onClick={() => setElFormOpen(true)} className="gap-1.5">
-              <Zap className="w-4 h-4 text-yellow-500" />Emergency Lighting
-            </Button>
-            <Button variant="outline" onClick={() => setDrFormOpen(true)} className="gap-1.5">
-              <Droplets className="w-4 h-4 text-blue-500" />Dry Riser
-            </Button>
           </div>
         </div>
 
         <Tabs defaultValue="forms">
           <TabsList>
-            <TabsTrigger value="forms"><Sparkles className="h-4 w-4 mr-1" />Available Certificates</TabsTrigger>
-            <TabsTrigger value="submissions"><ClipboardCheck className="h-4 w-4 mr-1" />My Submissions ({submissions.length})</TabsTrigger>
+            <TabsTrigger value="forms">
+              <Sparkles className="h-4 w-4 mr-1" />Available Certificates
+            </TabsTrigger>
+            <TabsTrigger value="submissions">
+              <ClipboardCheck className="h-4 w-4 mr-1" />My Submissions ({submissions.length})
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="forms" className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ALL_FORMS.map((f) => (
-                <Card key={f.key} className={`border transition-shadow hover:shadow-md ${f.bg}`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className={`text-base leading-snug flex items-start gap-2 ${f.color}`}>
-                        <FileSignature className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <span>{f.name}</span>
-                      </CardTitle>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <Badge variant="outline" className="text-[10px]">{f.code}</Badge>
-                      {f.bafe && <Badge variant="outline" className="text-[10px] border-orange-400/50 text-orange-700 dark:text-orange-400">BAFE {f.bafe}</Badge>}
-                      <Badge variant="outline" className="text-[10px]">{f.standard}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">{f.description}</p>
-                    <Button size="sm" onClick={() => handleNew(f.key)} className="w-full">
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Start New
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+          <TabsContent value="forms" className="mt-4 space-y-6">
+            {/* Fire Alarm certificates */}
+            <div>
+              <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                <Badge variant="outline">BS 5839-1:2025</Badge> Fire Alarm Certificates
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {FIRE_ALARM_FORMS.map((f) => (
+                  <FormCard key={String(f.key)} form={f} onNew={() => handleNew(f.key)} />
+                ))}
+              </div>
+            </div>
+
+            {/* Other discipline certificates */}
+            <div>
+              <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                <Badge variant="outline">Other Disciplines</Badge>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {OTHER_FORMS.map((f) => (
+                  <FormCard key={String(f.key)} form={f} onNew={() => handleNew(f.key)} />
+                ))}
+              </div>
             </div>
           </TabsContent>
 
@@ -213,7 +239,7 @@ export default function SmartForms() {
               <div className="space-y-2">
                 {submissions.map((sub) => {
                   const p = (sub.payload || {}) as any;
-                  const premisesName = p.premises_name || (p as BS5839Payload).premises_name || "";
+                  const premisesName = p.premises_name || "";
                   return (
                     <Card key={sub.id} className="hover:shadow-sm transition-shadow">
                       <CardContent className="py-3 flex items-center justify-between gap-3">
@@ -237,9 +263,7 @@ export default function SmartForms() {
                                 <FileDown className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="icon" title="Email to responsible person" asChild>
-                                <a href={buildMailto(sub)}>
-                                  <Mail className="h-4 w-4" />
-                                </a>
+                                <a href={buildMailto(sub)}><Mail className="h-4 w-4" /></a>
                               </Button>
                             </>
                           )}
@@ -260,7 +284,7 @@ export default function SmartForms() {
         </Tabs>
       </div>
 
-      {/* Form dialogs — only one open at a time */}
+      {/* ── Form dialogs — one open at a time ─────────────────────────────── */}
       <BS5839CertificateForm
         open={activeForm === "bs5839_inspection_servicing"}
         onOpenChange={(o) => { if (!o) closeForm(); }}
@@ -282,21 +306,43 @@ export default function SmartForms() {
         onOpenChange={(o) => { if (!o) closeForm(); }}
         onSaved={load}
       />
-      <ASDCommissioningForm
-        open={asdFormOpen}
-        onOpenChange={setAsdFormOpen}
-        onSaved={load}
-      />
       <EmergencyLightingForm
-        open={elFormOpen}
-        onOpenChange={setElFormOpen}
-        onSaved={load}
-      />
-      <DryRiserForm
-        open={drFormOpen}
-        onOpenChange={setDrFormOpen}
+        open={activeForm === "el"}
+        onOpenChange={(o) => { if (!o) closeForm(); }}
         onSaved={load}
       />
     </DashboardLayout>
+  );
+}
+
+// ── Shared card component ─────────────────────────────────────────────────────
+function FormCard({ form, onNew }: { form: typeof FIRE_ALARM_FORMS[0]; onNew: () => void }) {
+  const Icon = form.icon;
+  return (
+    <Card className={`border transition-shadow hover:shadow-md ${form.bg}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className={`text-base leading-snug flex items-start gap-2 ${form.color}`}>
+            <Icon className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <span>{form.name}</span>
+          </CardTitle>
+        </div>
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          <Badge variant="outline" className="text-[10px]">{form.code}</Badge>
+          {form.bafe && (
+            <Badge variant="outline" className="text-[10px] border-orange-400/50 text-orange-700 dark:text-orange-400">
+              BAFE {form.bafe}
+            </Badge>
+          )}
+          <Badge variant="outline" className="text-[10px]">{form.standard}</Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground mb-4">{form.description}</p>
+        <Button size="sm" onClick={onNew} className="w-full">
+          <Plus className="h-3.5 w-3.5 mr-1" /> Start New
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
