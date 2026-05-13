@@ -23,7 +23,8 @@ import {
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
 import { uploadCertificateToSharePoint } from "@/lib/certSharePointUpload";
 import { autoRegisterCertToSite } from "@/services/newCertificateService";
-import { createDefect, type DefectCategory } from "@/services/defectService";
+import { createDefect, updateDefect, type DefectCategory } from "@/services/defectService";
+import { DefectImportPanel } from "@/components/smart-forms/DefectImportPanel";
 import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
 
 const STEPS = [
@@ -134,25 +135,54 @@ export default function BS5839CertificateForm({
 
   async function pushDefectsToSiteDefects(submissionIdLocal: string) {
     if (!siteId) return;
-    const list = (payload.defects ?? []).filter(d => d?.description?.trim());
+    const list = (payload.defects ?? []).filter((d: any) => d?.description?.trim());
     if (list.length === 0) return;
-    let ok = 0;
-    for (const d of list) {
-      try {
-        await createDefect({
-          site_id: siteId,
-          visit_id: visitId ?? null,
-          description: [d.description, d.recommended_action ? `Recommended: ${d.recommended_action}` : ""].filter(Boolean).join("\n"),
-          location: d.location || null,
-          category: severityToCategory(d.severity),
-          status: "open",
-          raised_by: user?.id ?? null,
-          notes: d.bs_reference ? `${d.bs_reference} — from cert ${payload.certificate_reference || submissionIdLocal}` : `From cert ${payload.certificate_reference || submissionIdLocal}`,
-        });
-        ok++;
-      } catch (e) { console.error("defect push failed", e); }
+
+    let created = 0;
+    let updated = 0;
+
+    for (const d of list as any[]) {
+      const registerId: string | undefined = d._register_id;
+
+      if (registerId) {
+        if (d.status === "Closed") {
+          try {
+            await updateDefect(registerId, {
+              status: "remediated",
+              remediated_at: new Date().toISOString(),
+              notes: `Remediated on cert ${payload.certificate_reference || submissionIdLocal}`,
+            });
+            updated++;
+          } catch (e) { console.error("defect update failed", e); }
+        } else if (d.status === "Requires Quote") {
+          try {
+            await updateDefect(registerId, { status: "quoted" });
+            updated++;
+          } catch (e) { console.error("defect update failed", e); }
+        }
+      } else {
+        try {
+          await createDefect({
+            site_id: siteId,
+            visit_id: visitId ?? null,
+            description: [d.description, d.recommended_action ? `Recommended: ${d.recommended_action}` : ""].filter(Boolean).join("\n"),
+            location: d.location || null,
+            category: severityToCategory(d.severity),
+            status: "open",
+            raised_by: user?.id ?? null,
+            notes: d.bs_reference
+              ? `${d.bs_reference} — from cert ${payload.certificate_reference || submissionIdLocal}`
+              : `From cert ${payload.certificate_reference || submissionIdLocal}`,
+          });
+          created++;
+        } catch (e) { console.error("defect push failed", e); }
+      }
     }
-    if (ok > 0) toast.success(`${ok} defect${ok === 1 ? "" : "s"} added to Defects register`);
+
+    const msgs: string[] = [];
+    if (created > 0) msgs.push(`${created} new defect${created === 1 ? "" : "s"} added to register`);
+    if (updated > 0) msgs.push(`${updated} register defect${updated === 1 ? "" : "s"} updated`);
+    if (msgs.length > 0) toast.success(msgs.join(" · "));
   }
 
   async function runPdf(payloadToUse: BS5839Payload): Promise<{ base64: string; fileName: string } | null> {
@@ -303,7 +333,7 @@ export default function BS5839CertificateForm({
             {step === 5 && <Step6 payload={payload} update={update} />}
             {step === 6 && <Step7 payload={payload} update={update} />}
             {step === 7 && <Step8 payload={payload} update={update} />}
-            {step === 8 && <Step9 payload={payload} update={update} />}
+            {step === 8 && <Step9 payload={payload} update={update} siteId={siteId} />}
             {step === 9 && <Step10 payload={payload} update={update} />}
             {step === 10 && <Step11 payload={payload} update={update} />}
             {step === 11 && <Step12 payload={payload} update={update} />}
@@ -340,7 +370,11 @@ export default function BS5839CertificateForm({
 }
 
 // ─── Step components ──────────────────────────────────────────────────────────
-type StepProps = { payload: BS5839Payload; update: <K extends keyof BS5839Payload>(k: K, v: BS5839Payload[K]) => void };
+type StepProps = {
+  payload: BS5839Payload;
+  update: <K extends keyof BS5839Payload>(k: K, v: BS5839Payload[K]) => void;
+  siteId?: string | null;
+};
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
@@ -540,8 +574,15 @@ function Step8({ payload, update }: StepProps) {
   );
 }
 
-function Step9({ payload, update }: StepProps) {
+function Step9({ payload, update, siteId }: StepProps) {
   const defects = payload.defects ?? [];
+
+  const importedIds = new Set(
+    defects
+      .filter((d: any) => d._register_id)
+      .map((d: any) => d._register_id as string)
+  );
+
   function add() {
     const d: DefectEntry = { id: uid(), location: "", description: "", severity: "", recommended_action: "", status: "Open" };
     update("defects", [...defects, d]);
@@ -550,22 +591,50 @@ function Step9({ payload, update }: StepProps) {
     update("defects", defects.map((d) => (d.id === id ? { ...d, ...p } : d)));
   }
   function remove(id: string) { update("defects", defects.filter((d) => d.id !== id)); }
+
+  function handleImport(entries: (DefectEntry & { _register_id?: string })[]) {
+    update("defects", [...defects, ...entries]);
+  }
+
   return (
     <div className="space-y-3">
+      <DefectImportPanel
+        siteId={siteId}
+        alreadyImported={importedIds}
+        onImport={handleImport}
+      />
+
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{defects.length} defect(s)</p>
-        <Button size="sm" variant="outline" onClick={add}><Plus className="h-3.5 w-3.5 mr-1" />Add Defect</Button>
+        <Button size="sm" variant="outline" onClick={add}>
+          <Plus className="h-3.5 w-3.5 mr-1" />Add Defect
+        </Button>
       </div>
-      {defects.length === 0 && <p className="text-xs text-muted-foreground italic text-center py-6">No defects added.</p>}
-      {defects.map((d, i) => (
+
+      {defects.length === 0 && (
+        <p className="text-xs text-muted-foreground italic text-center py-6">No defects added.</p>
+      )}
+
+      {defects.map((d: any, i: number) => (
         <Card key={d.id}>
           <CardContent className="p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold">Defect #{i + 1} <span className="font-mono text-muted-foreground">({d.id})</span></p>
-              <Button size="icon" variant="ghost" onClick={() => remove(d.id)} className="text-destructive h-7 w-7"><Trash2 className="h-3.5 w-3.5" /></Button>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold">Defect #{i + 1}</p>
+                {d._register_id && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 border border-blue-200 font-medium">
+                    From register
+                  </span>
+                )}
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => remove(d.id)} className="text-destructive h-7 w-7">
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <Field label="Location" required><Input value={d.location} onChange={(e) => patch(d.id, { location: e.target.value })} /></Field>
+              <Field label="Location" required>
+                <Input value={d.location} onChange={(e) => patch(d.id, { location: e.target.value })} />
+              </Field>
               <Field label="Severity">
                 <Select value={d.severity || undefined} onValueChange={(v) => patch(d.id, { severity: v as DefectEntry["severity"] })}>
                   <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
@@ -577,7 +646,9 @@ function Step9({ payload, update }: StepProps) {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label="BS Reference"><Input value={d.bs_reference || ""} onChange={(e) => patch(d.id, { bs_reference: e.target.value })} placeholder="e.g. BS 5839-1 cl.25" /></Field>
+              <Field label="BS Reference">
+                <Input value={d.bs_reference || ""} onChange={(e) => patch(d.id, { bs_reference: e.target.value })} placeholder="e.g. BS 5839-1 cl.25" />
+              </Field>
               <Field label="Status">
                 <Select value={d.status || undefined} onValueChange={(v) => patch(d.id, { status: v as DefectEntry["status"] })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -589,8 +660,12 @@ function Step9({ payload, update }: StepProps) {
                 </Select>
               </Field>
             </div>
-            <Field label="Description" required><Textarea rows={2} value={d.description} onChange={(e) => patch(d.id, { description: e.target.value })} /></Field>
-            <Field label="Recommended Action" required><Textarea rows={2} value={d.recommended_action} onChange={(e) => patch(d.id, { recommended_action: e.target.value })} /></Field>
+            <Field label="Description" required>
+              <Textarea rows={2} value={d.description} onChange={(e) => patch(d.id, { description: e.target.value })} />
+            </Field>
+            <Field label="Recommended Action" required>
+              <Textarea rows={2} value={d.recommended_action} onChange={(e) => patch(d.id, { recommended_action: e.target.value })} />
+            </Field>
           </CardContent>
         </Card>
       ))}
