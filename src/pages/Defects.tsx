@@ -60,6 +60,7 @@ import {
 } from "@/services/defectService";
 import { DefectCategoryBadge, DefectStatusBadge } from "@/components/defects/DefectBadge";
 import { DefectFormDialog } from "@/components/defects/DefectFormDialog";
+import DeclinationOfWorksForm from "@/components/defects/DeclinationOfWorksForm";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function Defects() {
