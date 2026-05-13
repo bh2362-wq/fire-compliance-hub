@@ -822,6 +822,7 @@ function PreviewStep({ payload, errors }: { payload: BS5839Payload; errors: { st
           </div>
         </CardContent>
       </Card>
+      <ComplianceChecker payload={payload} formType="bs5839_inspection_servicing" />
       <p className="text-[11px] text-muted-foreground text-center">Click <strong>Complete &amp; Download PDF</strong> below to finalise.</p>
     </div>
   );
