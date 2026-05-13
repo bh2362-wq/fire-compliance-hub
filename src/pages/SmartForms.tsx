@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail } from "lucide-react";
+import { Sparkles, FileSignature, Plus, ClipboardCheck, Eye, Pencil, Trash2, FileDown, Mail, Wind } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -15,6 +15,7 @@ import BS5839CertificateForm from "@/components/smart-forms/BS5839CertificateFor
 import InstallationCertificateForm from "@/components/smart-forms/InstallationCertificateForm";
 import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
 import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
+import ASDCommissioningForm from "@/components/smart-forms/ASDCommissioningForm";
 import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
@@ -81,6 +82,7 @@ export default function SmartForms() {
   const [loading, setLoading] = useState(true);
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
   const [editing, setEditing] = useState<SmartFormSubmission | null>(null);
+  const [asdFormOpen, setAsdFormOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -148,6 +150,9 @@ export default function SmartForms() {
               Official BAFE-prescribed certificates — Installation (FD/02), Commissioning (FD/03), Modification (FD/05), and Inspection &amp; Servicing.
             </p>
           </div>
+          <Button variant="outline" onClick={() => setAsdFormOpen(true)} className="gap-1.5">
+            <Wind className="w-4 h-4" />ASD Commissioning
+          </Button>
         </div>
 
         <Tabs defaultValue="forms">
@@ -263,6 +268,11 @@ export default function SmartForms() {
       <ModificationCertificateForm
         open={activeForm === "bs5839_modification"}
         onOpenChange={(o) => { if (!o) closeForm(); }}
+        onSaved={load}
+      />
+      <ASDCommissioningForm
+        open={asdFormOpen}
+        onOpenChange={setAsdFormOpen}
         onSaved={load}
       />
     </DashboardLayout>
