@@ -161,6 +161,16 @@ export default function Defects() {
                 AI Quote ({selectedIds.length} defect{selectedIds.length !== 1 ? "s" : ""})
               </Button>
             )}
+            {selectedIds.length === 1 && (
+              <Button
+                variant="outline"
+                onClick={() => setDeclinationDefectId(selectedIds[0])}
+                className="gap-1.5"
+              >
+                <Shield className="h-4 w-4 text-amber-500" />
+                Declination of Works
+              </Button>
+            )}
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4 mr-1.5" /> Raise Defect
             </Button>
