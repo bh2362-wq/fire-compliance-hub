@@ -24,6 +24,7 @@ import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGener
 import { uploadCertificateToSharePoint } from "@/lib/certSharePointUpload";
 import { autoRegisterCertToSite } from "@/services/newCertificateService";
 import { createDefect, type DefectCategory } from "@/services/defectService";
+import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
 
 const STEPS = [
   "Header", "Premises", "System", "Service Org", "Checklist",
