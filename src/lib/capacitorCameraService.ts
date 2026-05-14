@@ -7,7 +7,7 @@ export async function captureDefectPhoto(): Promise<string | null> {
   try {
     const cap = (window as any).Capacitor;
     if (cap?.isNativePlatform?.()) {
-      const mod = await import(/* @vite-ignore */ "@capacitor/camera").catch(() => null);
+      const mod: any = await import(/* @vite-ignore */ ("@capacitor/camera" as string)).catch(() => null);
       if (mod?.Camera) {
         const photo = await mod.Camera.getPhoto({
           quality: 80,
