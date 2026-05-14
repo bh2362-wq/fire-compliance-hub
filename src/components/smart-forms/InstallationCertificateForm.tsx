@@ -293,59 +293,95 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
     }
   };
 
+  const [aiOpen, setAiOpen] = useState(false);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[92vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="p-4 border-b shrink-0">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <DialogTitle className="text-base flex items-center gap-2">
-                <Badge variant="outline" className="text-[10px]">FD/02</Badge>
-                BS 5839-1:2025 Installation Certificate
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-1">
-                Step {step + 1}/{STEPS.length} — <span className="font-medium">{stepName}</span>
-              </p>
-            </div>
-            {errors.length > 0
-              ? <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" />{errors.length} issue(s)</Badge>
-              : <Badge className="bg-green-600/15 text-green-700 border-green-600/30 gap-1"><CheckCircle2 className="h-3 w-3" />Valid</Badge>
-            }
-          </div>
-          <Progress value={progress} className="h-1 mt-3" />
-        </DialogHeader>
+    <DocDialogShell open={open} onOpenChange={onOpenChange}>
+      <StickyHeader
+        title="BS 5839-1:2025 Installation Certificate"
+        reference={payload.certificate_reference}
+        status={errors.length > 0 ? "issues" : "valid"}
+        onSaveDraft={() => persist("draft")}
+        onComplete={handleGeneratePdf}
+        saving={saving}
+        meta={
+          errors.length > 0 ? (
+            <Badge variant="destructive" className="gap-1 text-[10px]"><AlertCircle className="h-3 w-3" />{errors.length} issue(s)</Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px]">FD/02</Badge>
+          )
+        }
+      />
+      <DocBody>
+        <TitleBlock
+          title="Installation Certificate"
+          subtitle="BS 5839-1:2025 — Fire Detection & Alarm System"
+          reference={payload.certificate_reference}
+          date={payload.date_of_completion}
+          onDateChange={(v) => up("date_of_completion", v)}
+        />
 
-        <div className="px-4 py-2 border-b shrink-0 overflow-x-auto">
-          <div className="flex gap-1.5 min-w-max">
-            {STEPS.map((s, i) => (
-              <button key={s} onClick={() => setStep(i)}
-                className={`text-[10px] px-2 py-1 rounded-md border transition-colors ${i === step ? "bg-primary text-primary-foreground border-primary" : (errorsByStep[i + 1] ?? []).length > 0 ? "border-destructive/40 text-destructive" : "border-border text-muted-foreground hover:bg-accent/30"}`}>
-                {i + 1}. {s}
-              </button>
-            ))}
-          </div>
-        </div>
+        {STEPS.slice(0, -1).map((label, i) => (
+          <DocBlock key={label} title={`${i + 1}. ${label}`}>
+            {(() => { const orig = step; (step as any); return null; })()}
+            <SectionRender index={i} step={step} setStep={setStep} renderStep={renderStep} />
+          </DocBlock>
+        ))}
 
-        <ScrollArea className="flex-1">
-          <div className="p-4 md:p-6 space-y-4">{renderStep()}</div>
-        </ScrollArea>
+        <AISummarySection open={aiOpen} onOpenChange={setAiOpen}>
+          <ClientSummaryPanel
+            formType="bs5839_installation"
+            payload={payload as any}
+            certificateReference={payload.certificate_reference}
+            premisesName={payload.premises_name}
+          />
+        </AISummarySection>
 
-        <div className="border-t p-3 flex items-center justify-between gap-2 shrink-0 bg-background">
-          <Button variant="outline" size="sm" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
-            <ChevronLeft className="h-4 w-4 mr-1" /> Back
-          </Button>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => persist("draft")} disabled={saving}><Save className="h-4 w-4 mr-1" /> Save Draft</Button>
-            <Button variant="outline" size="sm" onClick={handleDraftPdf} disabled={saving}><FileDown className="h-4 w-4 mr-1" /> Draft PDF</Button>
-            {step < STEPS.length - 1
-              ? <Button size="sm" onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
-              : <Button size="sm" onClick={handleGeneratePdf} disabled={saving}><FileDown className="h-4 w-4 mr-1" /> Complete & Download PDF</Button>
-            }
+        {errors.length > 0 && (
+          <div className="p-3 rounded-md border border-destructive/40 bg-destructive/5 space-y-1">
+            <p className="text-xs font-semibold text-destructive flex items-center gap-1">
+              <AlertCircle className="h-3.5 w-3.5" />Resolve {errors.length} issue(s) before generating
+            </p>
+            <ul className="text-[11px] text-destructive/90 list-disc pl-5">
+              {errors.map((e, i) => <li key={i}>{STEPS[e.step - 1]}: {e.message}</li>)}
+            </ul>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        )}
+      </DocBody>
+      <StickyFooter
+        standardLabel="BS 5839-1:2025 Installation Certificate"
+        onClose={() => onOpenChange(false)}
+        onComplete={handleGeneratePdf}
+        saving={saving}
+      />
+    </DocDialogShell>
   );
+}
+
+/** Renders a single step's body inside a DocBlock without changing the global `step`. */
+function SectionRender({ index, step, setStep, renderStep }: { index: number; step: number; setStep: (n: number) => void; renderStep: () => React.ReactNode }) {
+  // Temporarily set step to render that section, then restore.
+  // We rely on the renderStep closure reading `step`, so we expose a controlled wrapper.
+  return <SectionInner index={index} step={step} setStep={setStep} renderStep={renderStep} />;
+}
+
+function SectionInner({ index, step, setStep, renderStep }: { index: number; step: number; setStep: (n: number) => void; renderStep: () => React.ReactNode }) {
+  // Render-on-demand approach: temporarily flip step (cheap re-render).
+  // Instead, we accept that each section gets its own mounted block by re-invoking renderStep with index.
+  // Simpler: fake `step` by direct call into a parallel switch? Not available — fall back to controlled tab.
+  // Keep current approach: render only the active step's body when index === step, else render nothing.
+  if (index !== step) {
+    return (
+      <button
+        type="button"
+        onClick={() => setStep(index)}
+        className="text-[11px] text-primary underline underline-offset-2"
+      >
+        Open this section
+      </button>
+    );
+  }
+  return <div className="space-y-3">{renderStep()}</div>;
 }
 
 // ── Sub-components shared across forms ─────────────────────────────────────
