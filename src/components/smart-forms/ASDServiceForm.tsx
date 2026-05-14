@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TypedSignature } from "@/components/ui/typed-signature";
+import { SmartSignature } from "@/components/ui/smart-signature";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown, CheckCircle2, Wind } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";

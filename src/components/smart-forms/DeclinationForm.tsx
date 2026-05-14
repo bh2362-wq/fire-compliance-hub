@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TypedSignature } from "@/components/ui/typed-signature";
+import { SmartSignature } from "@/components/ui/smart-signature";
 import { ChevronLeft, ChevronRight, Save, FileDown, AlertTriangle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
