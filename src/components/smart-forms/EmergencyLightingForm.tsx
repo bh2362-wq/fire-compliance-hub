@@ -1,39 +1,38 @@
 /**
- * Emergency Lighting Certificate Form
+ * Emergency Lighting Certificate — single-page document form
  * BS 5266-1:2016 · BS EN 50172:2004 · BS EN 1838:2013
  *
- * 4 sub-types: commissioning, periodic (EPM6C), monthly log, annual discharge
- * Steps: Header → Premises → System → Checklist/Log → Defects → Status → Signatures → Preview
+ * Four sub-types (commissioning, periodic EPM6C, monthly log, annual discharge)
+ * are selected at the top of the document.
  */
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { TypedSignature } from "@/components/ui/typed-signature";
-import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown, AlertCircle, CheckCircle2, Zap } from "lucide-react";
+import { Plus, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import {
+  DocBlock, DocBody, DocDialogShell, DocField, SmallField,
+  StickyFooter, StickyHeader, TitleBlock, AISummarySection,
+  TriStateRow, type TriStatus, LegendSwatch,
+} from "./_DocLayout";
+import { ClientSummaryPanel } from "./ClientSummaryPanel";
 
-// ── Payload type ──────────────────────────────────────────────────────────────
+// ── Payload types ────────────────────────────────────────────────────────────
 export type ELFormType = "commissioning" | "periodic" | "monthly_log" | "annual_discharge";
-export type ChecklistResult = "✓" | "7" | "N/A";
 
 export interface ELChecklistItem {
   clause: string;
   description: string;
-  result: ChecklistResult | "";
+  result: "✓" | "7" | "N/A" | "";
   notes: string;
 }
 
@@ -60,20 +59,17 @@ export interface ELMonthlyEntry {
 }
 
 export interface ELPayload {
-  // Header
   cert_reference: string;
   form_type: ELFormType;
   cert_date: string;
   standard_references: string;
 
-  // Premises
   premises_name: string;
   premises_address: string;
   premises_postcode: string;
   responsible_person: string;
   responsible_email: string;
 
-  // System
   system_type: "Self-contained" | "Central battery" | "Generator" | "";
   system_mode: "Maintained" | "Non-maintained" | "Sustained" | "Combined" | "";
   duration_rating: "1 hour" | "2 hours" | "3 hours" | "";
@@ -83,13 +79,8 @@ export interface ELPayload {
   eicr_reference: string;
   previous_cert_date: string;
 
-  // Checklist (periodic / commissioning)
   checklist: ELChecklistItem[];
-
-  // Monthly entries
   monthly_entries: ELMonthlyEntry[];
-
-  // Annual discharge
   annual_entries: {
     test_date: string;
     duration_hours: number | "";
@@ -101,17 +92,15 @@ export interface ELPayload {
     result: "Pass" | "Fail" | "";
   }[];
 
-  // Defects
   defects: ELDefect[];
 
-  // Status
   overall_status: "Satisfactory" | "Satisfactory with Deviations" | "Unsatisfactory" | "";
   deviations_summary: string;
   recommendation_interval_months: 6 | 12;
   next_inspection_date: string;
 
-  // Signatures
   engineer_name: string;
+  engineer_company?: string;
   engineer_date: string;
   engineer_signature: string;
   client_name: string;
@@ -119,7 +108,7 @@ export interface ELPayload {
   client_signature: string;
 }
 
-// ── Default EPM6C checklist (Annex M of BS 5266-1) ────────────────────────────
+// ── EPM6C checklist (Annex M of BS 5266-1) ───────────────────────────────────
 const DEFAULT_EPM6C: ELChecklistItem[] = [
   { clause: "1",  description: "Emergency luminaires correctly positioned as per design drawings", result: "", notes: "" },
   { clause: "2",  description: "Adequate illumination provided on escape routes and open areas under test", result: "", notes: "" },
@@ -135,41 +124,44 @@ const DEFAULT_EPM6C: ELChecklistItem[] = [
 
 function buildEmpty(formType: ELFormType = "periodic"): ELPayload {
   const now = format(new Date(), "yyyy-MM-dd");
-  const prefix = formType === "commissioning" ? "ELC" : formType === "monthly_log" ? "ELM" : formType === "annual_discharge" ? "ELA" : "ELP";
+  const prefix = formType === "commissioning" ? "ELC"
+    : formType === "monthly_log" ? "ELM"
+    : formType === "annual_discharge" ? "ELA" : "ELP";
   const ref = `${prefix}-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`;
   return {
-    cert_reference: ref,
-    form_type: formType,
-    cert_date: now,
+    cert_reference: ref, form_type: formType, cert_date: now,
     standard_references: "BS 5266-1:2016 · BS EN 50172:2004 · BS EN 1838:2013",
     premises_name: "", premises_address: "", premises_postcode: "",
     responsible_person: "", responsible_email: "",
     system_type: "", system_mode: "", duration_rating: "",
     total_luminaires: "", total_exit_signs: "",
     logbook_on_site: false, eicr_reference: "", previous_cert_date: "",
-    checklist: DEFAULT_EPM6C.map(c => ({ ...c })),
-    monthly_entries: [],
-    annual_entries: [],
-    defects: [],
+    checklist: DEFAULT_EPM6C.map((c) => ({ ...c })),
+    monthly_entries: [], annual_entries: [], defects: [],
     overall_status: "", deviations_summary: "",
-    recommendation_interval_months: 6,
-    next_inspection_date: "",
+    recommendation_interval_months: 12, next_inspection_date: "",
     engineer_name: "", engineer_date: now, engineer_signature: "",
     client_name: "", client_date: now, client_signature: "",
   };
 }
 
-// ── Steps ─────────────────────────────────────────────────────────────────────
-const STEPS_BASE = ["Header", "Premises", "System"];
-const STEPS_MAP: Record<ELFormType, string[]> = {
-  commissioning:    [...STEPS_BASE, "Checklist", "Defects", "Status", "Signatures", "Preview"],
-  periodic:         [...STEPS_BASE, "EPM6C Checklist", "Defects", "Status", "Signatures", "Preview"],
-  monthly_log:      [...STEPS_BASE, "Monthly Log", "Defects", "Status", "Signatures", "Preview"],
-  annual_discharge: [...STEPS_BASE, "Annual Test", "Defects", "Status", "Signatures", "Preview"],
-};
-
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
+// EPM6C uses ✓ / 7 / N/A — convert to/from TriStatus
+function toTri(r: ELChecklistItem["result"]): TriStatus {
+  if (r === "✓") return "YES";
+  if (r === "7") return "NO";
+  if (r === "N/A") return "N/A";
+  return "";
+}
+function fromTri(s: TriStatus): ELChecklistItem["result"] {
+  if (s === "YES") return "✓";
+  if (s === "NO") return "7";
+  if (s === "N/A") return "N/A";
+  return "";
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -178,41 +170,36 @@ interface Props {
   onSaved?: () => void;
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
 export default function EmergencyLightingForm({ open, onOpenChange, visitId, siteId, onSaved }: Props) {
   const { user } = useAuth();
-  const [formType, setFormType] = useState<ELFormType>("periodic");
   const [payload, setPayload] = useState<ELPayload>(buildEmpty("periodic"));
-  const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
-
-  const STEPS = STEPS_MAP[formType];
+  const [aiOpen, setAiOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setPayload(buildEmpty(formType));
-      setStep(0);
+      setPayload(buildEmpty("periodic"));
       setSubmissionId(null);
+      setAiOpen(false);
     }
   }, [open]);
 
-  useEffect(() => {
-    const updated = buildEmpty(formType);
-    setPayload(prev => ({ ...updated, ...prev, form_type: formType,
-      cert_reference: buildEmpty(formType).cert_reference,
-    }));
-  }, [formType]);
+  function up(p: Partial<ELPayload>) { setPayload((prev) => ({ ...prev, ...p })); }
 
-  function up(partial: Partial<ELPayload>) {
-    setPayload(prev => ({ ...prev, ...partial }));
+  function setFormType(ft: ELFormType) {
+    setPayload((prev) => {
+      const empty = buildEmpty(ft);
+      // Preserve user-entered premises etc, swap reference + type
+      return { ...prev, form_type: ft, cert_reference: empty.cert_reference };
+    });
   }
 
   async function save(status: "draft" | "completed" = "draft") {
     setSaving(true);
     try {
       const row = {
-        form_type: `el_${formType}`,
+        form_type: `el_${payload.form_type}`,
         certificate_reference: payload.cert_reference,
         status,
         payload: payload as unknown as Record<string, unknown>,
@@ -222,10 +209,12 @@ export default function EmergencyLightingForm({ open, onOpenChange, visitId, sit
         ...(status === "completed" ? { completed_at: new Date().toISOString() } : {}),
       };
       if (submissionId) {
-        const { error } = await supabase.from("smart_form_submissions").update(row as any).eq("id", submissionId);
+        const { error } = await supabase.from("smart_form_submissions")
+          .update(row as any).eq("id", submissionId);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from("smart_form_submissions").insert(row as any).select("id").single();
+        const { data, error } = await supabase.from("smart_form_submissions")
+          .insert(row as any).select("id").single();
         if (error) throw error;
         setSubmissionId((data as any).id);
       }
@@ -240,608 +229,406 @@ export default function EmergencyLightingForm({ open, onOpenChange, visitId, sit
   }
 
   async function handleDownload() {
+    await save("completed");
     try {
-      // Dynamic import to avoid circular dependency
       const { generateELCertificatePDF } = await import("@/lib/emergencyLightingPdfGenerator");
       await generateELCertificatePDF(payload as any);
-    } catch { toast.error("PDF generation failed"); }
+    } catch {
+      toast.error("PDF generation failed");
+    }
   }
 
-  const isLast = step === STEPS.length - 1;
-  const prog = Math.round(((step + 1) / STEPS.length) * 100);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[92vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-yellow-500" />
-            Emergency Lighting Certificate
-            <Badge variant="outline" className="text-[10px] ml-1">BS 5266-1:2016</Badge>
-          </DialogTitle>
-          <div className="mt-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-              <span>{STEPS[step]}</span>
-              <span>{step + 1} / {STEPS.length}</span>
-            </div>
-            <Progress value={prog} className="h-1.5" />
-          </div>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1 px-6 py-4">
-          {step === 0 && (
-            <StepHeader payload={payload} up={up} formType={formType} setFormType={setFormType} />
-          )}
-          {step === 1 && <StepPremises payload={payload} up={up} />}
-          {step === 2 && <StepSystem payload={payload} up={up} />}
-          {step === 3 && (
-            <>
-              {(formType === "commissioning" || formType === "periodic") && (
-                <StepChecklist payload={payload} up={up} />
-              )}
-              {formType === "monthly_log" && <StepMonthlyLog payload={payload} up={up} />}
-              {formType === "annual_discharge" && <StepAnnualDischarge payload={payload} up={up} />}
-            </>
-          )}
-          {step === 4 && <StepDefects payload={payload} up={up} />}
-          {step === 5 && <StepStatus payload={payload} up={up} />}
-          {step === 6 && <StepSignatures payload={payload} up={up} />}
-          {step === 7 && <StepPreview payload={payload} onDownload={handleDownload} />}
-        </ScrollArea>
-
-        <div className="flex items-center justify-between px-6 py-3 border-t shrink-0 bg-muted/30">
-          <Button variant="ghost" size="sm" onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}>
-            <ChevronLeft className="w-4 h-4 mr-1" /> Back
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => save("draft")} disabled={saving}>
-              <Save className="w-3.5 h-3.5 mr-1" /> Save Draft
-            </Button>
-            {isLast ? (
-              <Button size="sm" onClick={() => save("completed")} disabled={saving}>
-                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                Complete
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => setStep(s => Math.min(STEPS.length - 1, s + 1))}>
-                Next <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ── Step 0: Header ────────────────────────────────────────────────────────────
-function StepHeader({ payload, up, formType, setFormType }: {
-  payload: ELPayload; up: (p: Partial<ELPayload>) => void;
-  formType: ELFormType; setFormType: (t: ELFormType) => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label>Certificate Type</Label>
-        <Select value={formType} onValueChange={(v) => setFormType(v as ELFormType)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="commissioning">Commissioning Certificate</SelectItem>
-            <SelectItem value="periodic">Periodic Inspection Certificate (EPM6C)</SelectItem>
-            <SelectItem value="monthly_log">Monthly Test Log</SelectItem>
-            <SelectItem value="annual_discharge">Annual Full Discharge Test</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label>Certificate Reference</Label>
-          <Input value={payload.cert_reference} onChange={e => up({ cert_reference: e.target.value })} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Date</Label>
-          <Input type="date" value={payload.cert_date} onChange={e => up({ cert_date: e.target.value })} />
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Standard References</Label>
-        <Input value={payload.standard_references} onChange={e => up({ standard_references: e.target.value })} />
-      </div>
-    </div>
-  );
-}
-
-// ── Step 1: Premises ──────────────────────────────────────────────────────────
-function StepPremises({ payload, up }: { payload: ELPayload; up: (p: Partial<ELPayload>) => void }) {
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label>Premises Name</Label>
-        <Input value={payload.premises_name} onChange={e => up({ premises_name: e.target.value })} />
-      </div>
-      <div className="space-y-1.5">
-        <Label>Address</Label>
-        <Textarea rows={2} value={payload.premises_address} onChange={e => up({ premises_address: e.target.value })} />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label>Postcode</Label>
-          <Input value={payload.premises_postcode} onChange={e => up({ premises_postcode: e.target.value })} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Responsible Person</Label>
-          <Input value={payload.responsible_person} onChange={e => up({ responsible_person: e.target.value })} />
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Responsible Person Email</Label>
-        <Input type="email" value={payload.responsible_email} onChange={e => up({ responsible_email: e.target.value })} />
-      </div>
-    </div>
-  );
-}
-
-// ── Step 2: System ────────────────────────────────────────────────────────────
-function StepSystem({ payload, up }: { payload: ELPayload; up: (p: Partial<ELPayload>) => void }) {
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label>System Type</Label>
-          <Select value={payload.system_type} onValueChange={v => up({ system_type: v as any })}>
-            <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Self-contained">Self-contained</SelectItem>
-              <SelectItem value="Central battery">Central battery</SelectItem>
-              <SelectItem value="Generator">Generator</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Mode of Operation</Label>
-          <Select value={payload.system_mode} onValueChange={v => up({ system_mode: v as any })}>
-            <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Maintained">Maintained</SelectItem>
-              <SelectItem value="Non-maintained">Non-maintained</SelectItem>
-              <SelectItem value="Sustained">Sustained</SelectItem>
-              <SelectItem value="Combined">Combined</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Duration Rating</Label>
-          <Select value={payload.duration_rating} onValueChange={v => up({ duration_rating: v as any })}>
-            <SelectTrigger><SelectValue placeholder="Select duration" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1 hour">1 hour</SelectItem>
-              <SelectItem value="2 hours">2 hours</SelectItem>
-              <SelectItem value="3 hours">3 hours</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Total Luminaires</Label>
-          <Input type="number" value={payload.total_luminaires as number || ""} onChange={e => up({ total_luminaires: parseInt(e.target.value) || "" })} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Total Exit Signs</Label>
-          <Input type="number" value={payload.total_exit_signs as number || ""} onChange={e => up({ total_exit_signs: parseInt(e.target.value) || "" })} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>EICR Reference</Label>
-          <Input value={payload.eicr_reference} onChange={e => up({ eicr_reference: e.target.value })} placeholder="Optional" />
-        </div>
-      </div>
-      <div className="flex items-center gap-2 pt-1">
-        <Checkbox id="logbook" checked={payload.logbook_on_site} onCheckedChange={v => up({ logbook_on_site: !!v })} />
-        <Label htmlFor="logbook">Log book available on site</Label>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Previous Certificate Date</Label>
-        <Input type="date" value={payload.previous_cert_date} onChange={e => up({ previous_cert_date: e.target.value })} />
-      </div>
-    </div>
-  );
-}
-
-// ── Step 3a: EPM6C Checklist ───────────────────────────────────────────────────
-function StepChecklist({ payload, up }: { payload: ELPayload; up: (p: Partial<ELPayload>) => void }) {
-  function updateItem(idx: number, field: keyof ELChecklistItem, value: string) {
-    const checklist = payload.checklist.map((c, i) =>
-      i === idx ? { ...c, [field]: value } : c
-    );
-    up({ checklist });
+  // Checklist ops
+  function setChecklistItem(idx: number, patch: Partial<ELChecklistItem>) {
+    up({ checklist: payload.checklist.map((c, i) => (i === idx ? { ...c, ...patch } : c)) });
   }
 
-  const resultBg: Record<string, string> = {
-    "✓":  "bg-green-50 border-green-200 text-green-700",
-    "7":  "bg-amber-50 border-amber-200 text-amber-700",
-    "N/A":"bg-slate-50 border-slate-200 text-slate-500",
-    "":   "bg-white",
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="p-3 bg-muted/30 rounded-md text-xs text-muted-foreground">
-        <strong>Notation:</strong> ✓ = Satisfactory &nbsp;·&nbsp; 7 = Deviation identified &nbsp;·&nbsp; N/A = Not applicable
-      </div>
-      {payload.checklist.map((item, i) => (
-        <Card key={item.clause} className={`border ${item.result === "7" ? "border-amber-200 bg-amber-50/30" : ""}`}>
-          <CardContent className="py-3 px-4 space-y-2">
-            <div className="flex items-start gap-3">
-              <span className="text-xs font-mono font-bold text-muted-foreground w-6 shrink-0 pt-0.5">§{item.clause}</span>
-              <p className="text-sm flex-1">{item.description}</p>
-              <div className="flex gap-1 shrink-0">
-                {(["✓", "7", "N/A"] as ChecklistResult[]).map(r => (
-                  <button
-                    key={r}
-                    onClick={() => updateItem(i, "result", item.result === r ? "" : r)}
-                    className={`px-2.5 py-1 text-xs font-bold rounded border transition-colors ${
-                      item.result === r ? resultBg[r] : "bg-muted/40 border-border text-muted-foreground"
-                    }`}
-                  >{r}</button>
-                ))}
-              </div>
-            </div>
-            {item.result === "7" && (
-              <Input
-                placeholder="Notes / deviation details..."
-                value={item.notes}
-                onChange={e => updateItem(i, "notes", e.target.value)}
-                className="text-sm h-8 bg-white"
-              />
-            )}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-// ── Step 3b: Monthly Log ──────────────────────────────────────────────────────
-function StepMonthlyLog({ payload, up }: { payload: ELPayload; up: (p: Partial<ELPayload>) => void }) {
-  function addEntry() {
-    up({ monthly_entries: [...payload.monthly_entries, {
-      test_month: format(new Date(), "yyyy-MM"),
-      test_date: format(new Date(), "yyyy-MM-dd"),
-      test_type: "Functional",
-      duration_mins: "",
-      total_luminaires: payload.total_luminaires,
-      pass_count: "", fail_count: "",
-      result: "", defects_noted: "", tester_name: payload.engineer_name,
-    }] });
-  }
-  function removeEntry(i: number) {
-    up({ monthly_entries: payload.monthly_entries.filter((_, idx) => idx !== i) });
-  }
-  function updateEntry(i: number, field: keyof ELMonthlyEntry, value: any) {
-    up({ monthly_entries: payload.monthly_entries.map((e, idx) => idx === i ? { ...e, [field]: value } : e) });
-  }
-
-  return (
-    <div className="space-y-4">
-      {payload.monthly_entries.map((entry, i) => (
-        <Card key={i} className="border">
-          <CardContent className="py-3 px-4">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-sm font-semibold">Test Entry {i + 1}</span>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeEntry(i)}>
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Month</Label>
-                <Input type="month" value={entry.test_month} onChange={e => updateEntry(i, "test_month", e.target.value)} className="h-8 text-sm" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Test Date</Label>
-                <Input type="date" value={entry.test_date} onChange={e => updateEntry(i, "test_date", e.target.value)} className="h-8 text-sm" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Test Type</Label>
-                <Select value={entry.test_type} onValueChange={v => updateEntry(i, "test_type", v)}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Functional">Functional</SelectItem>
-                    <SelectItem value="Duration">Duration</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Duration (mins)</Label>
-                <Input type="number" value={entry.duration_mins as number || ""} onChange={e => updateEntry(i, "duration_mins", parseInt(e.target.value) || "")} className="h-8 text-sm" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Pass Count</Label>
-                <Input type="number" value={entry.pass_count as number || ""} onChange={e => updateEntry(i, "pass_count", parseInt(e.target.value) || "")} className="h-8 text-sm" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Fail Count</Label>
-                <Input type="number" value={entry.fail_count as number || ""} onChange={e => updateEntry(i, "fail_count", parseInt(e.target.value) || "")} className="h-8 text-sm" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Result</Label>
-                <Select value={entry.result} onValueChange={v => updateEntry(i, "result", v)}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Satisfactory">Satisfactory</SelectItem>
-                    <SelectItem value="Unsatisfactory">Unsatisfactory</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Tester Name</Label>
-                <Input value={entry.tester_name} onChange={e => updateEntry(i, "tester_name", e.target.value)} className="h-8 text-sm" />
-              </div>
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs">Defects Noted</Label>
-                <Input value={entry.defects_noted} onChange={e => updateEntry(i, "defects_noted", e.target.value)} placeholder="None" className="h-8 text-sm" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-      <Button variant="outline" size="sm" onClick={addEntry} className="w-full">
-        <Plus className="w-3.5 h-3.5 mr-1" /> Add Month
-      </Button>
-    </div>
-  );
-}
-
-// ── Step 3c: Annual Discharge ─────────────────────────────────────────────────
-function StepAnnualDischarge({ payload, up }: { payload: ELPayload; up: (p: Partial<ELPayload>) => void }) {
-  const entry = payload.annual_entries[0] ?? {
-    test_date: payload.cert_date, duration_hours: "", duration_achieved_hours: "",
-    total_luminaires: payload.total_luminaires, pass_count: "", fail_count: "",
-    fail_locations: "", result: "",
-  };
-  function upEntry(field: string, value: any) {
-    up({ annual_entries: [{ ...entry, [field]: value }] });
-  }
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label>Test Date</Label>
-          <Input type="date" value={entry.test_date} onChange={e => upEntry("test_date", e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Rated Duration (hours)</Label>
-          <Input type="number" step="0.5" value={entry.duration_hours as number || ""} onChange={e => upEntry("duration_hours", parseFloat(e.target.value) || "")} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Duration Achieved (hours)</Label>
-          <Input type="number" step="0.5" value={entry.duration_achieved_hours as number || ""} onChange={e => upEntry("duration_achieved_hours", parseFloat(e.target.value) || "")} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Total Luminaires</Label>
-          <Input type="number" value={entry.total_luminaires as number || ""} onChange={e => upEntry("total_luminaires", parseInt(e.target.value) || "")} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Pass Count</Label>
-          <Input type="number" value={entry.pass_count as number || ""} onChange={e => upEntry("pass_count", parseInt(e.target.value) || "")} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Fail Count</Label>
-          <Input type="number" value={entry.fail_count as number || ""} onChange={e => upEntry("fail_count", parseInt(e.target.value) || "")} />
-        </div>
-        <div className="col-span-2 space-y-1.5">
-          <Label>Failed Luminaire Locations</Label>
-          <Textarea rows={2} value={entry.fail_locations} onChange={e => upEntry("fail_locations", e.target.value)} placeholder="Locations of any failed units" />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Overall Result</Label>
-          <Select value={entry.result} onValueChange={v => upEntry("result", v)}>
-            <SelectTrigger><SelectValue placeholder="Select result" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Pass">Pass</SelectItem>
-              <SelectItem value="Fail">Fail</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Step 4: Defects ───────────────────────────────────────────────────────────
-function StepDefects({ payload, up }: { payload: ELPayload; up: (p: Partial<ELPayload>) => void }) {
-  function add() {
+  // Defects
+  function addDefect() {
     up({ defects: [...payload.defects, { id: uid(), location: "", description: "", priority: "", remediated: false }] });
   }
-  function remove(id: string) {
-    up({ defects: payload.defects.filter(d => d.id !== id) });
+  function patchDefect(id: string, p: Partial<ELDefect>) {
+    up({ defects: payload.defects.map((d) => (d.id === id ? { ...d, ...p } : d)) });
   }
-  function upD(id: string, f: keyof ELDefect, v: any) {
-    up({ defects: payload.defects.map(d => d.id === id ? { ...d, [f]: v } : d) });
+  function removeDefect(id: string) {
+    up({ defects: payload.defects.filter((d) => d.id !== id) });
   }
+
+  // Monthly / annual rows
+  function addMonthly() {
+    up({
+      monthly_entries: [
+        ...payload.monthly_entries,
+        {
+          test_month: format(new Date(), "MMM yyyy"),
+          test_date: format(new Date(), "yyyy-MM-dd"),
+          test_type: "Functional",
+          duration_mins: "", total_luminaires: "", pass_count: "", fail_count: "",
+          result: "", defects_noted: "", tester_name: "",
+        },
+      ],
+    });
+  }
+  function patchMonthly(idx: number, p: Partial<ELMonthlyEntry>) {
+    up({ monthly_entries: payload.monthly_entries.map((m, i) => (i === idx ? { ...m, ...p } : m)) });
+  }
+  function removeMonthly(idx: number) {
+    up({ monthly_entries: payload.monthly_entries.filter((_, i) => i !== idx) });
+  }
+
+  function addAnnual() {
+    up({
+      annual_entries: [
+        ...payload.annual_entries,
+        {
+          test_date: format(new Date(), "yyyy-MM-dd"),
+          duration_hours: "", duration_achieved_hours: "",
+          total_luminaires: "", pass_count: "", fail_count: "",
+          fail_locations: "", result: "",
+        },
+      ],
+    });
+  }
+  function patchAnnual(idx: number, p: Partial<ELPayload["annual_entries"][number]>) {
+    up({ annual_entries: payload.annual_entries.map((a, i) => (i === idx ? { ...a, ...p } : a)) });
+  }
+  function removeAnnual(idx: number) {
+    up({ annual_entries: payload.annual_entries.filter((_, i) => i !== idx) });
+  }
+
+  const showChecklist = payload.form_type === "commissioning" || payload.form_type === "periodic";
+  const showMonthly = payload.form_type === "monthly_log";
+  const showAnnual = payload.form_type === "annual_discharge";
+
   return (
-    <div className="space-y-4">
-      {payload.defects.length === 0 && (
-        <div className="py-8 text-center text-muted-foreground text-sm border rounded-lg bg-muted/20">
-          <CheckCircle2 className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          No defects recorded
-        </div>
-      )}
-      {payload.defects.map((d, i) => (
-        <Card key={d.id} className="border">
-          <CardContent className="py-3 px-4 space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-semibold">Defect {i + 1}</span>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(d.id)}>
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
+    <DocDialogShell open={open} onOpenChange={onOpenChange}>
+      <StickyHeader
+        title="Emergency Lighting Certificate"
+        reference={payload.cert_reference}
+        onSaveDraft={() => save("draft")}
+        onComplete={handleDownload}
+        saving={saving}
+        meta={
+          <Badge variant="outline" className="gap-1 text-[10px]">
+            <Zap className="h-3 w-3" />BS 5266-1
+          </Badge>
+        }
+      />
+
+      <DocBody>
+        <TitleBlock
+          title="Emergency Lighting Certificate"
+          subtitle="BS 5266-1:2016 · BS EN 50172:2004 · BS EN 1838:2013"
+          reference={payload.cert_reference}
+          date={payload.cert_date}
+          onDateChange={(v) => up({ cert_date: v })}
+        />
+
+        {/* Type + identity */}
+        <DocBlock title="CERTIFICATE TYPE">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Certificate type</label>
+              <Select value={payload.form_type} onValueChange={(v) => setFormType(v as ELFormType)}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="commissioning">Commissioning Certificate</SelectItem>
+                  <SelectItem value="periodic">Periodic Inspection (EPM6C)</SelectItem>
+                  <SelectItem value="monthly_log">Monthly Test Log</SelectItem>
+                  <SelectItem value="annual_discharge">Annual Full Discharge Test</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Location</Label>
-                <Input value={d.location} onChange={e => upD(d.id, "location", e.target.value)} className="h-8 text-sm" />
+            <SmallField label="Reference" value={payload.cert_reference} onChange={(v) => up({ cert_reference: v })} />
+          </div>
+        </DocBlock>
+
+        {/* Site / contact */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DocBlock title="PREMISES">
+            <DocField label="Name" value={payload.premises_name} onChange={(v) => up({ premises_name: v })} />
+            <DocField label="Address" value={payload.premises_address} onChange={(v) => up({ premises_address: v })} multiline />
+            <DocField label="Postcode" value={payload.premises_postcode} onChange={(v) => up({ premises_postcode: v })} />
+          </DocBlock>
+          <DocBlock title="RESPONSIBLE PERSON">
+            <DocField label="Name" value={payload.responsible_person} onChange={(v) => up({ responsible_person: v })} />
+            <DocField label="Email" type="email" value={payload.responsible_email} onChange={(v) => up({ responsible_email: v })} />
+            <DocField label="Previous cert" type="date" value={payload.previous_cert_date} onChange={(v) => up({ previous_cert_date: v })} />
+            <DocField label="EICR ref" value={payload.eicr_reference} onChange={(v) => up({ eicr_reference: v })} />
+          </DocBlock>
+        </div>
+
+        {/* System bar */}
+        <DocBlock title="SYSTEM">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Type</label>
+              <Select value={payload.system_type || undefined} onValueChange={(v) => up({ system_type: v as any })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Self-contained">Self-contained</SelectItem>
+                  <SelectItem value="Central battery">Central battery</SelectItem>
+                  <SelectItem value="Generator">Generator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Mode</label>
+              <Select value={payload.system_mode || undefined} onValueChange={(v) => up({ system_mode: v as any })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Maintained">Maintained</SelectItem>
+                  <SelectItem value="Non-maintained">Non-maintained</SelectItem>
+                  <SelectItem value="Sustained">Sustained</SelectItem>
+                  <SelectItem value="Combined">Combined</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Duration</label>
+              <Select value={payload.duration_rating || undefined} onValueChange={(v) => up({ duration_rating: v as any })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1 hour">1 hour</SelectItem>
+                  <SelectItem value="2 hours">2 hours</SelectItem>
+                  <SelectItem value="3 hours">3 hours</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <SmallField label="Luminaires" type="number" value={payload.total_luminaires} onChange={(v) => up({ total_luminaires: v === "" ? "" : Number(v) })} />
+            <SmallField label="Exit signs" type="number" value={payload.total_exit_signs} onChange={(v) => up({ total_exit_signs: v === "" ? "" : Number(v) })} />
+          </div>
+          <label className="flex items-center gap-2 text-xs mt-2">
+            <Checkbox checked={payload.logbook_on_site} onCheckedChange={(c) => up({ logbook_on_site: !!c })} />
+            <span>Logbook present on site</span>
+          </label>
+        </DocBlock>
+
+        {/* Sub-type body */}
+        {showChecklist && (
+          <div className="bg-white border border-border rounded-md overflow-hidden">
+            <div className="px-4 py-3 border-b border-border">
+              <h3 className="text-sm font-bold">EPM6C Checklist (Annex M, BS 5266-1)</h3>
+              <div className="flex gap-3 mt-2 text-[10px] text-muted-foreground">
+                <LegendSwatch color="#2e7d32" label="YES" />
+                <LegendSwatch color="#c62828" label="NO" />
+                <LegendSwatch color="#546e7a" label="N/A" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Priority</Label>
-                <Select value={d.priority} onValueChange={v => upD(d.id, "priority", v)}>
-                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select" /></SelectTrigger>
+            </div>
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="text-left px-3 py-2 font-semibold">Requirement</th>
+                  <th className="px-2 py-2 font-semibold w-12">YES</th>
+                  <th className="px-2 py-2 font-semibold w-12">NO</th>
+                  <th className="px-2 py-2 font-semibold w-12">N/A</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payload.checklist.map((c, idx) => (
+                  <TriStateRow
+                    key={c.clause}
+                    number={c.clause}
+                    label={c.description}
+                    status={toTri(c.result)}
+                    onStatus={(s) => setChecklistItem(idx, { result: fromTri(s) })}
+                    comment={c.notes}
+                    onComment={(v) => setChecklistItem(idx, { notes: v })}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {showMonthly && (
+          <DocBlock
+            title="MONTHLY TEST LOG"
+            actions={
+              <Button size="sm" variant="secondary" className="h-6 text-[10px] px-2" onClick={addMonthly}>
+                <Plus className="h-3 w-3 mr-1" />Add row
+              </Button>
+            }
+          >
+            {payload.monthly_entries.length === 0 && (
+              <p className="text-xs text-muted-foreground italic text-center py-3">No entries yet.</p>
+            )}
+            {payload.monthly_entries.map((m, idx) => (
+              <div key={idx} className="border border-border rounded p-3 bg-muted/10 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-xs font-semibold">Entry #{idx + 1}</span>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeMonthly(idx)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <SmallField label="Month" value={m.test_month} onChange={(v) => patchMonthly(idx, { test_month: v })} />
+                  <SmallField label="Test date" type="date" value={m.test_date} onChange={(v) => patchMonthly(idx, { test_date: v })} />
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Type</label>
+                    <Select value={m.test_type} onValueChange={(v) => patchMonthly(idx, { test_type: v as any })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Functional">Functional</SelectItem>
+                        <SelectItem value="Duration">Duration</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <SmallField label="Mins" type="number" value={m.duration_mins} onChange={(v) => patchMonthly(idx, { duration_mins: v === "" ? "" : Number(v) })} />
+                  <SmallField label="Total" type="number" value={m.total_luminaires} onChange={(v) => patchMonthly(idx, { total_luminaires: v === "" ? "" : Number(v) })} />
+                  <SmallField label="Pass" type="number" value={m.pass_count} onChange={(v) => patchMonthly(idx, { pass_count: v === "" ? "" : Number(v) })} />
+                  <SmallField label="Fail" type="number" value={m.fail_count} onChange={(v) => patchMonthly(idx, { fail_count: v === "" ? "" : Number(v) })} />
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Result</label>
+                    <Select value={m.result || undefined} onValueChange={(v) => patchMonthly(idx, { result: v as any })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Satisfactory">Satisfactory</SelectItem>
+                        <SelectItem value="Unsatisfactory">Unsatisfactory</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Input className="h-8 text-xs" placeholder="Defects noted" value={m.defects_noted} onChange={(e) => patchMonthly(idx, { defects_noted: e.target.value })} />
+                <Input className="h-8 text-xs" placeholder="Tester name" value={m.tester_name} onChange={(e) => patchMonthly(idx, { tester_name: e.target.value })} />
+              </div>
+            ))}
+          </DocBlock>
+        )}
+
+        {showAnnual && (
+          <DocBlock
+            title="ANNUAL FULL DISCHARGE TEST"
+            actions={
+              <Button size="sm" variant="secondary" className="h-6 text-[10px] px-2" onClick={addAnnual}>
+                <Plus className="h-3 w-3 mr-1" />Add test
+              </Button>
+            }
+          >
+            {payload.annual_entries.length === 0 && (
+              <p className="text-xs text-muted-foreground italic text-center py-3">No tests recorded.</p>
+            )}
+            {payload.annual_entries.map((a, idx) => (
+              <div key={idx} className="border border-border rounded p-3 bg-muted/10 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-xs font-semibold">Test #{idx + 1}</span>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeAnnual(idx)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <SmallField label="Test date" type="date" value={a.test_date} onChange={(v) => patchAnnual(idx, { test_date: v })} />
+                  <SmallField label="Required (h)" type="number" value={a.duration_hours} onChange={(v) => patchAnnual(idx, { duration_hours: v === "" ? "" : Number(v) })} />
+                  <SmallField label="Achieved (h)" type="number" value={a.duration_achieved_hours} onChange={(v) => patchAnnual(idx, { duration_achieved_hours: v === "" ? "" : Number(v) })} />
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Result</label>
+                    <Select value={a.result || undefined} onValueChange={(v) => patchAnnual(idx, { result: v as any })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Pass">Pass</SelectItem>
+                        <SelectItem value="Fail">Fail</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <SmallField label="Total" type="number" value={a.total_luminaires} onChange={(v) => patchAnnual(idx, { total_luminaires: v === "" ? "" : Number(v) })} />
+                  <SmallField label="Pass" type="number" value={a.pass_count} onChange={(v) => patchAnnual(idx, { pass_count: v === "" ? "" : Number(v) })} />
+                  <SmallField label="Fail" type="number" value={a.fail_count} onChange={(v) => patchAnnual(idx, { fail_count: v === "" ? "" : Number(v) })} />
+                </div>
+                <Textarea rows={2} className="text-xs" placeholder="Locations of failed luminaires" value={a.fail_locations} onChange={(e) => patchAnnual(idx, { fail_locations: e.target.value })} />
+              </div>
+            ))}
+          </DocBlock>
+        )}
+
+        {/* Defects */}
+        <DocBlock
+          title="DEFECTS & RECOMMENDATIONS"
+          actions={
+            <Button size="sm" variant="secondary" className="h-6 text-[10px] px-2" onClick={addDefect}>
+              <Plus className="h-3 w-3 mr-1" />Add
+            </Button>
+          }
+        >
+          {payload.defects.length === 0 && (
+            <p className="text-xs text-muted-foreground italic text-center py-3">No defects recorded.</p>
+          )}
+          {payload.defects.map((d, i) => (
+            <div key={d.id} className="border border-border rounded p-3 bg-muted/10 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-xs font-semibold">Defect #{i + 1}</span>
+                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeDefect(d.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <Input className="h-8 text-xs" placeholder="Location" value={d.location} onChange={(e) => patchDefect(d.id, { location: e.target.value })} />
+                <Select value={d.priority || undefined} onValueChange={(v) => patchDefect(d.id, { priority: v as any })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Priority" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Urgent">Urgent</SelectItem>
                     <SelectItem value="Required">Required</SelectItem>
                     <SelectItem value="Advisory">Advisory</SelectItem>
                   </SelectContent>
                 </Select>
+                <label className="flex items-center gap-2 text-xs">
+                  <Checkbox checked={d.remediated} onCheckedChange={(c) => patchDefect(d.id, { remediated: !!c })} />
+                  <span>Remediated</span>
+                </label>
               </div>
-              <div className="col-span-2 space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Description</Label>
-                  <AIRewriteButton text={d.description} type="defects" onRewrite={(v) => upD(d.id, "description", v)} />
-                </div>
-                <Textarea rows={2} value={d.description} onChange={e => upD(d.id, "description", e.target.value)} className="text-sm" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox id={`rem-${d.id}`} checked={d.remediated} onCheckedChange={v => upD(d.id, "remediated", !!v)} />
-                <Label htmlFor={`rem-${d.id}`} className="text-xs">Remediated</Label>
-              </div>
+              <Textarea rows={2} className="text-xs" placeholder="Description" value={d.description} onChange={(e) => patchDefect(d.id, { description: e.target.value })} />
               {d.remediated && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Remediation Date</Label>
-                  <Input type="date" value={d.remediation_date || ""} onChange={e => upD(d.id, "remediation_date", e.target.value)} className="h-8 text-sm" />
-                </div>
+                <Input type="date" className="h-8 text-xs" value={d.remediation_date || ""} onChange={(e) => patchDefect(d.id, { remediation_date: e.target.value })} />
               )}
             </div>
-          </CardContent>
-        </Card>
-      ))}
-      <Button variant="outline" size="sm" onClick={add} className="w-full">
-        <Plus className="w-3.5 h-3.5 mr-1" /> Add Defect
-      </Button>
-    </div>
-  );
-}
+          ))}
+        </DocBlock>
 
-// ── Step 5: Status ────────────────────────────────────────────────────────────
-function StepStatus({ payload, up }: { payload: ELPayload; up: (p: Partial<ELPayload>) => void }) {
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label>Overall Status</Label>
-        <Select value={payload.overall_status} onValueChange={v => up({ overall_status: v as any })}>
-          <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Satisfactory">Satisfactory</SelectItem>
-            <SelectItem value="Satisfactory with Deviations">Satisfactory with Deviations</SelectItem>
-            <SelectItem value="Unsatisfactory">Unsatisfactory</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {(payload.overall_status === "Satisfactory with Deviations" || payload.overall_status === "Unsatisfactory") && (
-        <div className="space-y-1.5">
-          <Label>Deviations / Observations Summary</Label>
-          <div className="flex items-center justify-between mb-1">
-            <span />
-            <AIRewriteButton text={payload.deviations_summary} type="recommendations" onRewrite={(v) => up({ deviations_summary: v })} />
+        {/* Status & next */}
+        <DocBlock title="OVERALL STATUS">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Overall</label>
+              <Select value={payload.overall_status || undefined} onValueChange={(v) => up({ overall_status: v as any })}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Satisfactory">Satisfactory</SelectItem>
+                  <SelectItem value="Satisfactory with Deviations">Satisfactory with Deviations</SelectItem>
+                  <SelectItem value="Unsatisfactory">Unsatisfactory</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <SmallField label="Next inspection" type="date" value={payload.next_inspection_date} onChange={(v) => up({ next_inspection_date: v })} />
           </div>
-          <Textarea rows={3} value={payload.deviations_summary} onChange={e => up({ deviations_summary: e.target.value })} />
-        </div>
-      )}
-      <div className="space-y-1.5">
-        <Label>Recommended Inspection Interval</Label>
-        <Select value={String(payload.recommendation_interval_months)} onValueChange={v => up({ recommendation_interval_months: parseInt(v) as 6 | 12 })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="6">6 months</SelectItem>
-            <SelectItem value="12">12 months</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Next Inspection Date</Label>
-        <Input type="date" value={payload.next_inspection_date} onChange={e => up({ next_inspection_date: e.target.value })} />
-      </div>
-    </div>
-  );
-}
+          <Textarea rows={3} placeholder="Deviations summary" value={payload.deviations_summary} onChange={(e) => up({ deviations_summary: e.target.value })} className="text-xs mt-2" />
+        </DocBlock>
 
-// ── Step 6: Signatures ────────────────────────────────────────────────────────
-function StepSignatures({ payload, up }: { payload: ELPayload; up: (p: Partial<ELPayload>) => void }) {
-  return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold">Engineer / Competent Person</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label>Name</Label>
-            <Input value={payload.engineer_name} onChange={e => up({ engineer_name: e.target.value })} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Date</Label>
-            <Input type="date" value={payload.engineer_date} onChange={e => up({ engineer_date: e.target.value })} />
-          </div>
+        {/* Signatures */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DocBlock title="ENGINEER">
+            <DocField label="Name" value={payload.engineer_name} onChange={(v) => up({ engineer_name: v })} />
+            <DocField label="Date" type="date" value={payload.engineer_date} onChange={(v) => up({ engineer_date: v })} />
+            <div className="text-[11px] text-muted-foreground mb-1 mt-1">Signature</div>
+            <TypedSignature value={payload.engineer_signature || ""} onChange={(v) => up({ engineer_signature: v })} placeholder="Type or draw signature" />
+          </DocBlock>
+          <DocBlock title="CLIENT">
+            <DocField label="Name" value={payload.client_name} onChange={(v) => up({ client_name: v })} />
+            <DocField label="Date" type="date" value={payload.client_date} onChange={(v) => up({ client_date: v })} />
+            <div className="text-[11px] text-muted-foreground mb-1 mt-1">Signature</div>
+            <TypedSignature value={payload.client_signature || ""} onChange={(v) => up({ client_signature: v })} placeholder="Customer signature" />
+          </DocBlock>
         </div>
-        <div className="space-y-1.5">
-          <Label>Signature</Label>
-          <TypedSignature value={payload.engineer_signature} onChange={v => up({ engineer_signature: v })} />
-        </div>
-      </div>
-      <div className="space-y-3">
-        <h3 className="text-sm font-semibold">Client / Responsible Person</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label>Name</Label>
-            <Input value={payload.client_name} onChange={e => up({ client_name: e.target.value })} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Date</Label>
-            <Input type="date" value={payload.client_date} onChange={e => up({ client_date: e.target.value })} />
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Signature (optional — can be captured on site)</Label>
-          <TypedSignature value={payload.client_signature} onChange={v => up({ client_signature: v })} />
-        </div>
-      </div>
-    </div>
-  );
-}
 
-// ── Step 7: Preview ───────────────────────────────────────────────────────────
-function StepPreview({ payload, onDownload }: { payload: ELPayload; onDownload: () => void }) {
-  const formTypeLabels: Record<ELFormType, string> = {
-    commissioning: "Commissioning Certificate",
-    periodic: "Periodic Inspection (EPM6C)",
-    monthly_log: "Monthly Test Log",
-    annual_discharge: "Annual Discharge Test",
-  };
-  const rows = [
-    ["Certificate Ref",   payload.cert_reference],
-    ["Form Type",         formTypeLabels[payload.form_type]],
-    ["Date",              payload.cert_date],
-    ["Premises",          payload.premises_name],
-    ["Address",           payload.premises_address],
-    ["System Type",       payload.system_type],
-    ["Duration",          payload.duration_rating],
-    ["Luminaires",        String(payload.total_luminaires)],
-    ["Status",            payload.overall_status],
-    ["Engineer",          payload.engineer_name],
-  ];
-  return (
-    <div className="space-y-4">
-      <div className="p-4 rounded-lg border bg-muted/20 space-y-2">
-        {rows.filter(([,v]) => v).map(([k, v]) => (
-          <div key={k} className="grid grid-cols-2 gap-2 text-sm">
-            <span className="text-muted-foreground">{k}</span>
-            <span className="font-medium">{v}</span>
-          </div>
-        ))}
-      </div>
-      {payload.defects.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-amber-600">
-          <AlertCircle className="w-4 h-4" />
-          {payload.defects.length} defect{payload.defects.length !== 1 ? "s" : ""} recorded
-        </div>
-      )}
-      <Button onClick={onDownload} className="w-full" variant="outline">
-        <FileDown className="w-4 h-4 mr-2" /> Download PDF
-      </Button>
-    </div>
+        <AISummarySection open={aiOpen} onOpenChange={setAiOpen}>
+          <ClientSummaryPanel payload={payload as any} />
+        </AISummarySection>
+      </DocBody>
+
+      <StickyFooter
+        standardLabel="BS 5266-1:2016 compliant"
+        onClose={() => onOpenChange(false)}
+        onComplete={handleDownload}
+        saving={saving}
+      />
+    </DocDialogShell>
   );
 }
