@@ -6,6 +6,7 @@ import TodaySchedule from "@/components/dashboard/TodaySchedule";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { BankReconciliation } from "@/components/xero/BankReconciliation";
+import { ComplianceCalendar, getComplianceAlertCount } from "@/components/dashboard/ComplianceCalendar";
 import {
   Building2, ClipboardCheck, AlertTriangle, ShieldCheck,
   CreditCard, Award, TrendingUp, ArrowRight
