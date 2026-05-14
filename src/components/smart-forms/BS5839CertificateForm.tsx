@@ -426,6 +426,20 @@ export default function BS5839CertificateForm({
               </div>
             </DocBlock>
 
+            <PhotoAnalysisPanel
+              submissionId={submissionId}
+              context={[
+                payload.certificate_type,
+                payload.premises_name,
+                payload.panel_manufacturer,
+                "BS5839 quarterly inspection"
+              ].filter(Boolean).join(", ")}
+              existingDefects={defects}
+              onAddDefects={(newDefects) => {
+                up("defects", [...defects, ...newDefects]);
+              }}
+            />
+
             {/* 6. DEFECTS */}
             <div className="bg-white border border-border rounded-md overflow-hidden">
               <div className="bg-[#3c3c3c] text-white text-[11px] font-bold uppercase tracking-wider px-4 py-2 flex items-center justify-between">
