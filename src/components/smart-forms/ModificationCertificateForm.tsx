@@ -509,7 +509,7 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
         )}
       </DocBody>
       <StickyFooter
-        standardLabel="BS 5839-1:2025 Modification Certificate"
+        standardLabel="BS 5839-1:2017+A2:2019 Clause 24 · BAFE SP203-1 (FD/05)"
         onClose={() => onOpenChange(false)}
         onComplete={handleGeneratePdf}
         saving={saving}
