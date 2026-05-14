@@ -14,9 +14,12 @@ export async function generateDryRiserPDF(p: DRPayload): Promise<void> {
   doc.setFillColor(...C.navy); doc.rect(0,0,pw,18,"F");
   doc.setFontSize(10); doc.setFont("helvetica","bold"); doc.setTextColor(...C.white);
   doc.text(companyName, ML, 8);
-  doc.text(`DRY RISER — ${formLabel}`, pw/2, 8, { align:"center" });
+  doc.text(`DRY RISING MAIN — ${formLabel}`, pw/2, 8, { align:"center" });
   doc.setFontSize(7); doc.setFont("helvetica","normal");
-  doc.text(`${p.cert_reference} | BS 9990:2015`, pw/2, 14, { align:"center" });
+  doc.text(`${p.cert_reference}`, pw/2, 12.5, { align:"center" });
+  doc.setFontSize(7.5); doc.setFont("helvetica","bold"); doc.setTextColor(245,130,32);
+  doc.text("BS 9990:2015 — Code of practice for non-automatic firefighting systems", pw/2, 16.5, { align:"center" });
+  doc.setTextColor(...C.text);
 
   const statusColor = p.overall_status === "Compliant" ? C.green : C.red;
   doc.setFillColor(p.overall_status==="Compliant"?240:254, p.overall_status==="Compliant"?253:226, p.overall_status==="Compliant"?244:226);
