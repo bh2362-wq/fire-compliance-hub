@@ -215,7 +215,7 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
   return (
     <DocDialogShell open={open} onOpenChange={onOpenChange}>
       <StickyHeader
-        title="ASD Service Certificate"
+        title="ASD — Annual Service Certificate · BS EN 54-20:2006+A1:2012"
         reference={(payload as any).certificate_reference}
         status="valid"
         onSaveDraft={() => save("draft")}
@@ -225,12 +225,15 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
       />
       <DocBody>
         <TitleBlock
-          title="ASD Service Certificate"
-          subtitle="BS EN 54-20:2006+A1:2012 · BS 5839-1"
+          title="Aspirating Smoke Detection System — Annual Service Certificate"
+          subtitle="BS EN 54-20:2006+A1:2012 · FIA Code of Practice ASD Systems"
           reference={(payload as any).certificate_reference}
           date={(payload as any).date_of_service}
           onDateChange={(v) => up({ date_of_service: v } as any)}
         />
+        <p className="text-[11px] italic text-muted-foreground px-1">
+          Serviced in accordance with FIA Code of Practice for Aspirating Smoke Detection Systems §8 (Maintenance) and BS EN 54-20:2006+A1:2012. FIA CoP §8.3: All post-service airflow readings must be within ±20% of the commissioned baseline.
+        </p>
         {sectionRenderers.map((Comp, i) => (
           <DocBlock key={STEPS[i]} title={`${i + 1}. ${STEPS[i]}`}>
             <Comp payload={payload} up={up} />
@@ -244,7 +247,7 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
         />
       </DocBody>
       <StickyFooter
-        standardLabel="ASD Service Certificate · BS EN 54-20"
+        standardLabel="ASD Annual Service · BS EN 54-20:2006+A1:2012 · FIA CoP"
         onClose={() => onOpenChange(false)}
         onComplete={() => save("completed")}
         saving={saving}
