@@ -958,10 +958,23 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   }
                 }}
               >
-                <ShieldCheck className="w-3 h-3" />
-                Issue cert
               </Button>
             )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setPreviewVisit(visit)}
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {reportInfo?.id ? "Open Report" : "Create Report"}
+              </TooltipContent>
+            </Tooltip>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -969,6 +982,11 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setPreviewVisit(visit)}>
+                  <ClipboardCheck className="w-4 h-4 mr-2" />
+                  {reportInfo?.id ? "Open Report" : "Create Report"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate(`/dashboard/sites/${visit.site_id}`)}>
                   <Eye className="w-4 h-4 mr-2" />
                   View Site
