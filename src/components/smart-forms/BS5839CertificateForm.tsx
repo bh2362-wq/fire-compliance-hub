@@ -641,7 +641,7 @@ function SectionRows({ section, onChange }: {
                 </td>
               </tr>
             )}
-          </>
+          </React.Fragment>
         );
       })}
     </>
