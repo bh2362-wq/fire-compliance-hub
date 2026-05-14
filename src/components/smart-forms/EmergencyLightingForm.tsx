@@ -771,7 +771,7 @@ function StepSignatures({ payload, up }: { payload: ELPayload; up: (p: Partial<E
         </div>
         <div className="space-y-1.5">
           <Label>Signature</Label>
-          <TypedSignature value={payload.engineer_signature} onChange={v => up({ engineer_signature: v })} />
+          <SmartSignature value={payload.engineer_signature || ""} onChange={v => up({ engineer_signature: v })} />
         </div>
       </div>
       <div className="space-y-3">
@@ -788,7 +788,7 @@ function StepSignatures({ payload, up }: { payload: ELPayload; up: (p: Partial<E
         </div>
         <div className="space-y-1.5">
           <Label>Signature (optional — can be captured on site)</Label>
-          <TypedSignature value={payload.client_signature} onChange={v => up({ client_signature: v })} />
+          <SmartSignature value={payload.client_signature || ""} onChange={v => up({ client_signature: v })} showAbsent />
         </div>
       </div>
     </div>

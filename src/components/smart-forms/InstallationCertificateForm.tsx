@@ -238,7 +238,7 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
             <span className="text-xs leading-relaxed">I am a competent person as defined in BS 5839-1 and have the knowledge, skills and experience necessary to carry out this installation.</span>
           </label>
           <F label="Signature">
-            <TypedSignature value={(payload.engineer_signature || "").replace(/^typed:/, "")} onChange={(v) => up("engineer_signature", v ? `typed:${v}` : "")} placeholder="Type name to create signature" />
+            <SmartSignature value={payload.engineer_signature || ""} onChange={(v) => up("engineer_signature", v)} />
           </F>
           <F label="Date Signed"><Input type="date" value={payload.engineer_signed_date || ""} onChange={(e) => up("engineer_signed_date", e.target.value)} /></F>
         </div>
@@ -252,7 +252,7 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
             <Input value={payload.rp_name_signed || ""} onChange={(e) => up("rp_name_signed", e.target.value)} placeholder="Name of person signing on behalf of premises" />
           </F>
           <F label="Signature (on-site capture or leave blank)">
-            <TypedSignature value={(payload.rp_signature || "").replace(/^typed:/, "")} onChange={(v) => up("rp_signature", v ? `typed:${v}` : "")} placeholder="Type name or leave blank" />
+            <SmartSignature value={payload.rp_signature || ""} onChange={(v) => up("rp_signature", v)} showAbsent />
           </F>
           <F label="Date Signed"><Input type="date" value={payload.rp_signed_date || ""} onChange={(e) => up("rp_signed_date", e.target.value)} /></F>
         </div>

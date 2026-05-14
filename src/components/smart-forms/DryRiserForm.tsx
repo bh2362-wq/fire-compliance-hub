@@ -482,7 +482,7 @@ function StepSignatures({ payload, up }: { payload: DRPayload; up: (p: Partial<D
           <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={payload.engineer_date} onChange={e => up({ engineer_date: e.target.value })} /></div>
         </div>
         <div className="space-y-1.5"><Label>Signature</Label>
-          <TypedSignature value={payload.engineer_signature} onChange={v => up({ engineer_signature: v })} /></div>
+          <SmartSignature value={payload.engineer_signature || ""} onChange={v => up({ engineer_signature: v })} /></div>
       </div>
       <div className="space-y-3">
         <h3 className="text-sm font-semibold">Client / Responsible Person</h3>
@@ -491,7 +491,7 @@ function StepSignatures({ payload, up }: { payload: DRPayload; up: (p: Partial<D
           <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={payload.client_date} onChange={e => up({ client_date: e.target.value })} /></div>
         </div>
         <div className="space-y-1.5"><Label>Signature (optional)</Label>
-          <TypedSignature value={payload.client_signature} onChange={v => up({ client_signature: v })} /></div>
+          <SmartSignature value={payload.client_signature || ""} onChange={v => up({ client_signature: v })} showAbsent /></div>
       </div>
     </div>
   );
