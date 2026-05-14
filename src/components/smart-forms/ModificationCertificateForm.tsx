@@ -488,6 +488,12 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
             {renderStep(i)}
           </DocBlock>
         ))}
+
+        <AIAssistBlock
+          payload={payload as any}
+          formLabel="BS 5839-1 Modification Certificate"
+          extraInstruction="Summarise the modification works carried out, confirm post-modification testing passed, and note any change in system category."
+        />
         {errors.length > 0 && (
           <div className="p-3 rounded-md border border-destructive/40 bg-destructive/5 space-y-1">
             <p className="text-xs font-semibold text-destructive flex items-center gap-1">
