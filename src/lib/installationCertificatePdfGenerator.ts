@@ -32,7 +32,8 @@ export async function generateInstallationCertificatePDF(
   const certRef = san(payload.certificate_reference || "INST-CERT");
   const dateStr = payload.date_of_completion
     ? format(new Date(payload.date_of_completion), "dd MMMM yyyy") : "";
-  const standard = san(payload.standard_installed_to || "BS 5839-1:2017+A2:2019");
+  const baseStandard = san(payload.standard_installed_to || "BS 5839-1:2017+A2:2019");
+  const standard = `${baseStandard} Annex E  ·  BAFE SP203-1 FD/02`;
   const engName  = san(payload.engineer_name || "");
 
   // ── PAGE 1 ────────────────────────────────────────────────────────────────
