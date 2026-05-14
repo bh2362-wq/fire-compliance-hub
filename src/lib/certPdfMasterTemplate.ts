@@ -35,6 +35,7 @@ export const COLORS = {
   ambBd:      [253, 224, 71]  as [number, number, number],
   redBg:      [254, 242, 242] as [number, number, number],
   redBd:      [252, 165, 165] as [number, number, number],
+  fireOrange: [245, 130, 32]  as [number, number, number],   // brand accent (hsl 25 92% 54%)
 };
 
 export const MARGIN = 15;         // mm
