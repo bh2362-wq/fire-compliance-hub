@@ -196,8 +196,11 @@ export function drawCertTitle(
 
   doc.setFont("helvetica", "normal"); doc.setFontSize(10);
   doc.setTextColor(...COLORS.textSec);
-  doc.text(subtitle, ml, y); y += 7;
+  doc.text(subtitle, ml, y); y += 6;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
+  doc.setTextColor(...COLORS.fireOrange);
   doc.text(standard, ml, y); y += 10;
+  doc.setTextColor(...COLORS.textSec);
   return y;
 }
 
