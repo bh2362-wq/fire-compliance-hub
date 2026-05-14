@@ -123,7 +123,7 @@ const SectionLabel = ({
   isMobile: boolean;
 }) =>
   !collapsed || isMobile ? (
-    <p className="px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-sidebar-foreground/30 select-none">{label}</p>
+    <p className="px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-sidebar-foreground/30 select-none">
       {label}
     </p>
   ) : (
