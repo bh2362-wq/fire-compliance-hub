@@ -143,8 +143,8 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
     </div>
   );
 
-  const renderStep = () => {
-    switch (step) {
+  const renderStep = (idx: number = step) => {
+    switch (idx) {
       case 0: return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <F label="Certificate Reference"><Input value={payload.certificate_reference || "(auto-generated on save)"} disabled className="font-mono text-xs" /></F>
