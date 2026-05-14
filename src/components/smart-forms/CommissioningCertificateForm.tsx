@@ -343,7 +343,7 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
   return (
     <DocDialogShell open={open} onOpenChange={onOpenChange}>
       <StickyHeader
-        title="BS 5839-1:2025 Commissioning Certificate"
+        title="FD/03 — Fire Alarm Commissioning Certificate · BS 5839-1:2017+A2:2019 Annex C"
         reference={payload.certificate_reference}
         status={errors.length > 0 ? "issues" : "valid"}
         onSaveDraft={() => persist("draft")}
@@ -357,12 +357,15 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
       />
       <DocBody>
         <TitleBlock
-          title="Commissioning Certificate"
-          subtitle="BS 5839-1:2025 — Fire Detection & Alarm System"
+          title="Fire Alarm System — Commissioning Certificate"
+          subtitle="BS 5839-1:2017+A2:2019 Annex C · BAFE SP203-1 FD/03"
           reference={payload.certificate_reference}
           date={payload.date_of_commissioning}
           onDateChange={(v) => up("date_of_commissioning", v)}
         />
+        <p className="text-[11px] italic text-muted-foreground px-1">
+          Issued in accordance with BS 5839-1:2017+A2:2019 Clause 23 — Commissioning and BAFE SP203-1 Section 5 (FD/03).
+        </p>
         {STEPS.slice(0, -1).map((label, i) => (
           <DocBlock key={label} title={`${i + 1}. ${label}`}>
             {renderStep(i)}
