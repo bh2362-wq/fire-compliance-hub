@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TypedSignature } from "@/components/ui/typed-signature";
+import { SmartSignature } from "@/components/ui/smart-signature";
 import { ChevronLeft, ChevronRight, Save, FileDown, AlertTriangle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -232,7 +232,7 @@ export default function DeclinationForm({ open, onOpenChange, visitId, siteId, o
                     <Input type="date" value={payload.bho_date} onChange={e => up({ bho_date: e.target.value })} /></div>
                 </div>
                 <div className="space-y-1.5"><Label>Signature</Label>
-                  <TypedSignature value={payload.bho_signature} onChange={v => up({ bho_signature: v })} /></div>
+                  <SmartSignature value={payload.bho_signature || ""} onChange={v => up({ bho_signature: v })} /></div>
               </div>
 
               {/* Client */}
@@ -245,7 +245,7 @@ export default function DeclinationForm({ open, onOpenChange, visitId, siteId, o
                     <Input type="date" value={payload.signed_date} onChange={e => up({ signed_date: e.target.value })} /></div>
                 </div>
                 <div className="space-y-1.5"><Label>Signature</Label>
-                  <TypedSignature value={payload.signature} onChange={v => up({ signature: v })} /></div>
+                  <SmartSignature value={payload.signature || ""} onChange={v => up({ signature: v })} showAbsent /></div>
                 <div className="space-y-1.5"><Label>Witness Name (optional)</Label>
                   <Input value={payload.witnessed_by} onChange={e => up({ witnessed_by: e.target.value })} placeholder="Name of witness if applicable" /></div>
               </div>

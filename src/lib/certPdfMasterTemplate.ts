@@ -348,7 +348,7 @@ export function drawSignatureBox(
   cli: { name: string; date?: string; sig?: string },
   title = "DECLARATION & SIGNATURES"
 ): number {
-  const ml = MARGIN, cw = pw - ml * 2, boxH = 46;
+  const ml = MARGIN, cw = pw - ml * 2, boxH = 58;  // increased from 46
   doc.setFillColor(...COLORS.bgLight);
   doc.setDrawColor(...COLORS.accent); doc.setLineWidth(1);
   doc.roundedRect(ml, y, cw, boxH, 3, 3, "FD");
@@ -365,45 +365,54 @@ export function drawSignatureBox(
   y += 14;
 
   [[eng, "ENGINEER / COMPETENT PERSON"],
-   [cli, "CLIENT / RESPONSIBLE PERSON"]] .forEach(([person, label], i) => {
+   [cli, "CLIENT / RESPONSIBLE PERSON"]].forEach(([person, label], i) => {
     const p = person as typeof eng;
     const x = ml + 6 + i * (sigW + 8);
+
     doc.setFont("helvetica", "bold"); doc.setFontSize(7);
     doc.setTextColor(...COLORS.textMut);
     doc.text(label as string, x, y);
+
     doc.setFont("helvetica", "bold"); doc.setFontSize(8.5);
     doc.setTextColor(...COLORS.textPri);
     doc.text(san(p.name), x, y + 7);
+
     doc.setFont("helvetica", "normal"); doc.setFontSize(8);
     doc.setTextColor(...COLORS.textSec);
     if (p.date) doc.text(san(p.date), x, y + 13);
 
-    // Signature
-    if (p.sig) {
-      if (p.sig.startsWith("typed:")) {
-        const name = p.sig.replace("typed:", "");
-        doc.setFont("times", "bolditalic"); doc.setFontSize(16);
-        doc.setTextColor(...COLORS.textPri);
-        doc.text(name, x + 2, y + 28);
-      } else {
-        try { doc.addImage(p.sig, "PNG", x + 2, y + 17, sigW - 4, 12, undefined, "FAST"); }
-        catch { /* skip */ }
-      }
+    // Signature rendering
+    if (p.sig === "absent") {
+      // Client not present — amber italic note
+      doc.setFont("helvetica", "bolditalic"); doc.setFontSize(9);
+      doc.setTextColor(180, 100, 10);
+      doc.text("Not present on site", x + 2, y + 30);
+    } else if (p.sig?.startsWith("typed:")) {
+      // Typed name — render in script font
+      const name = p.sig.replace("typed:", "");
+      doc.setFont("times", "bolditalic"); doc.setFontSize(18);
+      doc.setTextColor(...COLORS.textPri);
+      doc.text(name, x + 2, y + 32);
+    } else if (p.sig?.startsWith("data:")) {
+      // Drawn PNG signature — render larger (20mm tall)
+      try {
+        doc.addImage(p.sig, "PNG", x + 2, y + 16, sigW - 4, 20, undefined, "FAST");
+      } catch { /* skip if image fails */ }
     }
 
     // Signature line
     doc.setDrawColor(...COLORS.borderDark); doc.setLineWidth(0.5);
-    doc.line(x, y + 32, x + sigW - 4, y + 32);
+    doc.line(x, y + 40, x + sigW - 4, y + 40);
     doc.setFont("helvetica", "normal"); doc.setFontSize(7);
     doc.setTextColor(...COLORS.textMut);
-    doc.text("Signature", x, y + 36);
+    doc.text("Signature", x, y + 44);
   });
 
   // Vertical divider
   doc.setDrawColor(...COLORS.border); doc.setLineWidth(0.5);
-  doc.line(ml + cw / 2, y - 4, ml + cw / 2, y + 38);
+  doc.line(ml + cw / 2, y - 4, ml + cw / 2, y + 46);
 
-  return y + 44;
+  return y + 52;
 }
 
 // ── MASTER FOOTER — exact match to quotationPdfGenerator.ts ──────────────────

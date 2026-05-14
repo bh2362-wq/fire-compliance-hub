@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TypedSignature } from "@/components/ui/typed-signature";
+import { SmartSignature } from "@/components/ui/smart-signature";
 import {
   ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown,
   AlertCircle, CheckCircle2, Wind, Gauge, Clock, Zap,
@@ -696,13 +696,13 @@ export default function ASDCommissioningForm({ open, onOpenChange, siteId, custo
               <p className="text-xs font-bold">Engineer</p>
               <Input value={payload.engineer_name} onChange={e => update("engineer_name", e.target.value)} placeholder="Full name" />
               <Input type="date" value={payload.engineer_date} onChange={e => update("engineer_date", e.target.value)} />
-              <TypedSignature value={payload.engineer_signature} onChange={v => update("engineer_signature", v)} placeholder="Engineer signature" />
+              <SmartSignature value={payload.engineer_signature || ""} onChange={(v) => update("engineer_signature", v)} />
             </div>
             <div className="space-y-2">
               <p className="text-xs font-bold">Client / Responsible Person</p>
               <Input value={payload.client_name} onChange={e => update("client_name", e.target.value)} placeholder="Full name" />
               <Input type="date" value={payload.client_date} onChange={e => update("client_date", e.target.value)} />
-              <TypedSignature value={payload.client_signature} onChange={v => update("client_signature", v)} placeholder="Client signature" />
+              <SmartSignature value={payload.client_signature || ""} onChange={(v) => update("client_signature", v)} showAbsent />
             </div>
           </div>
         </div>

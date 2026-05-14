@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TypedSignature } from "@/components/ui/typed-signature";
+import { SmartSignature } from "@/components/ui/smart-signature";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -862,8 +862,7 @@ function Step12({ payload, update }: StepProps) {
       </div>
       <Field label="Engineer Name"><Input value={payload.engineer_declaration_name || payload.engineer_name || ""} onChange={(e) => update("engineer_declaration_name", e.target.value)} /></Field>
       <Field label="Signature">
-        <TypedSignature value={(payload.engineer_signature || "").replace(/^typed:/, "")} onChange={(v) => update("engineer_signature", v ? `typed:${v}` : "")} placeholder="Type engineer name to sign" />
-        <p className="text-[11px] text-muted-foreground mt-1">Leave blank to auto-sign with the engineer's name on the PDF.</p>
+        <SmartSignature value={payload.engineer_signature || ""} onChange={(v) => update("engineer_signature", v)} />
       </Field>
       <Field label="Date"><Input type="date" value={payload.engineer_signed_date || ""} onChange={(e) => update("engineer_signed_date", e.target.value)} /></Field>
     </div>
@@ -875,7 +874,7 @@ function Step13({ payload, update }: StepProps) {
     <div className="space-y-3">
       <Field label="Client Name"><Input value={payload.client_name || ""} onChange={(e) => update("client_name", e.target.value)} /></Field>
       <Field label="Signature">
-        <TypedSignature value={(payload.client_signature || "").replace(/^typed:/, "")} onChange={(v) => update("client_signature", v ? `typed:${v}` : "")} placeholder="Type client name to sign on-site" />
+        <SmartSignature value={payload.client_signature || ""} onChange={(v) => update("client_signature", v)} showAbsent />
       </Field>
       <Field label="Date"><Input type="date" value={payload.client_signed_date || ""} onChange={(e) => update("client_signed_date", e.target.value)} /></Field>
     </div>

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { TypedSignature } from "@/components/ui/typed-signature";
+import { SmartSignature } from "@/components/ui/smart-signature";
 import { ChevronLeft, ChevronRight, Save, FileDown, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -420,7 +420,7 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
             <Checkbox checked={!!payload.engineer_competency_confirmed} onCheckedChange={(c) => up("engineer_competency_confirmed", !!c)} />
             <span className="text-xs leading-relaxed">I am a competent person as defined in BS 5839-1 and have the requisite knowledge, skills and experience to carry out this modification work.</span>
           </label>
-          <F label="Signature"><TypedSignature value={(payload.engineer_signature || "").replace(/^typed:/, "")} onChange={(v) => up("engineer_signature", v ? `typed:${v}` : "")} placeholder="Type name to create signature" /></F>
+          <F label="Signature"><SmartSignature value={payload.engineer_signature || ""} onChange={(v) => up("engineer_signature", v)} /></F>
           <F label="Date Signed"><Input type="date" value={payload.engineer_signed_date || ""} onChange={(e) => up("engineer_signed_date", e.target.value)} /></F>
         </div>
       );
@@ -430,7 +430,7 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
             I acknowledge receipt of this modification certificate and confirm that I have been informed of the nature and extent of the modifications carried out and any outstanding works.
           </div>
           <F label="Responsible Person Name"><Input value={payload.rp_name_signed || ""} onChange={(e) => up("rp_name_signed", e.target.value)} /></F>
-          <F label="Signature (on-site or leave blank)"><TypedSignature value={(payload.rp_signature || "").replace(/^typed:/, "")} onChange={(v) => up("rp_signature", v ? `typed:${v}` : "")} placeholder="Type name or leave blank" /></F>
+          <F label="Signature (on-site or leave blank)"><SmartSignature value={payload.rp_signature || ""} onChange={(v) => up("rp_signature", v)} showAbsent /></F>
           <F label="Date Signed"><Input type="date" value={payload.rp_signed_date || ""} onChange={(e) => up("rp_signed_date", e.target.value)} /></F>
         </div>
       );
