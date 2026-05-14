@@ -389,7 +389,7 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
         )}
       </DocBody>
       <StickyFooter
-        standardLabel="BS 5839-1:2025 Commissioning Certificate"
+        standardLabel="BS 5839-1:2017+A2:2019 Annex C · BAFE SP203-1 (FD/03)"
         onClose={() => onOpenChange(false)}
         onComplete={handleGeneratePdf}
         saving={saving}
