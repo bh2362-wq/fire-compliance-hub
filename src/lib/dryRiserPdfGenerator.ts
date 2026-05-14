@@ -117,10 +117,11 @@ export async function generateDryRiserPDF(p: DRPayload): Promise<void> {
   const total = doc.getNumberOfPages();
   for (let i = 1; i <= total; i++) {
     doc.setPage(i);
-    doc.setDrawColor(...C.border); doc.setLineWidth(0.2); doc.line(ML, 284, pw-14, 284);
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.2); doc.line(ML, 282, pw-14, 282);
     doc.setFontSize(6.5); doc.setFont("helvetica","normal"); doc.setTextColor(128,128,128);
-    doc.text(`${companyName} | ${p.cert_reference} | ${p.standard_references}`, ML, 289, { maxWidth: CW-20 });
-    doc.text(`Page ${i} of ${total}`, pw-14, 289, { align:"right" });
+    doc.text(`BHO Fire Ltd | Company Registration No. 12235152 | FIA Member | BAFE Registered`, ML, 287, { maxWidth: CW-20 });
+    doc.text(`${p.cert_reference} | ${p.standard_references}`, ML, 290.5, { maxWidth: CW-20 });
+    doc.text(`Page ${i} of ${total}`, pw-14, 290.5, { align:"right" });
   }
   doc.save(`${p.cert_reference || "DryRiser-Certificate"}.pdf`);
 }
