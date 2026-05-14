@@ -10,28 +10,24 @@ const COMPANY = {
   email: "admin@bhofire.com",
   website: "www.bhofire.com",
   registration: "Company Registration No. 12235152",
+  vat: "GB404667595",
   country: "Registered in England & Wales",
 };
 
-// Premium Corporate Color Palette
+// Cert-style palette (matches BS5839 service report)
 const COLORS = {
-  // Primary brand colors
-  primary: [28, 28, 32] as [number, number, number],        // Deep charcoal
-  accent: [185, 28, 28] as [number, number, number],        // Corporate red
-  accentLight: [220, 38, 38] as [number, number, number],   // Lighter red for accents
-  
-  // Text hierarchy
-  textPrimary: [17, 24, 39] as [number, number, number],    // Near black for headings
-  textSecondary: [55, 65, 81] as [number, number, number],  // Dark grey for body
-  textMuted: [107, 114, 128] as [number, number, number],   // Medium grey for labels
-  textLight: [156, 163, 175] as [number, number, number],   // Light grey for hints
-  
-  // Backgrounds and borders
-  bgLight: [249, 250, 251] as [number, number, number],     // Very light grey
-  bgSubtle: [243, 244, 246] as [number, number, number],    // Subtle grey
-  border: [229, 231, 235] as [number, number, number],      // Light border
-  borderDark: [209, 213, 219] as [number, number, number],  // Darker border
-  
+  primary: [26, 26, 26] as [number, number, number],         // #1a1a1a primary dark
+  accent: [232, 92, 44] as [number, number, number],         // #e85c2c orange
+  sectionBg: [60, 60, 60] as [number, number, number],       // #3c3c3c section header bg
+  sectionText: [255, 255, 255] as [number, number, number],  // white section header text
+  border: [224, 224, 224] as [number, number, number],       // #e0e0e0
+  borderDark: [200, 200, 200] as [number, number, number],
+  textPrimary: [26, 26, 26] as [number, number, number],
+  textSecondary: [60, 64, 67] as [number, number, number],
+  textMuted: [95, 99, 104] as [number, number, number],      // #5f6368
+  textLight: [154, 160, 166] as [number, number, number],
+  altRow: [250, 250, 250] as [number, number, number],       // #fafafa
+  bgLight: [248, 249, 250] as [number, number, number],
   white: [255, 255, 255] as [number, number, number],
 };
 
@@ -106,7 +102,19 @@ interface CompanySettings {
   bank_account_name?: string | null;
 }
 
-// Load company logo
+// ─── Helpers ───────────────────────────────────────────────────────
+
+function sanitise(s: string | null | undefined): string {
+  if (!s) return "";
+  return s
+    .replace(/[\u2022\u2023\u25E6\u2043\u2219\u25CF\u25CB]/g, "-")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[\u2018\u2019\u201A]/g, "'")
+    .replace(/[\u201C\u201D\u201E]/g, '"')
+    .replace(/[\u2026]/g, "...")
+    .replace(/[^\x00-\x7F]/g, "");
+}
+
 async function loadLogo(url: string | null | undefined): Promise<HTMLImageElement | null> {
   if (!url) return null;
   return new Promise((resolve) => {
@@ -118,117 +126,117 @@ async function loadLogo(url: string | null | undefined): Promise<HTMLImageElemen
   });
 }
 
-// Premium header — matches PO style
-function addHeader(
+// ─── Page header (logo left, address right, divider) ──────────────
+
+function drawPageHeader(
   doc: jsPDF,
   pageWidth: number,
   margin: number,
   logoImg: HTMLImageElement | null,
-  settings?: CompanySettings,
-  quotationNumber?: string
+  settings?: CompanySettings
 ): number {
-  let yPos = 20;
+  const yPos = 14;
 
-  // Company logo — left side (32x28, matching PO)
   if (logoImg) {
     try {
       doc.addImage(logoImg, "PNG", margin, yPos - 2, 32, 28);
     } catch {
       doc.setTextColor(...COLORS.primary);
-      doc.setFontSize(14);
+      doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
-      doc.text(settings?.company_name || COMPANY.name, margin, yPos + 10);
+      doc.text(settings?.company_name || COMPANY.name, margin, yPos + 8);
     }
   } else {
     doc.setTextColor(...COLORS.primary);
-    doc.setFontSize(14);
+    doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
-    doc.text(settings?.company_name || COMPANY.name, margin, yPos + 10);
+    doc.text(settings?.company_name || COMPANY.name, margin, yPos + 8);
   }
 
-  // Company contact details — right-aligned (matching PO style)
   const rightX = pageWidth - margin;
-  let contactY = yPos;
-
+  let cy = yPos;
   doc.setTextColor(...COLORS.textSecondary);
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setFont("helvetica", "bold");
-  if (settings?.company_name || COMPANY.name) {
-    doc.text(settings?.company_name || COMPANY.name, rightX, contactY, { align: "right" });
-    contactY += 5;
-  }
-
+  doc.text(settings?.company_name || COMPANY.name, rightX, cy, { align: "right" });
+  cy += 4;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setTextColor(...COLORS.textMuted);
-
   if (settings?.address || COMPANY.address) {
-    doc.text(settings?.address || COMPANY.address, rightX, contactY, { align: "right" });
-    contactY += 4;
+    doc.text(settings?.address || COMPANY.address, rightX, cy, { align: "right" });
+    cy += 3.5;
   }
-
-  const cityPostLine = `${settings?.city || ""} ${settings?.postcode || ""}`.trim();
-  if (cityPostLine) {
-    doc.text(cityPostLine, rightX, contactY, { align: "right" });
-    contactY += 4;
+  const cityPost = `${settings?.city || ""} ${settings?.postcode || ""}`.trim();
+  if (cityPost) {
+    doc.text(cityPost, rightX, cy, { align: "right" });
+    cy += 3.5;
   }
-
   if (settings?.phone || COMPANY.phone) {
-    doc.text(`T: ${settings?.phone || COMPANY.phone}`, rightX, contactY, { align: "right" });
-    contactY += 4;
+    doc.text(`T: ${settings?.phone || COMPANY.phone}`, rightX, cy, { align: "right" });
+    cy += 3.5;
   }
   if (settings?.email || COMPANY.email) {
-    doc.text(`E: ${settings?.email || COMPANY.email}`, rightX, contactY, { align: "right" });
+    doc.text(`E: ${settings?.email || COMPANY.email}`, rightX, cy, { align: "right" });
   }
 
-  yPos = 48;
+  const dividerY = 44;
   doc.setDrawColor(...COLORS.border);
   doc.setLineWidth(0.3);
-  doc.line(margin, yPos, pageWidth - margin, yPos);
+  doc.line(margin, dividerY, pageWidth - margin, dividerY);
 
-  return yPos + 8;
+  return dividerY + 7;
 }
 
-// Premium document title section
-function addTitleSection(
+// ─── Title ────────────────────────────────────────────────────────
+
+function drawTitle(
   doc: jsPDF,
   pageWidth: number,
   margin: number,
   yPos: number,
-  quotationNumber: string,
   data: QuotationData
 ): number {
-  const contentWidth = pageWidth - margin * 2;
-  
-  // Large "QUOTATION" title with accent
-  doc.setTextColor(...COLORS.accent);
-  doc.setFontSize(28);
-  doc.setFont("helvetica", "bold");
-  doc.text("QUOTATION", margin, yPos + 8);
-  
-  // Quotation number - clean text style
   doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(12);
+  doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text(quotationNumber, pageWidth - margin, yPos + 4, { align: "right" });
-  
-  yPos += 18;
-  
-  // Subtitle with title if exists — wrap to prevent overflow
-  if (data.title) {
-    doc.setTextColor(...COLORS.textSecondary);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    const titleLines = doc.splitTextToSize(data.title, contentWidth);
-    doc.text(titleLines, margin, yPos);
-    yPos += titleLines.length * 4.5 + 4;
-  }
-  
-  return yPos;
+  doc.text("Quotation", margin, yPos + 6);
+
+  const rightX = pageWidth - margin;
+  doc.setTextColor(...COLORS.primary);
+  doc.setFontSize(10);
+  doc.setFont("courier", "bold");
+  doc.text(data.quotation_number, rightX, yPos + 2, { align: "right" });
+  doc.setFont("courier", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...COLORS.textMuted);
+  doc.text(format(new Date(data.created_at), "dd MMM yyyy"), rightX, yPos + 7, { align: "right" });
+
+  return yPos + 14;
 }
 
-// Elegant info cards — auto-sized to content
-function addInfoCards(
+// ─── Section header bar (#3c3c3c full-width) ──────────────────────
+
+function drawSectionHeader(
+  doc: jsPDF,
+  title: string,
+  yPos: number,
+  x: number,
+  width: number,
+  height = 6
+): number {
+  doc.setFillColor(...COLORS.sectionBg);
+  doc.rect(x, yPos, width, height, "F");
+  doc.setTextColor(...COLORS.sectionText);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.text(title.toUpperCase(), x + 3, yPos + height - 1.7);
+  return yPos + height;
+}
+
+// ─── Side-by-side CLIENT / SITE+QUOTE DETAILS ─────────────────────
+
+function drawInfoBlocks(
   doc: jsPDF,
   pageWidth: number,
   margin: number,
@@ -236,412 +244,160 @@ function addInfoCards(
   data: QuotationData
 ): number {
   const contentWidth = pageWidth - margin * 2;
-  const cardWidth = (contentWidth - 8) / 2;
+  const colGap = 4;
+  const colWidth = (contentWidth - colGap) / 2;
   const leftX = margin;
-  const rightX = margin + cardWidth + 8;
+  const rightX = margin + colWidth + colGap;
 
-  // Calculate left card height
-  let leftContentH = 0;
-  leftContentH += 10; // DATE ISSUED label + value
-  leftContentH += 14; // VALID UNTIL label + value
-  const leftCardHeight = 8 + 6 + leftContentH + 4; // header + padding-top + content + padding-bottom
-
-  // Calculate right card height
-  let rightContentH = 0;
-  if (data.customer) {
-    rightContentH += 6; // name
-    if (data.customer.contact_name) rightContentH += 4;
-    if (data.customer.address) rightContentH += 4;
-    if (data.customer.city || data.customer.postcode) rightContentH += 4;
-    if (data.customer.contact_email) rightContentH += 4;
-  } else {
-    rightContentH += 5;
-  }
-  const rightCardHeight = 8 + 6 + rightContentH + 4;
-
-  const cardHeight = Math.max(leftCardHeight, rightCardHeight);
-
-  // Left card - Quote Details
-  doc.setFillColor(...COLORS.bgLight);
-  doc.roundedRect(leftX, yPos, cardWidth, cardHeight, 3, 3, "F");
-  doc.setDrawColor(...COLORS.border);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(leftX, yPos, cardWidth, cardHeight, 3, 3, "S");
-
-  // Card header
-  doc.setFillColor(...COLORS.primary);
-  doc.roundedRect(leftX, yPos, cardWidth, 8, 3, 3, "F");
-  doc.rect(leftX, yPos + 5, cardWidth, 3, "F");
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  doc.text("QUOTE DETAILS", leftX + 6, yPos + 5.5);
-
-  let cardY = yPos + 14;
-  doc.setTextColor(...COLORS.textMuted);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.text("DATE ISSUED", leftX + 6, cardY);
-  doc.setTextColor(...COLORS.textPrimary);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text(format(new Date(data.created_at), "dd MMMM yyyy"), leftX + 6, cardY + 5);
-
-  cardY += 14;
-  doc.setTextColor(...COLORS.textMuted);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.text("VALID UNTIL", leftX + 6, cardY);
-  doc.setTextColor(...COLORS.textPrimary);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text(
-    data.valid_until ? format(new Date(data.valid_until), "dd MMMM yyyy") : "30 days from issue",
-    leftX + 6,
-    cardY + 5
-  );
-
-  // Right card - Quote For
-  doc.setFillColor(...COLORS.bgLight);
-  doc.roundedRect(rightX, yPos, cardWidth, cardHeight, 3, 3, "F");
-  doc.setDrawColor(...COLORS.border);
-  doc.roundedRect(rightX, yPos, cardWidth, cardHeight, 3, 3, "S");
-
-  doc.setFillColor(...COLORS.accent);
-  doc.roundedRect(rightX, yPos, cardWidth, 8, 3, 3, "F");
-  doc.rect(rightX, yPos + 5, cardWidth, 3, "F");
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  doc.text("QUOTE FOR", rightX + 6, yPos + 5.5);
-
-  cardY = yPos + 14;
+  // ─── Left: CLIENT
+  let lY = drawSectionHeader(doc, "CLIENT", yPos, leftX, colWidth);
+  lY += 3;
   if (data.customer) {
     doc.setTextColor(...COLORS.textPrimary);
-    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text(data.customer.name, rightX + 6, cardY);
-    cardY += 5;
-
-    doc.setTextColor(...COLORS.textSecondary);
-    doc.setFontSize(8);
+    doc.setFontSize(9);
+    doc.text(sanitise(data.customer.name), leftX + 3, lY);
+    lY += 4;
     doc.setFont("helvetica", "normal");
-
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.textSecondary);
     if (data.customer.contact_name) {
-      doc.text(`FAO: ${data.customer.contact_name}`, rightX + 6, cardY);
-      cardY += 4;
-    }
-    if (data.customer.address) {
-      doc.text(data.customer.address, rightX + 6, cardY);
-      cardY += 4;
-    }
-    if (data.customer.city || data.customer.postcode) {
-      doc.text(`${data.customer.city || ""} ${data.customer.postcode || ""}`.trim(), rightX + 6, cardY);
-      cardY += 4;
+      doc.text(`FAO: ${sanitise(data.customer.contact_name)}`, leftX + 3, lY);
+      lY += 3.6;
     }
     if (data.customer.contact_email) {
-      doc.text(data.customer.contact_email, rightX + 6, cardY);
+      doc.text(sanitise(data.customer.contact_email), leftX + 3, lY);
+      lY += 3.6;
+    }
+    if (data.customer.contact_phone) {
+      doc.text(sanitise(data.customer.contact_phone), leftX + 3, lY);
+      lY += 3.6;
+    }
+    if (data.customer.address) {
+      doc.text(sanitise(data.customer.address), leftX + 3, lY);
+      lY += 3.6;
+    }
+    const cp = [data.customer.city, data.customer.postcode].filter(Boolean).join(" ");
+    if (cp) {
+      doc.text(sanitise(cp), leftX + 3, lY);
+      lY += 3.6;
     }
   } else {
     doc.setTextColor(...COLORS.textMuted);
     doc.setFontSize(8);
-    doc.text("No customer specified", rightX + 6, cardY);
+    doc.text("No customer specified", leftX + 3, lY);
+    lY += 4;
   }
+  lY += 2;
 
-  return yPos + cardHeight + 6;
+  // ─── Right: SITE
+  let rY = drawSectionHeader(doc, "SITE", yPos, rightX, colWidth);
+  rY += 3;
+  doc.setTextColor(...COLORS.textPrimary);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text(sanitise(data.site.name), rightX + 3, rY);
+  rY += 4;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...COLORS.textSecondary);
+  const siteAddr = [data.site.address, data.site.city, data.site.postcode].filter(Boolean).join(", ");
+  if (siteAddr) {
+    const lines = doc.splitTextToSize(sanitise(siteAddr), colWidth - 6);
+    doc.text(lines, rightX + 3, rY);
+    rY += lines.length * 3.6;
+  }
+  rY += 2;
+
+  // QUOTE DETAILS sub-block on right column
+  rY = drawSectionHeader(doc, "QUOTE DETAILS", rY, rightX, colWidth);
+  rY += 3;
+  doc.setTextColor(...COLORS.textMuted);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.text("DATE ISSUED", rightX + 3, rY);
+  doc.setTextColor(...COLORS.textPrimary);
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "bold");
+  doc.text(format(new Date(data.created_at), "dd MMM yyyy"), rightX + 40, rY);
+  rY += 4;
+  doc.setTextColor(...COLORS.textMuted);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.text("VALID UNTIL", rightX + 3, rY);
+  doc.setTextColor(...COLORS.textPrimary);
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "bold");
+  doc.text(
+    data.valid_until ? format(new Date(data.valid_until), "dd MMM yyyy") : "30 days from issue",
+    rightX + 40,
+    rY
+  );
+  rY += 4;
+
+  return Math.max(lY, rY) + 3;
 }
 
-// Site information bar
-function addSiteBar(
+// ─── SCOPE summary ────────────────────────────────────────────────
+
+function drawScope(
   doc: jsPDF,
   pageWidth: number,
   margin: number,
   yPos: number,
   data: QuotationData
 ): number {
+  if (!data.title && !data.summary) return yPos;
   const contentWidth = pageWidth - margin * 2;
-  
-  doc.setFillColor(...COLORS.bgSubtle);
-  doc.roundedRect(margin, yPos, contentWidth, 16, 2, 2, "F");
-  
-  doc.setTextColor(...COLORS.textMuted);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.text("SITE LOCATION", margin + 6, yPos + 5);
-  
-  doc.setTextColor(...COLORS.textPrimary);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text(data.site.name, margin + 6, yPos + 11);
-  
-  // Site address on right
-  if (data.site.address) {
-    const siteAddr = [data.site.address, data.site.city, data.site.postcode].filter(Boolean).join(", ");
-    doc.setTextColor(...COLORS.textSecondary);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text(siteAddr, pageWidth - margin - 6, yPos + 10, { align: "right" });
-  }
-  
-  return yPos + 22;
-}
-
-// Rich text summary section with bold, underline, and bullet support
-function addSummary(
-  doc: jsPDF,
-  pageWidth: number,
-  margin: number,
-  yPos: number,
-  summary: string
-): number {
-  if (!summary) return yPos;
-
-  const contentWidth = pageWidth - margin * 2;
-  const lineHeight = 4.2;
-  const bulletIndent = 4;
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const footerReserve = 18;
-  const maxY = pageHeight - footerReserve;
-
-  const checkPageBreak = (currentY: number, needed: number): number => {
-    if (currentY + needed > maxY) {
-      doc.addPage();
-      return 15; // top margin on new page
-    }
-    return currentY;
-  };
-
-  // Sanitise summary: replace Unicode bullets and special chars with ASCII equivalents
-  const sanitised = summary
-    .replace(/[\u2022\u2023\u25E6\u2043\u2219\u25CF\u25CB]/g, "-")  // bullet variants -> dash
-    .replace(/[\u2013\u2014]/g, "-")   // en/em dash -> hyphen
-    .replace(/[\u2018\u2019\u201A]/g, "'")  // smart single quotes
-    .replace(/[\u201C\u201D\u201E]/g, '"')  // smart double quotes
-    .replace(/[\u2026]/g, "...")  // ellipsis
-    .replace(/[^\x00-\x7F]/g, "");  // strip any remaining non-ASCII
-
-  // Add "SCOPE OF WORKS" heading
-  yPos = checkPageBreak(yPos, 10);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...COLORS.primary);
-  doc.text("SCOPE OF WORKS", margin, yPos);
-  yPos += 6;
-
-  const paragraphs = sanitised.split("\n");
-
-  for (const paragraph of paragraphs) {
-    const trimmed = paragraph.trim();
-    if (!trimmed) {
-      yPos += 2; // blank line spacing
-      continue;
-    }
-
-    const isBullet = trimmed.startsWith("- ") || trimmed.startsWith("* ");
-    const bulletText = isBullet ? trimmed.slice(2) : trimmed;
-    const xStart = isBullet ? margin + bulletIndent : margin;
-    const textWidth = isBullet ? contentWidth - bulletIndent : contentWidth;
-
-    // Parse inline formatting: **bold**, __underline__
-    const segments = parseRichText(bulletText);
-
-    // Pre-calculate how many lines this paragraph will need
-    yPos = checkPageBreak(yPos, lineHeight + 1);
-
-    // Draw bullet marker
-    if (isBullet) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(...COLORS.textPrimary);
-      doc.text("-", margin + 1, yPos);
-    }
-
-    // Render segments with word wrapping and page break support
-    yPos = renderRichTextLine(doc, segments, xStart, yPos, textWidth, lineHeight, maxY);
-    yPos += 1; // inter-paragraph spacing
-  }
-
-  return yPos + 3;
-}
-
-interface TextSegment {
-  text: string;
-  bold: boolean;
-  underline: boolean;
-}
-
-function parseRichText(text: string): TextSegment[] {
-  const segments: TextSegment[] = [];
-  let remaining = text;
-
-  while (remaining.length > 0) {
-    // Find the next formatting marker
-    const boldIdx = remaining.indexOf("**");
-    const underlineIdx = remaining.indexOf("__");
-
-    let nextIdx = -1;
-    let marker = "";
-
-    if (boldIdx >= 0 && (underlineIdx < 0 || boldIdx <= underlineIdx)) {
-      nextIdx = boldIdx;
-      marker = "**";
-    } else if (underlineIdx >= 0) {
-      nextIdx = underlineIdx;
-      marker = "__";
-    }
-
-    if (nextIdx < 0) {
-      // No more markers
-      if (remaining) segments.push({ text: remaining, bold: false, underline: false });
-      break;
-    }
-
-    // Text before marker
-    if (nextIdx > 0) {
-      segments.push({ text: remaining.slice(0, nextIdx), bold: false, underline: false });
-    }
-
-    // Find closing marker
-    const afterOpen = remaining.slice(nextIdx + 2);
-    const closeIdx = afterOpen.indexOf(marker);
-
-    if (closeIdx < 0) {
-      // No closing marker, treat as plain text
-      segments.push({ text: remaining.slice(nextIdx), bold: false, underline: false });
-      break;
-    }
-
-    const innerText = afterOpen.slice(0, closeIdx);
-    segments.push({
-      text: innerText,
-      bold: marker === "**",
-      underline: marker === "__",
-    });
-
-    remaining = afterOpen.slice(closeIdx + 2);
-  }
-
-  return segments;
-}
-
-function renderRichTextLine(
-  doc: jsPDF,
-  segments: TextSegment[],
-  x: number,
-  y: number,
-  maxWidth: number,
-  lineHeight: number,
-  maxY: number
-): number {
-  // Flatten all segments into words with their formatting
-  const words: { word: string; bold: boolean; underline: boolean }[] = [];
-  for (const seg of segments) {
-    const segWords = seg.text.split(/(\s+)/);
-    for (const w of segWords) {
-      if (w) words.push({ word: w, bold: seg.bold, underline: seg.underline });
-    }
-  }
-
-  let curX = x;
-  let curY = y;
-  doc.setFontSize(9);
-
-  for (const { word, bold, underline } of words) {
-    const fontStyle = bold ? "bold" : "normal";
-    doc.setFont("helvetica", fontStyle);
+  yPos = drawSectionHeader(doc, "SCOPE OF WORKS", yPos, margin, contentWidth);
+  yPos += 3;
+  if (data.title) {
     doc.setTextColor(...COLORS.textPrimary);
-    const wordWidth = doc.getTextWidth(word);
-
-    // Wrap to next line if needed
-    if (curX + wordWidth > x + maxWidth && curX > x) {
-      curX = x;
-      curY += lineHeight;
-
-      // Page break check
-      if (curY > maxY) {
-        doc.addPage();
-        curY = 15;
-      }
-    }
-
-    doc.text(word, curX, curY);
-
-    if (underline) {
-      const textHeight = 0.3;
-      doc.setDrawColor(...COLORS.textPrimary);
-      doc.setLineWidth(0.2);
-      doc.line(curX, curY + textHeight + 0.5, curX + wordWidth, curY + textHeight + 0.5);
-    }
-
-    curX += wordWidth;
+    doc.setFontSize(9.5);
+    doc.setFont("helvetica", "bold");
+    const t = doc.splitTextToSize(sanitise(data.title), contentWidth - 6);
+    doc.text(t, margin + 3, yPos);
+    yPos += t.length * 4 + 1;
   }
-
-  return curY + lineHeight;
+  if (data.summary) {
+    doc.setTextColor(...COLORS.textSecondary);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const s = doc.splitTextToSize(sanitise(data.summary), contentWidth - 6);
+    doc.text(s, margin + 3, yPos);
+    yPos += s.length * 3.6;
+  }
+  return yPos + 4;
 }
 
-// Section header with accent
-function addSectionHeader(
-  doc: jsPDF,
-  title: string,
-  yPos: number,
-  margin: number,
-  pageWidth: number
-): number {
-  const contentWidth = pageWidth - margin * 2;
-  
-  // Accent bar
-  doc.setFillColor(...COLORS.accent);
-  doc.rect(margin, yPos, 3, 7, "F");
-  
-  // Header background
-  doc.setFillColor(...COLORS.primary);
-  doc.rect(margin + 3, yPos, contentWidth - 3, 7, "F");
-  
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text(title, margin + 8, yPos + 5);
-  
-  return yPos + 10;
-}
+// ─── Footer ───────────────────────────────────────────────────────
 
-// Professional footer — matches PO style
-function addFooter(doc: jsPDF, pageWidth: number, margin: number, settings?: CompanySettings) {
+function drawFooter(doc: jsPDF, pageWidth: number, margin: number, settings?: CompanySettings) {
   const pageCount = doc.getNumberOfPages();
   const pageHeight = doc.internal.pageSize.getHeight();
-
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-
-    const footerY = pageHeight - 18;
-
+    const footerY = pageHeight - 14;
     doc.setDrawColor(...COLORS.border);
     doc.setLineWidth(0.3);
     doc.line(margin, footerY, pageWidth - margin, footerY);
-
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(...COLORS.textLight);
+    doc.setTextColor(...COLORS.textMuted);
 
-    const footerParts: string[] = [];
-    footerParts.push(settings?.company_name || COMPANY.name);
-    footerParts.push(COMPANY.registration);
-    if (settings?.vat_number) footerParts.push(`VAT: ${settings.vat_number}`);
-    doc.text(footerParts.join("  |  "), margin, footerY + 5);
-
+    const parts = [
+      settings?.company_name || COMPANY.name,
+      COMPANY.registration,
+      `VAT: ${settings?.vat_number || COMPANY.vat}`,
+    ];
+    doc.text(parts.join(" | "), margin, footerY + 4);
     doc.text(
-      `Generated ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
+      `Generated ${format(new Date(), "dd MMM yyyy")}`,
       pageWidth - margin,
-      footerY + 5,
+      footerY + 4,
       { align: "right" }
     );
-
-    doc.text(
-      `Page ${i} of ${pageCount}`,
-      pageWidth / 2,
-      footerY + 10,
-      { align: "center" }
-    );
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, footerY + 8.5, { align: "center" });
   }
 }
 
@@ -657,6 +413,8 @@ const defaultColumnOptions: PDFColumnOptions = {
   showTotal: true,
 };
 
+// ─── Main entry ───────────────────────────────────────────────────
+
 export async function generateQuotationPDF(
   data: QuotationData,
   companySettings?: CompanySettings,
@@ -666,321 +424,306 @@ export async function generateQuotationPDF(
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 15;
-  // Reserve space so tables/totals never collide with the footer
+  const margin = 14;
   const footerReserve = 18;
+  const contentWidth = pageWidth - margin * 2;
 
-  // Load logo
   const logoUrl = companySettings?.report_logo_url || companySettings?.company_logo_url;
   const logoImg = await loadLogo(logoUrl);
 
-  // Header
-  let yPos = addHeader(doc, pageWidth, margin, logoImg, companySettings, data.quotation_number);
+  // Page chrome
+  let yPos = drawPageHeader(doc, pageWidth, margin, logoImg, companySettings);
 
-  // Title section
-  yPos = addTitleSection(doc, pageWidth, margin, yPos, data.quotation_number, data);
+  // Title
+  yPos = drawTitle(doc, pageWidth, margin, yPos, data);
 
-  // Info cards
-  yPos = addInfoCards(doc, pageWidth, margin, yPos, data);
+  // Info blocks
+  yPos = drawInfoBlocks(doc, pageWidth, margin, yPos, data);
 
-  // Site bar
-  yPos = addSiteBar(doc, pageWidth, margin, yPos, data);
+  // Scope of works
+  yPos = drawScope(doc, pageWidth, margin, yPos, data);
 
-  // Summary
-  yPos = addSummary(doc, pageWidth, margin, yPos, data.summary || "");
-
-  // Build dynamic table columns
+  // ─── LINE ITEMS table ──────────────────────────────────────────
+  // Build dynamic columns
   const headers: string[] = [];
   const colStyles: Record<number, any> = {};
-  let colIndex = 0;
-
+  let colIdx = 0;
   if (columnOptions.showItemNumber) {
     headers.push("#");
-    colStyles[colIndex] = { cellWidth: 8, halign: "center", fontStyle: "bold" };
-    colIndex++;
+    colStyles[colIdx++] = { cellWidth: 8, halign: "center", fontStyle: "bold" };
   }
   if (columnOptions.showDescription) {
     headers.push("Description");
-    // Let description auto-fill remaining width (no fixed cellWidth)
-    colStyles[colIndex] = { cellWidth: "auto" };
-    colIndex++;
+    colStyles[colIdx++] = { cellWidth: "auto" };
   }
   if (columnOptions.showRegulationRef) {
     headers.push("Ref");
-    colStyles[colIndex] = { cellWidth: 28, fontSize: 7 };
-    colIndex++;
+    colStyles[colIdx++] = { cellWidth: 26, fontSize: 7 };
   }
   if (columnOptions.showPriority) {
     headers.push("Priority");
-    colStyles[colIndex] = { cellWidth: 18, halign: "center", fontSize: 7 };
-    colIndex++;
+    colStyles[colIdx++] = { cellWidth: 18, halign: "center", fontSize: 7 };
   }
   if (columnOptions.showItem) {
     headers.push("Item");
-    colStyles[colIndex] = { cellWidth: 30, fontSize: 7 };
-    colIndex++;
+    colStyles[colIdx++] = { cellWidth: 28, fontSize: 7 };
   }
   if (columnOptions.showQuantity) {
     headers.push("Qty");
-    colStyles[colIndex] = { cellWidth: 12, halign: "center" };
-    colIndex++;
+    colStyles[colIdx++] = { cellWidth: 12, halign: "center" };
   }
   if (columnOptions.showUnitPrice) {
-    headers.push("Unit");
-    colStyles[colIndex] = { cellWidth: 18, halign: "right" };
-    colIndex++;
+    headers.push("Unit £");
+    colStyles[colIdx++] = { cellWidth: 18, halign: "right" };
   }
   if (columnOptions.showLabour) {
-    headers.push("Labour");
-    colStyles[colIndex] = { cellWidth: 18, halign: "right" };
-    colIndex++;
+    headers.push("Labour £");
+    colStyles[colIdx++] = { cellWidth: 18, halign: "right" };
   }
   if (columnOptions.showTotal) {
-    headers.push("Amount");
-    colStyles[colIndex] = { cellWidth: 22, halign: "right", fontStyle: "bold" };
-    colIndex++;
+    headers.push("Total £");
+    colStyles[colIdx++] = { cellWidth: 22, halign: "right", fontStyle: "bold" };
   }
 
-  // Build table data (only parent items, sub-items shown beneath)
-  const parentItems = data.line_items.filter(item => !item.parent_id);
-  const tableData = parentItems.map((item, index) => {
-    const row: string[] = [];
-    // Calculate sell price per unit: derive from total to ensure consistency
-    // total_price = (qty * sellPricePerUnit) + labour
+  const parents = data.line_items.filter((i) => !i.parent_id);
+  const tableData = parents.map((item, index) => {
     const labour = item.labour_cost || 0;
     const qty = item.quantity || 1;
-    const sellPricePerUnit = qty > 0 ? (item.total_price - labour) / qty : item.unit_price * (1 + (item.markup_percent || 0) / 100);
+    const sellPerUnit =
+      qty > 0 ? (item.total_price - labour) / qty : item.unit_price * (1 + (item.markup_percent || 0) / 100);
+
+    const descLines: string[] = [];
+    descLines.push(sanitise(item.description));
+    if (columnOptions.showRegulationRef === false && item.regulation_reference) {
+      // Append ref under description in italic-ish style only if column not shown
+    }
+    // Description cell may include ref line as a marker we render in didDrawCell
+    const descCell: any = {
+      content: descLines.join("\n"),
+      _regRef: item.regulation_reference || null,
+    };
+
+    const row: any[] = [];
     if (columnOptions.showItemNumber) row.push((index + 1).toString());
-    if (columnOptions.showDescription) row.push(item.description);
+    if (columnOptions.showDescription) row.push(descCell);
     if (columnOptions.showRegulationRef) row.push(item.regulation_reference || "-");
     if (columnOptions.showPriority) row.push(item.priority.charAt(0).toUpperCase() + item.priority.slice(1));
     if (columnOptions.showItem) row.push(item.item_name || "-");
     if (columnOptions.showQuantity) row.push(item.quantity.toString());
-    if (columnOptions.showUnitPrice) row.push(`£${sellPricePerUnit.toFixed(2)}`);
-    if (columnOptions.showLabour) row.push(item.labour_included ? "Included" : (labour > 0 ? `£${labour.toFixed(2)}` : "-"));
+    if (columnOptions.showUnitPrice) row.push(`£${sellPerUnit.toFixed(2)}`);
+    if (columnOptions.showLabour)
+      row.push(item.labour_included ? "Included" : labour > 0 ? `£${labour.toFixed(2)}` : "-");
     if (columnOptions.showTotal) row.push(`£${item.total_price.toFixed(2)}`);
     return row;
   });
 
-  // Ensure enough room for section header + at least a few table rows
-  const pageHeightCheck = doc.internal.pageSize.getHeight();
-  if (yPos + 30 > pageHeightCheck - footerReserve) {
+  // Section header for line items
+  if (yPos + 30 > pageHeight - footerReserve) {
     doc.addPage();
-    yPos = 15;
+    yPos = 20;
   }
+  yPos = drawSectionHeader(doc, "LINE ITEMS", yPos, margin, contentWidth);
+  yPos += 1;
 
-  // Line items section
-  yPos = addSectionHeader(doc, "SCOPE OF WORKS", yPos, margin, pageWidth);
+  const descColIdx = (columnOptions.showItemNumber ? 1 : 0);
 
   autoTable(doc, {
     startY: yPos,
     head: [headers],
     body: tableData,
     margin: { left: margin, right: margin, bottom: footerReserve + 6 },
-    tableWidth: pageWidth - margin * 2,
+    tableWidth: contentWidth,
     styles: {
       fontSize: 8,
-      cellPadding: 3,
-      textColor: COLORS.textSecondary,
+      cellPadding: 2.5,
+      textColor: COLORS.textPrimary,
       lineColor: COLORS.border,
       lineWidth: 0.1,
       overflow: "linebreak",
+      valign: "top",
     },
     headStyles: {
-      fillColor: COLORS.primary,
-      textColor: COLORS.white,
+      fillColor: COLORS.sectionBg,
+      textColor: COLORS.sectionText,
       fontStyle: "bold",
-      fontSize: 7,
-      cellPadding: 3,
+      fontSize: 7.5,
+      cellPadding: 2.5,
       halign: "center",
     },
     columnStyles: colStyles,
-    alternateRowStyles: {
-      fillColor: COLORS.bgLight,
+    alternateRowStyles: { fillColor: COLORS.altRow },
+    bodyStyles: { minCellHeight: 7 },
+    didParseCell: (hookData) => {
+      if (
+        hookData.section === "body" &&
+        hookData.column.index === descColIdx &&
+        columnOptions.showDescription &&
+        !columnOptions.showRegulationRef
+      ) {
+        const raw = hookData.cell.raw as any;
+        if (raw && typeof raw === "object" && raw._regRef) {
+          // Reserve extra height for regulation ref line
+          hookData.cell.styles.minCellHeight = (hookData.cell.styles.minCellHeight || 7) + 4;
+        }
+      }
     },
-    bodyStyles: {
-      minCellHeight: 8,
+    didDrawCell: (hookData) => {
+      if (
+        hookData.section === "body" &&
+        hookData.column.index === descColIdx &&
+        columnOptions.showDescription &&
+        !columnOptions.showRegulationRef
+      ) {
+        const raw = hookData.cell.raw as any;
+        if (raw && typeof raw === "object" && raw._regRef) {
+          const refText = sanitise(raw._regRef);
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(7);
+          doc.setTextColor(...COLORS.accent);
+          const x = hookData.cell.x + 2.5;
+          const y = hookData.cell.y + hookData.cell.height - 2;
+          doc.text(refText, x, y);
+        }
+      }
     },
   });
 
-  yPos = (doc as any).lastAutoTable.finalY + 6;
+  yPos = (doc as any).lastAutoTable.finalY + 4;
 
-  // Premium totals section
-  const totalsWidth = 80;
-  const totalsX = pageWidth - margin - totalsWidth;
-  const totalsHeight = 32;
-
-  // If there isn't enough room above the footer for totals, move totals to a new page
-  if (yPos + totalsHeight + footerReserve > pageHeight) {
-    doc.addPage();
-    yPos = 20;
-  }
-  
-  // Totals box
-  doc.setFillColor(...COLORS.bgLight);
-  doc.roundedRect(totalsX, yPos, totalsWidth, totalsHeight, 2, 2, "F");
-  doc.setDrawColor(...COLORS.border);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(totalsX, yPos, totalsWidth, totalsHeight, 2, 2, "S");
-  
+  // ─── TOTALS (right-aligned, no box) ───────────────────────────
   const vatRate = data.vat_rate ?? 20;
   const subtotal = data.total_amount;
   const vatAmount = subtotal * (vatRate / 100);
   const grandTotal = subtotal + vatAmount;
-  
-  let totalsY = yPos + 7;
-  
-  // Subtotal
-  doc.setFontSize(8);
+
+  if (yPos + 24 > pageHeight - footerReserve) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  const totalsRight = pageWidth - margin;
+  const totalsLabelX = pageWidth - margin - 60;
+
+  doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...COLORS.textMuted);
-  doc.text("Subtotal", totalsX + 6, totalsY);
-  doc.setTextColor(...COLORS.textSecondary);
-  doc.text(`£${subtotal.toFixed(2)}`, totalsX + totalsWidth - 6, totalsY, { align: "right" });
-  totalsY += 6;
-  
-  // VAT
+  doc.text("Subtotal", totalsLabelX, yPos);
+  doc.setTextColor(...COLORS.textPrimary);
+  doc.text(`£${subtotal.toFixed(2)}`, totalsRight, yPos, { align: "right" });
+  yPos += 5;
+
   doc.setTextColor(...COLORS.textMuted);
-  doc.text(`VAT (${vatRate}%)`, totalsX + 6, totalsY);
-  doc.setTextColor(...COLORS.textSecondary);
-  doc.text(`£${vatAmount.toFixed(2)}`, totalsX + totalsWidth - 6, totalsY, { align: "right" });
-  totalsY += 3;
-  
-  // Separator
+  doc.text(`VAT (${vatRate}%)`, totalsLabelX, yPos);
+  doc.setTextColor(...COLORS.textPrimary);
+  doc.text(`£${vatAmount.toFixed(2)}`, totalsRight, yPos, { align: "right" });
+  yPos += 2;
+
   doc.setDrawColor(...COLORS.borderDark);
-  doc.setLineWidth(0.3);
-  doc.line(totalsX + 6, totalsY, totalsX + totalsWidth - 6, totalsY);
-  totalsY += 6;
-  
-  // Grand total
-  doc.setFillColor(...COLORS.primary);
-  doc.roundedRect(totalsX + 3, totalsY - 4, totalsWidth - 6, 10, 1, 1, "F");
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(9);
+  doc.setLineWidth(0.4);
+  doc.line(totalsLabelX, yPos, totalsRight, yPos);
+  yPos += 4.5;
+
   doc.setFont("helvetica", "bold");
-  doc.text("TOTAL", totalsX + 8, totalsY + 2);
   doc.setFontSize(11);
-  doc.text(`£${grandTotal.toFixed(2)}`, totalsX + totalsWidth - 8, totalsY + 2, { align: "right" });
-  
-  yPos += 40;
+  doc.setTextColor(...COLORS.primary);
+  doc.text("Total (inc. VAT)", totalsLabelX, yPos);
+  doc.text(`£${grandTotal.toFixed(2)}`, totalsRight, yPos, { align: "right" });
+  yPos += 8;
 
-  // Terms and conditions
+  // ─── TERMS & CONDITIONS ───────────────────────────────────────
   if (data.terms) {
-    if (yPos > pageHeight - 70) {
+    if (yPos + 30 > pageHeight - footerReserve) {
       doc.addPage();
       yPos = 20;
     }
-
-    yPos = addSectionHeader(doc, "TERMS & CONDITIONS", yPos, margin, pageWidth);
-    
+    yPos = drawSectionHeader(doc, "TERMS & CONDITIONS", yPos, margin, contentWidth);
+    yPos += 3;
     doc.setTextColor(...COLORS.textSecondary);
-    doc.setFontSize(7.5);
-    doc.setFont("helvetica", "normal");
-    const termsLines = doc.splitTextToSize(data.terms, pageWidth - margin * 2 - 4);
-    doc.text(termsLines, margin + 2, yPos);
-    yPos += termsLines.length * 3.2 + 6;
-  }
-
-  // Notes
-  if (data.notes) {
-    if (yPos > pageHeight - 45) {
-      doc.addPage();
-      yPos = 20;
-    }
-
-    yPos = addSectionHeader(doc, "ADDITIONAL NOTES", yPos, margin, pageWidth);
-    
-    doc.setTextColor(...COLORS.textSecondary);
+    doc.setFont("courier", "normal");
     doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    const notesLines = doc.splitTextToSize(data.notes, pageWidth - margin * 2 - 4);
-    doc.text(notesLines, margin + 2, yPos);
-    yPos += notesLines.length * 3.5 + 6;
+    const lines = doc.splitTextToSize(sanitise(data.terms), contentWidth - 4);
+    doc.text(lines, margin + 2, yPos);
+    yPos += lines.length * 3.4 + 4;
   }
 
-  // Bank details
-  if (companySettings?.bank_name || companySettings?.bank_account_number) {
-    if (yPos > pageHeight - 40) {
+  // ─── NOTES (optional) ─────────────────────────────────────────
+  if (data.notes) {
+    if (yPos + 20 > pageHeight - footerReserve) {
       doc.addPage();
       yPos = 20;
     }
+    yPos = drawSectionHeader(doc, "ADDITIONAL NOTES", yPos, margin, contentWidth);
+    yPos += 3;
+    doc.setTextColor(...COLORS.textSecondary);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    const lines = doc.splitTextToSize(sanitise(data.notes), contentWidth - 4);
+    doc.text(lines, margin + 2, yPos);
+    yPos += lines.length * 3.6 + 4;
+  }
 
-    yPos = addSectionHeader(doc, "PAYMENT DETAILS", yPos, margin, pageWidth);
-    
+  // ─── BANK DETAILS (optional) ──────────────────────────────────
+  if (companySettings?.bank_name || companySettings?.bank_account_number) {
+    if (yPos + 20 > pageHeight - footerReserve) {
+      doc.addPage();
+      yPos = 20;
+    }
+    yPos = drawSectionHeader(doc, "PAYMENT DETAILS", yPos, margin, contentWidth);
+    yPos += 3;
     const bankInfo = [
       companySettings.bank_name ? `Bank: ${companySettings.bank_name}` : null,
       companySettings.bank_account_name ? `Account Name: ${companySettings.bank_account_name}` : null,
       companySettings.bank_sort_code ? `Sort Code: ${companySettings.bank_sort_code}` : null,
       companySettings.bank_account_number ? `Account Number: ${companySettings.bank_account_number}` : null,
-    ].filter(Boolean).join("   |   ");
-    
+    ]
+      .filter(Boolean)
+      .join("   |   ");
     doc.setTextColor(...COLORS.textSecondary);
-    doc.setFontSize(8);
+    doc.setFontSize(8.5);
     doc.setFont("helvetica", "normal");
     doc.text(bankInfo, margin + 2, yPos);
-    yPos += 10;
+    yPos += 6;
   }
 
-  // Premium acceptance section
-  if (yPos > pageHeight - 55) {
+  // ─── ACCEPTANCE & AUTHORISATION ───────────────────────────────
+  if (yPos + 32 > pageHeight - footerReserve) {
     doc.addPage();
     yPos = 20;
   }
-
-  yPos += 4;
-  
-  // Acceptance box
-  const acceptanceHeight = 42;
-  doc.setFillColor(...COLORS.bgLight);
-  doc.roundedRect(margin, yPos, pageWidth - margin * 2, acceptanceHeight, 3, 3, "F");
-  doc.setDrawColor(...COLORS.accent);
-  doc.setLineWidth(1);
-  doc.roundedRect(margin, yPos, pageWidth - margin * 2, acceptanceHeight, 3, 3, "S");
-  
-  // Acceptance header
-  doc.setFillColor(...COLORS.accent);
-  doc.roundedRect(margin, yPos, pageWidth - margin * 2, 9, 3, 3, "F");
-  doc.rect(margin, yPos + 6, pageWidth - margin * 2, 3, "F");
-  
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text("ACCEPTANCE & AUTHORISATION", margin + 6, yPos + 6);
-  
-  yPos += 14;
-  
+  yPos = drawSectionHeader(doc, "ACCEPTANCE & AUTHORISATION", yPos, margin, contentWidth);
+  yPos += 5;
   doc.setTextColor(...COLORS.textSecondary);
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setFont("helvetica", "normal");
-  doc.text("I accept this quotation and authorise BHO Fire Ltd to proceed with the works as detailed above.", margin + 6, yPos);
-  
-  yPos += 10;
-  
-  // Signature fields
-  const fieldWidth = (pageWidth - margin * 2 - 20) / 3;
+  doc.text(
+    "I accept this quotation and authorise BHO Fire Ltd to proceed with the works as detailed above.",
+    margin + 2,
+    yPos
+  );
+  yPos += 8;
+
+  const fieldGap = 6;
+  const fieldWidth = (contentWidth - fieldGap * 2) / 3;
   const fields = [
-    { label: "Signature", x: margin + 6 },
-    { label: "Print Name", x: margin + 6 + fieldWidth + 6 },
-    { label: "Date", x: margin + 6 + (fieldWidth + 6) * 2 },
+    { label: "Signature", x: margin },
+    { label: "Print Name", x: margin + fieldWidth + fieldGap },
+    { label: "Date", x: margin + (fieldWidth + fieldGap) * 2 },
   ];
-  
-  fields.forEach((field) => {
+  fields.forEach((f) => {
     doc.setDrawColor(...COLORS.borderDark);
-    doc.setLineWidth(0.5);
-    doc.line(field.x, yPos + 8, field.x + fieldWidth - 4, yPos + 8);
-    
+    doc.setLineWidth(0.4);
+    doc.line(f.x, yPos + 8, f.x + fieldWidth, yPos + 8);
     doc.setTextColor(...COLORS.textMuted);
     doc.setFontSize(7);
-    doc.text(field.label, field.x, yPos + 12);
+    doc.setFont("helvetica", "normal");
+    doc.text(f.label, f.x, yPos + 12);
   });
 
-  // Footer
-  addFooter(doc, pageWidth, margin, companySettings);
+  // Footer on every page
+  drawFooter(doc, pageWidth, margin, companySettings);
 
-  // Output
   if (returnBase64) {
     return doc.output("datauristring").split(",")[1];
   }
-
   doc.save(`${data.quotation_number}.pdf`);
 }
