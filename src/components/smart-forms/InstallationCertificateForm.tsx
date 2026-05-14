@@ -119,8 +119,6 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
     await generateInstallationCertificatePDF({ ...payload, certificate_reference: payload.certificate_reference || "DRAFT-INSTALL" });
   }
 
-  const stepName = STEPS[step];
-  const progress = ((step + 1) / STEPS.length) * 100;
 
   // ── Field helpers ──────────────────────────────────────────────────────────
   const F = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
