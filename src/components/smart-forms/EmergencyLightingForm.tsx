@@ -303,7 +303,7 @@ export default function EmergencyLightingForm({ open, onOpenChange, visitId, sit
   return (
     <DocDialogShell open={open} onOpenChange={onOpenChange}>
       <StickyHeader
-        title="Emergency Lighting Certificate"
+        title="BS 5266-1 — Emergency Lighting Certificate"
         reference={payload.cert_reference}
         onSaveDraft={() => save("draft")}
         onComplete={handleDownload}
@@ -318,11 +318,14 @@ export default function EmergencyLightingForm({ open, onOpenChange, visitId, sit
       <DocBody>
         <TitleBlock
           title="Emergency Lighting Certificate"
-          subtitle="BS 5266-1:2016 · BS EN 50172:2004 · BS EN 1838:2013"
+          subtitle="BS 5266-1:2016 · BS EN 1838:2013 · BAFE SP203-1"
           reference={payload.cert_reference}
           date={payload.cert_date}
           onDateChange={(v) => up({ cert_date: v })}
         />
+        <p className="text-[11px] italic text-muted-foreground px-1">
+          Inspection and testing carried out in accordance with BS 5266-1:2016 Clause 7 — Testing. Annual discharge test conducted per BS 5266-1:2016 Clause 7.3. EPM6C notation: ✓ = Satisfactory, 7 = Deviation (note required), N/A = Not applicable.
+        </p>
 
         {/* Type + identity */}
         <DocBlock title="CERTIFICATE TYPE">
