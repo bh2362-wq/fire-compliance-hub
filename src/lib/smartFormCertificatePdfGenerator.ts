@@ -125,94 +125,25 @@ export async function generateBS5839CertificatePDF(
   y = checkPage(doc, pw, y, 20, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
   y = drawSectionHeader(doc, pw, y, `04   INSPECTION & SERVICING CHECKLIST  (${checklist.length} items)`);
 
-  // Sub-heading — BAFE reference
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "italic");
-  doc.setTextColor(...COLORS.textSec);
-  doc.text("As recommended in BAFE SP203-1 Clause 9.8 & BS 5839-1:2025 Clause 45", MARGIN, y + 3);
-  y += 8;
-
   if (checklist.length > 0) {
     const cw = pw - MARGIN * 2;
-    const colW = { req: cw - 18 - 18 - 18, yes: 18, no: 18, na: 18 };
-
-    // Group items by section
-    type GroupedSection = { name: string; items: typeof checklist };
-    const grouped = checklist.reduce<GroupedSection[]>((acc, item) => {
-      const sName = (item as any).section || "General";
-      const existing = acc.find(s => s.name === sName);
-      if (existing) { existing.items.push(item); }
-      else { acc.push({ name: sName, items: [item] }); }
-      return acc;
-    }, []);
-
-    // Build body rows — alternating section header rows and item rows
-    type BodyRow = (string | { content: string; styles: object })[];
-    const body: BodyRow[] = [];
-    for (const section of grouped) {
-      // Section header row — spans all cols via didParseCell
-      body.push([
-        { content: section.name.toUpperCase(), styles: { fontStyle: "bold" as const, fontSize: 7.5, fillColor: (COLORS as any).charcoalDark ?? [45, 45, 48], textColor: [255, 255, 255] as [number, number, number] } },
-        { content: "",  styles: { fillColor: (COLORS as any).charcoalDark ?? [45, 45, 48] } },
-        { content: "",  styles: { fillColor: (COLORS as any).charcoalDark ?? [45, 45, 48] } },
-        { content: "",  styles: { fillColor: (COLORS as any).charcoalDark ?? [45, 45, 48] } },
-      ]);
-      // Item rows
-      for (const c of section.items) {
-        const isYes = c.status === "Pass"  || c.status === "YES";
-        const isNo  = c.status === "Fail"  || c.status === "NO";
-        const isNA  = c.status === "N/A";
-        body.push([
-          san(c.label),
-          { content: isYes ? "✓" : "", styles: { halign: "center" as const, fontStyle: "bold" as const, fontSize: 9, fillColor: isYes ? [220, 252, 231] as [number,number,number] : [255,255,255] as [number,number,number], textColor: isYes ? [22, 163, 74] as [number,number,number] : [200,200,200] as [number,number,number] } },
-          { content: isNo  ? "✗" : "", styles: { halign: "center" as const, fontStyle: "bold" as const, fontSize: 9, fillColor: isNo  ? [254, 226, 226] as [number,number,number] : [255,255,255] as [number,number,number], textColor: isNo  ? [185, 28, 28]  as [number,number,number] : [200,200,200] as [number,number,number] } },
-          { content: isNA  ? "—" : "", styles: { halign: "center" as const, fontStyle: "normal" as const, fontSize: 8, fillColor: isNA  ? [241, 245, 249] as [number,number,number] : [255,255,255] as [number,number,number], textColor: isNA  ? [100, 116, 139] as [number,number,number] : [200,200,200] as [number,number,number] } },
-        ]);
-        // Comment row for NO items
-        if ((isNo) && c.comment) {
-          body.push([
-            { content: `  ↳ ${san(c.comment)}`, styles: { fontStyle: "italic" as const, fontSize: 7, textColor: [185, 28, 28] as [number,number,number], fillColor: [254, 242, 242] as [number,number,number] } },
-            { content: "", styles: { fillColor: [254, 242, 242] as [number,number,number] } },
-            { content: "", styles: { fillColor: [254, 242, 242] as [number,number,number] } },
-            { content: "", styles: { fillColor: [254, 242, 242] as [number,number,number] } },
-          ]);
-        }
-      }
-    }
-
     autoTable(doc, {
       startY: y,
-      head: [[
-        { content: "Requirement", styles: { halign: "left" } },
-        { content: "YES", styles: { halign: "center" } },
-        { content: "NO",  styles: { halign: "center" } },
-        { content: "N/A", styles: { halign: "center" } },
-      ]],
-      body: body as never,
-      theme: "grid",
+      head:   [["CHECK", "STATUS", "COMMENT"]],
+      body:   checklist.map(c => [
+        san(c.label),
+        { content: c.status || "—",
+          styles:  { halign: "center", fontStyle: "bold", fontSize: 7.5,
+                     fillColor: statusFill(c.status), textColor: statusText(c.status) } },
+        san(c.comment || ""),
+      ]) as never,
+      theme:  "grid",
       margin: { left: MARGIN, right: MARGIN },
       tableWidth: cw,
-      headStyles: {
-        fillColor: COLORS.primary,
-        textColor: COLORS.white,
-        fontStyle: "bold",
-        fontSize: 7.5,
-        halign: "center",
-      },
-      styles: {
-        fontSize: 7.5,
-        cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
-        textColor: COLORS.textSec,
-        lineColor: COLORS.border,
-        lineWidth: 0.15,
-        overflow: "linebreak",
-      },
-      columnStyles: {
-        0: { cellWidth: colW.req },
-        1: { cellWidth: colW.yes, halign: "center" },
-        2: { cellWidth: colW.no,  halign: "center" },
-        3: { cellWidth: colW.na,  halign: "center" },
-      },
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: "bold", fontSize: 7.5 },
+      styles: { fontSize: 8, cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }, textColor: COLORS.textSec, lineColor: COLORS.border, lineWidth: 0.15 },
+      alternateRowStyles: { fillColor: COLORS.bgLight },
+      columnStyles: { 0: { cellWidth: cw * 0.48 }, 1: { cellWidth: 22 }, 2: { cellWidth: cw * 0.52 - 22 } },
       didDrawPage: () => {
         const pg = doc.getCurrentPageInfo().pageNumber;
         if (pg > 1) drawPage2Header(doc, pw, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
@@ -351,7 +282,18 @@ export async function generateBS5839CertificatePDF(
     styles: { lineColor: COLORS.border, lineWidth: 0.15 },
   });
   y = (doc as any).lastAutoTable.finalY + 4;
-  y = kvTable(doc, pw, y, [["Final Remarks", payload.final_remarks || "—"]]);
+
+  // Work carried out, parts used, final remarks, next service
+  const statusRows: [string, string][] = [];
+  if (payload.work_carried_out?.trim())
+    statusRows.push(["Work Carried Out", payload.work_carried_out]);
+  if (payload.parts_used?.trim())
+    statusRows.push(["Parts Used / Replaced", payload.parts_used]);
+  statusRows.push(["Final Remarks", payload.final_remarks || "—"]);
+  if (payload.next_service_date)
+    statusRows.push(["Next Service Due", format(new Date(payload.next_service_date), "dd MMM yyyy")]);
+
+  y = kvTable(doc, pw, y, statusRows);
 
   // ── 11. Engineer Declaration ───────────────────────────────────────────────
   y = checkPage(doc, pw, y, 30, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);

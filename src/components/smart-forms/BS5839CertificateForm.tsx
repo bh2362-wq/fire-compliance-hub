@@ -28,6 +28,7 @@ import { createDefect, updateDefect, type DefectCategory } from "@/services/defe
 import { DefectImportPanel } from "@/components/smart-forms/DefectImportPanel";
 import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
+import { HintPanel } from "@/components/smart-forms/HintPanel";
 
 const STEPS = [
   "Header", "Premises", "System", "Service Org", "Checklist",
@@ -471,6 +472,7 @@ function Step5({ payload, update }: StepProps) {
   }
   return (
     <div className="space-y-2">
+      <HintPanel step="bs5839-checklist" />
       {list.map((c, i) => (
         <Card key={c.key} className="overflow-hidden">
           <CardContent className="p-3 space-y-2">
@@ -506,6 +508,7 @@ function Step6({ payload, update }: StepProps) {
   const exceeds = tested > total && total > 0;
   return (
     <div className="space-y-3">
+      <HintPanel step="bs5839-device-testing" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <Field label="Total Devices on System" required><Input type="number" min={0} value={payload.total_devices ?? ""} onChange={(e) => update("total_devices", e.target.value === "" ? "" : Number(e.target.value))} /></Field>
         <Field label="Devices Tested This Visit" required>
@@ -534,6 +537,7 @@ function Step6({ payload, update }: StepProps) {
 function Step7({ payload, update }: StepProps) {
   return (
     <div className="space-y-3">
+      <HintPanel step="bs5839-standby-power" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Field label="Battery Type"><Input value={payload.battery_type || ""} onChange={(e) => update("battery_type", e.target.value)} /></Field>
         <Field label="Battery Age (years)"><Input type="number" min={0} value={payload.battery_age_years ?? ""} onChange={(e) => update("battery_age_years", e.target.value === "" ? "" : Number(e.target.value))} /></Field>
@@ -568,6 +572,7 @@ function Step7({ payload, update }: StepProps) {
 function Step8({ payload, update }: StepProps) {
   return (
     <div className="space-y-3">
+      <HintPanel step="bs5839-false-alarms" />
       <Field label="Number of False Alarms Since Last Visit"><Input type="number" min={0} value={payload.false_alarm_count ?? ""} onChange={(e) => update("false_alarm_count", e.target.value === "" ? "" : Number(e.target.value))} /></Field>
       <Field label="Known Causes">
         <div className="flex items-center justify-between mb-1">
@@ -623,6 +628,7 @@ function Step9({ payload, update, siteId }: StepProps) {
         alreadyImported={importedIds}
         onImport={handleImport}
       />
+      <HintPanel step="bs5839-defects" />
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{defects.length} defect(s)</p>
@@ -756,6 +762,8 @@ function Step10({ payload, update }: StepProps) {
 function Step11({ payload, update }: StepProps) {
   return (
     <div className="space-y-4">
+      <HintPanel step="bs5839-status" />
+
       {/* Overall status */}
       <Field label="Overall System Status" required>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
