@@ -16,7 +16,7 @@ import {
   statusFill, statusText, COLORS, MARGIN,
 } from "./certPdfMasterTemplate";
 
-const TITLE = "System Modification Certificate";
+const TITLE = "Modification Certificate";
 
 export async function generateModificationCertificatePDF(
   payload: ModificationPayload,
@@ -32,7 +32,8 @@ export async function generateModificationCertificatePDF(
   const certRef = san(payload.certificate_reference || "MOD-CERT");
   const dateStr = payload.date_of_modification
     ? format(new Date(payload.date_of_modification), "dd MMMM yyyy") : "";
-  const standard = san(payload.standard_modified_to || "BS 5839-1:2017+A2:2019");
+  const baseStandard = san(payload.standard_modified_to || "BS 5839-1:2017+A2:2019");
+  const standard = `${baseStandard}  ·  BAFE SP203-1 FD/05`;
   const engName  = san(payload.engineer_name || "");
   const status   = san(payload.system_status || "—");
 

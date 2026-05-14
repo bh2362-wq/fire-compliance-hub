@@ -35,6 +35,7 @@ export const COLORS = {
   ambBd:      [253, 224, 71]  as [number, number, number],
   redBg:      [254, 242, 242] as [number, number, number],
   redBd:      [252, 165, 165] as [number, number, number],
+  fireOrange: [245, 130, 32]  as [number, number, number],   // brand accent (hsl 25 92% 54%)
 };
 
 export const MARGIN = 15;         // mm
@@ -195,8 +196,11 @@ export function drawCertTitle(
 
   doc.setFont("helvetica", "normal"); doc.setFontSize(10);
   doc.setTextColor(...COLORS.textSec);
-  doc.text(subtitle, ml, y); y += 7;
+  doc.text(subtitle, ml, y); y += 6;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
+  doc.setTextColor(...COLORS.fireOrange);
   doc.text(standard, ml, y); y += 10;
+  doc.setTextColor(...COLORS.textSec);
   return y;
 }
 
@@ -428,7 +432,7 @@ export function drawMasterFooter(doc: jsPDF, pw: number): void {
     doc.setFont("helvetica", "normal"); doc.setFontSize(7);
     doc.setTextColor(...COLORS.textLgt);
     doc.text(
-      "BHO FIRE LTD  |  Company Registration No. 12235152",
+      "BHO Fire Ltd  |  Company Registration No. 12235152  |  FIA Member  |  BAFE Registered",
       MARGIN, fy + 5
     );
     doc.text(

@@ -212,7 +212,7 @@ export default function DryRiserForm({ open, onOpenChange, visitId, siteId, onSa
   return (
     <DocDialogShell open={open} onOpenChange={onOpenChange}>
       <StickyHeader
-        title="Dry Riser Certificate"
+        title="BS 9990 — Dry Riser Certificate"
         reference={payload.cert_reference}
         status="valid"
         onSaveDraft={() => save("draft")}
@@ -222,11 +222,17 @@ export default function DryRiserForm({ open, onOpenChange, visitId, siteId, onSa
       />
       <DocBody>
         <TitleBlock
-          title="Dry Riser Certificate"
-          subtitle={formType === "pressure_test" ? "Annual Hydraulic Pressure Test" : "6-Monthly Visual Inspection"}
+          title="Dry Rising Main — Annual Test Certificate"
+          subtitle="BS 9990:2015"
           reference={payload.cert_reference}
           date={(payload as any).date_of_test || (payload as any).date_of_inspection}
         />
+        <p className="text-[11px] italic text-muted-foreground px-1">
+          Inspection and hydraulic testing carried out in accordance with BS 9990:2015 — Code of practice for non-automatic firefighting systems.
+          {formType === "pressure_test"
+            ? " BS 9990:2015 Cl. 7.3.1.3: Test pressure 12 bar minimum, duration 15 minutes. Maximum allowable pressure drop: 0.5 bar."
+            : " BS 9990:2015 Cl. 7.2: Visual inspection of all landing valves, blanking caps, signage and inlet access."}
+        </p>
         {STEPS.slice(0, -1).map((label, i) => (
           <DocBlock key={`${label}-${i}`} title={`${i + 1}. ${label}`}>
             {renderSection(i)}
@@ -240,7 +246,7 @@ export default function DryRiserForm({ open, onOpenChange, visitId, siteId, onSa
         />
       </DocBody>
       <StickyFooter
-        standardLabel="Dry Riser · BS 9990:2015"
+        standardLabel="Dry Rising Main · BS 9990:2015"
         onClose={() => onOpenChange(false)}
         onComplete={() => save("completed")}
         saving={saving}

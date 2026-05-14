@@ -73,10 +73,13 @@ export async function generateASDCommissioningPDF(p: ASDPayload): Promise<void> 
       doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.white); doc.text(companyName, ML, 12);
     }
     doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.white);
-    doc.text("ASD COMMISSIONING CERTIFICATE", pw / 2, 8, { align: "center" });
+    doc.text("ASPIRATING SMOKE DETECTION — ANNUAL SERVICE CERTIFICATE", pw / 2, 8, { align: "center" });
     doc.setFontSize(7); doc.setFont("helvetica", "normal");
     const typeTag = p.installation_type === "modification" ? "MODIFICATION OF EXISTING SYSTEM" : "NEW INSTALLATION";
-    doc.text(`${s(p.cert_reference)}  |  ${typeTag}  |  BS EN 54-20 Class ${p.sensitivity_class}`, pw / 2, 14, { align: "center" });
+    doc.text(`${s(p.cert_reference)}  |  ${typeTag}  |  Class ${p.sensitivity_class}`, pw / 2, 12.5, { align: "center" });
+    doc.setFontSize(7.5); doc.setFont("helvetica", "bold"); doc.setTextColor(245,130,32);
+    doc.text("BS EN 54-20:2006+A1:2012  ·  FIA Code of Practice ASD Systems", pw / 2, 16.5, { align: "center" });
+    doc.setTextColor(...C.white);
     y = 22;
   }
 
@@ -96,10 +99,11 @@ export async function generateASDCommissioningPDF(p: ASDPayload): Promise<void> 
     const total = doc.getNumberOfPages();
     for (let i = 1; i <= total; i++) {
       doc.setPage(i);
-      doc.setDrawColor(...C.border); doc.setLineWidth(0.2); doc.line(ML, ph - 10, pw - MR, ph - 10);
+      doc.setDrawColor(...C.border); doc.setLineWidth(0.2); doc.line(ML, ph - 12, pw - MR, ph - 12);
       doc.setFontSize(6.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.textGrey);
-      doc.text(`${companyName}  |  ${s(p.cert_reference)}  |  ASD Commissioning  |  ${s(p.standard_references)}`, ML, ph - 5.5, { maxWidth: CW - 20 });
-      doc.text(`Page ${i} of ${total}`, pw - MR, ph - 5.5, { align: "right" });
+      doc.text(`BHO Fire Ltd  |  Company Registration No. 12235152  |  FIA Member  |  BAFE Registered`, ML, ph - 7.5, { maxWidth: CW - 20 });
+      doc.text(`${s(p.cert_reference)}  |  ${s(p.standard_references)}`, ML, ph - 4, { maxWidth: CW - 20 });
+      doc.text(`Page ${i} of ${total}`, pw - MR, ph - 4, { align: "right" });
     }
   }
 
