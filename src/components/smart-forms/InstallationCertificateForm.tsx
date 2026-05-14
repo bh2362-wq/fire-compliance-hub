@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { SmartSignature } from "@/components/ui/smart-signature";
 import { Save, FileDown, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AISummarySection } from "./_DocLayout";
-import ClientSummaryPanel from "./ClientSummaryPanel";
+import { ClientSummaryPanel } from "./ClientSummaryPanel";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import {
