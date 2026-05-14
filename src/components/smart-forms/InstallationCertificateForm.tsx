@@ -344,7 +344,7 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
         )}
       </DocBody>
       <StickyFooter
-        standardLabel="BS 5839-1:2025 Installation Certificate"
+        standardLabel="BS 5839-1:2017+A2:2019 Clause 27 · BAFE SP203-1 Section 5 (FD/02)"
         onClose={() => onOpenChange(false)}
         onComplete={handleGeneratePdf}
         saving={saving}
