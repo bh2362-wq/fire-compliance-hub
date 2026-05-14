@@ -432,7 +432,7 @@ export function drawMasterFooter(doc: jsPDF, pw: number): void {
     doc.setFont("helvetica", "normal"); doc.setFontSize(7);
     doc.setTextColor(...COLORS.textLgt);
     doc.text(
-      "BHO FIRE LTD  |  Company Registration No. 12235152",
+      "BHO Fire Ltd  |  Company Registration No. 12235152  |  FIA Member  |  BAFE Registered",
       MARGIN, fy + 5
     );
     doc.text(
