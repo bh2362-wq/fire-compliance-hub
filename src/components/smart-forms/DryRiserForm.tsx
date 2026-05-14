@@ -232,6 +232,12 @@ export default function DryRiserForm({ open, onOpenChange, visitId, siteId, onSa
             {renderSection(i)}
           </DocBlock>
         ))}
+
+        <AIAssistBlock
+          payload={payload as any}
+          formLabel={formType === "pressure_test" ? "Dry Riser Annual Hydraulic Pressure Test" : "Dry Riser 6-Monthly Visual Inspection"}
+          extraInstruction="Mention overall pass/fail, any failed valves or outlets, and the next inspection due date."
+        />
       </DocBody>
       <StickyFooter
         standardLabel="Dry Riser · BS 9990:2015"
