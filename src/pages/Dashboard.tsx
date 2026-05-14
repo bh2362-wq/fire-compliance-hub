@@ -60,6 +60,13 @@ const Dashboard = () => {
     overdueCount: 0,
     overdueTotalGbp: 0,
   });
+  const [complianceOverdue, setComplianceOverdue] = useState(0);
+
+  useEffect(() => {
+    getComplianceAlertCount()
+      .then((count) => setComplianceOverdue(count))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const fetchStats = async () => {
