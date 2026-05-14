@@ -34,6 +34,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
 import { getCompanySettings } from "@/services/companySettingsService";
@@ -696,71 +698,36 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl h-[96vh] flex flex-col p-0 gap-0 bg-white">
-          <div className="flex items-center justify-between px-5 py-2.5 border-b border-[#e0e0e0] bg-white shrink-0">
-            <div className="flex items-center gap-3 min-w-0">
-              <Input
-                value={quotationNumber}
-                onChange={(e) => {
-                  setQuotationNumber(e.target.value);
-                  setHasChanges(true);
-                }}
-                className="w-[140px] font-bold text-sm h-8 border-[#dadce0] font-mono"
-                disabled={isLocked}
-              />
-              {quotation && (
-                <span
-                  className={`vstatus ${quotation.status === "sent" ? "vstatus-completed" : quotation.status === "accepted" ? "vstatus-completed" : quotation.status === "recalled" ? "vstatus-overdue" : "vstatus-scheduled"}`}
-                >
-                  {quotation.status}
-                </span>
-              )}
-              {isLocked && (
-                <button
-                  onClick={() => setUnlockDialogOpen(true)}
-                  className="text-[11px] text-muted-foreground hover:text-foreground underline"
-                >
-                  🔒 Locked — click to unlock
-                </button>
-              )}
+        <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 py-4 border-b shrink-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <DialogTitle className="text-base font-semibold whitespace-nowrap">Quotation</DialogTitle>
+                <Input
+                  value={quotationNumber}
+                  onChange={(e) => {
+                    setQuotationNumber(e.target.value);
+                    setHasChanges(true);
+                  }}
+                  className="w-[180px] font-mono text-sm h-8"
+                  disabled={isLocked}
+                />
+                {quotation && (
+                  <Badge variant={quotation.status === "accepted" ? "default" : "secondary"} className="capitalize">
+                    {quotation.status}
+                  </Badge>
+                )}
+                {isLocked && (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setUnlockDialogOpen(true)}>
+                    <LockOpen className="w-3.5 h-3.5" />
+                    Unlock Quote
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs gap-1"
-                onClick={() => setEmailDialogOpen(true)}
-                disabled={loading || lineItems.length === 0 || !customerContactEmail || isLocked}
-              >
-                <Mail className="w-3.5 h-3.5" />
-                Email
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs gap-1"
-                onClick={handleGeneratePDF}
-                disabled={generating || loading || lineItems.length === 0}
-              >
-                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
-                PDF
-              </Button>
-              {!isLocked && (
-                <Button
-                  size="sm"
-                  className="h-8 text-xs gap-1"
-                  style={{ background: "#e85c2c" }}
-                  onClick={handleSave}
-                  disabled={saving}
-                >
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}Save &
-                  Sync
-                </Button>
-              )}
-            </div>
-          </div>
+          </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 py-5 bg-[#f8f9fa]">
+          <div className="flex-1 overflow-y-auto px-6 py-4">
             {loading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -768,448 +735,319 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             ) : !quotation ? (
               <p className="text-center py-12 text-muted-foreground">Quotation not found</p>
             ) : (
-              <div className="bg-white border border-[#e0e0e0]" style={{ boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.08)" }}>
-                <div className="px-5 pt-5 pb-4 border-b border-[#e0e0e0]">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h1 className="text-[17px] font-bold text-[#1a1a1a]">Quotation</h1>
-                      <p className="text-[11px] text-[#e85c2c] font-medium mt-0.5">BHO Fire & Security Ltd</p>
-                    </div>
-                    <div className="text-right text-[11px] text-[#5f6368]">
-                      <p className="font-medium">{quotationNumber}</p>
-                      <p>Date: {format(new Date(quotation.created_at), "dd MMM yyyy")}</p>
-                      {validUntil && <p>Valid until: {format(new Date(validUntil), "dd MMM yyyy")}</p>}
-                    </div>
-                  </div>
-                </div>
+              <Tabs defaultValue="items" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="items">Line Items</TabsTrigger>
+                  <TabsTrigger value="customer">Customer</TabsTrigger>
+                  <TabsTrigger value="details">Details</TabsTrigger>
+                  <TabsTrigger value="terms">Terms & PDF</TabsTrigger>
+                </TabsList>
 
-                <div className="grid grid-cols-2 border-b border-[#e0e0e0]">
-                  <div className="border-r border-[#e0e0e0]">
-                    <div className="bg-[#3c3c3c] text-white text-[11px] font-bold uppercase tracking-wide px-3 py-1.5">
-                      CLIENT
-                    </div>
-                    <div className="px-4 py-3 space-y-2">
-                      {[
-                        ["Company:", customerName, setCustomerName, "Company name"],
-                        ["Contact:", customerContactName, setCustomerContactName, "Contact name"],
-                        ["Email:", customerContactEmail, setCustomerContactEmail, "Email address"],
-                        ["Phone:", customerContactPhone, setCustomerContactPhone, "Phone number"],
-                        ["Address:", customerAddress, setCustomerAddress, "Address"],
-                        ["City:", customerCity, setCustomerCity, "City"],
-                        ["Postcode:", customerPostcode, setCustomerPostcode, "Postcode"],
-                      ].map((row) => {
-                        const [lbl, val, setter, ph] = row as [string, string, (v: string) => void, string];
-                        return (
-                          <div key={lbl} className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#5f6368] min-w-[60px] shrink-0">{lbl}</span>
-                            <Input
-                              className="h-6 text-xs border-[#dadce0] flex-1"
-                              value={val}
-                              onChange={(e) => {
-                                setter(e.target.value);
-                                setHasChanges(true);
-                              }}
-                              placeholder={ph}
-                              disabled={isLocked}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="bg-[#3c3c3c] text-white text-[11px] font-bold uppercase tracking-wide px-3 py-1.5">
-                      SITE
-                    </div>
-                    <div className="px-4 py-3 space-y-2">
-                      <div className="flex items-center gap-2 text-[12px]">
-                        <span className="text-[#5f6368] min-w-[60px]">Site:</span>
-                        <span className="text-sm font-medium">{quotation.sites?.name || "—"}</span>
-                      </div>
+                <TabsContent value="items" className="space-y-4 mt-4">
+                  <Card>
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        {quotation.sites?.name || "Site"}
+                      </CardTitle>
                       {quotation.sites?.address && (
-                        <div className="flex items-start gap-2 text-[12px]">
-                          <span className="text-[#5f6368] min-w-[60px] mt-0.5">Address:</span>
-                          <span className="text-[12px] text-[#5f6368]">
-                            {[quotation.sites.address, quotation.sites.city, quotation.sites.postcode]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </span>
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {[quotation.sites.address, quotation.sites.city, quotation.sites.postcode]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
                       )}
-                    </div>
-                    <div className="bg-[#3c3c3c] text-white text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 border-t border-[#2a2a2a]">
-                      QUOTATION DETAILS
-                    </div>
-                    <div className="px-4 py-3 space-y-2">
-                      <div className="flex items-center gap-2 text-[12px]">
-                        <span className="text-[#5f6368] min-w-[72px]">Valid until:</span>
-                        <Input
-                          type="date"
-                          className="h-6 text-xs border-[#dadce0] flex-1"
-                          value={validUntil}
-                          onChange={(e) => {
-                            setValidUntil(e.target.value);
-                            setHasChanges(true);
-                          }}
-                          disabled={isLocked}
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 text-[12px]">
-                        <span className="text-[#5f6368] min-w-[72px]">VAT rate:</span>
-                        <div className="flex items-center gap-1 flex-1">
-                          <Input
-                            type="number"
-                            className="h-6 text-xs border-[#dadce0] flex-1"
-                            value={vatRate}
-                            onChange={(e) => {
-                              setVatRate(parseFloat(e.target.value) || 0);
-                              setHasChanges(true);
-                            }}
-                            disabled={isLocked}
-                          />
-                          <span className="text-[#5f6368] text-[12px]">%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                    </CardHeader>
+                  </Card>
 
-                <div className="border-b border-[#e0e0e0]">
-                  <div className="bg-[#3c3c3c] text-white text-[11px] font-bold uppercase tracking-wide px-3 py-1.5">
-                    SCOPE OF WORKS
-                  </div>
-                  <div className="px-4 py-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">Line Items ({lineItems.length})</h3>
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-[#5f6368] min-w-[48px]">Title:</span>
-                      <Input
-                        className="h-7 text-sm border-[#dadce0] flex-1"
-                        value={title}
-                        onChange={(e) => {
-                          setTitle(e.target.value);
-                          setHasChanges(true);
-                        }}
-                        placeholder="e.g. Fire Alarm Remedial Works"
-                        disabled={isLocked}
-                      />
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[11px] text-[#5f6368] min-w-[48px] mt-1.5">Summary:</span>
-                      <Textarea
-                        rows={3}
-                        className="text-xs border-[#dadce0] resize-none flex-1"
-                        value={summary}
-                        onChange={(e) => {
-                          setSummary(e.target.value);
-                          setHasChanges(true);
-                        }}
-                        placeholder="Brief description of the works proposed…"
-                        disabled={isLocked}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-b border-[#e0e0e0]">
-                  <div className="flex items-stretch">
-                    <div className="flex-1 bg-[#3c3c3c] text-white text-[11px] font-bold uppercase tracking-wide px-3 py-1.5">
-                      LINE ITEMS ({lineItems.length})
-                    </div>
-                    {!isLocked && (
-                      <div className="flex items-center gap-1 px-2 bg-[#3c3c3c]">
-                        <button
+                      {selectedItemIds.size >= 2 && !isLocked && (
+                        <Button variant="outline" size="sm" onClick={handleMergeItems} className="gap-1">
+                          <Merge className="w-3.5 h-3.5" />
+                          Merge ({selectedItemIds.size})
+                        </Button>
+                      )}
+                      {!isLocked && (
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={handleImproveWithAI}
                           disabled={improving || lineItems.length === 0}
-                          className="text-[11px] text-amber-300 hover:text-amber-200 px-2 py-0.5 hover:bg-white/10 rounded flex items-center gap-1 disabled:opacity-50"
-                          title="AI: rewrite all descriptions + fill title & summary"
+                          className="gap-1"
                         >
                           {improving ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Improving…
-                            </>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
-                            <>
-                              <Sparkles className="w-3 h-3" />
-                              AI Improve
-                            </>
+                            <Sparkles className="w-3.5 h-3.5" />
                           )}
-                        </button>
-                        {selectedItemIds.size >= 2 && (
-                          <button
-                            onClick={handleMergeItems}
-                            className="text-[11px] text-white/70 hover:text-white px-2 py-0.5 hover:bg-white/10 rounded"
-                          >
-                            Merge ({selectedItemIds.size})
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleAddItem()}
-                          className="text-[11px] text-white/70 hover:text-white px-2 py-0.5 hover:bg-white/10 rounded flex items-center gap-1"
-                        >
-                          <Plus className="w-3 h-3" />
-                          Add
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-[#5a5a5a] text-white text-[11px] font-semibold">
-                        <th className="w-8 px-2 py-2"></th>
-                        <th className="text-left px-3 py-2">Description</th>
-                        <th className="text-center w-24 px-2 py-2">Item / Part</th>
-                        <th className="text-center w-12 px-1 py-2">Qty</th>
-                        <th className="text-center w-20 px-1 py-2">Unit £</th>
-                        <th className="text-center w-16 px-1 py-2">Markup%</th>
-                        <th className="text-center w-20 px-1 py-2">Labour £</th>
-                        <th className="text-right w-20 px-3 py-2">Total £</th>
-                        {!isLocked && <th className="w-8 px-1"></th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lineItems.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={isLocked ? 8 : 9}
-                            className="px-4 py-8 text-center text-[12px] text-[#9aa0a6] italic"
-                          >
-                            No line items yet.{!isLocked && " Click 'Add' to add one."}
-                          </td>
-                        </tr>
+                          AI Improve
+                        </Button>
                       )}
-                      {lineItems.map((item, index) => {
-                        const isSubItem = !!item.parent_id;
-                        return (
-                          <tr
-                            key={item.id}
-                            className={`border-b border-[#f0f0f0] ${isSubItem ? "bg-[#fafaf5]" : index % 2 === 0 ? "bg-white" : "bg-[#fafafa]"} hover:bg-[#f9fbe7] transition-colors align-top`}
-                          >
-                            <td className="px-2 py-2 text-center">
+                      {!isLocked && (
+                        <Button size="sm" onClick={() => handleAddItem()} className="gap-1">
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Item
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {lineItems.length === 0 ? (
+                    <p className="text-center py-8 text-sm text-muted-foreground">No line items yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {lineItems.map((item, index) => (
+                        <Card key={item.id} className={item.parent_id ? "ml-6 border-l-4 border-l-muted" : ""}>
+                          <CardContent className="p-4 space-y-3">
+                            <div className="flex items-start gap-3">
                               {!isLocked && (
-                                <input
-                                  type="checkbox"
+                                <Checkbox
                                   checked={selectedItemIds.has(item.id)}
-                                  onChange={(e) => {
+                                  onCheckedChange={(checked) => {
                                     const next = new Set(selectedItemIds);
-                                    if (e.target.checked) next.add(item.id);
+                                    if (checked) next.add(item.id);
                                     else next.delete(item.id);
                                     setSelectedItemIds(next);
                                   }}
-                                  className="mt-1"
+                                  className="mt-2"
                                 />
                               )}
-                              {isSubItem && <span className="text-[9px] text-[#9aa0a6] block">sub</span>}
-                            </td>
-                            <td className="px-3 py-1.5 min-w-0">
-                              {isLocked ? (
-                                <div>
-                                  <p className="text-[12px]">{item.description}</p>
-                                  {item.regulation_reference && (
-                                    <p className="text-[10px] text-[#e85c2c] mt-0.5">{item.regulation_reference}</p>
-                                  )}
+                              <div className="flex-1 space-y-2">
+                                <Textarea
+                                  rows={2}
+                                  value={item.description}
+                                  onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                                  placeholder="Description of work..."
+                                  disabled={isLocked}
+                                />
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                                  <div>
+                                    <Label className="text-xs">Item / Part</Label>
+                                    <Input
+                                      value={item.item_name || ""}
+                                      onChange={(e) => handleItemChange(index, "item_name", e.target.value || null)}
+                                      disabled={isLocked}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Qty</Label>
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      value={item.quantity}
+                                      onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
+                                      disabled={isLocked}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Unit Price £</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step={0.01}
+                                      value={item.unit_price}
+                                      onChange={(e) => handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
+                                      disabled={isLocked}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Markup %</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step={1}
+                                      value={item.markup_percent || 0}
+                                      onChange={(e) => handleItemChange(index, "markup_percent", parseFloat(e.target.value) || 0)}
+                                      disabled={isLocked}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Labour £</Label>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step={0.01}
+                                      value={item.labour_cost || 0}
+                                      onChange={(e) => handleItemChange(index, "labour_cost", parseFloat(e.target.value) || 0)}
+                                      disabled={isLocked}
+                                      className="h-8"
+                                    />
+                                  </div>
                                 </div>
-                              ) : (
-                                <div className="space-y-1">
-                                  <Textarea
-                                    rows={2}
-                                    className="text-xs border-[#dadce0] resize-none w-full"
-                                    value={item.description}
-                                    onChange={(e) => handleItemChange(index, "description", e.target.value)}
-                                    placeholder="Description of work…"
-                                  />
-                                  <Input
-                                    className="h-5 text-[10px] border-[#e8e8e8] text-[#e85c2c] italic"
-                                    value={item.regulation_reference || ""}
-                                    onChange={(e) =>
-                                      handleItemChange(index, "regulation_reference", e.target.value || null)
-                                    }
-                                    placeholder="Regulation ref (optional)"
-                                  />
+                                <div className="flex items-center justify-between pt-2 border-t">
+                                  <span className="text-xs text-muted-foreground">Total</span>
+                                  <span className="text-sm font-semibold flex items-center">
+                                    <PoundSterling className="w-3 h-3" />
+                                    {(item.total_price || 0).toFixed(2)}
+                                  </span>
                                 </div>
-                              )}
-                            </td>
-                            <td className="px-1 py-1.5 text-center">
-                              {isLocked ? (
-                                <span className="text-[11px] text-[#5f6368]">{item.item_name || "—"}</span>
-                              ) : (
-                                <Input
-                                  className="h-6 text-[11px] border-[#dadce0] text-center"
-                                  value={item.item_name || ""}
-                                  onChange={(e) => handleItemChange(index, "item_name", e.target.value || null)}
-                                  placeholder="Part"
-                                />
-                              )}
-                            </td>
-                            <td className="px-1 py-1.5 text-center">
-                              {isLocked ? (
-                                <span className="text-[12px]">{item.quantity}</span>
-                              ) : (
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  className="h-6 text-[11px] border-[#dadce0] text-center"
-                                  value={item.quantity}
-                                  onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
-                                />
-                              )}
-                            </td>
-                            <td className="px-1 py-1.5 text-center">
-                              {isLocked ? (
-                                <span className="text-[12px]">£{item.unit_price.toFixed(2)}</span>
-                              ) : (
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step={0.01}
-                                  className="h-6 text-[11px] border-[#dadce0] text-center"
-                                  value={item.unit_price}
-                                  onChange={(e) =>
-                                    handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)
-                                  }
-                                />
-                              )}
-                            </td>
-                            <td className="px-1 py-1.5 text-center">
-                              {isLocked ? (
-                                <span className="text-[12px] text-[#9aa0a6]">{item.markup_percent || 0}%</span>
-                              ) : (
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step={1}
-                                  className="h-6 text-[11px] border-[#dadce0] text-center"
-                                  value={item.markup_percent || 0}
-                                  onChange={(e) =>
-                                    handleItemChange(index, "markup_percent", parseFloat(e.target.value) || 0)
-                                  }
-                                />
-                              )}
-                            </td>
-                            <td className="px-1 py-1.5 text-center">
-                              {isLocked ? (
-                                <span className="text-[12px]">£{(item.labour_cost || 0).toFixed(2)}</span>
-                              ) : (
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step={0.01}
-                                  className="h-6 text-[11px] border-[#dadce0] text-center"
-                                  value={item.labour_cost || 0}
-                                  onChange={(e) =>
-                                    handleItemChange(index, "labour_cost", parseFloat(e.target.value) || 0)
-                                  }
-                                />
-                              )}
-                            </td>
-                            <td className="px-3 py-1.5 text-right">
-                              <span className="text-[12px] font-medium">£{(item.total_price || 0).toFixed(2)}</span>
-                            </td>
-                            {!isLocked && (
-                              <td className="px-1 py-1.5 text-center">
-                                <button
-                                  onClick={() => setLineItems(lineItems.filter((_, i) => i !== index))}
-                                  className="text-[#c62828] hover:opacity-70"
+                              </div>
+                              {!isLocked && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleRemoveItem(index)}
+                                  className="text-destructive"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
 
-                <div className="border-b border-[#e0e0e0]">
-                  <div className="bg-[#3c3c3c] text-white text-[11px] font-bold uppercase tracking-wide px-3 py-1.5">
-                    TOTALS
-                  </div>
-                  <div className="px-4 py-3">
-                    <div className="ml-auto w-56 space-y-1.5">
-                      <div className="flex items-center justify-between text-[12px]">
-                        <span className="text-[#5f6368]">Subtotal</span>
-                        <span className="font-medium">£{totalAmount.toFixed(2)}</span>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="ml-auto w-64 space-y-1.5">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Subtotal</span>
+                          <span>£{totalAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">VAT ({vatRate}%)</span>
+                          <span>£{vatAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-base font-bold pt-2 border-t">
+                          <span>Total</span>
+                          <span>£{grandTotal.toFixed(2)}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-[12px]">
-                        <span className="text-[#5f6368]">VAT ({vatRate}%)</span>
-                        <span>£{vatAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[13px] font-bold pt-1 border-t border-[#e0e0e0]">
-                        <span>Total (inc. VAT)</span>
-                        <span>£{grandTotal.toFixed(2)}</span>
-                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="customer" className="space-y-3 mt-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Company Name</Label>
+                      <Input value={customerName} onChange={(e) => { setCustomerName(e.target.value); setHasChanges(true); }} disabled={isLocked} />
+                    </div>
+                    <div>
+                      <Label>Contact Name</Label>
+                      <Input value={customerContactName} onChange={(e) => { setCustomerContactName(e.target.value); setHasChanges(true); }} disabled={isLocked} />
+                    </div>
+                    <div>
+                      <Label>Email</Label>
+                      <Input type="email" value={customerContactEmail} onChange={(e) => { setCustomerContactEmail(e.target.value); setHasChanges(true); }} disabled={isLocked} />
+                    </div>
+                    <div>
+                      <Label>Phone</Label>
+                      <Input value={customerContactPhone} onChange={(e) => { setCustomerContactPhone(e.target.value); setHasChanges(true); }} disabled={isLocked} />
+                    </div>
+                    <div className="col-span-2">
+                      <Label>Address</Label>
+                      <Input value={customerAddress} onChange={(e) => { setCustomerAddress(e.target.value); setHasChanges(true); }} disabled={isLocked} />
+                    </div>
+                    <div>
+                      <Label>City</Label>
+                      <Input value={customerCity} onChange={(e) => { setCustomerCity(e.target.value); setHasChanges(true); }} disabled={isLocked} />
+                    </div>
+                    <div>
+                      <Label>Postcode</Label>
+                      <Input value={customerPostcode} onChange={(e) => { setCustomerPostcode(e.target.value); setHasChanges(true); }} disabled={isLocked} />
                     </div>
                   </div>
-                </div>
+                </TabsContent>
 
-                <div className="border-b border-[#e0e0e0]">
-                  <div className="bg-[#3c3c3c] text-white text-[11px] font-bold uppercase tracking-wide px-3 py-1.5">
-                    TERMS & CONDITIONS
+                <TabsContent value="details" className="space-y-3 mt-4">
+                  <div>
+                    <Label>Quote Title</Label>
+                    <Input value={title} onChange={(e) => { setTitle(e.target.value); setHasChanges(true); }} disabled={isLocked} />
                   </div>
-                  <div className="px-4 py-3">
-                    <Textarea
-                      rows={5}
-                      className="text-xs border-[#dadce0] resize-none font-mono"
-                      value={terms}
-                      onChange={(e) => {
-                        setTerms(e.target.value);
-                        setHasChanges(true);
-                      }}
-                      disabled={isLocked}
-                    />
+                  <div>
+                    <Label>Summary</Label>
+                    <Textarea rows={3} value={summary} onChange={(e) => { setSummary(e.target.value); setHasChanges(true); }} disabled={isLocked} />
                   </div>
-                </div>
+                  <div>
+                    <Label>Notes</Label>
+                    <Textarea rows={4} value={notes} onChange={(e) => { setNotes(e.target.value); setHasChanges(true); }} disabled={isLocked} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Valid Until</Label>
+                      <Input type="date" value={validUntil} onChange={(e) => { setValidUntil(e.target.value); setHasChanges(true); }} disabled={isLocked} />
+                    </div>
+                    <div>
+                      <Label>VAT Rate (%)</Label>
+                      <Input type="number" value={vatRate} onChange={(e) => { setVatRate(parseFloat(e.target.value) || 0); setHasChanges(true); }} disabled={isLocked} />
+                    </div>
+                  </div>
+                </TabsContent>
 
-                <div>
-                  <div className="bg-[#3c3c3c] text-white text-[11px] font-bold uppercase tracking-wide px-3 py-1.5">
-                    PDF COLUMNS
+                <TabsContent value="terms" className="space-y-4 mt-4">
+                  <div>
+                    <Label>Terms & Conditions</Label>
+                    <Textarea rows={8} value={terms} onChange={(e) => { setTerms(e.target.value); setHasChanges(true); }} className="font-mono text-xs" disabled={isLocked} />
                   </div>
-                  <div className="px-4 py-3 flex flex-wrap gap-4">
-                    {[
-                      { id: "ref", label: "Regulation ref", key: "showRegulationRef" as const },
-                      { id: "pri", label: "Priority", key: "showPriority" as const },
-                      { id: "item", label: "Item/Part", key: "showItem" as const },
-                      { id: "qty", label: "Quantity", key: "showQuantity" as const },
-                      { id: "unit", label: "Unit price", key: "showUnitPrice" as const },
-                      { id: "labour", label: "Labour", key: "showLabour" as const },
-                      { id: "total", label: "Total", key: "showTotal" as const },
-                    ].map((opt) => (
-                      <label key={opt.id} className="flex items-center gap-2 text-[12px] cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={columnOptions[opt.key]}
-                          onChange={(e) => setColumnOptions({ ...columnOptions, [opt.key]: e.target.checked })}
-                          className="rounded"
-                        />
-                        {opt.label}
-                      </label>
-                    ))}
+                  <div>
+                    <Label className="mb-2 block">PDF Columns</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {[
+                        { key: "showItemNumber" as const, label: "Item Number" },
+                        { key: "showDescription" as const, label: "Description" },
+                        { key: "showRegulationRef" as const, label: "Regulation Ref" },
+                        { key: "showPriority" as const, label: "Priority" },
+                        { key: "showItem" as const, label: "Item/Part" },
+                        { key: "showQuantity" as const, label: "Quantity" },
+                        { key: "showUnitPrice" as const, label: "Unit Price" },
+                        { key: "showLabour" as const, label: "Labour" },
+                        { key: "showTotal" as const, label: "Total" },
+                      ].map((opt) => (
+                        <label key={opt.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={columnOptions[opt.key]}
+                            onCheckedChange={(checked) => setColumnOptions({ ...columnOptions, [opt.key]: !!checked })}
+                          />
+                          {opt.label}
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </div>
+                </TabsContent>
+              </Tabs>
             )}
           </div>
 
-          <div className="flex items-center justify-between px-5 py-2 border-t border-[#e0e0e0] bg-white shrink-0">
-            <p className="text-[11px] text-[#9aa0a6]">BHO Fire & Security Ltd · Reg. 12235152</p>
+          <DialogFooter className="px-6 py-3 border-t shrink-0 sm:justify-between">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpenChange(false)}>
-                Close
+              <Button
+                variant="outline"
+                onClick={() => setEmailDialogOpen(true)}
+                disabled={loading || lineItems.length === 0 || !customerContactEmail || isLocked}
+                className="gap-1"
+              >
+                <Mail className="w-4 h-4" />
+                Email
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleGeneratePDF}
+                disabled={generating || loading || lineItems.length === 0}
+                className="gap-1"
+              >
+                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                Download PDF
               </Button>
               {!isLocked && (
-                <Button
-                  size="sm"
-                  className="h-7 text-xs gap-1"
-                  style={{ background: "#e85c2c" }}
-                  onClick={handleSave}
-                  disabled={saving || !hasChanges}
-                >
-                  {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}Save & Sync
+                <Button onClick={handleSave} disabled={saving} className="gap-1">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save & Sync
                 </Button>
               )}
             </div>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
