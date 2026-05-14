@@ -5,7 +5,7 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
