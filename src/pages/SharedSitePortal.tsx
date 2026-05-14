@@ -132,12 +132,20 @@ export default function SharedSitePortal() {
       // 3. Fetch open defects
       const { data: defectData } = await supabase
         .from("site_defects")
-        .select("id, description, severity, status, raised_at, location")
+        .select("id, description, category, status, raised_at, location")
         .eq("site_id", siteData.id)
-        .in("status", ["open", "in_progress"])
+        .in("status", ["open", "quoted"])
         .order("raised_at", { ascending: false });
 
-      setDefects((defectData ?? []) as PortalDefect[]);
+      const sevMap: Record<number, string> = { 1: "critical", 2: "major", 3: "minor" };
+      setDefects(((defectData ?? []) as any[]).map(d => ({
+        id: d.id,
+        description: d.description,
+        location: d.location,
+        status: d.status,
+        raised_at: d.raised_at,
+        severity: sevMap[d.category] ?? "minor",
+      })) as PortalDefect[]);
 
     } catch (e: any) {
       setError(e.message ?? "Failed to load portal");
