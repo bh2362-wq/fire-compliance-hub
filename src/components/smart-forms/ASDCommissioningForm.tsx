@@ -749,6 +749,12 @@ export default function ASDCommissioningForm({ open, onOpenChange, siteId, custo
             {renderStep(idx)}
           </DocBlock>
         ))}
+
+        <AIAssistBlock
+          payload={payload as any}
+          formLabel="ASD Commissioning Certificate"
+          extraInstruction="Confirm commissioning of the aspirating smoke detection system, sensitivity class, transport time, and any outstanding actions."
+        />
         {errors.length > 0 && (
           <div className="p-3 rounded-md border border-destructive/40 bg-destructive/5 space-y-1">
             <p className="text-xs font-semibold text-destructive flex items-center gap-1">
