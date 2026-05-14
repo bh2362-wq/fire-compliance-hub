@@ -25,6 +25,7 @@ interface DashboardLayoutProps {
 const coreNav = [
   { name: "Dashboard",  href: "/dashboard",           icon: LayoutDashboard, end: true },
   { name: "Visits",     href: "/dashboard/visits",    icon: ClipboardList },
+  { name: "Asset Maintenance", href: "/dashboard/asset-maintenance", icon: Wrench },
   { name: "Reports",    href: "/dashboard/reports",   icon: BarChart3 },
   { name: "Defects",    href: "/dashboard/defects",   icon: ShieldAlert },
 ];
