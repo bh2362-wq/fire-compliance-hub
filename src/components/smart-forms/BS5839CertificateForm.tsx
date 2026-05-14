@@ -25,6 +25,7 @@ import { createDefect, updateDefect, type DefectCategory } from "@/services/defe
 import { DefectImportPanel } from "@/components/smart-forms/DefectImportPanel";
 import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
 import { ClientSummaryPanel } from "@/components/smart-forms/ClientSummaryPanel";
+import { PhotoAnalysisPanel } from "@/components/smart-forms/PhotoAnalysisPanel";
 
 const SERVICE_TYPES = [
   "Quarterly Service",
@@ -425,6 +426,20 @@ export default function BS5839CertificateForm({
                 </div>
               </div>
             </DocBlock>
+
+            <PhotoAnalysisPanel
+              submissionId={submissionId}
+              context={[
+                payload.certificate_type,
+                payload.premises_name,
+                payload.panel_manufacturer,
+                "BS5839 quarterly inspection"
+              ].filter(Boolean).join(", ")}
+              existingDefects={defects}
+              onAddDefects={(newDefects) => {
+                update("defects", [...defects, ...newDefects]);
+              }}
+            />
 
             {/* 6. DEFECTS */}
             <div className="bg-white border border-border rounded-md overflow-hidden">
