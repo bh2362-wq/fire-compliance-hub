@@ -11,7 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { SmartSignature } from "@/components/ui/smart-signature";
-import { ChevronLeft, ChevronRight, Save, FileDown, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { Save, FileDown, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import {
