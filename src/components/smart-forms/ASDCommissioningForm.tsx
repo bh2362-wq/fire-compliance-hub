@@ -171,8 +171,8 @@ export default function ASDCommissioningForm({ open, onOpenChange, siteId, custo
 
   // ── Step content ────────────────────────────────────────────────────────────
 
-  function renderStep() {
-    switch (step) {
+  function renderStep(idx: number = step) {
+    switch (idx) {
       // ── Step 0: Installation type ───────────────────────────────────────────
       case 0: return (
         <div className="space-y-4">
