@@ -93,8 +93,12 @@ export interface ChecklistItem {
   key: string;
   label: string;
   section?: string;
+  itemNumber?: string;
+  invert?: boolean;
+  special?: "number";
   status: "Pass" | "Fail" | "YES" | "NO" | "N/A" | "";
   comment?: string;
+  value?: number | "";
 }
 
 export interface DefectEntry {
@@ -138,119 +142,119 @@ export interface SmartFormSubmission {
 
 export const DEFAULT_CHECKLIST: ChecklistItem[] = [
   // ── Section 1: Visual Inspection ─────────────────────────────────────────
-  { key: "1.1",  section: "Section 1: Visual Inspection",        label: "1.1  Are all manual call points unobstructed and conspicuous?",                                                        status: "" },
-  { key: "1.2",  section: "Section 1: Visual Inspection",        label: "1.2  Have there been any new exits created without the provision of a manual call point?",                             status: "" },
-  { key: "1.3",  section: "Section 1: Visual Inspection",        label: "1.3  Are there any new or relocated partitions within 500mm of any automatic fire detector?",                          status: "" },
-  { key: "1.4",  section: "Section 1: Visual Inspection",        label: "1.4  Is there any storage which encroaches within 300mm of ceilings?",                                                 status: "" },
-  { key: "1.5",  section: "Section 1: Visual Inspection",        label: "1.5  If yes to 1.4, is there a requirement to install additional fire detection?",                                      status: "" },
-  { key: "1.6",  section: "Section 1: Visual Inspection",        label: "1.6  Is there any racking present greater than 8m in height or containing high value/risk materials?",                 status: "" },
-  { key: "1.7",  section: "Section 1: Visual Inspection",        label: "1.7  If yes to 1.6, is in rack detection installed?",                                                                   status: "" },
-  { key: "1.8",  section: "Section 1: Visual Inspection",        label: "1.8  If no to 1.7, has recommendation been written for in rack detection?",                                             status: "" },
-  { key: "1.9",  section: "Section 1: Visual Inspection",        label: "1.9  Is 500mm clear space being maintained below each automatic fire detector?",                                        status: "" },
-  { key: "1.10", section: "Section 1: Visual Inspection",        label: "1.10 Have there been any changes to occupancy making existing detection unsuitable?",                                   status: "" },
-  { key: "1.11", section: "Section 1: Visual Inspection",        label: "1.11 Have there been any alterations/extensions requiring additional detection?",                                       status: "" },
-  { key: "1.12", section: "Section 1: Visual Inspection",        label: "1.12 Have all detectors & remote indicators been examined to ensure not damaged/painted?",                              status: "" },
-  { key: "1.13", section: "Section 1: Visual Inspection",        label: "1.13 Have all visual alarm devices been checked that they are not obstructed from view?",                               status: "" },
-  { key: "1.14", section: "Section 1: Visual Inspection",        label: "1.14 Have all visual alarm devices been checked to ensure their lenses are clean?",                                     status: "" },
-  { key: "1.15", section: "Section 1: Visual Inspection",        label: "1.15 Has a visual inspection of cable fixings ensured they are secure and undamaged?",                                  status: "" },
+  { key: "1.1", itemNumber: "1.1", invert: false,  section: "Section 1: Visual Inspection",        label: "1.1  Are all manual call points unobstructed and conspicuous?",                                                        status: "" },
+  { key: "1.2", itemNumber: "1.2", invert: true,  section: "Section 1: Visual Inspection",        label: "1.2  Have there been any new exits created without the provision of a manual call point?",                             status: "" },
+  { key: "1.3", itemNumber: "1.3", invert: true,  section: "Section 1: Visual Inspection",        label: "1.3  Are there any new or relocated partitions within 500mm of any automatic fire detector?",                          status: "" },
+  { key: "1.4", itemNumber: "1.4", invert: true,  section: "Section 1: Visual Inspection",        label: "1.4  Is there any storage which encroaches within 300mm of ceilings?",                                                 status: "" },
+  { key: "1.5", itemNumber: "1.5", invert: true,  section: "Section 1: Visual Inspection",        label: "1.5  If yes to 1.4, is there a requirement to install additional fire detection?",                                      status: "" },
+  { key: "1.6", itemNumber: "1.6", invert: true,  section: "Section 1: Visual Inspection",        label: "1.6  Is there any racking present greater than 8m in height or containing high value/risk materials?",                 status: "" },
+  { key: "1.7", itemNumber: "1.7", invert: false,  section: "Section 1: Visual Inspection",        label: "1.7  If yes to 1.6, is in rack detection installed?",                                                                   status: "" },
+  { key: "1.8", itemNumber: "1.8", invert: false,  section: "Section 1: Visual Inspection",        label: "1.8  If no to 1.7, has recommendation been written for in rack detection?",                                             status: "" },
+  { key: "1.9", itemNumber: "1.9", invert: false,  section: "Section 1: Visual Inspection",        label: "1.9  Is 500mm clear space being maintained below each automatic fire detector?",                                        status: "" },
+  { key: "1.10", itemNumber: "1.10", invert: true, section: "Section 1: Visual Inspection",        label: "1.10 Have there been any changes to occupancy making existing detection unsuitable?",                                   status: "" },
+  { key: "1.11", itemNumber: "1.11", invert: true, section: "Section 1: Visual Inspection",        label: "1.11 Have there been any alterations/extensions requiring additional detection?",                                       status: "" },
+  { key: "1.12", itemNumber: "1.12", invert: false, section: "Section 1: Visual Inspection",        label: "1.12 Have all detectors & remote indicators been examined to ensure not damaged/painted?",                              status: "" },
+  { key: "1.13", itemNumber: "1.13", invert: false, section: "Section 1: Visual Inspection",        label: "1.13 Have all visual alarm devices been checked that they are not obstructed from view?",                               status: "" },
+  { key: "1.14", itemNumber: "1.14", invert: false, section: "Section 1: Visual Inspection",        label: "1.14 Have all visual alarm devices been checked to ensure their lenses are clean?",                                     status: "" },
+  { key: "1.15", itemNumber: "1.15", invert: false, section: "Section 1: Visual Inspection",        label: "1.15 Has a visual inspection of cable fixings ensured they are secure and undamaged?",                                  status: "" },
 
   // ── Section 2: Manual Call Points ────────────────────────────────────────
-  { key: "2.1",  section: "Section 2: Manual Call Points",       label: "2.1  Has the switch mechanism of every manual call point been tested?",                                                 status: "" },
+  { key: "2.1", itemNumber: "2.1", invert: false,  section: "Section 2: Manual Call Points",       label: "2.1  Has the switch mechanism of every manual call point been tested?",                                                 status: "" },
 
   // ── Section 3: Automatic Detection ───────────────────────────────────────
-  { key: "3.1",  section: "Section 3: Automatic Detection",      label: "3.1  Have all automatic fire detectors been functionally tested?",                                                      status: "" },
-  { key: "3.2",  section: "Section 3: Automatic Detection",      label: "3.2  Have all remote indicators been functionally tested?",                                                             status: "" },
-  { key: "3.3",  section: "Section 3: Automatic Detection",      label: "3.3  Have all optical beam smoke detectors been functionally tested?",                                                  status: "" },
-  { key: "3.4",  section: "Section 3: Automatic Detection",      label: "3.4  Have all aspirating fire detectors been inspected & serviced per ASD Checklist?",                                 status: "" },
-  { key: "3.5",  section: "Section 3: Automatic Detection",      label: "3.5  Have all carbon monoxide fire detectors been functionally tested?",                                                status: "" },
-  { key: "3.6",  section: "Section 3: Automatic Detection",      label: "3.6  Have all flame detectors been functionally tested?",                                                               status: "" },
-  { key: "3.7",  section: "Section 3: Automatic Detection",      label: "3.7  Have all multi-sensors been functionally tested per manufacturer recommendations?",                               status: "" },
-  { key: "3.8",  section: "Section 3: Automatic Detection",      label: "3.8  Have all analogue values been confirmed within manufacturer's range?",                                             status: "" },
+  { key: "3.1", itemNumber: "3.1", invert: false,  section: "Section 3: Automatic Detection",      label: "3.1  Have all automatic fire detectors been functionally tested?",                                                      status: "" },
+  { key: "3.2", itemNumber: "3.2", invert: false,  section: "Section 3: Automatic Detection",      label: "3.2  Have all remote indicators been functionally tested?",                                                             status: "" },
+  { key: "3.3", itemNumber: "3.3", invert: false,  section: "Section 3: Automatic Detection",      label: "3.3  Have all optical beam smoke detectors been functionally tested?",                                                  status: "" },
+  { key: "3.4", itemNumber: "3.4", invert: false,  section: "Section 3: Automatic Detection",      label: "3.4  Have all aspirating fire detectors been inspected & serviced per ASD Checklist?",                                 status: "" },
+  { key: "3.5", itemNumber: "3.5", invert: false,  section: "Section 3: Automatic Detection",      label: "3.5  Have all carbon monoxide fire detectors been functionally tested?",                                                status: "" },
+  { key: "3.6", itemNumber: "3.6", invert: false,  section: "Section 3: Automatic Detection",      label: "3.6  Have all flame detectors been functionally tested?",                                                               status: "" },
+  { key: "3.7", itemNumber: "3.7", invert: false,  section: "Section 3: Automatic Detection",      label: "3.7  Have all multi-sensors been functionally tested per manufacturer recommendations?",                               status: "" },
+  { key: "3.8", itemNumber: "3.8", invert: false,  section: "Section 3: Automatic Detection",      label: "3.8  Have all analogue values been confirmed within manufacturer's range?",                                             status: "" },
 
   // ── Section 4: Audible Alarms ─────────────────────────────────────────────
-  { key: "4.1",  section: "Section 4: Audible Alarms",           label: "4.1  Have all audible alarm devices been operated to check correct functioning?",                                       status: "" },
-  { key: "4.2",  section: "Section 4: Audible Alarms",           label: "4.2  Have all audible alarm devices been checked for correct operation?",                                               status: "" },
+  { key: "4.1", itemNumber: "4.1", invert: false,  section: "Section 4: Audible Alarms",           label: "4.1  Have all audible alarm devices been operated to check correct functioning?",                                       status: "" },
+  { key: "4.2", itemNumber: "4.2", invert: false,  section: "Section 4: Audible Alarms",           label: "4.2  Have all audible alarm devices been checked for correct operation?",                                               status: "" },
 
   // ── Section 5: Visual Alarms ──────────────────────────────────────────────
-  { key: "5.1",  section: "Section 5: Visual Alarms",            label: "5.1  Have all visual alarm devices been operated to check correct functioning?",                                        status: "" },
-  { key: "5.2",  section: "Section 5: Visual Alarms",            label: "5.2  Have all visual alarm devices been checked for correct operation?",                                                status: "" },
+  { key: "5.1", itemNumber: "5.1", invert: false,  section: "Section 5: Visual Alarms",            label: "5.1  Have all visual alarm devices been operated to check correct functioning?",                                        status: "" },
+  { key: "5.2", itemNumber: "5.2", invert: false,  section: "Section 5: Visual Alarms",            label: "5.2  Have all visual alarm devices been checked for correct operation?",                                                status: "" },
 
   // ── Section 6: Ancillary Equipment ───────────────────────────────────────
-  { key: "6.1",  section: "Section 6: Ancillary Equipment",      label: "6.1  Has the cause and effect programme been confirmed by operating at least one cause?",                               status: "" },
+  { key: "6.1", itemNumber: "6.1", invert: false,  section: "Section 6: Ancillary Equipment",      label: "6.1  Has the cause and effect programme been confirmed by operating at least one cause?",                               status: "" },
 
   // ── Section 7: Radio Linked Equipment ────────────────────────────────────
-  { key: "7.1",  section: "Section 7: Radio Linked Equipment",   label: "7.1  Are details of radio signal strength levels from commissioning held in logbook?",                                  status: "" },
-  { key: "7.2",  section: "Section 7: Radio Linked Equipment",   label: "7.2  Radio signal strengths have been checked for adequacy and results recorded?",                                      status: "" },
-  { key: "7.3",  section: "Section 7: Radio Linked Equipment",   label: "7.3  Has all radio system equipment been inspected per manufacturer recommendations?",                                  status: "" },
+  { key: "7.1", itemNumber: "7.1", invert: false,  section: "Section 7: Radio Linked Equipment",   label: "7.1  Are details of radio signal strength levels from commissioning held in logbook?",                                  status: "" },
+  { key: "7.2", itemNumber: "7.2", invert: false,  section: "Section 7: Radio Linked Equipment",   label: "7.2  Radio signal strengths have been checked for adequacy and results recorded?",                                      status: "" },
+  { key: "7.3", itemNumber: "7.3", invert: false,  section: "Section 7: Radio Linked Equipment",   label: "7.3  Has all radio system equipment been inspected per manufacturer recommendations?",                                  status: "" },
 
   // ── Section 8: Fault Monitoring ───────────────────────────────────────────
-  { key: "8.1",  section: "Section 8: Fault Monitoring",         label: "8.1  Removal of a manual call point, fire detector or detachable alarm device?",                                        status: "" },
-  { key: "8.2",  section: "Section 8: Fault Monitoring",         label: "8.2  Short circuit and open circuit to circuits serving fire alarm devices?",                                           status: "" },
-  { key: "8.3",  section: "Section 8: Fault Monitoring",         label: "8.3  Short/open circuit of wiring between separate enclosure power supply and equipment?",                              status: "" },
-  { key: "8.4",  section: "Section 8: Fault Monitoring",         label: "8.4  Introduction of an earth fault?",                                                                                  status: "" },
-  { key: "8.5",  section: "Section 8: Fault Monitoring",         label: "8.5  Removal of any fuse or operation of other protective device?",                                                     status: "" },
-  { key: "8.6",  section: "Section 8: Fault Monitoring",         label: "8.6  Short/open circuit on wiring between separate control/indicating equipment?",                                      status: "" },
-  { key: "8.7",  section: "Section 8: Fault Monitoring",         label: "8.7  Short/open circuit on wiring between main and repeat control/mimic diagram?",                                      status: "" },
-  { key: "8.8",  section: "Section 8: Fault Monitoring",         label: "8.8  Short/open circuit on wiring to alarm receiving centre transmission equipment?",                                   status: "" },
-  { key: "8.9",  section: "Section 8: Fault Monitoring",         label: "8.9  Introduction of a mains power failure?",                                                                           status: "" },
-  { key: "8.10", section: "Section 8: Fault Monitoring",         label: "8.10 Introduction of a standby power failure?",                                                                         status: "" },
-  { key: "8.11", section: "Section 8: Fault Monitoring",         label: "8.11 Introduction of a battery charger failure?",                                                                       status: "" },
-  { key: "8.12", section: "Section 8: Fault Monitoring",         label: "8.12 Disconnection of 1 battery where batteries are connected in parallel?",                                            status: "" },
-  { key: "8.13", section: "Section 8: Fault Monitoring",         label: "8.13 Short/open/disconnection of communication link to separate systems (voice alarm etc)?",                            status: "" },
-  { key: "8.14", section: "Section 8: Fault Monitoring",         label: "8.14 Removal of any end of line resistors (non addressable circuits)?",                                                 status: "" },
-  { key: "8.15", section: "Section 8: Fault Monitoring",         label: "8.15 All connections to other fire protection systems simulated for fault per BS7273?",                                 status: "" },
-  { key: "8.16", section: "Section 8: Fault Monitoring",         label: "8.16 All tactile alarm devices for people with impaired hearing simulated for fault?",                                  status: "" },
+  { key: "8.1", itemNumber: "8.1", invert: false,  section: "Section 8: Fault Monitoring",         label: "8.1  Removal of a manual call point, fire detector or detachable alarm device?",                                        status: "" },
+  { key: "8.2", itemNumber: "8.2", invert: false,  section: "Section 8: Fault Monitoring",         label: "8.2  Short circuit and open circuit to circuits serving fire alarm devices?",                                           status: "" },
+  { key: "8.3", itemNumber: "8.3", invert: false,  section: "Section 8: Fault Monitoring",         label: "8.3  Short/open circuit of wiring between separate enclosure power supply and equipment?",                              status: "" },
+  { key: "8.4", itemNumber: "8.4", invert: false,  section: "Section 8: Fault Monitoring",         label: "8.4  Introduction of an earth fault?",                                                                                  status: "" },
+  { key: "8.5", itemNumber: "8.5", invert: false,  section: "Section 8: Fault Monitoring",         label: "8.5  Removal of any fuse or operation of other protective device?",                                                     status: "" },
+  { key: "8.6", itemNumber: "8.6", invert: false,  section: "Section 8: Fault Monitoring",         label: "8.6  Short/open circuit on wiring between separate control/indicating equipment?",                                      status: "" },
+  { key: "8.7", itemNumber: "8.7", invert: false,  section: "Section 8: Fault Monitoring",         label: "8.7  Short/open circuit on wiring between main and repeat control/mimic diagram?",                                      status: "" },
+  { key: "8.8", itemNumber: "8.8", invert: false,  section: "Section 8: Fault Monitoring",         label: "8.8  Short/open circuit on wiring to alarm receiving centre transmission equipment?",                                   status: "" },
+  { key: "8.9", itemNumber: "8.9", invert: false,  section: "Section 8: Fault Monitoring",         label: "8.9  Introduction of a mains power failure?",                                                                           status: "" },
+  { key: "8.10", itemNumber: "8.10", invert: false, section: "Section 8: Fault Monitoring",         label: "8.10 Introduction of a standby power failure?",                                                                         status: "" },
+  { key: "8.11", itemNumber: "8.11", invert: false, section: "Section 8: Fault Monitoring",         label: "8.11 Introduction of a battery charger failure?",                                                                       status: "" },
+  { key: "8.12", itemNumber: "8.12", invert: false, section: "Section 8: Fault Monitoring",         label: "8.12 Disconnection of 1 battery where batteries are connected in parallel?",                                            status: "" },
+  { key: "8.13", itemNumber: "8.13", invert: false, section: "Section 8: Fault Monitoring",         label: "8.13 Short/open/disconnection of communication link to separate systems (voice alarm etc)?",                            status: "" },
+  { key: "8.14", itemNumber: "8.14", invert: false, section: "Section 8: Fault Monitoring",         label: "8.14 Removal of any end of line resistors (non addressable circuits)?",                                                 status: "" },
+  { key: "8.15", itemNumber: "8.15", invert: false, section: "Section 8: Fault Monitoring",         label: "8.15 All connections to other fire protection systems simulated for fault per BS7273?",                                 status: "" },
+  { key: "8.16", itemNumber: "8.16", invert: false, section: "Section 8: Fault Monitoring",         label: "8.16 All tactile alarm devices for people with impaired hearing simulated for fault?",                                  status: "" },
 
   // ── Section 9: Standby Power Supplies ────────────────────────────────────
-  { key: "9.1",  section: "Section 9: Standby Power Supplies",   label: "9.1  Have all vented batteries and connections been examined with electrolyte checked?",                                status: "" },
-  { key: "9.2",  section: "Section 9: Standby Power Supplies",   label: "9.2  Battery steady state charge voltage measurement recorded?",                                                        status: "" },
-  { key: "9.3",  section: "Section 9: Standby Power Supplies",   label: "9.3  Is the steady state charge voltage within manufacturer recommendations?",                                          status: "" },
-  { key: "9.4",  section: "Section 9: Standby Power Supplies",   label: "9.4  Batteries have been inspected and are in good serviceable condition?",                                             status: "" },
-  { key: "9.5",  section: "Section 9: Standby Power Supplies",   label: "9.5  Batteries have been momentarily load tested with mains off - serviceable?",                                        status: "" },
-  { key: "9.6",  section: "Section 9: Standby Power Supplies",   label: "9.6  Have any vented batteries been examined to ensure specific gravity is correct?",                                   status: "" },
-  { key: "9.7",  section: "Section 9: Standby Power Supplies",   label: "9.7  Have all standby batteries been verified as suitably sized using verification record?",                            status: "" },
+  { key: "9.1", itemNumber: "9.1", invert: false,  section: "Section 9: Standby Power Supplies",   label: "9.1  Have all vented batteries and connections been examined with electrolyte checked?",                                status: "" },
+  { key: "9.2", itemNumber: "9.2", invert: false,  section: "Section 9: Standby Power Supplies",   label: "9.2  Battery steady state charge voltage measurement recorded?",                                                        status: "" },
+  { key: "9.3", itemNumber: "9.3", invert: false,  section: "Section 9: Standby Power Supplies",   label: "9.3  Is the steady state charge voltage within manufacturer recommendations?",                                          status: "" },
+  { key: "9.4", itemNumber: "9.4", invert: false,  section: "Section 9: Standby Power Supplies",   label: "9.4  Batteries have been inspected and are in good serviceable condition?",                                             status: "" },
+  { key: "9.5", itemNumber: "9.5", invert: false,  section: "Section 9: Standby Power Supplies",   label: "9.5  Batteries have been momentarily load tested with mains off - serviceable?",                                        status: "" },
+  { key: "9.6", itemNumber: "9.6", invert: false,  section: "Section 9: Standby Power Supplies",   label: "9.6  Have any vented batteries been examined to ensure specific gravity is correct?",                                   status: "" },
+  { key: "9.7", itemNumber: "9.7", invert: false,  section: "Section 9: Standby Power Supplies",   label: "9.7  Have all standby batteries been verified as suitably sized using verification record?",                            status: "" },
 
   // ── Section 10: Control & Indicating Equipment ────────────────────────────
-  { key: "10.1", section: "Section 10: Control & Indicating Equipment", label: "10.1 Have all fire alarm functions been checked by operation of detector/MCP on each circuit?",                status: "" },
-  { key: "10.2", section: "Section 10: Control & Indicating Equipment", label: "10.2 Have all controls and visual indicators been checked for correct operation?",                              status: "" },
-  { key: "10.3", section: "Section 10: Control & Indicating Equipment", label: "10.3 Have all ancillary functions of the CIE been tested?",                                                    status: "" },
-  { key: "10.4", section: "Section 10: Control & Indicating Equipment", label: "10.4 Have all printers been tested for correct operation and legible characters?",                              status: "" },
-  { key: "10.5", section: "Section 10: Control & Indicating Equipment", label: "10.5 Are there sufficient quantities of printer consumables until next service?",                               status: "" },
-  { key: "10.6", section: "Section 10: Control & Indicating Equipment", label: "10.6 All unmonitored permanently illuminated filament lamp indicators replaced?",                               status: "" },
+  { key: "10.1", itemNumber: "10.1", invert: false, section: "Section 10: Control & Indicating Equipment", label: "10.1 Have all fire alarm functions been checked by operation of detector/MCP on each circuit?",                status: "" },
+  { key: "10.2", itemNumber: "10.2", invert: false, section: "Section 10: Control & Indicating Equipment", label: "10.2 Have all controls and visual indicators been checked for correct operation?",                              status: "" },
+  { key: "10.3", itemNumber: "10.3", invert: false, section: "Section 10: Control & Indicating Equipment", label: "10.3 Have all ancillary functions of the CIE been tested?",                                                    status: "" },
+  { key: "10.4", itemNumber: "10.4", invert: false, section: "Section 10: Control & Indicating Equipment", label: "10.4 Have all printers been tested for correct operation and legible characters?",                              status: "" },
+  { key: "10.5", itemNumber: "10.5", invert: false, section: "Section 10: Control & Indicating Equipment", label: "10.5 Are there sufficient quantities of printer consumables until next service?",                               status: "" },
+  { key: "10.6", itemNumber: "10.6", invert: false, section: "Section 10: Control & Indicating Equipment", label: "10.6 All unmonitored permanently illuminated filament lamp indicators replaced?",                               status: "" },
 
   // ── Section 11: Cause & Effect ────────────────────────────────────────────
-  { key: "11.1", section: "Section 11: Cause & Effect",          label: "11.1 The cause & effect programme has been confirmed by operation of at least one cause?",                              status: "" },
+  { key: "11.1", itemNumber: "11.1", invert: false, section: "Section 11: Cause & Effect",          label: "11.1 The cause & effect programme has been confirmed by operation of at least one cause?",                              status: "" },
 
   // ── Section 12: Remote Transmission of Alarms ─────────────────────────────
-  { key: "12.1", section: "Section 12: Remote Transmission of Alarms", label: "12.1 Has automatic transmission of alarm signals to ARC been checked and confirmed?",                           status: "" },
-  { key: "12.2", section: "Section 12: Remote Transmission of Alarms", label: "12.2 Has automatic transmission of fault signals to ARC been checked and confirmed?",                           status: "" },
+  { key: "12.1", itemNumber: "12.1", invert: false, section: "Section 12: Remote Transmission of Alarms", label: "12.1 Has automatic transmission of alarm signals to ARC been checked and confirmed?",                           status: "" },
+  { key: "12.2", itemNumber: "12.2", invert: false, section: "Section 12: Remote Transmission of Alarms", label: "12.2 Has automatic transmission of fault signals to ARC been checked and confirmed?",                           status: "" },
 
   // ── Section 13: Detection Zones ───────────────────────────────────────────
-  { key: "13.1", section: "Section 13: Detection Zones",         label: "13.1 Is there a suitable zone plan correctly orientated and fixed to all CIE?",                                         status: "" },
+  { key: "13.1", itemNumber: "13.1", invert: false, section: "Section 13: Detection Zones",         label: "13.1 Is there a suitable zone plan correctly orientated and fixed to all CIE?",                                         status: "" },
 
   // ── Section 14: False Alarms ──────────────────────────────────────────────
-  { key: "14.1", section: "Section 14: False Alarms",            label: "14.1 Quantity of fire detectors present on the system?",                                                                status: "" },
-  { key: "14.2", section: "Section 14: False Alarms",            label: "14.2 How many false alarms have occurred within the previous 12 months?",                                              status: "" },
-  { key: "14.3", section: "Section 14: False Alarms",            label: "14.3 Does the rate of false alarms exceed 1 per 25 detectors per annum?",                                              status: "" },
-  { key: "14.4", section: "Section 14: False Alarms",            label: "14.4 Have there been 11 or more false alarms since the previous service visit?",                                       status: "" },
-  { key: "14.5", section: "Section 14: False Alarms",            label: "14.5 Have there been 2+ false alarms from a single MCP or detector since last visit?",                                 status: "" },
-  { key: "14.6", section: "Section 14: False Alarms",            label: "14.6 Have there been 2+ false alarms from a single detector location since last visit?",                               status: "" },
-  { key: "14.7", section: "Section 14: False Alarms",            label: "14.7 Is there an identified persistent cause of false alarms?",                                                         status: "" },
-  { key: "14.8", section: "Section 14: False Alarms",            label: "14.8 If yes to 14.3-14.7, has investigation been carried out and advice provided?",                                    status: "" },
+  { key: "14.1", itemNumber: "14.1", special: "number", invert: false, section: "Section 14: False Alarms",            label: "14.1 Quantity of fire detectors present on the system?",                                                                status: "" },
+  { key: "14.2", itemNumber: "14.2", special: "number", invert: false, section: "Section 14: False Alarms",            label: "14.2 How many false alarms have occurred within the previous 12 months?",                                              status: "" },
+  { key: "14.3", itemNumber: "14.3", invert: true, section: "Section 14: False Alarms",            label: "14.3 Does the rate of false alarms exceed 1 per 25 detectors per annum?",                                              status: "" },
+  { key: "14.4", itemNumber: "14.4", invert: true, section: "Section 14: False Alarms",            label: "14.4 Have there been 11 or more false alarms since the previous service visit?",                                       status: "" },
+  { key: "14.5", itemNumber: "14.5", invert: true, section: "Section 14: False Alarms",            label: "14.5 Have there been 2+ false alarms from a single MCP or detector since last visit?",                                 status: "" },
+  { key: "14.6", itemNumber: "14.6", invert: true, section: "Section 14: False Alarms",            label: "14.6 Have there been 2+ false alarms from a single detector location since last visit?",                               status: "" },
+  { key: "14.7", itemNumber: "14.7", invert: true, section: "Section 14: False Alarms",            label: "14.7 Is there an identified persistent cause of false alarms?",                                                         status: "" },
+  { key: "14.8", itemNumber: "14.8", invert: false, section: "Section 14: False Alarms",            label: "14.8 If yes to 14.3-14.7, has investigation been carried out and advice provided?",                                    status: "" },
 
   // ── Section 15: Logbook ───────────────────────────────────────────────────
-  { key: "15.1", section: "Section 15: Logbook",                 label: "15.1 Have all faults recorded in the system logbook received appropriate attention?",                                  status: "" },
-  { key: "15.2", section: "Section 15: Logbook",                 label: "15.2 Have the details of MCPs and detectors used for test 10.1 been recorded in logbook?",                             status: "" },
-  { key: "15.3", section: "Section 15: Logbook",                 label: "15.3 Have defects identified during this visit been reported and recorded in logbook?",                                 status: "" },
+  { key: "15.1", itemNumber: "15.1", invert: false, section: "Section 15: Logbook",                 label: "15.1 Have all faults recorded in the system logbook received appropriate attention?",                                  status: "" },
+  { key: "15.2", itemNumber: "15.2", invert: false, section: "Section 15: Logbook",                 label: "15.2 Have the details of MCPs and detectors used for test 10.1 been recorded in logbook?",                             status: "" },
+  { key: "15.3", itemNumber: "15.3", invert: false, section: "Section 15: Logbook",                 label: "15.3 Have defects identified during this visit been reported and recorded in logbook?",                                 status: "" },
 
   // ── Section 16: Certification ─────────────────────────────────────────────
-  { key: "16.1", section: "Section 16: Certification",           label: "16.1 Has a BS5839-1:2025 Cl.45 Inspection & Service certificate been issued?",                                         status: "" },
-  { key: "16.2", section: "Section 16: Certification",           label: "16.2 Has a BAFE SP203-1 Section 5 Inspection & Service certificate been issued?",                                      status: "" },
+  { key: "16.1", itemNumber: "16.1", invert: false, section: "Section 16: Certification",           label: "16.1 Has a BS5839-1:2025 Cl.45 Inspection & Service certificate been issued?",                                         status: "" },
+  { key: "16.2", itemNumber: "16.2", invert: false, section: "Section 16: Certification",           label: "16.2 Has a BAFE SP203-1 Section 5 Inspection & Service certificate been issued?",                                      status: "" },
 
   // ── Section 17: Post Inspection Checks ────────────────────────────────────
-  { key: "17.1", section: "Section 17: Post Inspection Checks",  label: "17.1 The system has been returned to its normal state?",                                                                status: "" },
-  { key: "17.2", section: "Section 17: Post Inspection Checks",  label: "17.2 The alarm-receiving centre has been advised that normal monitoring is to resume?",                                 status: "" },
-  { key: "17.3", section: "Section 17: Post Inspection Checks",  label: "17.3 Test keys, access keys and documentation have been returned to the Client?",                                       status: "" },
+  { key: "17.1", itemNumber: "17.1", invert: false, section: "Section 17: Post Inspection Checks",  label: "17.1 The system has been returned to its normal state?",                                                                status: "" },
+  { key: "17.2", itemNumber: "17.2", invert: false, section: "Section 17: Post Inspection Checks",  label: "17.2 The alarm-receiving centre has been advised that normal monitoring is to resume?",                                 status: "" },
+  { key: "17.3", itemNumber: "17.3", invert: false, section: "Section 17: Post Inspection Checks",  label: "17.3 Test keys, access keys and documentation have been returned to the Client?",                                       status: "" },
 ];
 
 export function buildEmptyPayload(): BS5839Payload {
