@@ -73,10 +73,13 @@ export async function generateASDCommissioningPDF(p: ASDPayload): Promise<void> 
       doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.white); doc.text(companyName, ML, 12);
     }
     doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.white);
-    doc.text("ASD COMMISSIONING CERTIFICATE", pw / 2, 8, { align: "center" });
+    doc.text("ASPIRATING SMOKE DETECTION — ANNUAL SERVICE CERTIFICATE", pw / 2, 8, { align: "center" });
     doc.setFontSize(7); doc.setFont("helvetica", "normal");
     const typeTag = p.installation_type === "modification" ? "MODIFICATION OF EXISTING SYSTEM" : "NEW INSTALLATION";
-    doc.text(`${s(p.cert_reference)}  |  ${typeTag}  |  BS EN 54-20 Class ${p.sensitivity_class}`, pw / 2, 14, { align: "center" });
+    doc.text(`${s(p.cert_reference)}  |  ${typeTag}  |  Class ${p.sensitivity_class}`, pw / 2, 12.5, { align: "center" });
+    doc.setFontSize(7.5); doc.setFont("helvetica", "bold"); doc.setTextColor(245,130,32);
+    doc.text("BS EN 54-20:2006+A1:2012  ·  FIA Code of Practice ASD Systems", pw / 2, 16.5, { align: "center" });
+    doc.setTextColor(...C.white);
     y = 22;
   }
 
