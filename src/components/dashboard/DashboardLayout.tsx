@@ -24,17 +24,22 @@ interface DashboardLayoutProps {
 /* ── Navigation definitions ─────────────────────────────────────────── */
 const coreNav = [
   { name: "Dashboard",  href: "/dashboard",           icon: LayoutDashboard, end: true },
-  { name: "Schedule",   href: "/dashboard/schedule",  icon: CalendarDays },
   { name: "Visits",     href: "/dashboard/visits",    icon: ClipboardList },
   { name: "Reports",    href: "/dashboard/reports",   icon: BarChart3 },
   { name: "Defects",    href: "/dashboard/defects",   icon: ShieldAlert },
-  { name: "Uploads",    href: "/dashboard/upload",    icon: Upload },
 ];
 
 const clientsNav = [
   { name: "Customers",  href: "/customers",              icon: Users },
   { name: "Sites",      href: "/sites",                  icon: Building2 },
   { name: "Email Logs", href: "/dashboard/email-logs",   icon: Mail },
+];
+
+// Certificates section — top-level items, not buried in Tools
+const certsNav = [
+  { name: "Smart Forms",  href: "/dashboard/smart-forms",   icon: Sparkles },
+  { name: "Cert Tracker", href: "/dashboard/cert-tracker",  icon: Award },
+  { name: "References",   href: "/dashboard/reference",     icon: BookOpen },
 ];
 
 const financeNav = [
@@ -46,28 +51,26 @@ const financeNav = [
 ];
 
 const toolsNav = [
-  { name: "Route Planner",   href: "/dashboard/route-planner",    icon: Route },
-  { name: "Email Scanner",   href: "/dashboard/email-scanner",     icon: ScanSearch },
-  { name: "Device Pricing",  href: "/dashboard/device-pricing",    icon: Package },
-  { name: "Product Lookup",  href: "/dashboard/product-lookup",    icon: Search },
-  { name: "Customer Forms",  href: "/dashboard/customer-forms",    icon: FileSignature },
-  { name: "Smart Forms",     href: "/dashboard/smart-forms",       icon: Sparkles },
-  { name: "AI Assistant",    href: "/dashboard/ai-assistant",      icon: Sparkles },
-  { name: "References",      href: "/dashboard/reference",         icon: BookOpen },
+  { name: "Route Planner",   href: "/dashboard/route-planner",   icon: Route },
+  { name: "Email Scanner",   href: "/dashboard/email-scanner",    icon: ScanSearch },
+  { name: "Device Pricing",  href: "/dashboard/device-pricing",   icon: Package },
+  { name: "Product Lookup",  href: "/dashboard/product-lookup",   icon: Search },
+  { name: "Customer Forms",  href: "/dashboard/customer-forms",   icon: FileSignature },
+  { name: "AI Assistant",    href: "/dashboard/ai-assistant",     icon: Sparkles },
 ];
 
 const qmsNav = [
-  { name: "QMS Dashboard",   href: "/qms",                          icon: TrendingUp, end: true },
-  { name: "Documents",       href: "/qms/documents",                icon: FileCheck },
-  { name: "NCRs",            href: "/qms/ncrs",                     icon: AlertTriangle },
-  { name: "CAPAs",           href: "/qms/capas",                    icon: ClipboardCheck },
-  { name: "Risks",           href: "/qms/risks",                    icon: ShieldAlert },
-  { name: "RAMS",            href: "/qms/rams",                     icon: HardHat },
-  { name: "Training",        href: "/qms/training",                 icon: GraduationCap },
-  { name: "Audits",          href: "/qms/audits",                   icon: Search },
-  { name: "Feedback",        href: "/qms/feedback",                 icon: MessageSquare },
-  { name: "Mgmt Review",     href: "/qms/management-review",        icon: BarChart3 },
-  { name: "Suppliers",       href: "/qms/supplier-evaluations",     icon: Package },
+  { name: "QMS Dashboard",   href: "/qms",                         icon: TrendingUp, end: true },
+  { name: "Documents",       href: "/qms/documents",               icon: FileCheck },
+  { name: "NCRs",            href: "/qms/ncrs",                    icon: AlertTriangle },
+  { name: "CAPAs",           href: "/qms/capas",                   icon: ClipboardCheck },
+  { name: "Risks",           href: "/qms/risks",                   icon: ShieldAlert },
+  { name: "RAMS",            href: "/qms/rams",                    icon: HardHat },
+  { name: "Training",        href: "/qms/training",                icon: GraduationCap },
+  { name: "Audits",          href: "/qms/audits",                  icon: Search },
+  { name: "Feedback",        href: "/qms/feedback",                icon: MessageSquare },
+  { name: "Mgmt Review",     href: "/qms/management-review",       icon: BarChart3 },
+  { name: "Suppliers",       href: "/qms/supplier-evaluations",    icon: Package },
 ];
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
@@ -201,7 +204,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     "/dashboard/smart-forms", "/dashboard/ai-assistant", "/dashboard/reference",
   ].some((p) => location.pathname.startsWith(p));
   const isQmsRoute = location.pathname.startsWith("/qms");
-  const isCertRoute = location.pathname.startsWith("/dashboard/cert-tracker");
+  const isCertRoute = ["/dashboard/cert-tracker", "/dashboard/smart-forms", "/dashboard/reference"].some((p) =>
+    location.pathname.startsWith(p)
+  );
 
   const handleSignOut = async () => {
     await signOut();
@@ -282,8 +287,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           isMobile={isMobile}
         />
 
-        {/* Finance */}
-        <SectionLabel label="Finance" collapsed={collapsed} isMobile={isMobile} />
+        {/* Certificates */}
+        <SectionLabel label="Certificates" collapsed={collapsed} isMobile={isMobile} />
+        {certsNav.map((item) => (
+          <NavItem key={item.name} item={item} collapsed={collapsed} isMobile={isMobile} />
+        ))}
+
+        {/* Finance & QMS */}
+        <SectionLabel label="Finance & QMS" collapsed={collapsed} isMobile={isMobile} />
         <CollapsibleNav
           label="Finance"
           icon={Receipt}
@@ -292,9 +303,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           collapsed={collapsed}
           isMobile={isMobile}
         />
-
-        {/* Tools */}
-        <SectionLabel label="Tools" collapsed={collapsed} isMobile={isMobile} />
+        <CollapsibleNav
+          label="QMS & RAMS"
+          icon={Shield}
+          items={qmsNav}
+          isActive={isQmsRoute}
+          collapsed={collapsed}
+          isMobile={isMobile}
+        />
         <CollapsibleNav
           label="Tools"
           icon={Zap}
@@ -303,38 +319,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           collapsed={collapsed}
           isMobile={isMobile}
         />
-
-        {/* QMS & Compliance */}
-        <SectionLabel label="QMS & Compliance" collapsed={collapsed} isMobile={isMobile} />
-        <CollapsibleNav
-          label="QMS Hub"
-          icon={Shield}
-          items={qmsNav}
-          isActive={isQmsRoute}
-          collapsed={collapsed}
-          isMobile={isMobile}
-        />
-
-        {/* ── New: Cert Tracker ── */}
-        <NavLink
-          to="/dashboard/cert-tracker"
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-              isActive || isCertRoute
-                ? "bg-primary/15 text-primary"
-                : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-            )
-          }
-        >
-          <Award className="w-[18px] h-[18px] flex-shrink-0" />
-          {(!collapsed || isMobile) && (
-            <span className="flex items-center gap-1.5">
-              Cert Tracker
-              <span className="nav-new-badge">new</span>
-            </span>
-          )}
-        </NavLink>
 
         {/* Settings */}
         <NavLink
