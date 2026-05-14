@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TypedSignature } from "@/components/ui/typed-signature";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { Plus, Trash2, Save, FileDown, CheckCircle2, Droplets } from "lucide-react";
-import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock } from "./_DocLayout";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -232,6 +232,12 @@ export default function DryRiserForm({ open, onOpenChange, visitId, siteId, onSa
             {renderSection(i)}
           </DocBlock>
         ))}
+
+        <AIAssistBlock
+          payload={payload as any}
+          formLabel={formType === "pressure_test" ? "Dry Riser Annual Hydraulic Pressure Test" : "Dry Riser 6-Monthly Visual Inspection"}
+          extraInstruction="Mention overall pass/fail, any failed valves or outlets, and the next inspection due date."
+        />
       </DocBody>
       <StickyFooter
         standardLabel="Dry Riser · BS 9990:2015"

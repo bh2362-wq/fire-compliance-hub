@@ -22,7 +22,7 @@ import { TypedSignature } from "@/components/ui/typed-signature";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { HintPanel } from "@/components/smart-forms/HintPanel";
 import { Plus, Trash2, Save, FileDown, CheckCircle2, Wind, AlertCircle } from "lucide-react";
-import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock } from "./_DocLayout";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -236,6 +236,12 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
             <Comp payload={payload} up={up} />
           </DocBlock>
         ))}
+
+        <AIAssistBlock
+          payload={payload as any}
+          formLabel="ASD (Aspirating Smoke Detection) Service Certificate"
+          extraInstruction="Highlight airflow baseline compliance, any pipe issues, and the next service due date."
+        />
       </DocBody>
       <StickyFooter
         standardLabel="ASD Service Certificate · BS EN 54-20"
