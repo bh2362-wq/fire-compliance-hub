@@ -1,94 +1,81 @@
+## Goal
 
+Rewrite all 8 remaining smart forms into the same single-page document-style layout used by `BS5839CertificateForm`, and expand each form's fields to match its underlying paper sheet (using the existing PDF generators as the source of truth for the canonical field set).
 
-# BAFE SP203-1 Accreditation Integration Plan
+## Forms in scope
 
-BAFE SP203-1 covers four scheme areas: **Design, Installation, Commissioning, and Maintenance**. Your system already has solid coverage for Maintenance (BS 5839 checklist) and partial coverage for Installation/Commissioning (certificates exist as customer forms). This plan fills the gaps to make the system fully BAFE-audit-ready.
+1. ASDCommissioningForm — `asdCommissioningPdfGenerator.ts`
+2. ASDServiceForm — `asdChecklistService.ts` / `commissioningCertificatePdfGenerator.ts`
+3. CommissioningCertificateForm — `commissioningCertificatePdfGenerator.ts`
+4. DeclinationForm — `declinationPdfGenerator.ts` (currently a 5-step wizard)
+5. DryRiserForm — `dryRiserPdfGenerator.ts`
+6. EmergencyLightingForm — `emergencyLightingPdfGenerator.ts`
+7. InstallationCertificateForm — `installationCertificatePdfGenerator.ts`
+8. ModificationCertificateForm — `modificationCertificatePdfGenerator.ts`
 
----
+## Shared layout pattern (from BS5839)
 
-## What You Already Have
+Every rewritten form will use this skeleton inside a `Dialog`:
 
-| BAFE Area | Current Coverage |
-|-----------|-----------------|
-| **Maintenance** | BS 5839-1 checklist (17 sections), BAFE cert checkbox, service reports |
-| **Installation** | Installation Certificate form (A056-G), cable readings |
-| **Commissioning** | Commissioning Certificate form (A051-G, 32-item checklist), acceptance cert |
-| **Design** | Limited — no design certificate or specification tracking |
-
----
-
-## Plan
-
-### 1. Add Design Certificate Form Template
-Add a new form template to `CHURCHES_FIRE_TEMPLATES` for the **Design Certificate (BS 5839-1 Annex H)** covering:
-- System category (L1–L5, P1, P2, M)
-- Building description and occupancy
-- Detection coverage specification
-- Variations from standard with justification
-- Designer name, qualifications, BAFE registration number
-- Designer signature and date
-
-### 2. Add BAFE Scheme Tracking to Sites
-New database table `site_bafe_certificates` to track which BAFE certificates have been issued per site:
-- `site_id`, `certificate_type` (design/installation/commissioning/maintenance)
-- `certificate_number`, `issued_date`, `issued_by`, `expiry_date`
-- `linked_form_submission_id` (links to existing customer form submissions)
-- `status` (valid/expired/superseded)
-
-This gives a single view of BAFE compliance status per site.
-
-### 3. BAFE Compliance Dashboard Widget
-Add a new card to the **QMS Dashboard** showing:
-- Count of sites with all 4 certificates vs missing certificates
-- Certificates expiring within 30 days
-- Quick link to generate missing certificates
-
-### 4. BAFE Certificate Number Auto-Generation
-Add a new auto-number prefix `BAFE-D`, `BAFE-I`, `BAFE-C`, `BAFE-M` using the existing `get_next_qms_number` RPC function, so each certificate gets a unique traceable number.
-
-### 5. Site Detail — BAFE Tab
-Add a "BAFE Certificates" section to the Site Detail page showing:
-- Status of each of the 4 certificate types (Design, Installation, Commissioning, Maintenance)
-- Links to view/download each certificate
-- Button to generate missing certificates (opens the relevant customer form pre-filled with site data)
-
-### 6. Visit Workflow Integration
-When a visit is completed and a service report is saved:
-- If the checklist item "16.2 Has a BAFE SP203-1 Section 5 certificate been issued?" is marked YES, prompt to create/link the BAFE maintenance certificate record
-- For installation/commissioning visit types, prompt to complete the relevant BAFE certificate forms
-
----
-
-## Technical Details
-
-### Database Migration
-```sql
-CREATE TABLE public.site_bafe_certificates (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  site_id uuid NOT NULL,
-  certificate_type text NOT NULL, -- 'design','installation','commissioning','maintenance'
-  certificate_number text NOT NULL,
-  issued_date date NOT NULL,
-  issued_by uuid NOT NULL,
-  expiry_date date,
-  linked_form_submission_id uuid,
-  linked_report_id uuid,
-  status text NOT NULL DEFAULT 'valid',
-  notes text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(site_id, certificate_type, certificate_number)
-);
-
-ALTER TABLE public.site_bafe_certificates ENABLE ROW LEVEL SECURITY;
--- RLS: elevated users can CRUD
+```text
++-----------------------------------------------------------+
+| Sticky header                                             |
+|   Title  | Cert ref + status badge | Save Draft | Complete & PDF
++-----------------------------------------------------------+
+| Scrollable document body                                  |
+|   1. Title block                                          |
+|   2. Site / Customer grid                                 |
+|   3. System / Installation details bar                    |
+|   4. Sectioned content (checklist / tests / readings)     |
+|   5. Work carried out                                     |
+|   6. Defects register (DefectImportPanel where relevant)  |
+|   7. Signatures (engineer + client, SmartSignature)       |
+|   8. Client Summary (AI) panel                            |
++-----------------------------------------------------------+
+| Sticky footer                                             |
+|   Company text | Close | Complete & Download PDF          |
++-----------------------------------------------------------+
 ```
 
-### Files to Create/Modify
-- **New**: `src/services/bafeCertificateService.ts` — CRUD for certificate tracking
-- **New**: `src/components/sites/SiteBafeCertificates.tsx` — BAFE tab on site detail
-- **Modify**: `src/services/customerFormService.ts` — add Design Certificate template
-- **Modify**: `src/pages/qms/QMSDashboard.tsx` — add BAFE compliance widget
-- **Modify**: `src/pages/SiteDetail.tsx` — add BAFE certificates tab
-- **Modify**: `src/components/reports/ServiceReportDialog.tsx` — add post-save BAFE prompt
+- Same status pill colour rules used in BS5839 (YES green / NO red / N/A grey, with `invert` flag for items where YES = defect).
+- Reuse `SitePrefillPanel`, `HintPanel`, `ClientSummaryPanel`, `DefectImportPanel`, `SmartSignature`, `ComplianceChecker` where applicable.
+- All save/persist/PDF/SharePoint/autoRegister/pushDefects logic preserved exactly as-is per form.
 
+## Field expansion approach (per form)
+
+For each form I will:
+
+1. Read the matching `*PdfGenerator.ts` and any related service to enumerate every field the paper sheet renders.
+2. Diff against the form's current payload type and add missing fields to the payload + UI.
+3. Group fields into the document sections above.
+
+Specific paper-sheet sections per form (high level):
+
+- **DeclinationForm**: collapse the 5-step wizard into one document. Sections: Premises, Works declined + standard ref + risk, Auto-fill statement, BHO + client signatures, preview.
+- **InstallationCertificateForm / CommissioningCertificateForm / ModificationCertificateForm**: BS 5839 cert structure — installer details, system extent, design/install/commissioning/acceptance signatories, variations, declarations, deviations, test results.
+- **ASDCommissioningForm / ASDServiceForm**: aspirating smoke detector — pipework/sampling-point map, hole sizes, transport time, sensitivity test, alarm thresholds, fault thresholds, cumulative test results, 4-stage commissioning checklist.
+- **EmergencyLightingForm**: BS 5266 — luminaire schedule, monthly/6-monthly/annual test grid, duration test (1hr or 3hr), battery condition, defects.
+- **DryRiserForm**: annual dry-riser test sheet — outlet pressure readings per floor, wet test, visual inspection, valves, drain test.
+
+## Execution order
+
+1. Audit pass: read all 8 PDF generators + current forms in parallel batches to gather field lists.
+2. Rewrite forms in 4 batches of 2 (parallel writes per batch) to keep diffs reviewable:
+   - Batch A: Declination, EmergencyLighting
+   - Batch B: DryRiser, ASDService
+   - Batch C: ASDCommissioning, Installation
+   - Batch D: Commissioning, Modification
+3. After each batch: TS check via build signal, fix any compile errors before next batch.
+4. No DB schema changes — all new fields live inside the existing `payload` JSONB on `smart_form_submissions`.
+
+## Out of scope
+
+- No changes to `smartFormService.ts` checklist data (already done in prior turn).
+- No changes to PDF generators themselves unless a newly added field has nowhere to render (in which case I'll append a minimal section to that generator).
+- No changes to routing, navigation, or the design system.
+
+## Risks / notes
+
+- Some PDF generators may already render fields the form never collected — those will become new inputs (good).
+- Some forms may expose fields the paper sheet doesn't actually have — those stay as-is to avoid scope creep.
+- This is a large multi-file change (8 full rewrites). Expect ~8 long file writes plus targeted edits.
