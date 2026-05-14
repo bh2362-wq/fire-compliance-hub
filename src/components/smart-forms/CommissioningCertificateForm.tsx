@@ -368,6 +368,12 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
             {renderStep(i)}
           </DocBlock>
         ))}
+
+        <AIAssistBlock
+          payload={payload as any}
+          formLabel="BS 5839-1 Commissioning Certificate"
+          extraInstruction="Confirm the system has been commissioned and is operational; mention any items not yet commissioned and the next service due date."
+        />
         {errors.length > 0 && (
           <div className="p-3 rounded-md border border-destructive/40 bg-destructive/5 space-y-1">
             <p className="text-xs font-semibold text-destructive flex items-center gap-1">
