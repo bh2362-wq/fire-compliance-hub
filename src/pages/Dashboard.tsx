@@ -305,6 +305,9 @@ const Dashboard = () => {
         <div className="grid lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
             <ComplianceChart />
+            <div id="compliance-calendar">
+              <ComplianceCalendar />
+            </div>
             <RecentVisits />
           </div>
           <div className="space-y-5">
