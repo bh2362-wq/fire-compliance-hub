@@ -118,33 +118,27 @@ const Visits = () => {
         )}
 
         {/* Filter row */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Status filter tabs */}
-          <div className="flex gap-1.5 flex-wrap">
+        <div className="flex items-center gap-0 border-b border-border -mb-px">
+          {/* Status filter tabs — underline style */}
+          <div className="flex items-center">
             {statusTabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setStatusFilter(tab.key)}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                  "px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap",
                   statusFilter === tab.key
-                    ? "bg-primary/15 text-primary border-primary/30"
-                    : "bg-card text-muted-foreground border-border hover:border-primary/20 hover:text-foreground",
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
                   tab.key === "open" && statusFilter !== "open" && counts.open > 0
-                    && "text-destructive border-destructive/20 hover:border-destructive/40"
+                    && "text-destructive"
                 )}
               >
                 {tab.label}
-                <span
-                  className={cn(
-                    "ml-1.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold",
-                    statusFilter === tab.key
-                      ? "bg-primary/20 text-primary"
-                      : tab.key === "open" && counts.open > 0
-                        ? "bg-destructive/15 text-destructive"
-                        : "bg-muted text-muted-foreground"
-                  )}
-                >
+                <span className={cn(
+                  "ml-1.5 text-[11px]",
+                  statusFilter === tab.key ? "text-muted-foreground" : "text-muted-foreground/60"
+                )}>
                   {counts[tab.key]}
                 </span>
               </button>
@@ -152,10 +146,10 @@ const Visits = () => {
           </div>
 
           {/* Site filter */}
-          <div className="ml-auto">
+          <div className="ml-auto pb-1">
             <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-              <SelectTrigger className="w-[200px] bg-card border-border text-sm h-9">
-                <Filter className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+              <SelectTrigger className="w-[180px] bg-card border-border text-sm h-8">
+                <Filter className="w-3 h-3 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="Filter by site" />
               </SelectTrigger>
               <SelectContent>

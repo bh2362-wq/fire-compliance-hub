@@ -6,8 +6,8 @@
 
 @layer base {
   :root {
-    /* ── Backgrounds: soft off-white neutral ── */
-    --background:  36 33% 97%;
+    /* ── Backgrounds: warm off-white ── */
+    --background:  36 28% 95%;
     --foreground:  222 25% 14%;
 
     --card:            0 0% 100%;
@@ -46,14 +46,14 @@
 
     --radius: 0.5rem;
 
-    /* ── Sidebar: warm light cream ── */
-    --sidebar-background:         36 30% 95%;
-    --sidebar-foreground:         222 22% 22%;
+    /* ── Sidebar: dark charcoal ── */
+    --sidebar-background:         220 6% 11%;
+    --sidebar-foreground:         36 25% 88%;
     --sidebar-primary:            25 92% 54%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent:             36 25% 90%;
-    --sidebar-accent-foreground:  222 25% 18%;
-    --sidebar-border:             36 18% 86%;
+    --sidebar-accent:             220 6% 17%;
+    --sidebar-accent-foreground:  36 25% 92%;
+    --sidebar-border:             220 6% 19%;
     --sidebar-ring:               25 92% 54%;
 
     /* ── Gradients & Shadows ── */
@@ -119,6 +119,32 @@
     color: hsl(25 92% 54%);
     border: 0.5px solid hsl(25 92% 54% / 0.35);
   }
+
+  /* ── Visit type labels (no pill/border — colored text only) ── */
+  .vtype-quarterly  { color: #185fa5; }
+  .vtype-biannual   { color: #185fa5; }
+  .vtype-annual     { color: #185fa5; }
+  .vtype-remedial   { color: #854f0b; }
+  .vtype-emergency  { color: #a32d2d; }
+  .vtype-install    { color: #3b6d11; }
+  .vtype-commission { color: #3b6d11; }
+  .vtype-subcon     { color: #6b6b65; }
+  .vtype-other      { color: #6b6b65; }
+
+  /* ── Visit row left-border accent ── */
+  .vrow-quarterly  { border-left: 3px solid #185fa5 !important; }
+  .vrow-remedial   { border-left: 3px solid #ba7517 !important; }
+  .vrow-emergency  { border-left: 3px solid #e24b4a !important; }
+  .vrow-install    { border-left: 3px solid #3b6d11 !important; }
+  .vrow-other      { border-left: 3px solid #c0bdb8 !important; }
+
+  /* ── Consistent status badge ── */
+  .vstatus { @apply text-[11px] font-medium px-2 py-0.5 rounded whitespace-nowrap; }
+  .vstatus-scheduled   { background: #f0ede8; color: #6b6b65; }
+  .vstatus-inprogress  { background: #faeeda; color: #854f0b; }
+  .vstatus-completed   { background: #eaf3de; color: #3b6d11; }
+  .vstatus-overdue     { background: #fcebeb; color: #a32d2d; }
+  .vstatus-hold        { background: #f5f3ef; color: #9a9a92; }
 
   /* ── Visit status dots ── */
   .dot-orange { @apply w-2 h-2 rounded-full bg-primary flex-shrink-0; }

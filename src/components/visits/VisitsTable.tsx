@@ -825,6 +825,30 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     });
 
   // Helper to render a visit row
+  // ── Visit type → CSS class helpers ─────────────────────────────────────
+  const getVRowClass = (vt: string) => {
+    if (["quarterly_service","biannual_service","annual_inspection"].includes(vt)) return "vrow-quarterly";
+    if (["remedial","supply_only"].includes(vt)) return "vrow-remedial";
+    if (vt === "emergency") return "vrow-emergency";
+    if (["installation","commissioning"].includes(vt)) return "vrow-install";
+    return "vrow-other";
+  };
+  const getVTypeClass = (vt: string) => {
+    if (["quarterly_service","biannual_service","annual_inspection"].includes(vt)) return "vtype-quarterly";
+    if (["remedial","supply_only"].includes(vt)) return "vtype-remedial";
+    if (vt === "emergency") return "vtype-emergency";
+    if (["installation","commissioning"].includes(vt)) return "vtype-install";
+    if (vt === "subcontract") return "vtype-subcon";
+    return "vtype-other";
+  };
+  const getStatusClass = (status: string) => {
+    if (status === "scheduled") return "vstatus vstatus-scheduled";
+    if (status === "in_progress") return "vstatus vstatus-inprogress";
+    if (status === "completed") return "vstatus vstatus-completed";
+    if (status === "pending_review") return "vstatus vstatus-inprogress";
+    return "vstatus vstatus-hold";
+  };
+
   const renderVisitRow = (visit: Visit, isInvoiced: boolean = false) => {
     const invoiceInfo = invoiceMap[visit.id];
     const reportInfo = reportMap[visit.id];
@@ -833,42 +857,21 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       : statusConfig[visit.status || "in_progress"] || statusConfig.in_progress;
     
     const coverage = Number(visit.coverage_percentage) || 0;
+    const canIssueCert = !isInvoiced && ["completed","in_progress","pending_review"].includes(visit.status || "");
 
-    // Parse notes for asset type
-    let assetBadge: React.ReactNode = null;
     let notesPreview = "";
     try {
       const parsed = JSON.parse(visit.notes || "{}");
       notesPreview = parsed.user_notes || "";
-      const assetType = parsed.asset_type;
-      if (assetType && assetType !== "general") {
-        const assetLabels: Record<string, { label: string; className: string }> = {
-          fire_panel: { label: "Fire", className: "bg-red-500/10 text-red-600 border-red-500/20" },
-          fire: { label: "Fire", className: "bg-red-500/10 text-red-600 border-red-500/20" },
-          asd: { label: "ASD", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-          aspirator: { label: "ASD", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-          disabled_refuge: { label: "DR", className: "bg-violet-500/10 text-violet-600 border-violet-500/20" },
-          intruder_alarm: { label: "Intruder", className: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
-          nurse_call: { label: "Nurse", className: "bg-teal-500/10 text-teal-600 border-teal-500/20" },
-          gas_suppression: { label: "Gas", className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/20" },
-          room_integrity: { label: "Room Int.", className: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20" },
-        };
-        const config = assetLabels[assetType] || { label: assetType.replace(/_/g, " "), className: "bg-muted/50 text-muted-foreground border-border" };
-        assetBadge = (
-          <Badge variant="outline" className={`text-[10px] px-1 py-0 h-4 ${config.className}`}>
-            {config.label}
-          </Badge>
-        );
-      }
     } catch { /* ignore */ }
 
     return (
       <tr
         key={visit.id}
-        className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors text-sm"
+        className={`border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors text-sm ${getVRowClass(visit.visit_type || "")}`}
       >
         {/* Checkbox */}
-        <td className="px-2 py-1.5 w-8">
+        <td className="px-2 py-2 w-8">
           <Checkbox
             checked={selectedVisitIds.has(visit.id)}
             onCheckedChange={(checked) => {
@@ -882,7 +885,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           />
         </td>
         {/* Site */}
-        <td className="px-2 py-1.5">
+        <td className="px-2 py-2">
           <div className="min-w-0">
             <p className="font-medium text-foreground text-sm truncate max-w-[200px]">
               {visit.site?.name || "Unknown Site"}
@@ -892,49 +895,73 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             )}
           </div>
         </td>
-        {/* Type */}
-        <td className="px-2 py-1.5">
-          <div className="flex items-center gap-1 flex-wrap">
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-primary/5 text-primary border-primary/20">
-              {getVisitTypeLabel(visit.visit_type)}
-            </Badge>
-            {assetBadge}
-          </div>
+        {/* Type — colored text, no pill */}
+        <td className="px-2 py-2">
+          <span className={`text-xs font-medium ${getVTypeClass(visit.visit_type || "")}`}>
+            {getVisitTypeLabel(visit.visit_type)}
+          </span>
         </td>
         {/* Date */}
-        <td className="px-2 py-1.5 text-xs text-foreground whitespace-nowrap">
+        <td className="px-2 py-2 text-xs text-muted-foreground whitespace-nowrap">
           {format(new Date(visit.visit_date), "dd MMM yy")}
         </td>
-        {/* Status */}
-        <td className="px-2 py-1.5">
-          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${displayStatus.className}`}>
-            {isInvoiced && invoiceInfo?.xero_invoice_number 
-              ? `#${invoiceInfo.xero_invoice_number}` 
-              : displayStatus.label}
-          </Badge>
+        {/* Status — consistent badge */}
+        <td className="px-2 py-2">
+          {isInvoiced && invoiceInfo?.xero_invoice_number ? (
+            <span className="vstatus vstatus-completed">#{invoiceInfo.xero_invoice_number}</span>
+          ) : (
+            <span className={getStatusClass(visit.status || "")}>
+              {displayStatus.label}
+            </span>
+          )}
         </td>
         {/* Description */}
-        <td className="px-2 py-1.5">
-          <p className="text-xs text-foreground truncate max-w-[280px]" title={notesPreview || "—"}>
+        <td className="px-2 py-2">
+          <p className="text-xs text-muted-foreground truncate max-w-[220px]" title={notesPreview || "—"}>
             {notesPreview || "—"}
           </p>
         </td>
-        {/* Actions */}
-        <td className="px-2 py-1.5">
-          <div className="flex items-center justify-end gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setPreviewVisit(visit)}
-                >
-                  <ClipboardCheck className="w-3.5 h-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{isInvoiced ? "Add Report" : "Report"}</TooltipContent>
-            </Tooltip>
+        {/* Actions — Issue cert visible, ⋮ for rest */}
+        <td className="px-2 py-2">
+          <div className="flex items-center justify-end gap-1.5">
+            {canIssueCert && (
+              <Button
+                size="sm"
+                className="h-7 px-2.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-1"
+                onClick={async () => {
+                  try {
+                    const [{ data: siteData }, { data: assets }] = await Promise.all([
+                      supabase.from("sites").select("name, address, city, postcode, contact_name, total_devices, customer:customers(name, contact_name, contact_email, contact_phone)").eq("id", visit.site_id).single(),
+                      supabase.from("site_assets").select("asset_type, item_name, manufacturer, model, zones_count, loops_count").eq("site_id", visit.site_id),
+                    ]);
+                    const siteName = siteData?.name || "";
+                    const addrParts = [siteData?.address, siteData?.city, siteData?.postcode].filter(Boolean).join(", ");
+                    const customer: any = siteData?.customer || {};
+                    const fireAssets = (assets ?? []).filter((a: any) => /fire.*alarm|panel|fa\b/i.test(`${a.asset_type ?? ""} ${a.item_name ?? ""}`));
+                    const panel: any = fireAssets[0] || null;
+                    const totalLoops = fireAssets.reduce((n: number, a: any) => n + (Number(a.loops_count) || 0), 0);
+                    setSmartFormPrefill({
+                      date_of_service: visit.visit_date,
+                      job_number: (visit as any).job_number || undefined,
+                      premises_name: siteName,
+                      premises_address: addrParts,
+                      responsible_person_name: siteData?.contact_name || customer?.contact_name || "",
+                      panel_manufacturer: panel?.manufacturer || "",
+                      panel_model: panel?.model || "",
+                      approx_number_of_devices: (siteData?.total_devices as number) || "",
+                      system_type: panel ? (totalLoops > 0 ? "Addressable" : "Conventional") : "",
+                    });
+                    setSmartFormVisit(visit);
+                  } catch {
+                    setSmartFormPrefill({ date_of_service: visit.visit_date });
+                    setSmartFormVisit(visit);
+                  }
+                }}
+              >
+                <ShieldCheck className="w-3 h-3" />
+                Issue cert
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7">
