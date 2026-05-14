@@ -602,8 +602,8 @@ function SectionRows({ section, onChange }: {
         const isSpecialNumber = item.special === "number";
 
         return (
-          <>
-            <tr key={item.key} className={`border-t border-border ${isNo && !item.invert ? "bg-red-50/40" : isYes && item.invert ? "bg-red-50/40" : ""}`}>
+          <React.Fragment key={item.key}>
+            <tr className={`border-t border-border ${isNo && !item.invert ? "bg-red-50/40" : isYes && item.invert ? "bg-red-50/40" : ""}`}>
               <td className="px-3 py-2 align-top">
                 <div className="flex items-start gap-2">
                   <span className="font-mono text-[10px] text-muted-foreground pt-0.5 w-10 shrink-0">{item.itemNumber || item.key}</span>
