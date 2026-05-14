@@ -180,7 +180,7 @@
   .dot-muted  { @apply w-2 h-2 rounded-full bg-muted-foreground/30 flex-shrink-0; }
 
   /* ── Feature callouts ── */
-  .new-feature-callout { @apply rounded-lg border border-primary/25 bg-primary/4 p-4 mt-3 cursor-pointer hover:bg-primary/8 transition-colors; }
+  .new-feature-callout { @apply rounded-lg border border-primary/25 bg-primary/5 p-4 mt-3 cursor-pointer hover:bg-primary/10 transition-colors; }
   .new-feature-label   { @apply text-[10px] font-bold uppercase tracking-wider text-primary mb-1.5; }
 
   /* ── Cert pills ── */
