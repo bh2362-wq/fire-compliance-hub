@@ -17,7 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SmartSignature } from "@/components/ui/smart-signature";
+import { TypedSignature } from "@/components/ui/typed-signature";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown, CheckCircle2, Droplets } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -379,7 +380,11 @@ function StepPressure({ payload, up }: { payload: DRPayload; up: (p: Partial<DRP
         ))}
       </div>
       {payload.leaks_found && (
-        <div className="space-y-1.5"><Label>Leak Locations</Label>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label>Leak Locations</Label>
+            <AIRewriteButton text={payload.leak_locations} type="notes" onRewrite={(v) => up({ leak_locations: v })} />
+          </div>
           <Textarea rows={2} value={payload.leak_locations} onChange={e => up({ leak_locations: e.target.value })} /></div>
       )}
       <div className="space-y-1.5"><Label>Test Result</Label>
@@ -458,7 +463,11 @@ function StepStatus({ payload, up, formType }: { payload: DRPayload; up: (p: Par
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-1.5"><Label>Remarks</Label>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label>Remarks</Label>
+          <AIRewriteButton text={payload.remarks} type="recommendations" onRewrite={(v) => up({ remarks: v })} />
+        </div>
         <Textarea rows={3} value={payload.remarks} onChange={e => up({ remarks: e.target.value })} /></div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5"><Label>Next Visual Inspection</Label>
@@ -482,7 +491,7 @@ function StepSignatures({ payload, up }: { payload: DRPayload; up: (p: Partial<D
           <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={payload.engineer_date} onChange={e => up({ engineer_date: e.target.value })} /></div>
         </div>
         <div className="space-y-1.5"><Label>Signature</Label>
-          <SmartSignature value={payload.engineer_signature || ""} onChange={v => up({ engineer_signature: v })} /></div>
+          <TypedSignature value={payload.engineer_signature} onChange={v => up({ engineer_signature: v })} /></div>
       </div>
       <div className="space-y-3">
         <h3 className="text-sm font-semibold">Client / Responsible Person</h3>
@@ -491,7 +500,7 @@ function StepSignatures({ payload, up }: { payload: DRPayload; up: (p: Partial<D
           <div className="space-y-1.5"><Label>Date</Label><Input type="date" value={payload.client_date} onChange={e => up({ client_date: e.target.value })} /></div>
         </div>
         <div className="space-y-1.5"><Label>Signature (optional)</Label>
-          <SmartSignature value={payload.client_signature || ""} onChange={v => up({ client_signature: v })} showAbsent /></div>
+          <TypedSignature value={payload.client_signature} onChange={v => up({ client_signature: v })} /></div>
       </div>
     </div>
   );

@@ -18,7 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SmartSignature } from "@/components/ui/smart-signature";
+import { TypedSignature } from "@/components/ui/typed-signature";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown, CheckCircle2, Wind } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -374,9 +375,17 @@ function StepPreService({ payload, up }: { payload: ASDPayload; up: (p: Partial<
       </div>
       {payload.faults_found && (
         <div className="space-y-3">
-          <div className="space-y-1.5"><Label>Fault Description</Label>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label>Fault Description</Label>
+              <AIRewriteButton text={payload.fault_description} type="defects" onRewrite={(v) => up({ fault_description: v })} />
+            </div>
             <Textarea rows={3} value={payload.fault_description} onChange={e => up({ fault_description: e.target.value })} /></div>
-          <div className="space-y-1.5"><Label>Parts Replaced</Label>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label>Parts Replaced</Label>
+              <AIRewriteButton text={payload.parts_replaced} type="parts" onRewrite={(v) => up({ parts_replaced: v })} />
+            </div>
             <Textarea rows={2} value={payload.parts_replaced} onChange={e => up({ parts_replaced: e.target.value })} placeholder="None if not applicable" /></div>
         </div>
       )}
@@ -522,7 +531,11 @@ function StepStatus({ payload, up }: { payload: ASDPayload; up: (p: Partial<ASDP
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-1.5"><Label>Remarks / Recommendations</Label>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label>Remarks / Recommendations</Label>
+          <AIRewriteButton text={payload.remarks} type="recommendations" onRewrite={(v) => up({ remarks: v })} />
+        </div>
         <Textarea rows={3} value={payload.remarks} onChange={e => up({ remarks: e.target.value })} /></div>
       <div className="space-y-1.5"><Label>Next Service Date</Label>
         <Input type="date" value={payload.next_service_date} onChange={e => up({ next_service_date: e.target.value })} /></div>
@@ -542,7 +555,7 @@ function StepSignatures({ payload, up }: { payload: ASDPayload; up: (p: Partial<
             <Input type="date" value={payload.engineer_date} onChange={e => up({ engineer_date: e.target.value })} /></div>
         </div>
         <div className="space-y-1.5"><Label>Signature</Label>
-          <SmartSignature value={payload.engineer_signature || ""} onChange={v => up({ engineer_signature: v })} /></div>
+          <TypedSignature value={payload.engineer_signature} onChange={v => up({ engineer_signature: v })} /></div>
       </div>
       <div className="space-y-3">
         <h3 className="text-sm font-semibold">Client / Responsible Person</h3>
@@ -553,7 +566,7 @@ function StepSignatures({ payload, up }: { payload: ASDPayload; up: (p: Partial<
             <Input type="date" value={payload.client_date} onChange={e => up({ client_date: e.target.value })} /></div>
         </div>
         <div className="space-y-1.5"><Label>Signature (optional)</Label>
-          <SmartSignature value={payload.client_signature || ""} onChange={v => up({ client_signature: v })} showAbsent /></div>
+          <TypedSignature value={payload.client_signature} onChange={v => up({ client_signature: v })} /></div>
       </div>
     </div>
   );
