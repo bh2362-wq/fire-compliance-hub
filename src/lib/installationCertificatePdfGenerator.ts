@@ -16,7 +16,7 @@ import {
   COLORS, MARGIN,
 } from "./certPdfMasterTemplate";
 
-const TITLE = "System Installation Certificate";
+const TITLE = "Installation Certificate";
 
 export async function generateInstallationCertificatePDF(
   payload: InstallationPayload,
