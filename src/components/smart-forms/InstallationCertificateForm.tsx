@@ -294,7 +294,7 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
   return (
     <DocDialogShell open={open} onOpenChange={onOpenChange}>
       <StickyHeader
-        title="BS 5839-1:2025 Installation Certificate"
+        title="FD/02 — Fire Alarm Installation Certificate · BS 5839-1:2017+A2:2019 Annex E"
         reference={payload.certificate_reference}
         status={errors.length > 0 ? "issues" : "valid"}
         onSaveDraft={() => persist("draft")}
@@ -310,12 +310,15 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
       />
       <DocBody>
         <TitleBlock
-          title="Installation Certificate"
-          subtitle="BS 5839-1:2025 — Fire Detection & Alarm System"
+          title="Fire Alarm System — Installation Certificate"
+          subtitle="BS 5839-1:2017+A2:2019 Annex E · BAFE SP203-1 FD/02"
           reference={payload.certificate_reference}
           date={payload.date_of_completion}
           onDateChange={(v) => up("date_of_completion", v)}
         />
+        <p className="text-[11px] italic text-muted-foreground px-1">
+          This certificate confirms installation was carried out in accordance with BS 5839-1:2017+A2:2019 Clause 27 and BAFE SP203-1 Section 5 (FD/02).
+        </p>
 
         {STEPS.slice(0, -1).map((label, i) => (
           <DocBlock key={label} title={`${i + 1}. ${label}`}>
