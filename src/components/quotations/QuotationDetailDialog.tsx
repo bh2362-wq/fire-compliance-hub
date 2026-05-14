@@ -797,21 +797,24 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                         ["Address:", customerAddress, setCustomerAddress, "Address"],
                         ["City:", customerCity, setCustomerCity, "City"],
                         ["Postcode:", customerPostcode, setCustomerPostcode, "Postcode"],
-                      ].map(([lbl, val, setter, ph]) => (
-                        <div key={lbl as string} className="flex items-center gap-2 text-[12px]">
-                          <span className="text-[#5f6368] min-w-[60px] shrink-0">{lbl}</span>
-                          <Input
-                            className="h-6 text-xs border-[#dadce0] flex-1"
-                            value={val as string}
-                            onChange={(e) => {
-                              (setter as (v: string) => void)(e.target.value);
-                              setHasChanges(true);
-                            }}
-                            placeholder={ph as string}
-                            disabled={isLocked}
-                          />
-                        </div>
-                      ))}
+                      ].map((row) => {
+                        const [lbl, val, setter, ph] = row as [string, string, (v: string) => void, string];
+                        return (
+                          <div key={lbl} className="flex items-center gap-2 text-[12px]">
+                            <span className="text-[#5f6368] min-w-[60px] shrink-0">{lbl}</span>
+                            <Input
+                              className="h-6 text-xs border-[#dadce0] flex-1"
+                              value={val}
+                              onChange={(e) => {
+                                setter(e.target.value);
+                                setHasChanges(true);
+                              }}
+                              placeholder={ph}
+                              disabled={isLocked}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   <div>
@@ -940,7 +943,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                           </button>
                         )}
                         <button
-                          onClick={handleAddItem}
+                          onClick={() => handleAddItem()}
                           className="text-[11px] text-white/70 hover:text-white px-2 py-0.5 hover:bg-white/10 rounded flex items-center gap-1"
                         >
                           <Plus className="w-3 h-3" />
