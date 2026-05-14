@@ -99,10 +99,11 @@ export async function generateASDCommissioningPDF(p: ASDPayload): Promise<void> 
     const total = doc.getNumberOfPages();
     for (let i = 1; i <= total; i++) {
       doc.setPage(i);
-      doc.setDrawColor(...C.border); doc.setLineWidth(0.2); doc.line(ML, ph - 10, pw - MR, ph - 10);
+      doc.setDrawColor(...C.border); doc.setLineWidth(0.2); doc.line(ML, ph - 12, pw - MR, ph - 12);
       doc.setFontSize(6.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.textGrey);
-      doc.text(`${companyName}  |  ${s(p.cert_reference)}  |  ASD Commissioning  |  ${s(p.standard_references)}`, ML, ph - 5.5, { maxWidth: CW - 20 });
-      doc.text(`Page ${i} of ${total}`, pw - MR, ph - 5.5, { align: "right" });
+      doc.text(`BHO Fire Ltd  |  Company Registration No. 12235152  |  FIA Member  |  BAFE Registered`, ML, ph - 7.5, { maxWidth: CW - 20 });
+      doc.text(`${s(p.cert_reference)}  |  ${s(p.standard_references)}`, ML, ph - 4, { maxWidth: CW - 20 });
+      doc.text(`Page ${i} of ${total}`, pw - MR, ph - 4, { align: "right" });
     }
   }
 
