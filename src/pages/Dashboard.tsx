@@ -162,6 +162,17 @@ const Dashboard = () => {
                 onClick={() => navigate("/dashboard/cert-tracker")}
               />
             )}
+            {complianceOverdue > 0 && (
+              <AlertStrip
+                type="danger"
+                message={`${complianceOverdue} site${complianceOverdue !== 1 ? "s are" : " is"} overdue for service`}
+                action="View Schedule"
+                onClick={() => {
+                  const el = document.getElementById("compliance-calendar");
+                  el?.scrollIntoView({ behavior: "smooth" });
+                }}
+              />
+            )}
             {stats.overdueCount > 0 && (
               <AlertStrip
                 type="warning"
