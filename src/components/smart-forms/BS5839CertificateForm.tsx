@@ -424,22 +424,23 @@ export default function BS5839CertificateForm({
                   <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Final remarks</label>
                   <Textarea rows={2} value={payload.final_remarks || ""} onChange={(e) => update("final_remarks", e.target.value)} className="text-xs mt-1" />
                 </div>
+                <div className="pt-2">
+                  <PhotoAnalysisPanel
+                    submissionId={submissionId}
+                    context={[
+                      payload.certificate_type,
+                      payload.premises_name,
+                      payload.panel_manufacturer,
+                      "BS5839 quarterly inspection"
+                    ].filter(Boolean).join(", ")}
+                    existingDefects={defects}
+                    onAddDefects={(newDefects) => {
+                      update("defects", [...defects, ...newDefects]);
+                    }}
+                  />
+                </div>
               </div>
             </DocBlock>
-
-            <PhotoAnalysisPanel
-              submissionId={submissionId}
-              context={[
-                payload.certificate_type,
-                payload.premises_name,
-                payload.panel_manufacturer,
-                "BS5839 quarterly inspection"
-              ].filter(Boolean).join(", ")}
-              existingDefects={defects}
-              onAddDefects={(newDefects) => {
-                update("defects", [...defects, ...newDefects]);
-              }}
-            />
 
             {/* 6. DEFECTS */}
             <div className="bg-white border border-border rounded-md overflow-hidden">
