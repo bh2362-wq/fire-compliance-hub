@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TypedSignature } from "@/components/ui/typed-signature";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
+import { HintPanel } from "@/components/smart-forms/HintPanel";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown, CheckCircle2, Wind } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -354,6 +355,7 @@ function StepPreService({ payload, up }: { payload: ASDPayload; up: (p: Partial<
   const upPre = (k: keyof ASDPayload["pre"], v: boolean) => up({ pre: { ...payload.pre, [k]: v } });
   return (
     <div className="space-y-4">
+      <HintPanel step="asd-preservice" />
       <p className="text-sm text-muted-foreground">Complete all pre-service actions before beginning work.</p>
       <Card><CardContent className="py-4 space-y-3">
         <BoolCheck id="pre1" label="Airflow readings recorded before service" checked={payload.pre.airflow_recorded} onChange={v => upPre("airflow_recorded", v)} />
@@ -411,9 +413,7 @@ function StepAirflow({ payload, up }: { payload: ASDPayload; up: (p: Partial<ASD
 
   return (
     <div className="space-y-4">
-      <div className="p-3 bg-sky-50 dark:bg-sky-950/20 border border-sky-200 rounded-md text-xs text-sky-700 dark:text-sky-400">
-        <strong>FIA CoP §8.3:</strong> Maintenance readings must remain within ±20% of commissioning baseline. All deviations must be investigated.
-      </div>
+      <HintPanel step="asd-airflow" defaultOpen />
       {payload.pipe_records.map((pipe, i) => (
         <Card key={pipe.id} className="border">
           <CardContent className="py-3 px-4">
@@ -464,6 +464,7 @@ function StepChecks({ payload, up }: { payload: ASDPayload; up: (p: Partial<ASDP
   ];
   return (
     <div className="space-y-3">
+      <HintPanel step="asd-checks" />
       <p className="text-sm text-muted-foreground">Confirm all post-service checks completed.</p>
       <Card><CardContent className="py-4 space-y-3">
         {items.map(([key, label]) => (
