@@ -17,8 +17,8 @@ import {
   COLORS, MARGIN,
 } from "./certPdfMasterTemplate";
 
-const STANDARD = "BS 5839-1:2017+A2:2019";
-const TITLE    = "System Commissioning Certificate";
+const STANDARD = "BS 5839-1:2017+A2:2019 Annex C  ·  BAFE SP203-1 FD/03";
+const TITLE    = "Commissioning Certificate";
 
 export async function generateCommissioningCertificatePDF(
   payload: CommissioningPayload,
