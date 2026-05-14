@@ -5,7 +5,7 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -23,11 +23,10 @@ interface DashboardLayoutProps {
 
 /* ── Navigation definitions ─────────────────────────────────────────── */
 const coreNav = [
-  { name: "Dashboard",          href: "/dashboard",                     icon: LayoutDashboard, end: true },
-  { name: "Visits",             href: "/dashboard/visits",              icon: ClipboardList },
-  { name: "Asset Maintenance",  href: "/dashboard/asset-maintenance",   icon: Wrench },
-  { name: "Reports",            href: "/dashboard/reports",             icon: BarChart3 },
-  { name: "Defects",            href: "/dashboard/defects",             icon: ShieldAlert },
+  { name: "Dashboard",  href: "/dashboard",           icon: LayoutDashboard, end: true },
+  { name: "Visits",     href: "/dashboard/visits",    icon: ClipboardList },
+  { name: "Reports",    href: "/dashboard/reports",   icon: BarChart3 },
+  { name: "Defects",    href: "/dashboard/defects",   icon: ShieldAlert },
 ];
 
 const clientsNav = [
@@ -123,9 +122,7 @@ const SectionLabel = ({
   isMobile: boolean;
 }) =>
   !collapsed || isMobile ? (
-    <p className="px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-sidebar-foreground/30 select-none">
-      {label}
-    </p>
+    <p className="px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-sidebar-foreground/30 select-none">{label}</p>
   ) : (
     <div className="my-3 mx-3 border-t border-sidebar-border/50" />
   );
