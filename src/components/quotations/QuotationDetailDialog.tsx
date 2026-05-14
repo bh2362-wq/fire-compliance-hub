@@ -943,7 +943,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                           </button>
                         )}
                         <button
-                          onClick={handleAddItem}
+                          onClick={() => handleAddItem()}
                           className="text-[11px] text-white/70 hover:text-white px-2 py-0.5 hover:bg-white/10 rounded flex items-center gap-1"
                         >
                           <Plus className="w-3 h-3" />
