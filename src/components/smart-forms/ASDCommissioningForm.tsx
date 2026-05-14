@@ -12,9 +12,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SmartSignature } from "@/components/ui/smart-signature";
 import {
-  ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown,
+  Plus, Trash2, Save, FileDown,
   AlertCircle, CheckCircle2, Wind, Gauge, Clock, Zap,
 } from "lucide-react";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -170,8 +171,8 @@ export default function ASDCommissioningForm({ open, onOpenChange, siteId, custo
 
   // ── Step content ────────────────────────────────────────────────────────────
 
-  function renderStep() {
-    switch (step) {
+  function renderStep(idx: number = step) {
+    switch (idx) {
       // ── Step 0: Installation type ───────────────────────────────────────────
       case 0: return (
         <div className="space-y-4">
@@ -712,91 +713,59 @@ export default function ASDCommissioningForm({ open, onOpenChange, siteId, custo
     }
   }
 
-  const totalSteps = isModification ? STEPS.length : STEPS.length - 1; // hide pre-mod step for new installs
-  const displaySteps = isModification ? STEPS : STEPS.filter((_, i) => i !== 3);
-  const displayStep = isModification ? step : step >= 3 ? step - 1 : step;
-  const progressPct = (step / (STEPS.length - 1)) * 100;
-  const stepErrors = errorsByStep[step] || [];
+  const visibleSteps = isModification
+    ? STEPS.map((s, i) => ({ label: s, idx: i }))
+    : STEPS.map((s, i) => ({ label: s, idx: i })).filter(({ idx }) => idx !== 3);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[90vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 pt-5 pb-3 border-b flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Wind className="w-5 h-5 text-primary" />
-            ASD Commissioning Certificate
-            {payload.cert_reference && <Badge variant="outline" className="text-[10px] font-mono">{payload.cert_reference}</Badge>}
-            {isModification && <Badge className="text-[9px] bg-amber-100 text-amber-800 border-amber-300/60 hover:bg-amber-100">Modification</Badge>}
-          </DialogTitle>
-          <div className="space-y-1 mt-1">
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>{displaySteps[displayStep >= 0 ? displayStep : 0]}</span>
-              <span>{step + 1} / {STEPS.length}</span>
-            </div>
-            <Progress value={progressPct} className="h-1" />
-          </div>
-          {/* Step pills */}
-          <div className="flex gap-1 overflow-x-auto pb-1 mt-1">
-            {displaySteps.map((s, i) => {
-              const actualStep = isModification ? i : i >= 3 ? i + 1 : i;
-              const hasErr = !!(errorsByStep[actualStep]?.length);
-              return (
-                <button key={s} onClick={() => setStep(actualStep)}
-                  className={cn(
-                    "text-[9px] px-2 py-0.5 rounded border whitespace-nowrap flex-shrink-0 transition-colors",
-                    actualStep === step ? "bg-primary text-primary-foreground border-primary" :
-                    hasErr ? "border-destructive/60 text-destructive" :
-                    "border-border text-muted-foreground hover:bg-accent/30"
-                  )}>
-                  {s}
-                </button>
-              );
-            })}
-          </div>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1 px-6 py-4">
-          {stepErrors.length > 0 && (
-            <div className="flex items-start gap-2 mb-3 p-2.5 rounded-lg border border-destructive/40 bg-destructive/5 text-xs text-destructive">
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-              <div>{stepErrors.map((e, i) => <p key={i}>{e}</p>)}</div>
-            </div>
-          )}
-          {renderStep()}
-        </ScrollArea>
-
-        <div className="border-t px-6 py-3 flex items-center justify-between gap-2 flex-shrink-0 bg-background">
-          <div className="flex gap-2">
-            {step > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setStep(s => s - 1)} disabled={saving}>
-                <ChevronLeft className="w-4 h-4 mr-1" />Back
-              </Button>
+    <DocDialogShell open={open} onOpenChange={onOpenChange}>
+      <StickyHeader
+        title="ASD Commissioning Certificate"
+        reference={payload.cert_reference}
+        status={errors.length > 0 ? "issues" : "valid"}
+        onSaveDraft={() => handleSave(false)}
+        onComplete={() => handleSave(true)}
+        saving={saving}
+        meta={
+          <div className="flex items-center gap-1.5">
+            <Badge variant="outline" className="text-[10px]"><Wind className="w-3 h-3 mr-1" />BS EN 54-20</Badge>
+            {isModification && <Badge className="text-[9px] bg-amber-100 text-amber-800 border-amber-300/60">Modification</Badge>}
+            {errors.length > 0 && (
+              <Badge variant="destructive" className="gap-1 text-[10px]"><AlertCircle className="h-3 w-3" />{errors.length} issue(s)</Badge>
             )}
           </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => handleSave(false)} disabled={saving}>
-              <Save className="w-4 h-4 mr-1" />{saving ? "Saving…" : "Save Draft"}
-            </Button>
-            {step < STEPS.length - 1 ? (
-              <Button onClick={() => {
-                if (!isModification && step === 2) setStep(4); // skip pre-mod step
-                else setStep(s => s + 1);
-              }}>
-                Next <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            ) : (
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleGeneratePDF} disabled={saving}>
-                  <FileDown className="w-4 h-4 mr-1" />PDF
-                </Button>
-                <Button onClick={() => handleSave(true)} disabled={saving || errors.length > 0}>
-                  <CheckCircle2 className="w-4 h-4 mr-1" />Complete
-                </Button>
-              </div>
-            )}
+        }
+      />
+      <DocBody>
+        <TitleBlock
+          title="ASD Commissioning Certificate"
+          subtitle="BS EN 54-20:2006+A1:2012 · BS 5839-1"
+          reference={payload.cert_reference}
+          date={(payload as any).date_of_commissioning}
+          onDateChange={(v) => update("date_of_commissioning" as any, v as any)}
+        />
+        {visibleSteps.map(({ label, idx }, i) => (
+          <DocBlock key={label} title={`${i + 1}. ${label}`}>
+            {renderStep(idx)}
+          </DocBlock>
+        ))}
+        {errors.length > 0 && (
+          <div className="p-3 rounded-md border border-destructive/40 bg-destructive/5 space-y-1">
+            <p className="text-xs font-semibold text-destructive flex items-center gap-1">
+              <AlertCircle className="h-3.5 w-3.5" />Resolve {errors.length} issue(s)
+            </p>
+            <ul className="text-[11px] text-destructive/90 list-disc pl-5">
+              {errors.map((e, i) => <li key={i}>{STEPS[e.step] || `Step ${e.step + 1}`}: {e.message}</li>)}
+            </ul>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        )}
+      </DocBody>
+      <StickyFooter
+        standardLabel="ASD Commissioning · BS EN 54-20"
+        onClose={() => onOpenChange(false)}
+        onComplete={() => handleSave(true)}
+        saving={saving}
+      />
+    </DocDialogShell>
   );
 }

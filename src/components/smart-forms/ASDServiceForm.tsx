@@ -21,7 +21,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TypedSignature } from "@/components/ui/typed-signature";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { HintPanel } from "@/components/smart-forms/HintPanel";
-import { ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown, CheckCircle2, Wind } from "lucide-react";
+import { Plus, Trash2, Save, FileDown, CheckCircle2, Wind, AlertCircle } from "lucide-react";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -206,61 +207,43 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
     } catch { toast.error("PDF generation failed"); }
   }
 
-  const isLast = step === STEPS.length - 1;
-  const prog = Math.round(((step + 1) / STEPS.length) * 100);
+  const sectionRenderers: Array<(p: { payload: ASDPayload; up: (p: Partial<ASDPayload>) => void }) => JSX.Element> = [
+    StepHeader, StepPremises, StepSystem, StepPreService, StepAirflow,
+    StepChecks, StepDefects, StepStatus, StepSignatures,
+  ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[92vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Wind className="w-5 h-5 text-sky-500" />
-            ASD Service Certificate
-            <Badge variant="outline" className="text-[10px] ml-1">BS EN 54-20</Badge>
-          </DialogTitle>
-          <div className="mt-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-              <span>{STEPS[step]}</span>
-              <span>{step + 1} / {STEPS.length}</span>
-            </div>
-            <Progress value={prog} className="h-1.5" />
-          </div>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1 px-6 py-4">
-          {step === 0 && <StepHeader payload={payload} up={up} />}
-          {step === 1 && <StepPremises payload={payload} up={up} />}
-          {step === 2 && <StepSystem payload={payload} up={up} />}
-          {step === 3 && <StepPreService payload={payload} up={up} />}
-          {step === 4 && <StepAirflow payload={payload} up={up} />}
-          {step === 5 && <StepChecks payload={payload} up={up} />}
-          {step === 6 && <StepDefects payload={payload} up={up} />}
-          {step === 7 && <StepStatus payload={payload} up={up} />}
-          {step === 8 && <StepSignatures payload={payload} up={up} />}
-          {step === 9 && <StepPreview payload={payload} onDownload={handleDownload} />}
-        </ScrollArea>
-
-        <div className="flex items-center justify-between px-6 py-3 border-t shrink-0 bg-muted/30">
-          <Button variant="ghost" size="sm" onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}>
-            <ChevronLeft className="w-4 h-4 mr-1" /> Back
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => save("draft")} disabled={saving}>
-              <Save className="w-3.5 h-3.5 mr-1" /> Save Draft
-            </Button>
-            {isLast ? (
-              <Button size="sm" onClick={() => save("completed")} disabled={saving}>
-                <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Complete
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => setStep(s => s + 1)}>
-                Next <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <DocDialogShell open={open} onOpenChange={onOpenChange}>
+      <StickyHeader
+        title="ASD Service Certificate"
+        reference={(payload as any).certificate_reference}
+        status="valid"
+        onSaveDraft={() => save("draft")}
+        onComplete={() => save("completed")}
+        saving={saving}
+        meta={<Badge variant="outline" className="text-[10px]"><Wind className="w-3 h-3 mr-1" />BS EN 54-20</Badge>}
+      />
+      <DocBody>
+        <TitleBlock
+          title="ASD Service Certificate"
+          subtitle="BS EN 54-20:2006+A1:2012 · BS 5839-1"
+          reference={(payload as any).certificate_reference}
+          date={(payload as any).date_of_service}
+          onDateChange={(v) => up({ date_of_service: v } as any)}
+        />
+        {sectionRenderers.map((Comp, i) => (
+          <DocBlock key={STEPS[i]} title={`${i + 1}. ${STEPS[i]}`}>
+            <Comp payload={payload} up={up} />
+          </DocBlock>
+        ))}
+      </DocBody>
+      <StickyFooter
+        standardLabel="ASD Service Certificate · BS EN 54-20"
+        onClose={() => onOpenChange(false)}
+        onComplete={() => save("completed")}
+        saving={saving}
+      />
+    </DocDialogShell>
   );
 }
 
