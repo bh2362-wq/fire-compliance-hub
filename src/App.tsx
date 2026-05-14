@@ -33,6 +33,8 @@ import PurchaseOrders from "./pages/PurchaseOrders";
 import SharedReport from "./pages/SharedReport";
 import AcceptQuote from "./pages/AcceptQuote";
 import AcceptVisit from "./pages/AcceptVisit";
+import SharedSitePortal from "./pages/SharedSitePortal";
+import AssetMaintenance from "./pages/AssetMaintenance";
 import EmailScanner from "./pages/EmailScanner";
 import DevicePricing from "./pages/DevicePricing";
 import ProductLookup from "./pages/ProductLookup";
@@ -77,6 +79,7 @@ const App = () => (
             <Route path="/shared-report/:token" element={<SharedReport />} />
             <Route path="/accept-quote/:token" element={<AcceptQuote />} />
             <Route path="/accept-visit/:token" element={<AcceptVisit />} />
+            <Route path="/portal/:token" element={<SharedSitePortal />} />
 
             {/* Protected: Core */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -128,6 +131,7 @@ const App = () => (
 
             {/* Protected: NEW — Certificate Tracker */}
             <Route path="/dashboard/cert-tracker" element={<ProtectedRoute><CertTracker /></ProtectedRoute>} />
+            <Route path="/dashboard/asset-maintenance" element={<ProtectedRoute><AssetMaintenance /></ProtectedRoute>} />
 
             {/* Protected: Settings */}
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

@@ -7,6 +7,7 @@ import SiteReconciliationHistory from "@/components/sites/SiteReconciliationHist
 import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
 import { SiteServiceReports } from "@/components/sites/SiteServiceReports";
 import { SiteAssets } from "@/components/sites/SiteAssets";
+import { PortalLinkButton } from "@/components/sites/PortalLinkButton";
 import { SiteRamsDocuments } from "@/components/sites/SiteRamsDocuments";
 import { CustomerRamsRequirementsPanel } from "@/components/rams/CustomerRamsRequirementsPanel";
 import SiteCustomerForms from "@/components/customer-forms/SiteCustomerForms";
@@ -207,6 +208,7 @@ const SiteDetail = () => {
               <HardHat className="w-4 h-4 mr-2" />
               New RAMS
             </Button>
+            <PortalLinkButton siteId={site.id} siteName={site.name} />
             <CreateSharePointFolderButton
               entityType="site"
               entityId={site.id}
