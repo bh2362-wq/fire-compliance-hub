@@ -411,3 +411,31 @@ export function AISummarySection({
     </Collapsible>
   );
 }
+
+/* ─── Self-contained AI summary block (manages its own open state) ─ */
+
+export function AIAssistBlock({
+  payload,
+  formLabel,
+  extraInstruction,
+  defaultOpen = false,
+}: {
+  payload: Record<string, any>;
+  formLabel: string;
+  extraInstruction?: string;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  // Lazy-import to avoid circular reference at module load
+  const ClientSummaryPanelLazy = React.useMemo(
+    () => React.lazy(() => import("./ClientSummaryPanel").then((m) => ({ default: m.ClientSummaryPanel }))),
+    []
+  );
+  return (
+    <AISummarySection open={open} onOpenChange={setOpen}>
+      <React.Suspense fallback={<p className="text-xs text-muted-foreground">Loading…</p>}>
+        <ClientSummaryPanelLazy payload={payload} formLabel={formLabel} extraInstruction={extraInstruction} />
+      </React.Suspense>
+    </AISummarySection>
+  );
+}
