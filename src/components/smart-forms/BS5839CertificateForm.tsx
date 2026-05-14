@@ -470,36 +470,53 @@ function Step5({ payload, update }: StepProps) {
     update("checklist", next);
   }
 
-  // Group items by section
-  const sections = list.reduce<{ name: string; items: { item: typeof list[number]; idx: number }[] }[]>((acc, item, idx) => {
-    const sectionName = item.section || "General";
-    const existing = acc.find(s => s.name === sectionName);
-    if (existing) {
-      existing.items.push({ item, idx });
-    } else {
-      acc.push({ name: sectionName, items: [{ item, idx }] });
-    }
-    return acc;
-  }, []);
+  // Determine if the current answer should show a comment box
+  function needsComment(item: typeof list[number]): boolean {
+    const trigger = (item as any).commentTrigger as "YES" | "NO" | "ALWAYS" | undefined;
+    if (!trigger) return false;
+    if (trigger === "ALWAYS") return true;
+    // Normalise stored status — old forms may use Pass/Fail, new use YES/NO
+    const s = item.status;
+    const isYes = s === "YES" || s === "Pass";
+    const isNo  = s === "NO"  || s === "Fail";
+    if (trigger === "YES") return isYes;
+    if (trigger === "NO")  return isNo;
+    return false;
+  }
 
-  // Stats
-  const answered  = list.filter(c => c.status !== "").length;
-  const nos       = list.filter(c => c.status === "NO").length;
-  const total     = list.length;
+  // Group by section
+  const sections = list.reduce<{ name: string; items: { item: typeof list[number]; idx: number }[] }[]>(
+    (acc, item, idx) => {
+      const name = (item as any).section || "General";
+      const existing = acc.find(s => s.name === name);
+      if (existing) existing.items.push({ item, idx });
+      else acc.push({ name, items: [{ item, idx }] });
+      return acc;
+    }, []
+  );
+
+  const answered = list.filter(c => c.status !== "").length;
+  const problems = list.filter(c => {
+    const trigger = (c as any).commentTrigger as string | undefined;
+    const s = c.status;
+    if (trigger === "YES")  return s === "YES" || s === "Pass";
+    if (trigger === "NO")   return s === "NO"  || s === "Fail";
+    return false;
+  }).length;
 
   return (
     <div className="space-y-1">
-      {/* Header + stats */}
+      {/* Stats bar */}
       <div className="flex items-center justify-between px-1 pb-2 flex-wrap gap-2">
         <p className="text-xs text-muted-foreground">
           As recommended in <span className="font-semibold">BAFE SP203-1 Cl. 9.8</span> &amp; <span className="font-semibold">BS 5839-1:2025 Cl. 45</span>
         </p>
-        <div className="flex gap-2 text-[11px]">
-          <span className={answered === total ? "text-green-600 font-semibold" : "text-muted-foreground"}>
-            {answered}/{total} answered
+        <div className="flex gap-3 text-[11px]">
+          <span className={answered === list.length ? "text-green-600 font-semibold" : "text-muted-foreground"}>
+            {answered}/{list.length} answered
           </span>
-          {nos > 0 && (
-            <span className="text-red-600 font-semibold">{nos} NO</span>
+          {problems > 0 && (
+            <span className="text-amber-600 font-semibold">{problems} item{problems !== 1 ? "s" : ""} flagged</span>
           )}
         </div>
       </div>
@@ -513,49 +530,73 @@ function Step5({ payload, update }: StepProps) {
             </p>
           </div>
 
-          {/* Section items */}
           <div className="border border-t-0 border-border rounded-b-md divide-y divide-border overflow-hidden">
-            {section.items.map(({ item: c, idx }) => (
-              <div key={c.key} className={`px-3 py-2.5 ${c.status === "NO" ? "bg-red-50/50 dark:bg-red-950/20" : "bg-card hover:bg-muted/20"} transition-colors`}>
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-xs leading-snug flex-1 min-w-0 pt-0.5 text-foreground/90">
-                    {c.label}
-                  </p>
-                  <div className="flex gap-1 flex-shrink-0">
-                    {(["YES", "NO", "N/A"] as const).map((s) => {
-                      // Map display value to stored value
-                      const stored = s === "YES" ? "Pass" : s === "NO" ? "Fail" : "N/A";
-                      const isActive = c.status === stored || c.status === s;
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => setItem(idx, { status: stored as any })}
-                          className={`w-9 py-1 rounded border text-[10px] font-bold transition-colors ${
-                            isActive
-                              ? s === "YES" ? "bg-green-600 text-white border-green-600"
-                              : s === "NO"  ? "bg-red-600 text-white border-red-600"
-                              :               "bg-slate-500 text-white border-slate-500"
-                              : "border-border text-muted-foreground hover:bg-accent/40"
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      );
-                    })}
+            {section.items.map(({ item: c, idx }) => {
+              const showComment = needsComment(c);
+              const trigger = (c as any).commentTrigger as string | undefined;
+              const isAlways = trigger === "ALWAYS";
+              const isProblem = showComment && !isAlways;
+
+              return (
+                <div
+                  key={c.key}
+                  className={`px-3 py-2.5 transition-colors ${
+                    isProblem
+                      ? "bg-red-50/50 dark:bg-red-950/20"
+                      : "bg-card hover:bg-muted/20"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-xs leading-snug flex-1 min-w-0 pt-0.5 text-foreground/90">
+                      {c.label}
+                    </p>
+                    <div className="flex gap-1 flex-shrink-0">
+                      {(["YES", "NO", "N/A"] as const).map((s) => {
+                        // Map display → stored value (backwards compat with Pass/Fail)
+                        const stored = s === "YES" ? "YES" : s === "NO" ? "NO" : "N/A";
+                        const isActive =
+                          c.status === stored ||
+                          (s === "YES" && c.status === "Pass") ||
+                          (s === "NO"  && c.status === "Fail");
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setItem(idx, { status: stored as any })}
+                            className={`w-9 py-1 rounded border text-[10px] font-bold transition-colors ${
+                              isActive
+                                ? s === "YES" ? "bg-green-600 text-white border-green-600"
+                                : s === "NO"  ? "bg-red-600 text-white border-red-600"
+                                :               "bg-slate-500 text-white border-slate-500"
+                                : "border-border text-muted-foreground hover:bg-accent/40"
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  {/* Comment box — only when triggered */}
+                  {showComment && (
+                    <textarea
+                      rows={2}
+                      placeholder={
+                        isAlways
+                          ? "Enter value / measurement…"
+                          : trigger === "YES"
+                            ? "Comment required — describe the issue and action taken…"
+                            : "Comment required — explain why and any action taken…"
+                      }
+                      value={c.comment || ""}
+                      onChange={(e) => setItem(idx, { comment: e.target.value })}
+                      className="mt-2 w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  )}
                 </div>
-                {(c.status === "Fail" || c.status === "NO") && (
-                  <textarea
-                    rows={2}
-                    placeholder="Comment required for NO answer…"
-                    value={c.comment || ""}
-                    onChange={(e) => setItem(idx, { comment: e.target.value })}
-                    className="mt-2 w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}
