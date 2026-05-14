@@ -141,7 +141,7 @@ const Dashboard = () => {
   }).length;
   const bafeCompliantPct = bafeTotalSites > 0 ? Math.round((bafeCompliant / bafeTotalSites) * 100) : 0;
 
-  const hasAlerts = bafeExpiring > 0 || bafeExpired > 0 || stats.overdueCount > 0;
+  const hasAlerts = bafeExpiring > 0 || bafeExpired > 0 || stats.overdueCount > 0 || complianceOverdue > 0;
 
   return (
     <DashboardLayout>
