@@ -466,36 +466,93 @@ function Step4({ payload, update }: StepProps) {
 
 function Step5({ payload, update }: StepProps) {
   const list = payload.checklist ?? DEFAULT_CHECKLIST;
+
   function setItem(idx: number, patch: Partial<typeof list[number]>) {
     const next = list.map((c, i) => (i === idx ? { ...c, ...patch } : c));
     update("checklist", next);
   }
+
+  const sections = list.reduce<{ name: string; items: { item: typeof list[number]; idx: number }[] }[]>((acc, item, idx) => {
+    const sectionName = (item as any).section || "General";
+    const existing = acc.find(s => s.name === sectionName);
+    if (existing) {
+      existing.items.push({ item, idx });
+    } else {
+      acc.push({ name: sectionName, items: [{ item, idx }] });
+    }
+    return acc;
+  }, []);
+
+  const answered = list.filter(c => c.status !== "").length;
+  const nos = list.filter(c => c.status === "Fail" || c.status === "NO").length;
+  const total = list.length;
+
   return (
-    <div className="space-y-2">
-      <HintPanel step="bs5839-checklist" />
-      {list.map((c, i) => (
-        <Card key={c.key} className="overflow-hidden">
-          <CardContent className="p-3 space-y-2">
-            <div className="flex items-start justify-between gap-3 flex-wrap">
-              <p className="text-xs font-medium flex-1 min-w-[200px]">{i + 1}. {c.label}</p>
-              <div className="flex gap-1">
-                {(["Pass", "Fail", "N/A"] as const).map((s) => (
-                  <button key={s} type="button" onClick={() => setItem(i, { status: s })}
-                    className={`px-3 py-1 rounded-md border text-[11px] font-semibold transition-colors ${
-                      c.status === s
-                        ? s === "Pass" ? "bg-green-600 text-white border-green-600"
-                        : s === "Fail" ? "bg-destructive text-destructive-foreground border-destructive"
-                        : "bg-amber-500 text-white border-amber-500"
-                        : "border-border hover:bg-accent/30"
-                    }`}>{s}</button>
-                ))}
+    <div className="space-y-1">
+      <div className="flex items-center justify-between px-1 pb-2 flex-wrap gap-2">
+        <p className="text-xs text-muted-foreground">
+          As recommended in <span className="font-semibold">BAFE SP203-1 Cl. 9.8</span> &amp; <span className="font-semibold">BS 5839-1:2025 Cl. 45</span>
+        </p>
+        <div className="flex gap-2 text-[11px]">
+          <span className={answered === total ? "text-green-600 font-semibold" : "text-muted-foreground"}>
+            {answered}/{total} answered
+          </span>
+          {nos > 0 && (
+            <span className="text-red-600 font-semibold">{nos} NO</span>
+          )}
+        </div>
+      </div>
+
+      {sections.map(section => (
+        <div key={section.name} className="mb-1">
+          <div className="bg-muted/60 border border-border px-3 py-1.5 rounded-t-md">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">
+              {section.name}
+            </p>
+          </div>
+          <div className="border border-t-0 border-border rounded-b-md divide-y divide-border overflow-hidden">
+            {section.items.map(({ item: c, idx }) => (
+              <div key={c.key} className={`px-3 py-2.5 ${c.status === "Fail" || c.status === "NO" ? "bg-red-50/50 dark:bg-red-950/20" : "bg-card hover:bg-muted/20"} transition-colors`}>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs leading-snug flex-1 min-w-0 pt-0.5 text-foreground/90">
+                    {c.label}
+                  </p>
+                  <div className="flex gap-1 flex-shrink-0">
+                    {(["YES", "NO", "N/A"] as const).map((s) => {
+                      const stored = s === "YES" ? "Pass" : s === "NO" ? "Fail" : "N/A";
+                      const isActive = c.status === stored || c.status === s;
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setItem(idx, { status: stored as any })}
+                          className={`w-9 py-1 rounded border text-[10px] font-bold transition-colors ${
+                            isActive
+                              ? s === "YES" ? "bg-green-600 text-white border-green-600"
+                              : s === "NO"  ? "bg-red-600 text-white border-red-600"
+                              :               "bg-slate-500 text-white border-slate-500"
+                              : "border-border text-muted-foreground hover:bg-accent/40"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {(c.status === "Fail" || c.status === "NO") && (
+                  <textarea
+                    rows={2}
+                    placeholder="Comment required for NO answer…"
+                    value={c.comment || ""}
+                    onChange={(e) => setItem(idx, { comment: e.target.value })}
+                    className="mt-2 w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                )}
               </div>
-            </div>
-            {c.status === "Fail" && (
-              <Textarea rows={2} placeholder="Comment required for failed item…" value={c.comment || ""} onChange={(e) => setItem(i, { comment: e.target.value })} />
-            )}
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );
