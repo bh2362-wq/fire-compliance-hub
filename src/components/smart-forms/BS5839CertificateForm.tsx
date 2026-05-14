@@ -271,7 +271,7 @@ export default function BS5839CertificateForm({
         {/* Sticky header */}
         <div className="px-5 py-3 border-b shrink-0 bg-white flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-semibold">BS 5839-1:2025 Inspection &amp; Servicing Certificate</h2>
+            <h2 className="text-base font-semibold">FD/01 — Inspection &amp; Servicing Certificate · BS 5839-1:2017+A2:2019</h2>
             {payload.certificate_reference && (
               <span className="font-mono text-xs text-muted-foreground">{payload.certificate_reference}</span>
             )}
