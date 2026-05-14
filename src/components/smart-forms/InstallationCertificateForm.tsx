@@ -323,19 +323,9 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
 
         {STEPS.slice(0, -1).map((label, i) => (
           <DocBlock key={label} title={`${i + 1}. ${label}`}>
-            {(() => { const orig = step; (step as any); return null; })()}
-            <SectionRender index={i} step={step} setStep={setStep} renderStep={renderStep} />
+            {renderStep(i)}
           </DocBlock>
         ))}
-
-        <AISummarySection open={aiOpen} onOpenChange={setAiOpen}>
-          <ClientSummaryPanel
-            formType="bs5839_installation"
-            payload={payload as any}
-            certificateReference={payload.certificate_reference}
-            premisesName={payload.premises_name}
-          />
-        </AISummarySection>
 
         {errors.length > 0 && (
           <div className="p-3 rounded-md border border-destructive/40 bg-destructive/5 space-y-1">
@@ -356,32 +346,6 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
       />
     </DocDialogShell>
   );
-}
-
-/** Renders a single step's body inside a DocBlock without changing the global `step`. */
-function SectionRender({ index, step, setStep, renderStep }: { index: number; step: number; setStep: (n: number) => void; renderStep: () => React.ReactNode }) {
-  // Temporarily set step to render that section, then restore.
-  // We rely on the renderStep closure reading `step`, so we expose a controlled wrapper.
-  return <SectionInner index={index} step={step} setStep={setStep} renderStep={renderStep} />;
-}
-
-function SectionInner({ index, step, setStep, renderStep }: { index: number; step: number; setStep: (n: number) => void; renderStep: () => React.ReactNode }) {
-  // Render-on-demand approach: temporarily flip step (cheap re-render).
-  // Instead, we accept that each section gets its own mounted block by re-invoking renderStep with index.
-  // Simpler: fake `step` by direct call into a parallel switch? Not available — fall back to controlled tab.
-  // Keep current approach: render only the active step's body when index === step, else render nothing.
-  if (index !== step) {
-    return (
-      <button
-        type="button"
-        onClick={() => setStep(index)}
-        className="text-[11px] text-primary underline underline-offset-2"
-      >
-        Open this section
-      </button>
-    );
-  }
-  return <div className="space-y-3">{renderStep()}</div>;
 }
 
 // ── Sub-components shared across forms ─────────────────────────────────────
