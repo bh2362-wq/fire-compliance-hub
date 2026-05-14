@@ -18,7 +18,11 @@ export async function generateELCertificatePDF(p: ELPayload): Promise<void> {
   doc.text(companyName, ML, 8);
   doc.text("EMERGENCY LIGHTING CERTIFICATE", pw/2, 8, { align: "center" });
   doc.setFontSize(7); doc.setFont("helvetica","normal");
-  doc.text(`${p.cert_reference} | ${p.form_type.replace(/_/g," ").toUpperCase()} | BS 5266-1:2016`, pw/2, 14, { align: "center" });
+  doc.text(`${p.cert_reference} | ${p.form_type.replace(/_/g," ").toUpperCase()}`, pw/2, 12.5, { align: "center" });
+  // Standard reference (orange accent)
+  doc.setFontSize(7.5); doc.setFont("helvetica","bold"); doc.setTextColor(245,130,32);
+  doc.text("BS 5266-1:2016  ·  BS EN 1838:2013  ·  BAFE SP203-1", pw/2, 16.5, { align: "center" });
+  doc.setTextColor(...C.text);
 
   // Status
   const statusColor = p.overall_status === "Satisfactory" ? C.green : p.overall_status === "Satisfactory with observations" ? [217,119,6] as [number,number,number] : C.red;
