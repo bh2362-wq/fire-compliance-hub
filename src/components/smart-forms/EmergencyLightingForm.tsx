@@ -18,7 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SmartSignature } from "@/components/ui/smart-signature";
+import { TypedSignature } from "@/components/ui/typed-signature";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown, AlertCircle, CheckCircle2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -690,7 +691,10 @@ function StepDefects({ payload, up }: { payload: ELPayload; up: (p: Partial<ELPa
                 </Select>
               </div>
               <div className="col-span-2 space-y-1">
-                <Label className="text-xs">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Description</Label>
+                  <AIRewriteButton text={d.description} type="defects" onRewrite={(v) => upD(d.id, "description", v)} />
+                </div>
                 <Textarea rows={2} value={d.description} onChange={e => upD(d.id, "description", e.target.value)} className="text-sm" />
               </div>
               <div className="flex items-center gap-2">
@@ -732,6 +736,10 @@ function StepStatus({ payload, up }: { payload: ELPayload; up: (p: Partial<ELPay
       {(payload.overall_status === "Satisfactory with Deviations" || payload.overall_status === "Unsatisfactory") && (
         <div className="space-y-1.5">
           <Label>Deviations / Observations Summary</Label>
+          <div className="flex items-center justify-between mb-1">
+            <span />
+            <AIRewriteButton text={payload.deviations_summary} type="recommendations" onRewrite={(v) => up({ deviations_summary: v })} />
+          </div>
           <Textarea rows={3} value={payload.deviations_summary} onChange={e => up({ deviations_summary: e.target.value })} />
         </div>
       )}
@@ -771,7 +779,7 @@ function StepSignatures({ payload, up }: { payload: ELPayload; up: (p: Partial<E
         </div>
         <div className="space-y-1.5">
           <Label>Signature</Label>
-          <SmartSignature value={payload.engineer_signature || ""} onChange={v => up({ engineer_signature: v })} />
+          <TypedSignature value={payload.engineer_signature} onChange={v => up({ engineer_signature: v })} />
         </div>
       </div>
       <div className="space-y-3">
@@ -788,7 +796,7 @@ function StepSignatures({ payload, up }: { payload: ELPayload; up: (p: Partial<E
         </div>
         <div className="space-y-1.5">
           <Label>Signature (optional — can be captured on site)</Label>
-          <SmartSignature value={payload.client_signature || ""} onChange={v => up({ client_signature: v })} showAbsent />
+          <TypedSignature value={payload.client_signature} onChange={v => up({ client_signature: v })} />
         </div>
       </div>
     </div>

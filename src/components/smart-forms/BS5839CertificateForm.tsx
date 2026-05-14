@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SmartSignature } from "@/components/ui/smart-signature";
+import { TypedSignature } from "@/components/ui/typed-signature";
 import { ChevronLeft, ChevronRight, Plus, Trash2, Save, FileDown, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +27,7 @@ import { ComplianceChecker } from "@/components/smart-forms/ComplianceChecker";
 import { createDefect, updateDefect, type DefectCategory } from "@/services/defectService";
 import { DefectImportPanel } from "@/components/smart-forms/DefectImportPanel";
 import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 const STEPS = [
   "Header", "Premises", "System", "Service Org", "Checklist",
@@ -464,141 +465,35 @@ function Step4({ payload, update }: StepProps) {
 
 function Step5({ payload, update }: StepProps) {
   const list = payload.checklist ?? DEFAULT_CHECKLIST;
-
   function setItem(idx: number, patch: Partial<typeof list[number]>) {
     const next = list.map((c, i) => (i === idx ? { ...c, ...patch } : c));
     update("checklist", next);
   }
-
-  // Determine if the current answer should show a comment box
-  function needsComment(item: typeof list[number]): boolean {
-    const trigger = (item as any).commentTrigger as "YES" | "NO" | "ALWAYS" | undefined;
-    if (!trigger) return false;
-    if (trigger === "ALWAYS") return true;
-    // Normalise stored status — old forms may use Pass/Fail, new use YES/NO
-    const s = item.status;
-    const isYes = s === "YES" || s === "Pass";
-    const isNo  = s === "NO"  || s === "Fail";
-    if (trigger === "YES") return isYes;
-    if (trigger === "NO")  return isNo;
-    return false;
-  }
-
-  // Group by section
-  const sections = list.reduce<{ name: string; items: { item: typeof list[number]; idx: number }[] }[]>(
-    (acc, item, idx) => {
-      const name = (item as any).section || "General";
-      const existing = acc.find(s => s.name === name);
-      if (existing) existing.items.push({ item, idx });
-      else acc.push({ name, items: [{ item, idx }] });
-      return acc;
-    }, []
-  );
-
-  const answered = list.filter(c => c.status !== "").length;
-  const problems = list.filter(c => {
-    const trigger = (c as any).commentTrigger as string | undefined;
-    const s = c.status;
-    if (trigger === "YES")  return s === "YES" || s === "Pass";
-    if (trigger === "NO")   return s === "NO"  || s === "Fail";
-    return false;
-  }).length;
-
   return (
-    <div className="space-y-1">
-      {/* Stats bar */}
-      <div className="flex items-center justify-between px-1 pb-2 flex-wrap gap-2">
-        <p className="text-xs text-muted-foreground">
-          As recommended in <span className="font-semibold">BAFE SP203-1 Cl. 9.8</span> &amp; <span className="font-semibold">BS 5839-1:2025 Cl. 45</span>
-        </p>
-        <div className="flex gap-3 text-[11px]">
-          <span className={answered === list.length ? "text-green-600 font-semibold" : "text-muted-foreground"}>
-            {answered}/{list.length} answered
-          </span>
-          {problems > 0 && (
-            <span className="text-amber-600 font-semibold">{problems} item{problems !== 1 ? "s" : ""} flagged</span>
-          )}
-        </div>
-      </div>
-
-      {sections.map(section => (
-        <div key={section.name} className="mb-1">
-          {/* Section header */}
-          <div className="bg-muted/60 border border-border px-3 py-1.5 rounded-t-md">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-              {section.name}
-            </p>
-          </div>
-
-          <div className="border border-t-0 border-border rounded-b-md divide-y divide-border overflow-hidden">
-            {section.items.map(({ item: c, idx }) => {
-              const showComment = needsComment(c);
-              const trigger = (c as any).commentTrigger as string | undefined;
-              const isAlways = trigger === "ALWAYS";
-              const isProblem = showComment && !isAlways;
-
-              return (
-                <div
-                  key={c.key}
-                  className={`px-3 py-2.5 transition-colors ${
-                    isProblem
-                      ? "bg-red-50/50 dark:bg-red-950/20"
-                      : "bg-card hover:bg-muted/20"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-xs leading-snug flex-1 min-w-0 pt-0.5 text-foreground/90">
-                      {c.label}
-                    </p>
-                    <div className="flex gap-1 flex-shrink-0">
-                      {(["YES", "NO", "N/A"] as const).map((s) => {
-                        // Map display → stored value (backwards compat with Pass/Fail)
-                        const stored = s === "YES" ? "YES" : s === "NO" ? "NO" : "N/A";
-                        const isActive =
-                          c.status === stored ||
-                          (s === "YES" && c.status === "Pass") ||
-                          (s === "NO"  && c.status === "Fail");
-                        return (
-                          <button
-                            key={s}
-                            type="button"
-                            onClick={() => setItem(idx, { status: stored as any })}
-                            className={`w-9 py-1 rounded border text-[10px] font-bold transition-colors ${
-                              isActive
-                                ? s === "YES" ? "bg-green-600 text-white border-green-600"
-                                : s === "NO"  ? "bg-red-600 text-white border-red-600"
-                                :               "bg-slate-500 text-white border-slate-500"
-                                : "border-border text-muted-foreground hover:bg-accent/40"
-                            }`}
-                          >
-                            {s}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Comment box — only when triggered */}
-                  {showComment && (
-                    <textarea
-                      rows={2}
-                      placeholder={
-                        isAlways
-                          ? "Enter value / measurement…"
-                          : trigger === "YES"
-                            ? "Comment required — describe the issue and action taken…"
-                            : "Comment required — explain why and any action taken…"
-                      }
-                      value={c.comment || ""}
-                      onChange={(e) => setItem(idx, { comment: e.target.value })}
-                      className="mt-2 w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+    <div className="space-y-2">
+      {list.map((c, i) => (
+        <Card key={c.key} className="overflow-hidden">
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <p className="text-xs font-medium flex-1 min-w-[200px]">{i + 1}. {c.label}</p>
+              <div className="flex gap-1">
+                {(["Pass", "Fail", "N/A"] as const).map((s) => (
+                  <button key={s} type="button" onClick={() => setItem(i, { status: s })}
+                    className={`px-3 py-1 rounded-md border text-[11px] font-semibold transition-colors ${
+                      c.status === s
+                        ? s === "Pass" ? "bg-green-600 text-white border-green-600"
+                        : s === "Fail" ? "bg-destructive text-destructive-foreground border-destructive"
+                        : "bg-amber-500 text-white border-amber-500"
+                        : "border-border hover:bg-accent/30"
+                    }`}>{s}</button>
+                ))}
+              </div>
+            </div>
+            {c.status === "Fail" && (
+              <Textarea rows={2} placeholder="Comment required for failed item…" value={c.comment || ""} onChange={(e) => setItem(i, { comment: e.target.value })} />
+            )}
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -674,9 +569,27 @@ function Step8({ payload, update }: StepProps) {
   return (
     <div className="space-y-3">
       <Field label="Number of False Alarms Since Last Visit"><Input type="number" min={0} value={payload.false_alarm_count ?? ""} onChange={(e) => update("false_alarm_count", e.target.value === "" ? "" : Number(e.target.value))} /></Field>
-      <Field label="Known Causes"><Textarea rows={2} value={payload.false_alarm_causes || ""} onChange={(e) => update("false_alarm_causes", e.target.value)} /></Field>
-      <Field label="Actions Taken"><Textarea rows={2} value={payload.false_alarm_actions || ""} onChange={(e) => update("false_alarm_actions", e.target.value)} /></Field>
-      <Field label="Further Recommendations"><Textarea rows={2} value={payload.false_alarm_recommendations || ""} onChange={(e) => update("false_alarm_recommendations", e.target.value)} /></Field>
+      <Field label="Known Causes">
+        <div className="flex items-center justify-between mb-1">
+          <span />
+          <AIRewriteButton text={payload.false_alarm_causes || ""} type="notes" onRewrite={(v) => update("false_alarm_causes", v)} />
+        </div>
+        <Textarea rows={2} value={payload.false_alarm_causes || ""} onChange={(e) => update("false_alarm_causes", e.target.value)} />
+      </Field>
+      <Field label="Actions Taken">
+        <div className="flex items-center justify-between mb-1">
+          <span />
+          <AIRewriteButton text={payload.false_alarm_actions || ""} type="works" onRewrite={(v) => update("false_alarm_actions", v)} />
+        </div>
+        <Textarea rows={2} value={payload.false_alarm_actions || ""} onChange={(e) => update("false_alarm_actions", e.target.value)} />
+      </Field>
+      <Field label="Further Recommendations">
+        <div className="flex items-center justify-between mb-1">
+          <span />
+          <AIRewriteButton text={payload.false_alarm_recommendations || ""} type="recommendations" onRewrite={(v) => update("false_alarm_recommendations", v)} />
+        </div>
+        <Textarea rows={2} value={payload.false_alarm_recommendations || ""} onChange={(e) => update("false_alarm_recommendations", e.target.value)} />
+      </Field>
     </div>
   );
 }
@@ -768,9 +681,17 @@ function Step9({ payload, update, siteId }: StepProps) {
               </Field>
             </div>
             <Field label="Description" required>
+              <div className="flex items-center justify-between mb-1">
+                <span />
+                <AIRewriteButton text={d.description} type="defects" onRewrite={(v) => patch(d.id, { description: v })} />
+              </div>
               <Textarea rows={2} value={d.description} onChange={(e) => patch(d.id, { description: e.target.value })} />
             </Field>
             <Field label="Recommended Action" required>
+              <div className="flex items-center justify-between mb-1">
+                <span />
+                <AIRewriteButton text={d.recommended_action} type="recommendations" onRewrite={(v) => patch(d.id, { recommended_action: v })} />
+              </div>
               <Textarea rows={2} value={d.recommended_action} onChange={(e) => patch(d.id, { recommended_action: e.target.value })} />
             </Field>
           </CardContent>
@@ -834,7 +755,8 @@ function Step10({ payload, update }: StepProps) {
 
 function Step11({ payload, update }: StepProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Overall status */}
       <Field label="Overall System Status" required>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           {(["Satisfactory", "Satisfactory with Observations", "Unsatisfactory"] as const).map((s) => (
@@ -849,7 +771,73 @@ function Step11({ payload, update }: StepProps) {
           ))}
         </div>
       </Field>
-      <Field label="Final Remarks" required><Textarea rows={5} value={payload.final_remarks || ""} onChange={(e) => update("final_remarks", e.target.value)} /></Field>
+
+      {/* Work carried out */}
+      <Field label="Work Carried Out">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-muted-foreground">Describe all work completed this visit</span>
+          <AIRewriteButton
+            text={payload.work_carried_out || ""}
+            type="works"
+            onRewrite={(v) => update("work_carried_out", v)}
+            context={`Fire alarm service at ${payload.premises_name || "site"}`}
+          />
+        </div>
+        <Textarea
+          rows={3}
+          placeholder="e.g. Routine quarterly inspection and service carried out in accordance with BS 5839-1:2025. All detectors tested, MCP switch mechanisms tested, sounders and VADs operated and confirmed correct…"
+          value={payload.work_carried_out || ""}
+          onChange={(e) => update("work_carried_out", e.target.value)}
+        />
+      </Field>
+
+      {/* Parts used */}
+      <Field label="Parts Used / Replaced">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-muted-foreground">List any materials or components replaced</span>
+          <AIRewriteButton
+            text={payload.parts_used || ""}
+            type="parts"
+            onRewrite={(v) => update("parts_used", v)}
+          />
+        </div>
+        <Textarea
+          rows={2}
+          placeholder="e.g. 2× Fulleon Symphoni sounders replaced, 1× Apollo Series 65 optical detector replaced. Or 'None' if nothing was replaced."
+          value={payload.parts_used || ""}
+          onChange={(e) => update("parts_used", e.target.value)}
+        />
+      </Field>
+
+      {/* Final remarks */}
+      <Field label="Final Remarks / Recommendations" required>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-muted-foreground">Overall observations and any outstanding actions</span>
+          <AIRewriteButton
+            text={payload.final_remarks || ""}
+            type="recommendations"
+            onRewrite={(v) => update("final_remarks", v)}
+            context={`${payload.overall_status || "service"} — ${(payload.defects ?? []).length} defects recorded`}
+          />
+        </div>
+        <Textarea
+          rows={4}
+          value={payload.final_remarks || ""}
+          onChange={(e) => update("final_remarks", e.target.value)}
+        />
+      </Field>
+
+      {/* Next service date */}
+      <Field label="Next Service Due">
+        <Input
+          type="date"
+          value={payload.next_service_date || ""}
+          onChange={(e) => update("next_service_date", e.target.value)}
+        />
+        <p className="text-[11px] text-muted-foreground mt-1">
+          This populates the Compliance Calendar on the dashboard.
+        </p>
+      </Field>
     </div>
   );
 }
@@ -862,7 +850,8 @@ function Step12({ payload, update }: StepProps) {
       </div>
       <Field label="Engineer Name"><Input value={payload.engineer_declaration_name || payload.engineer_name || ""} onChange={(e) => update("engineer_declaration_name", e.target.value)} /></Field>
       <Field label="Signature">
-        <SmartSignature value={payload.engineer_signature || ""} onChange={(v) => update("engineer_signature", v)} />
+        <TypedSignature value={(payload.engineer_signature || "").replace(/^typed:/, "")} onChange={(v) => update("engineer_signature", v ? `typed:${v}` : "")} placeholder="Type engineer name to sign" />
+        <p className="text-[11px] text-muted-foreground mt-1">Leave blank to auto-sign with the engineer's name on the PDF.</p>
       </Field>
       <Field label="Date"><Input type="date" value={payload.engineer_signed_date || ""} onChange={(e) => update("engineer_signed_date", e.target.value)} /></Field>
     </div>
@@ -874,7 +863,7 @@ function Step13({ payload, update }: StepProps) {
     <div className="space-y-3">
       <Field label="Client Name"><Input value={payload.client_name || ""} onChange={(e) => update("client_name", e.target.value)} /></Field>
       <Field label="Signature">
-        <SmartSignature value={payload.client_signature || ""} onChange={(v) => update("client_signature", v)} showAbsent />
+        <TypedSignature value={(payload.client_signature || "").replace(/^typed:/, "")} onChange={(v) => update("client_signature", v ? `typed:${v}` : "")} placeholder="Type client name to sign on-site" />
       </Field>
       <Field label="Date"><Input type="date" value={payload.client_signed_date || ""} onChange={(e) => update("client_signed_date", e.target.value)} /></Field>
     </div>

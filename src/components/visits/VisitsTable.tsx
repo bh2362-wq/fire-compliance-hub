@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown, Sparkles, ShieldCheck } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown, Sparkles, ShieldCheck, Zap, Wind, Droplets } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -63,6 +63,9 @@ import BS5839CertificateForm from "@/components/smart-forms/BS5839CertificateFor
 import InstallationCertificateForm from "@/components/smart-forms/InstallationCertificateForm";
 import CommissioningCertificateForm from "@/components/smart-forms/CommissioningCertificateForm";
 import ModificationCertificateForm from "@/components/smart-forms/ModificationCertificateForm";
+import EmergencyLightingForm from "@/components/smart-forms/EmergencyLightingForm";
+import ASDServiceForm from "@/components/smart-forms/ASDServiceForm";
+import DryRiserForm from "@/components/smart-forms/DryRiserForm";
 import { buildCertPrefill } from "@/services/certPrefillService";
 import { InstallationPayload, CommissioningPayload, ModificationPayload } from "@/services/newCertificateService";
 import { BS5839Payload } from "@/services/smartFormService";
@@ -224,6 +227,9 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [modCertVisit, setModCertVisit] = useState<Visit | null>(null);
   const [modCertPrefill, setModCertPrefill] = useState<Partial<ModificationPayload> | null>(null);
   const [certPrefillLoading, setCertPrefillLoading] = useState(false);
+  const [elCertVisit, setElCertVisit] = useState<Visit | null>(null);
+  const [asdCertVisit, setAsdCertVisit] = useState<Visit | null>(null);
+  const [drCertVisit, setDrCertVisit] = useState<Visit | null>(null);
   const [mergeSitesOpen, setMergeSitesOpen] = useState(false);
   const [ramsGenerating, setRamsGenerating] = useState(false);
   const [ramsOpen, setRamsOpen] = useState(false);
@@ -1058,6 +1064,19 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                       <DropdownMenuItem disabled={certPrefillLoading} onClick={async () => { setCertPrefillLoading(true); try { const p = await buildCertPrefill(visit.id, visit.site_id, visit.visit_date, visit.visit_type, (visit as any).job_number); setModCertPrefill(p.modification); setModCertVisit(visit); } catch { setModCertPrefill(null); setModCertVisit(visit); } finally { setCertPrefillLoading(false); } }}>
                         <Pencil className="w-3.5 h-3.5 mr-2" />{certPrefillLoading ? "Loading..." : "Modification (FD/05)"}
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setElCertVisit(visit)}>
+                        <Zap className="w-3.5 h-3.5 mr-2 text-yellow-600" />
+                        Emergency Lighting
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setAsdCertVisit(visit)}>
+                        <Wind className="w-3.5 h-3.5 mr-2 text-sky-600" />
+                        ASD Service
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setDrCertVisit(visit)}>
+                        <Droplets className="w-3.5 h-3.5 mr-2 text-blue-600" />
+                        Dry Riser
+                      </DropdownMenuItem>
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
@@ -1802,6 +1821,27 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         siteId={smartFormVisit?.site_id ?? null}
         customerId={(smartFormVisit as any)?.customer_id ?? null}
         prefill={smartFormPrefill ?? undefined}
+        onSaved={onRefresh}
+      />
+      <EmergencyLightingForm
+        open={!!elCertVisit}
+        onOpenChange={(open) => { if (!open) setElCertVisit(null); }}
+        visitId={elCertVisit?.id ?? null}
+        siteId={elCertVisit?.site_id ?? null}
+        onSaved={onRefresh}
+      />
+      <ASDServiceForm
+        open={!!asdCertVisit}
+        onOpenChange={(open) => { if (!open) setAsdCertVisit(null); }}
+        visitId={asdCertVisit?.id ?? null}
+        siteId={asdCertVisit?.site_id ?? null}
+        onSaved={onRefresh}
+      />
+      <DryRiserForm
+        open={!!drCertVisit}
+        onOpenChange={(open) => { if (!open) setDrCertVisit(null); }}
+        visitId={drCertVisit?.id ?? null}
+        siteId={drCertVisit?.site_id ?? null}
         onSaved={onRefresh}
       />
     </div>
