@@ -5,7 +5,7 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -25,6 +25,7 @@ interface DashboardLayoutProps {
 const coreNav = [
   { name: "Dashboard",  href: "/dashboard",           icon: LayoutDashboard, end: true },
   { name: "Visits",     href: "/dashboard/visits",    icon: ClipboardList },
+  { name: "Asset Maintenance", href: "/dashboard/asset-maintenance", icon: Wrench },
   { name: "Reports",    href: "/dashboard/reports",   icon: BarChart3 },
   { name: "Defects",    href: "/dashboard/defects",   icon: ShieldAlert },
 ];
