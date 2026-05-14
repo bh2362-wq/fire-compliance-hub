@@ -152,10 +152,10 @@ export async function generateBS5839CertificatePDF(
     for (const section of grouped) {
       // Section header row — spans all cols via didParseCell
       body.push([
-        { content: section.name.toUpperCase(), styles: { fontStyle: "bold" as const, fontSize: 7.5, fillColor: COLORS.charcoalDark ?? [45, 45, 48], textColor: [255, 255, 255] as [number, number, number] } },
-        { content: "",  styles: { fillColor: COLORS.charcoalDark ?? [45, 45, 48] } },
-        { content: "",  styles: { fillColor: COLORS.charcoalDark ?? [45, 45, 48] } },
-        { content: "",  styles: { fillColor: COLORS.charcoalDark ?? [45, 45, 48] } },
+        { content: section.name.toUpperCase(), styles: { fontStyle: "bold" as const, fontSize: 7.5, fillColor: (COLORS as any).charcoalDark ?? [45, 45, 48], textColor: [255, 255, 255] as [number, number, number] } },
+        { content: "",  styles: { fillColor: (COLORS as any).charcoalDark ?? [45, 45, 48] } },
+        { content: "",  styles: { fillColor: (COLORS as any).charcoalDark ?? [45, 45, 48] } },
+        { content: "",  styles: { fillColor: (COLORS as any).charcoalDark ?? [45, 45, 48] } },
       ]);
       // Item rows
       for (const c of section.items) {
