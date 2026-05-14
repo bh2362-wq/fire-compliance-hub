@@ -16,7 +16,7 @@ import {
   statusFill, statusText, COLORS, MARGIN,
 } from "./certPdfMasterTemplate";
 
-const TITLE = "System Modification Certificate";
+const TITLE = "Modification Certificate";
 
 export async function generateModificationCertificatePDF(
   payload: ModificationPayload,
