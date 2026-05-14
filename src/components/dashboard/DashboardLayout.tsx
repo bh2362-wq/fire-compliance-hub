@@ -5,7 +5,7 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
@@ -23,10 +23,11 @@ interface DashboardLayoutProps {
 
 /* ── Navigation definitions ─────────────────────────────────────────── */
 const coreNav = [
-  { name: "Dashboard",  href: "/dashboard",           icon: LayoutDashboard, end: true },
-  { name: "Visits",     href: "/dashboard/visits",    icon: ClipboardList },
-  { name: "Reports",    href: "/dashboard/reports",   icon: BarChart3 },
-  { name: "Defects",    href: "/dashboard/defects",   icon: ShieldAlert },
+  { name: "Dashboard",          href: "/dashboard",                     icon: LayoutDashboard, end: true },
+  { name: "Visits",             href: "/dashboard/visits",              icon: ClipboardList },
+  { name: "Asset Maintenance",  href: "/dashboard/asset-maintenance",   icon: Wrench },
+  { name: "Reports",            href: "/dashboard/reports",             icon: BarChart3 },
+  { name: "Defects",            href: "/dashboard/defects",             icon: ShieldAlert },
 ];
 
 const clientsNav = [
@@ -90,18 +91,25 @@ const NavItem = ({
     end={(item as any).end}
     className={({ isActive }) =>
       cn(
-        "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 group",
-        sub ? "px-3 py-2" : "px-3 py-2.5",
+        "relative flex items-center gap-3 rounded-md text-sm font-medium transition-all duration-150 group",
+        sub ? "px-3 py-1.5" : "px-3 py-2",
         isActive
-          ? "bg-primary/15 text-primary"
-          : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          ? "bg-sidebar-accent text-sidebar-foreground"
+          : "text-sidebar-foreground/55 hover:text-sidebar-foreground/90 hover:bg-sidebar-accent/60"
       )
     }
   >
-    <item.icon
-      className={cn("flex-shrink-0", sub ? "w-4 h-4" : "w-[18px] h-[18px]")}
-    />
-    {(!collapsed || isMobile) && <span>{item.name}</span>}
+    {({ isActive }) => (
+      <>
+        {isActive && !sub && (
+          <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-primary" />
+        )}
+        <item.icon
+          className={cn("flex-shrink-0", sub ? "w-4 h-4" : "w-[17px] h-[17px]")}
+        />
+        {(!collapsed || isMobile) && <span>{item.name}</span>}
+      </>
+    )}
   </NavLink>
 );
 
@@ -115,7 +123,7 @@ const SectionLabel = ({
   isMobile: boolean;
 }) =>
   !collapsed || isMobile ? (
-    <p className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/25 select-none">
+    <p className="px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-sidebar-foreground/30 select-none">
       {label}
     </p>
   ) : (

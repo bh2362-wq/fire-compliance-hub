@@ -31,9 +31,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, Server, Wind, Lightbulb, ShieldAlert, Pencil, Trash2, Loader2, Flame, Box, Accessibility, PanelTop, Phone } from "lucide-react";
+import { Plus, Server, Wind, Lightbulb, ShieldAlert, Pencil, Trash2, Loader2, Flame, Box, Accessibility, PanelTop, Phone, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SERVICE_TYPES } from "@/services/serviceContractService";
+import { AssetHistoryPanel } from "@/components/sites/AssetHistoryPanel";
 
 interface SiteAsset {
   id: string;
@@ -76,6 +77,8 @@ export function SiteAssets({ siteId }: SiteAssetsProps) {
   const [deleteAsset, setDeleteAsset] = useState<SiteAsset | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [historyAsset, setHistoryAsset] = useState<SiteAsset | null>(null);
+  const [historyOpen, setHistoryOpen]   = useState(false);
 
   // Form state
   const [assetType, setAssetType] = useState("fire");
@@ -287,6 +290,14 @@ export function SiteAssets({ siteId }: SiteAssetsProps) {
                         <Button
                           variant="ghost"
                           size="sm"
+                          title="Service history"
+                          onClick={() => { setHistoryAsset(asset); setHistoryOpen(true); }}
+                        >
+                          <History className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => openEditDialog(asset)}
                         >
                           <Pencil className="w-4 h-4" />
@@ -466,6 +477,13 @@ export function SiteAssets({ siteId }: SiteAssetsProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Asset service history panel */}
+      <AssetHistoryPanel
+        asset={historyAsset}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+      />
     </div>
   );
 }

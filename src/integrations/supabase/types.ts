@@ -4166,6 +4166,7 @@ export type Database = {
           customer_id: string | null
           id: string
           name: string
+          portal_token: string | null
           postcode: string | null
           sharepoint_folder: string | null
           sharepoint_url: string | null
@@ -4183,6 +4184,7 @@ export type Database = {
           customer_id?: string | null
           id?: string
           name: string
+          portal_token?: string | null
           postcode?: string | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
@@ -4200,6 +4202,7 @@ export type Database = {
           customer_id?: string | null
           id?: string
           name?: string
+          portal_token?: string | null
           postcode?: string | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
