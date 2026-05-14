@@ -742,7 +742,7 @@ export default function ASDCommissioningForm({ open, onOpenChange, siteId, custo
           subtitle="BS EN 54-20:2006+A1:2012 · BS 5839-1"
           reference={payload.cert_reference}
           date={(payload as any).date_of_commissioning}
-          onDateChange={(v) => up({ date_of_commissioning: v } as any)}
+          onDateChange={(v) => update("date_of_commissioning" as any, v as any)}
         />
         {visibleSteps.map(({ label, idx }, i) => (
           <DocBlock key={label} title={`${i + 1}. ${label}`}>
