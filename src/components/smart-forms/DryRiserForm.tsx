@@ -192,61 +192,54 @@ export default function DryRiserForm({ open, onOpenChange, visitId, siteId, onSa
     } catch { toast.error("PDF generation failed"); }
   }
 
-  const isLast = step === STEPS.length - 1;
-  const prog = Math.round(((step + 1) / STEPS.length) * 100);
+  function renderSection(idx: number) {
+    if (idx === 0) return <StepHeader payload={payload} up={up} formType={formType} setFormType={handleFormTypeChange} />;
+    if (idx === 1) return <StepPremises payload={payload} up={up} />;
+    if (idx === 2) return <StepSystem payload={payload} up={up} />;
+    if (idx === 3) return <StepVisual payload={payload} up={up} />;
+    if (formType === "pressure_test") {
+      if (idx === 4) return <StepPressure payload={payload} up={up} />;
+      if (idx === 5) return <StepFloors payload={payload} up={up} />;
+      if (idx === 6) return <StepStatus payload={payload} up={up} formType={formType} />;
+      if (idx === 7) return <StepSignatures payload={payload} up={up} />;
+    } else {
+      if (idx === 4) return <StepStatus payload={payload} up={up} formType={formType} />;
+      if (idx === 5) return <StepSignatures payload={payload} up={up} />;
+    }
+    return null;
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[92vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Droplets className="w-5 h-5 text-blue-500" />
-            Dry Riser Certificate
-            <Badge variant="outline" className="text-[10px] ml-1">BS 9990:2015</Badge>
-          </DialogTitle>
-          <div className="mt-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-              <span>{STEPS[step]}</span>
-              <span>{step + 1} / {STEPS.length}</span>
-            </div>
-            <Progress value={prog} className="h-1.5" />
-          </div>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1 px-6 py-4">
-          {step === 0 && <StepHeader payload={payload} up={up} formType={formType} setFormType={handleFormTypeChange} />}
-          {step === 1 && <StepPremises payload={payload} up={up} />}
-          {step === 2 && <StepSystem payload={payload} up={up} />}
-          {step === 3 && <StepVisual payload={payload} up={up} />}
-          {formType === "pressure_test" && step === 4 && <StepPressure payload={payload} up={up} />}
-          {formType === "pressure_test" && step === 5 && <StepFloors payload={payload} up={up} />}
-          {/* Status, Sigs, Preview offset for pressure_test */}
-          {((formType === "pressure_test" && step === 6) || (formType === "visual" && step === 4)) && <StepStatus payload={payload} up={up} formType={formType} />}
-          {((formType === "pressure_test" && step === 7) || (formType === "visual" && step === 5)) && <StepSignatures payload={payload} up={up} />}
-          {((formType === "pressure_test" && step === 8) || (formType === "visual" && step === 6)) && <StepPreview payload={payload} onDownload={handleDownload} />}
-        </ScrollArea>
-
-        <div className="flex items-center justify-between px-6 py-3 border-t shrink-0 bg-muted/30">
-          <Button variant="ghost" size="sm" onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0}>
-            <ChevronLeft className="w-4 h-4 mr-1" /> Back
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => save("draft")} disabled={saving}>
-              <Save className="w-3.5 h-3.5 mr-1" /> Save Draft
-            </Button>
-            {isLast ? (
-              <Button size="sm" onClick={() => save("completed")} disabled={saving}>
-                <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Complete
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => setStep(s => s + 1)}>
-                Next <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <DocDialogShell open={open} onOpenChange={onOpenChange}>
+      <StickyHeader
+        title="Dry Riser Certificate"
+        reference={payload.cert_reference}
+        status="valid"
+        onSaveDraft={() => save("draft")}
+        onComplete={() => save("completed")}
+        saving={saving}
+        meta={<Badge variant="outline" className="text-[10px]"><Droplets className="w-3 h-3 mr-1" />BS 9990:2015</Badge>}
+      />
+      <DocBody>
+        <TitleBlock
+          title="Dry Riser Certificate"
+          subtitle={formType === "pressure_test" ? "Annual Hydraulic Pressure Test" : "6-Monthly Visual Inspection"}
+          reference={payload.cert_reference}
+          date={(payload as any).date_of_test || (payload as any).date_of_inspection}
+        />
+        {STEPS.slice(0, -1).map((label, i) => (
+          <DocBlock key={`${label}-${i}`} title={`${i + 1}. ${label}`}>
+            {renderSection(i)}
+          </DocBlock>
+        ))}
+      </DocBody>
+      <StickyFooter
+        standardLabel="Dry Riser · BS 9990:2015"
+        onClose={() => onOpenChange(false)}
+        onComplete={() => save("completed")}
+        saving={saving}
+      />
+    </DocDialogShell>
   );
 }
 
