@@ -6,6 +6,7 @@ import TodaySchedule from "@/components/dashboard/TodaySchedule";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { BankReconciliation } from "@/components/xero/BankReconciliation";
+import { ComplianceCalendar, getComplianceAlertCount } from "@/components/dashboard/ComplianceCalendar";
 import {
   Building2, ClipboardCheck, AlertTriangle, ShieldCheck,
   CreditCard, Award, TrendingUp, ArrowRight
@@ -59,6 +60,13 @@ const Dashboard = () => {
     overdueCount: 0,
     overdueTotalGbp: 0,
   });
+  const [complianceOverdue, setComplianceOverdue] = useState(0);
+
+  useEffect(() => {
+    getComplianceAlertCount()
+      .then((count) => setComplianceOverdue(count))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -133,7 +141,7 @@ const Dashboard = () => {
   }).length;
   const bafeCompliantPct = bafeTotalSites > 0 ? Math.round((bafeCompliant / bafeTotalSites) * 100) : 0;
 
-  const hasAlerts = bafeExpiring > 0 || bafeExpired > 0 || stats.overdueCount > 0;
+  const hasAlerts = bafeExpiring > 0 || bafeExpired > 0 || stats.overdueCount > 0 || complianceOverdue > 0;
 
   return (
     <DashboardLayout>
@@ -152,6 +160,17 @@ const Dashboard = () => {
                 }
                 action="View Cert Tracker"
                 onClick={() => navigate("/dashboard/cert-tracker")}
+              />
+            )}
+            {complianceOverdue > 0 && (
+              <AlertStrip
+                type="danger"
+                message={`${complianceOverdue} site${complianceOverdue !== 1 ? "s are" : " is"} overdue for service`}
+                action="View Schedule"
+                onClick={() => {
+                  const el = document.getElementById("compliance-calendar");
+                  el?.scrollIntoView({ behavior: "smooth" });
+                }}
               />
             )}
             {stats.overdueCount > 0 && (
@@ -286,6 +305,9 @@ const Dashboard = () => {
         <div className="grid lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
             <ComplianceChart />
+            <div id="compliance-calendar">
+              <ComplianceCalendar />
+            </div>
             <RecentVisits />
           </div>
           <div className="space-y-5">
