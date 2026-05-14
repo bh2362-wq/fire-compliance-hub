@@ -323,6 +323,12 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
           </DocBlock>
         ))}
 
+        <AIAssistBlock
+          payload={payload as any}
+          formLabel="BS 5839-1 Installation Certificate"
+          extraInstruction="Reassure the client that the system is installed and ready for commissioning; flag any outstanding works."
+        />
+
         {errors.length > 0 && (
           <div className="p-3 rounded-md border border-destructive/40 bg-destructive/5 space-y-1">
             <p className="text-xs font-semibold text-destructive flex items-center gap-1">
