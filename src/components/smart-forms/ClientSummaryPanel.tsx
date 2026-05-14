@@ -4,46 +4,83 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { BS5839Payload } from "@/services/smartFormService";
 
 interface Props {
-  payload: BS5839Payload;
+  /** Human label for this form, e.g. "BS 5839-1 Commissioning Certificate". */
+  formLabel?: string;
+  /** Any form payload — fields are flattened into context for the AI. */
+  payload: Record<string, any>;
+  /** Optional extra instruction sentence (form-specific tone or focus). */
+  extraInstruction?: string;
+  /** Optional custom context builder; overrides default flatten logic. */
+  buildContext?: (payload: Record<string, any>) => string;
 }
 
-export function ClientSummaryPanel({ payload }: Props) {
+/* Default flattener: turns the payload into "key: value" lines, skipping
+   empty values, base64 signatures, large arrays of objects (just counted),
+   and obvious internals. */
+function defaultBuildContext(payload: Record<string, any>): string {
+  const SKIP_PREFIXES = ["_", "id", "submission", "user_id", "site_id", "customer_id", "visit_id"];
+  const SKIP_KEYS = new Set([
+    "engineer_signature", "rp_signature", "client_signature",
+    "signature", "signature_image", "logo", "company_logo",
+  ]);
+  const lines: string[] = [];
+  const isObj = (v: any) => v && typeof v === "object";
+
+  for (const [k, v] of Object.entries(payload || {})) {
+    if (SKIP_KEYS.has(k)) continue;
+    if (SKIP_PREFIXES.some((p) => k.startsWith(p))) continue;
+    if (v === null || v === undefined || v === "") continue;
+
+    if (Array.isArray(v)) {
+      if (v.length === 0) continue;
+      // Summarise object arrays — list first 8 short string fields per item.
+      if (isObj(v[0])) {
+        lines.push(`${k}: ${v.length} item(s)`);
+        v.slice(0, 8).forEach((item, i) => {
+          const desc = item.description || item.item || item.label || item.name || item.title;
+          const status = item.status || item.result || item.severity;
+          if (desc) lines.push(`  - ${status ? `[${status}] ` : ""}${desc}`);
+        });
+      } else {
+        lines.push(`${k}: ${v.join(", ")}`);
+      }
+      continue;
+    }
+
+    if (isObj(v)) continue; // skip nested objects
+    if (typeof v === "string" && v.startsWith("data:image")) continue;
+
+    const display = typeof v === "string" && v.length > 240 ? v.slice(0, 240) + "…" : String(v);
+    lines.push(`${k}: ${display}`);
+  }
+  return lines.join("\n");
+}
+
+export function ClientSummaryPanel({
+  payload,
+  formLabel = "fire safety service visit",
+  extraInstruction,
+  buildContext,
+}: Props) {
   const [summary, setSummary] = useState("");
   const [busy, setBusy] = useState(false);
-
-  function buildContext(): string {
-    const checklist = payload.checklist ?? [];
-    const noCount = checklist.filter(c => c.status === "Fail" || c.status === "NO").length;
-    const defects = (payload.defects ?? []).filter(d => d.description?.trim());
-    const lines: string[] = [];
-    lines.push(`Site: ${payload.premises_name || "Unknown"}`);
-    lines.push(`Date of service: ${payload.date_of_service || "n/a"}`);
-    lines.push(`Engineer: ${payload.engineer_name || "n/a"}`);
-    lines.push(`Overall status: ${payload.overall_status || "n/a"}`);
-    lines.push(`Checklist: ${checklist.length} items, ${noCount} flagged NO.`);
-    if (defects.length) {
-      lines.push(`Defects: ${defects.length}`);
-      defects.slice(0, 10).forEach(d => lines.push(` - ${d.severity || "Minor"}: ${d.description}`));
-    }
-    if (payload.work_carried_out) lines.push(`Work carried out: ${payload.work_carried_out}`);
-    if (payload.next_service_date) lines.push(`Next service due: ${payload.next_service_date}`);
-    return lines.join("\n");
-  }
 
   async function generate() {
     setBusy(true);
     try {
-      const ctx = buildContext();
+      const ctx = (buildContext ?? defaultBuildContext)(payload);
+      const baseInstruction =
+        `Write a short plain-English email summary for the client about this ${formLabel}. ` +
+        `Be reassuring but honest. Cover overall outcome, any flagged items or defects, what work was carried out, ` +
+        `and any follow-up actions or next due date. Keep it under 180 words. No markdown.`;
+      const customInstructions = extraInstruction
+        ? `${baseInstruction} ${extraInstruction}`
+        : baseInstruction;
+
       const { data, error } = await supabase.functions.invoke("rewrite-text", {
-        body: {
-          text: ctx,
-          type: "comments",
-          customInstructions:
-            "Write a short plain-English email summary for the client about this fire alarm service visit. Be reassuring but honest. Mention overall status, any flagged items or defects, what work was done, and the next service date. Keep it under 180 words. No markdown.",
-        },
+        body: { text: ctx, type: "comments", customInstructions },
       });
       if (error) throw error;
       const out = (data?.rewritten || data?.text || "").toString();
@@ -66,9 +103,9 @@ export function ClientSummaryPanel({ payload }: Props) {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-[11px] text-muted-foreground">
-          Generates a friendly client-facing email from the cert details.
+          Generates a friendly client-facing email from this form's details.
         </p>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={generate} disabled={busy}>
