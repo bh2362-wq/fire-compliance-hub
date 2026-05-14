@@ -290,7 +290,6 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
     }
   };
 
-  const [aiOpen, setAiOpen] = useState(false);
 
   return (
     <DocDialogShell open={open} onOpenChange={onOpenChange}>
