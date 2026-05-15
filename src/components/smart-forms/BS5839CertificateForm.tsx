@@ -291,7 +291,21 @@ export default function BS5839CertificateForm({
               <span className="font-mono text-xs text-muted-foreground">{payload.certificate_reference}</span>
             )}
             {errors.length > 0 ? (
-              <Badge variant="destructive" className="gap-1 text-[10px]"><AlertCircle className="h-3 w-3" />{errors.length} issue(s)</Badge>
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="destructive" className="gap-1 text-[10px] cursor-help"><AlertCircle className="h-3 w-3" />{errors.length} issue(s)</Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="start" className="max-w-md p-0">
+                    <div className="p-3 max-h-80 overflow-y-auto">
+                      <div className="text-xs font-semibold mb-2">Outstanding to complete:</div>
+                      <ol className="list-decimal pl-4 space-y-1 text-[11px] leading-snug">
+                        {errors.map((e, i) => <li key={i}>{e.message}</li>)}
+                      </ol>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : (
               <Badge className="bg-green-600/15 text-green-700 border-green-600/30 gap-1 text-[10px]"><CheckCircle2 className="h-3 w-3" />Valid</Badge>
             )}
