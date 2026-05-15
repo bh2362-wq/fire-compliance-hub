@@ -419,7 +419,10 @@ export default function BS5839CertificateForm({
             <DocBlock title="WORK CARRIED OUT">
               <div className="space-y-3">
                 <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Work done</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Work done</label>
+                    <AIRewriteButton text={payload.work_carried_out || ""} type="works" onRewrite={(v) => update("work_carried_out", v)} />
+                  </div>
                   <Textarea rows={3} value={payload.work_carried_out || ""} onChange={(e) => update("work_carried_out", e.target.value)} className="text-xs mt-1" />
                 </div>
                 <div>
@@ -427,7 +430,10 @@ export default function BS5839CertificateForm({
                   <Input value={payload.parts_used || ""} onChange={(e) => update("parts_used", e.target.value)} className="text-xs mt-1 h-9" />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Final remarks</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Final remarks</label>
+                    <AIRewriteButton text={payload.final_remarks || ""} type="comments" onRewrite={(v) => update("final_remarks", v)} />
+                  </div>
                   <Textarea rows={2} value={payload.final_remarks || ""} onChange={(e) => update("final_remarks", e.target.value)} className="text-xs mt-1" />
                 </div>
                 <div className="pt-2">
