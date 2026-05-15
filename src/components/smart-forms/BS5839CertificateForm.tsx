@@ -456,7 +456,11 @@ export default function BS5839CertificateForm({
                     ].filter(Boolean).join(", ")}
                     existingDefects={defects}
                     onAddDefects={(newDefects) => {
-                      update("defects", [...defects, ...newDefects]);
+                      // Functional update so concurrent additions don't clobber each other
+                      setPayload((p) => ({
+                        ...p,
+                        defects: [...(p.defects ?? []), ...newDefects],
+                      }));
                     }}
                   />
                 </div>
