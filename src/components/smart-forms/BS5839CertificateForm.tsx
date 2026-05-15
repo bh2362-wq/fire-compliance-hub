@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { TypedSignature } from "@/components/ui/typed-signature";
 import {
   Plus, Trash2, Save, FileDown, AlertCircle, CheckCircle2,
@@ -289,7 +291,21 @@ export default function BS5839CertificateForm({
               <span className="font-mono text-xs text-muted-foreground">{payload.certificate_reference}</span>
             )}
             {errors.length > 0 ? (
-              <Badge variant="destructive" className="gap-1 text-[10px]"><AlertCircle className="h-3 w-3" />{errors.length} issue(s)</Badge>
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="destructive" className="gap-1 text-[10px] cursor-help"><AlertCircle className="h-3 w-3" />{errors.length} issue(s)</Badge>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="start" className="max-w-md p-0">
+                    <div className="p-3 max-h-80 overflow-y-auto">
+                      <div className="text-xs font-semibold mb-2">Outstanding to complete:</div>
+                      <ol className="list-decimal pl-4 space-y-1 text-[11px] leading-snug">
+                        {errors.map((e, i) => <li key={i}>{e.message}</li>)}
+                      </ol>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : (
               <Badge className="bg-green-600/15 text-green-700 border-green-600/30 gap-1 text-[10px]"><CheckCircle2 className="h-3 w-3" />Valid</Badge>
             )}
@@ -571,6 +587,15 @@ export default function BS5839CertificateForm({
                 <DocField label="Date" type="date" value={payload.engineer_signed_date} onChange={(v) => update("engineer_signed_date", v)} />
                 <div className="text-[11px] text-muted-foreground mb-1 mt-1">Signature</div>
                 <TypedSignature value={payload.engineer_signature || ""} onChange={(v) => update("engineer_signature", v)} placeholder="Type or draw signature" />
+                <label className="flex items-start gap-2 mt-3 p-2 rounded-md border bg-accent/10 cursor-pointer">
+                  <Checkbox
+                    checked={!!payload.engineer_competency_confirmed}
+                    onCheckedChange={(c) => update("engineer_competency_confirmed", !!c)}
+                  />
+                  <span className="text-[11px] leading-snug">
+                    I am a competent person as defined in BS 5839-1 and am suitably qualified to inspect and service this system.
+                  </span>
+                </label>
               </DocBlock>
               <DocBlock title="CLIENT">
                 <DocField label="Name" value={payload.client_name} onChange={(v) => update("client_name", v)} />
