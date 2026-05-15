@@ -34,6 +34,7 @@ import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
 import { CustomerReports } from "@/components/customers/CustomerReports";
 import { CustomerEmailLogs } from "@/components/customers/CustomerEmailLogs";
+import { CustomerEmailDrafts } from "@/components/customers/CustomerEmailDrafts";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import { CreditCheckCard } from "@/components/credit-control/CreditCheckCard";
