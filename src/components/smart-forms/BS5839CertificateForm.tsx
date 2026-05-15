@@ -659,9 +659,9 @@ function SectionRows({ section, onChange }: {
                 </td>
               ) : (
                 <>
-                  <StatusCell active={isYes} color="#2e7d32" label="YES" onClick={() => onChange(idx, { status: storeStatus("YES") })} />
-                  <StatusCell active={isNo} color="#c62828" label="NO" onClick={() => onChange(idx, { status: storeStatus("NO") })} />
-                  <StatusCell active={isNA} color="#546e7a" label="N/A" onClick={() => onChange(idx, { status: storeStatus("N/A") })} />
+                  <StatusCell active={isYes} color="#2e7d32" label="YES" onClick={() => onChange(idx, { status: storeStatus("YES", item.invert) })} />
+                  <StatusCell active={isNo} color="#c62828" label="NO" onClick={() => onChange(idx, { status: storeStatus("NO", item.invert) })} />
+                  <StatusCell active={isNA} color="#546e7a" label="N/A" onClick={() => onChange(idx, { status: storeStatus("N/A", item.invert) })} />
                 </>
               )}
             </tr>
