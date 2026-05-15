@@ -272,7 +272,7 @@ export default function BS5839CertificateForm({
   }
   function removeDefect(id: string) { update("defects", defects.filter((d) => d.id !== id)); }
   function importDefects(entries: (DefectEntry & { _register_id?: string })[]) {
-    update("defects", [...defects, ...entries]);
+    setPayload((p) => ({ ...p, defects: [...(p.defects ?? []), ...entries] }));
   }
 
   const noCount = checklist.filter(c => c.status === "Fail" || c.status === "NO").length;
@@ -456,7 +456,11 @@ export default function BS5839CertificateForm({
                     ].filter(Boolean).join(", ")}
                     existingDefects={defects}
                     onAddDefects={(newDefects) => {
-                      update("defects", [...defects, ...newDefects]);
+                      // Functional update so concurrent additions don't clobber each other
+                      setPayload((p) => ({
+                        ...p,
+                        defects: [...(p.defects ?? []), ...newDefects],
+                      }));
                     }}
                   />
                 </div>
