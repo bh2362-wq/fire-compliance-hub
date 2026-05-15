@@ -20,7 +20,7 @@ import {
   buildEmptyPayload, createSmartFormSubmission, updateSmartFormSubmission,
   validatePayload, DEFAULT_CHECKLIST,
 } from "@/services/smartFormService";
-import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
+import { generateServiceReport as generateBS5839CertificatePDF } from "@/lib/serviceReportGenerator";
 import { uploadCertificateToSharePoint } from "@/lib/certSharePointUpload";
 import { autoRegisterCertToSite } from "@/services/newCertificateService";
 import { createDefect, updateDefect, type DefectCategory } from "@/services/defectService";
