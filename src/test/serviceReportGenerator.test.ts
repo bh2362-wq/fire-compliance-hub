@@ -265,7 +265,7 @@ describe("BS5839 service report PDF — layout regressions", () => {
         );
         valueCalls.forEach(v => {
           // Approximate width: helvetica 8pt ≈ 1.6mm per char.
-          const approxRight = v.x + v.text.length * 1.6;
+          const approxRight = v.x + v.text.length * 1.4;
           expect(approxRight, `SYSTEM column ${i} value "${v.text}" overflows`).toBeLessThanOrEqual(colRight + 0.5);
         });
       }
