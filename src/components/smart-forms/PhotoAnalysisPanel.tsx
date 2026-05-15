@@ -170,12 +170,27 @@ export function PhotoAnalysisPanel({ submissionId, context, existingDefects, onA
   // ── Add faults to defects register ────────────────────────────────────────
   const addFaults = (photo: AnalysedPhoto, indices?: number[]) => {
     if (!photo.result?.detected_faults.length) return;
-    const faults = indices
-      ? indices.map(i => photo.result!.detected_faults[i])
-      : photo.result.detected_faults;
+    const allFaults = photo.result.detected_faults;
+    const idxSet = indices ? new Set(indices) : new Set(allFaults.map((_, i) => i));
+    const faults = allFaults.filter((_, i) => idxSet.has(i));
+    if (!faults.length) return;
     const newDefects = faults.map(f => faultToDefectEntry(f, photo.uploadedUrl));
     onAddDefects(newDefects);
     toast.success(`${newDefects.length} defect${newDefects.length !== 1 ? "s" : ""} added to report`);
+
+    // Remove this photo from the list (or strip the added faults if a subset were chosen)
+    const remaining = allFaults.filter((_, i) => !idxSet.has(i));
+    if (remaining.length === 0) {
+      URL.revokeObjectURL(photo.previewUrl);
+      setPhotos(prev => prev.filter(p => p.id !== photo.id));
+      if (clarifyId === photo.id) setClarifyId(null);
+    } else {
+      setPhotos(prev => prev.map(p =>
+        p.id === photo.id && p.result
+          ? { ...p, result: { ...p.result, detected_faults: remaining } }
+          : p
+      ));
+    }
   };
 
   const removePhoto = (id: string) => {
