@@ -83,7 +83,7 @@ function triggerPdfDownload(doc: jsPDF, fileName: string): void {
   document.body.removeChild(link);
 
   window.setTimeout(() => {
-    try { window.open(blobUrl, "_blank", "noopener,noreferrer"); } catch {}
+    try { window.open(blobUrl, "_blank", "noopener,noreferrer"); } catch (error) { console.warn("PDF open fallback failed", error); }
   }, 250);
   window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 }
