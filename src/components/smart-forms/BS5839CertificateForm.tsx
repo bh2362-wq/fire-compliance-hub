@@ -273,8 +273,26 @@ export default function BS5839CertificateForm({
     update("defects", defects.map((d) => d.id === id ? { ...d, ...p } : d));
   }
   function removeDefect(id: string) { update("defects", defects.filter((d) => d.id !== id)); }
+  function dedupeDefects<T extends DefectEntry>(existing: DefectEntry[], incoming: T[]): T[] {
+    const norm = (s?: string) => (s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+    const key = (d: DefectEntry) => `${norm(d.description)}|${norm(d.location)}`;
+    const seen = new Set(existing.map(key));
+    const out: T[] = [];
+    for (const d of incoming) {
+      const k = key(d);
+      if (!seen.has(k)) { seen.add(k); out.push(d); }
+    }
+    return out;
+  }
   function importDefects(entries: (DefectEntry & { _register_id?: string })[]) {
-    setPayload((p) => ({ ...p, defects: [...(p.defects ?? []), ...entries] }));
+    setPayload((p) => {
+      const fresh = dedupeDefects(p.defects ?? [], entries);
+      if (fresh.length < entries.length) {
+        const skipped = entries.length - fresh.length;
+        toast.info(`Skipped ${skipped} duplicate defect${skipped === 1 ? "" : "s"}`);
+      }
+      return { ...p, defects: [...(p.defects ?? []), ...fresh] };
+    });
   }
 
   const noCount = checklist.filter(c => c.status === "Fail" || c.status === "NO").length;
@@ -512,11 +530,15 @@ export default function BS5839CertificateForm({
                     ].filter(Boolean).join(", ")}
                     existingDefects={defects}
                     onAddDefects={(newDefects) => {
-                      // Functional update so concurrent additions don't clobber each other
-                      setPayload((p) => ({
-                        ...p,
-                        defects: [...(p.defects ?? []), ...newDefects],
-                      }));
+                      // Functional update so concurrent additions don't clobber each other; dedupe against existing
+                      setPayload((p) => {
+                        const fresh = dedupeDefects(p.defects ?? [], newDefects);
+                        if (fresh.length < newDefects.length) {
+                          const skipped = newDefects.length - fresh.length;
+                          toast.info(`Skipped ${skipped} duplicate defect${skipped === 1 ? "" : "s"}`);
+                        }
+                        return { ...p, defects: [...(p.defects ?? []), ...fresh] };
+                      });
                     }}
                   />
                 </div>
