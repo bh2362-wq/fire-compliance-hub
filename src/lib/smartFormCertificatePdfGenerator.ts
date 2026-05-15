@@ -89,7 +89,7 @@ export async function generateBS5839CertificatePDF(
     const cw = pw - M * 2;
     // Logo
     if (logo) {
-      try { doc.addImage(logo.data, logo.ext, M, 10, 22, 22); } catch {}
+      try { doc.addImage(logo.base64, "PNG", M, 10, logo.w || 22, logo.h || 22); } catch {}
     }
     // Company block top-right
     const rx = pw - M; let ry = 12;
