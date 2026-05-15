@@ -109,7 +109,7 @@ export function PhotoAnalysisPanel({ submissionId, context, existingDefects, onA
   // ── Handle drop / file select ──────────────────────────────────────────────
   const handleFiles = useCallback((files: File[]) => {
     // Stagger uploads to avoid hammering the AI provider's concurrent-request rate limit
-    files.slice(0, 20).forEach((f, i) => {
+    files.slice(0, 40).forEach((f, i) => {
       setTimeout(() => processFile(f), i * 800);
     });
   }, [processFile]);
