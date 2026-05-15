@@ -1,729 +1,391 @@
+/**
+ * quotationPdfGenerator.ts — clean rewrite
+ * Consistent 8–9pt type scale, dark section headers matching cert PDFs.
+ * Fixes: mixed fonts, double scope header, UUID notes, orphaned totals.
+ */
+
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 
-// Company Branding Constants
-const COMPANY = {
-  name: "BHO FIRE LTD",
-  address: "St Georges Business Park, Castle Rd, Sittingbourne ME10 3TB",
-  phone: "0330 043 8659",
-  email: "admin@bhofire.com",
-  website: "www.bhofire.com",
-  registration: "Company Registration No. 12235152",
-  vat: "GB404667595",
-  country: "Registered in England & Wales",
+const C = {
+  dark:   [60, 60, 60]    as [number,number,number],
+  black:  [26, 26, 26]    as [number,number,number],
+  body:   [55, 65, 81]    as [number,number,number],
+  muted:  [95, 100, 108]  as [number,number,number],
+  light:  [156, 163, 175] as [number,number,number],
+  border: [224, 224, 224] as [number,number,number],
+  altrow: [250, 250, 250] as [number,number,number],
+  white:  [255, 255, 255] as [number,number,number],
 };
 
-// Cert-style palette (matches BS5839 service report)
-const COLORS = {
-  primary: [26, 26, 26] as [number, number, number],         // #1a1a1a primary dark
-  accent: [232, 92, 44] as [number, number, number],         // #e85c2c orange
-  sectionBg: [60, 60, 60] as [number, number, number],       // #3c3c3c section header bg
-  sectionText: [255, 255, 255] as [number, number, number],  // white section header text
-  border: [224, 224, 224] as [number, number, number],       // #e0e0e0
-  borderDark: [200, 200, 200] as [number, number, number],
-  textPrimary: [26, 26, 26] as [number, number, number],
-  textSecondary: [60, 64, 67] as [number, number, number],
-  textMuted: [95, 99, 104] as [number, number, number],      // #5f6368
-  textLight: [154, 160, 166] as [number, number, number],
-  altRow: [250, 250, 250] as [number, number, number],       // #fafafa
-  bgLight: [248, 249, 250] as [number, number, number],
-  white: [255, 255, 255] as [number, number, number],
+const CO = {
+  name:  "BHO FIRE",
+  addr:  "St Georges Business Park, Castle Rd",
+  city:  "Sittingbourne ME10 3TB",
+  phone: "0330 043 8659",
+  email: "admin@bhofire.com",
+  reg:   "Company Registration No. 12235152",
+  vat:   "GB404667595",
 };
 
 export interface PDFColumnOptions {
-  showItemNumber: boolean;
-  showDescription: boolean;
-  showRegulationRef: boolean;
-  showPriority: boolean;
-  showItem: boolean;
-  showQuantity: boolean;
-  showUnitPrice: boolean;
-  showLabour: boolean;
-  showTotal: boolean;
+  showItemNumber: boolean; showDescription: boolean; showRegulationRef: boolean;
+  showPriority: boolean; showItem: boolean; showQuantity: boolean;
+  showUnitPrice: boolean; showLabour: boolean; showTotal: boolean;
 }
 
 export interface QuotationLineItem {
-  description: string;
-  regulation_reference?: string | null;
-  priority: string;
-  item_name?: string | null;
-  parent_id?: string | null;
-  quantity: number;
-  unit_price: number;
-  markup_percent?: number;
-  labour_cost?: number;
-  labour_included?: boolean;
-  total_price: number;
+  description: string; regulation_reference?: string | null; priority: string;
+  item_name?: string | null; parent_id?: string | null;
+  quantity: number; unit_price: number; markup_percent?: number;
+  labour_cost?: number; labour_included?: boolean; total_price: number;
 }
 
 export interface QuotationData {
-  quotation_number: string;
-  title?: string | null;
-  summary?: string | null;
-  total_amount: number;
-  valid_until?: string | null;
-  notes?: string | null;
-  terms?: string | null;
-  created_at: string;
-  site: {
-    name: string;
-    address?: string | null;
-    city?: string | null;
-    postcode?: string | null;
-  };
-  customer?: {
-    name: string;
-    contact_name?: string | null;
-    contact_email?: string | null;
-    contact_phone?: string | null;
-    address?: string | null;
-    city?: string | null;
-    postcode?: string | null;
-  } | null;
-  line_items: QuotationLineItem[];
-  prepared_by?: string | null;
-  vat_rate?: number;
+  quotation_number: string; title?: string | null; summary?: string | null;
+  total_amount: number; valid_until?: string | null; notes?: string | null;
+  terms?: string | null; created_at: string;
+  site: { name: string; address?: string | null; city?: string | null; postcode?: string | null };
+  customer?: { name: string; contact_name?: string | null; contact_email?: string | null;
+    contact_phone?: string | null; address?: string | null; city?: string | null; postcode?: string | null } | null;
+  line_items: QuotationLineItem[]; prepared_by?: string | null; vat_rate?: number;
 }
 
 interface CompanySettings {
-  company_name?: string;
-  report_logo_url?: string | null;
-  company_logo_url?: string | null;
-  address?: string | null;
-  city?: string | null;
-  postcode?: string | null;
-  phone?: string | null;
-  email?: string | null;
-  vat_number?: string | null;
-  bank_name?: string | null;
-  bank_sort_code?: string | null;
-  bank_account_number?: string | null;
-  bank_account_name?: string | null;
+  company_name?: string; report_logo_url?: string | null; company_logo_url?: string | null;
+  address?: string | null; city?: string | null; postcode?: string | null;
+  phone?: string | null; email?: string | null; vat_number?: string | null;
+  bank_name?: string | null; bank_sort_code?: string | null;
+  bank_account_number?: string | null; bank_account_name?: string | null;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────
+async function loadLogo(url?: string | null): Promise<HTMLImageElement | null> {
+  if (!url) return null;
+  return new Promise(r => {
+    const img = new Image(); img.crossOrigin = "anonymous";
+    img.onload = () => r(img); img.onerror = () => r(null); img.src = url;
+  });
+}
 
-function sanitise(s: string | null | undefined): string {
-  if (!s) return "";
-  return s
-    .replace(/[\u2022\u2023\u25E6\u2043\u2219\u25CF\u25CB]/g, "-")
+function san(s: string): string {
+  return (s || "")
+    .replace(/[\u2022\u2023\u25CF\u25CB\u2043\u2219]/g, "-")
     .replace(/[\u2013\u2014]/g, "-")
     .replace(/[\u2018\u2019\u201A]/g, "'")
     .replace(/[\u201C\u201D\u201E]/g, '"')
-    .replace(/[\u2026]/g, "...")
+    .replace(/\u2026/g, "...")
     .replace(/[^\x00-\x7F]/g, "");
 }
 
-async function loadLogo(url: string | null | undefined): Promise<HTMLImageElement | null> {
-  if (!url) return null;
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
+function gbp(n: number): string { return "\u00A3" + n.toFixed(2); }
+
+/** Dark section header bar — 7mm tall, white text */
+function secHead(doc: jsPDF, label: string, y: number, left: number, right: number): number {
+  doc.setFillColor(...C.dark);
+  doc.rect(left, y, right - left, 7, "F");
+  doc.setTextColor(...C.white);
+  doc.setFontSize(8); doc.setFont("helvetica", "bold");
+  doc.text(label, left + 4, y + 5);
+  return y + 7;
 }
 
-// ─── Page header (logo left, address right, divider) ──────────────
-
-function drawPageHeader(
-  doc: jsPDF,
-  pageWidth: number,
-  margin: number,
-  logoImg: HTMLImageElement | null,
-  settings?: CompanySettings
-): number {
-  const yPos = 14;
-
-  if (logoImg) {
-    try {
-      doc.addImage(logoImg, "PNG", margin, yPos - 2, 32, 28);
-    } catch {
-      doc.setTextColor(...COLORS.primary);
-      doc.setFontSize(13);
-      doc.setFont("helvetica", "bold");
-      doc.text(settings?.company_name || COMPANY.name, margin, yPos + 8);
-    }
-  } else {
-    doc.setTextColor(...COLORS.primary);
-    doc.setFontSize(13);
-    doc.setFont("helvetica", "bold");
-    doc.text(settings?.company_name || COMPANY.name, margin, yPos + 8);
+/** Page break guard */
+function guard(doc: jsPDF, y: number, need: number): number {
+  if (y + need > doc.internal.pageSize.getHeight() - 18) {
+    doc.addPage(); return 15;
   }
-
-  const rightX = pageWidth - margin;
-  let cy = yPos;
-  doc.setTextColor(...COLORS.textSecondary);
-  doc.setFontSize(8.5);
-  doc.setFont("helvetica", "bold");
-  doc.text(settings?.company_name || COMPANY.name, rightX, cy, { align: "right" });
-  cy += 4;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(...COLORS.textMuted);
-  if (settings?.address || COMPANY.address) {
-    doc.text(settings?.address || COMPANY.address, rightX, cy, { align: "right" });
-    cy += 3.5;
-  }
-  const cityPost = `${settings?.city || ""} ${settings?.postcode || ""}`.trim();
-  if (cityPost) {
-    doc.text(cityPost, rightX, cy, { align: "right" });
-    cy += 3.5;
-  }
-  if (settings?.phone || COMPANY.phone) {
-    doc.text(`T: ${settings?.phone || COMPANY.phone}`, rightX, cy, { align: "right" });
-    cy += 3.5;
-  }
-  if (settings?.email || COMPANY.email) {
-    doc.text(`E: ${settings?.email || COMPANY.email}`, rightX, cy, { align: "right" });
-  }
-
-  const dividerY = 44;
-  doc.setDrawColor(...COLORS.border);
-  doc.setLineWidth(0.3);
-  doc.line(margin, dividerY, pageWidth - margin, dividerY);
-
-  return dividerY + 7;
+  return y;
 }
 
-// ─── Title ────────────────────────────────────────────────────────
+// ── HEADER ────────────────────────────────────────────────────────────────────
+function drawHeader(doc: jsPDF, pw: number, m: number, logo: HTMLImageElement | null, s?: CompanySettings): number {
+  if (logo) { try { doc.addImage(logo, "PNG", m, 16, 30, 26); } catch {} }
 
-function drawTitle(
-  doc: jsPDF,
-  pageWidth: number,
-  margin: number,
-  yPos: number,
-  data: QuotationData
-): number {
-  doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("Quotation", margin, yPos + 6);
+  const rx = pw - m; let ry = 18;
+  doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
+  doc.text(s?.company_name || CO.name, rx, ry, { align: "right" }); ry += 4.5;
+  doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.muted);
+  doc.text(san(s?.address || CO.addr), rx, ry, { align: "right" }); ry += 4;
+  const cl = s?.city ? `${s.city} ${s.postcode || ""}`.trim() : CO.city;
+  doc.text(san(cl), rx, ry, { align: "right" }); ry += 4;
+  doc.text(`T: ${s?.phone || CO.phone}`, rx, ry, { align: "right" }); ry += 4;
+  doc.text(`E: ${s?.email || CO.email}`, rx, ry, { align: "right" });
 
-  const rightX = pageWidth - margin;
-  doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(10);
-  doc.setFont("courier", "bold");
-  doc.text(data.quotation_number, rightX, yPos + 2, { align: "right" });
-  doc.setFont("courier", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(...COLORS.textMuted);
-  doc.text(format(new Date(data.created_at), "dd MMM yyyy"), rightX, yPos + 7, { align: "right" });
-
-  return yPos + 14;
+  doc.setDrawColor(...C.border); doc.setLineWidth(0.3);
+  doc.line(m, 46, pw - m, 46);
+  return 54;
 }
 
-// ─── Section header bar (#3c3c3c full-width) ──────────────────────
+// ── TITLE ─────────────────────────────────────────────────────────────────────
+function drawTitle(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData): number {
+  doc.setFontSize(18); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
+  doc.text("Quotation", m, y + 6);
+  doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
+  doc.text(data.quotation_number, pw - m, y, { align: "right" });
+  doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.muted);
+  doc.text(format(new Date(data.created_at), "dd MMM yyyy"), pw - m, y + 5, { align: "right" });
+  y += 14;
 
-function drawSectionHeader(
-  doc: jsPDF,
-  title: string,
-  yPos: number,
-  x: number,
-  width: number,
-  height = 6
-): number {
-  doc.setFillColor(...COLORS.sectionBg);
-  doc.rect(x, yPos, width, height, "F");
-  doc.setTextColor(...COLORS.sectionText);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  doc.text(title.toUpperCase(), x + 3, yPos + height - 1.7);
-  return yPos + height;
+  // Subtitle — scope title as a subtitle line (not a section header)
+  if (data.title) {
+    doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.muted);
+    const tl = doc.splitTextToSize(san(data.title), pw - m * 2);
+    doc.text(tl, m, y); y += tl.length * 4.5 + 2;
+  }
+  return y + 4;
 }
 
-// ─── Side-by-side CLIENT / SITE+QUOTE DETAILS ─────────────────────
+// ── INFO BLOCKS ───────────────────────────────────────────────────────────────
+function drawInfoBlocks(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData): number {
+  const cw = pw - m * 2;
+  const half = (cw - 4) / 2;
+  const lx = m, rx = m + half + 4;
 
-function drawInfoBlocks(
-  doc: jsPDF,
-  pageWidth: number,
-  margin: number,
-  yPos: number,
-  data: QuotationData
-): number {
-  const contentWidth = pageWidth - margin * 2;
-  const colGap = 4;
-  const colWidth = (contentWidth - colGap) / 2;
-  const leftX = margin;
-  const rightX = margin + colWidth + colGap;
-
-  // ─── Left: CLIENT
-  let lY = drawSectionHeader(doc, "CLIENT", yPos, leftX, colWidth);
-  lY += 3;
+  // LEFT — CLIENT
+  let ly = secHead(doc, "CLIENT", y, lx, lx + half) + 3;
   if (data.customer) {
-    doc.setTextColor(...COLORS.textPrimary);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text(sanitise(data.customer.name), leftX + 3, lY);
-    lY += 4;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...COLORS.textSecondary);
-    if (data.customer.contact_name) {
-      doc.text(`FAO: ${sanitise(data.customer.contact_name)}`, leftX + 3, lY);
-      lY += 3.6;
-    }
-    if (data.customer.contact_email) {
-      doc.text(sanitise(data.customer.contact_email), leftX + 3, lY);
-      lY += 3.6;
-    }
-    if (data.customer.contact_phone) {
-      doc.text(sanitise(data.customer.contact_phone), leftX + 3, lY);
-      lY += 3.6;
-    }
-    if (data.customer.address) {
-      doc.text(sanitise(data.customer.address), leftX + 3, lY);
-      lY += 3.6;
-    }
-    const cp = [data.customer.city, data.customer.postcode].filter(Boolean).join(" ");
-    if (cp) {
-      doc.text(sanitise(cp), leftX + 3, lY);
-      lY += 3.6;
+    const c = data.customer;
+    doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
+    doc.text(san(c.name), lx + 4, ly); ly += 5;
+    doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.body);
+    if (c.contact_name) { doc.text(`FAO: ${san(c.contact_name)}`, lx + 4, ly); ly += 4.5; }
+    if (c.contact_email){ doc.text(san(c.contact_email), lx + 4, ly); ly += 4.5; }
+    if (c.contact_phone){ doc.text(san(c.contact_phone), lx + 4, ly); ly += 4.5; }
+    if (c.address)      { doc.text(san(c.address), lx + 4, ly); ly += 4.5; }
+    if (c.city || c.postcode) {
+      doc.text(`${c.city || ""} ${c.postcode || ""}`.trim(), lx + 4, ly); ly += 4.5;
     }
   } else {
-    doc.setTextColor(...COLORS.textMuted);
-    doc.setFontSize(8);
-    doc.text("No customer specified", leftX + 3, lY);
-    lY += 4;
+    doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.muted);
+    doc.text("No customer specified", lx + 4, ly); ly += 5;
   }
-  lY += 2;
 
-  // ─── Right: SITE
-  let rY = drawSectionHeader(doc, "SITE", yPos, rightX, colWidth);
-  rY += 3;
-  doc.setTextColor(...COLORS.textPrimary);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text(sanitise(data.site.name), rightX + 3, rY);
-  rY += 4;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(...COLORS.textSecondary);
+  // RIGHT — SITE
+  let ry2 = secHead(doc, "SITE", y, rx, rx + half) + 3;
+  doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
+  doc.text(san(data.site.name), rx + 4, ry2); ry2 += 5;
   const siteAddr = [data.site.address, data.site.city, data.site.postcode].filter(Boolean).join(", ");
   if (siteAddr) {
-    const lines = doc.splitTextToSize(sanitise(siteAddr), colWidth - 6);
-    doc.text(lines, rightX + 3, rY);
-    rY += lines.length * 3.6;
+    doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.body);
+    const al = doc.splitTextToSize(san(siteAddr), half - 8);
+    doc.text(al, rx + 4, ry2); ry2 += al.length * 4 + 3;
   }
-  rY += 2;
 
-  // QUOTE DETAILS sub-block on right column
-  rY = drawSectionHeader(doc, "QUOTE DETAILS", rY, rightX, colWidth);
-  rY += 3;
-  doc.setTextColor(...COLORS.textMuted);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.text("DATE ISSUED", rightX + 3, rY);
-  doc.setTextColor(...COLORS.textPrimary);
-  doc.setFontSize(8.5);
-  doc.setFont("helvetica", "bold");
-  doc.text(format(new Date(data.created_at), "dd MMM yyyy"), rightX + 40, rY);
-  rY += 4;
-  doc.setTextColor(...COLORS.textMuted);
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.text("VALID UNTIL", rightX + 3, rY);
-  doc.setTextColor(...COLORS.textPrimary);
-  doc.setFontSize(8.5);
-  doc.setFont("helvetica", "bold");
-  doc.text(
-    data.valid_until ? format(new Date(data.valid_until), "dd MMM yyyy") : "30 days from issue",
-    rightX + 40,
-    rY
-  );
-  rY += 4;
+  // QUOTE DETAILS sub-section in right column
+  ry2 += 2;
+  ry2 = secHead(doc, "QUOTE DETAILS", ry2, rx, rx + half) + 3;
+  const qrows: [string,string][] = [
+    ["Date issued", format(new Date(data.created_at), "dd MMMM yyyy")],
+    ["Valid until", data.valid_until ? format(new Date(data.valid_until), "dd MMMM yyyy") : "30 days from issue"],
+  ];
+  qrows.forEach(([label, val]) => {
+    doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.muted);
+    doc.text(label, rx + 4, ry2);
+    doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
+    doc.text(san(val), rx + 4, ry2 + 4.5); ry2 += 10;
+  });
 
-  return Math.max(lY, rY) + 3;
+  return Math.max(ly, ry2) + 5;
 }
 
-// ─── SCOPE summary ────────────────────────────────────────────────
+// ── SCOPE OF WORKS ────────────────────────────────────────────────────────────
+function drawScope(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData): number {
+  if (!data.summary) return y;
+  y = guard(doc, y, 20);
+  y = secHead(doc, "SCOPE OF WORKS", y, m, pw - m) + 4;
 
-function drawScope(
-  doc: jsPDF,
-  pageWidth: number,
-  margin: number,
-  yPos: number,
-  data: QuotationData
-): number {
-  if (!data.title && !data.summary) return yPos;
-  const contentWidth = pageWidth - margin * 2;
-  yPos = drawSectionHeader(doc, "SCOPE OF WORKS", yPos, margin, contentWidth);
-  yPos += 3;
-  if (data.title) {
-    doc.setTextColor(...COLORS.textPrimary);
-    doc.setFontSize(9.5);
-    doc.setFont("helvetica", "bold");
-    const t = doc.splitTextToSize(sanitise(data.title), contentWidth - 6);
-    doc.text(t, margin + 3, yPos);
-    yPos += t.length * 4 + 1;
-  }
-  if (data.summary) {
-    doc.setTextColor(...COLORS.textSecondary);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    const s = doc.splitTextToSize(sanitise(data.summary), contentWidth - 6);
-    doc.text(s, margin + 3, yPos);
-    yPos += s.length * 3.6;
-  }
-  return yPos + 4;
+  const sumLines = doc.splitTextToSize(san(data.summary), pw - m * 2 - 4);
+  doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.body);
+  sumLines.forEach((line: string) => {
+    y = guard(doc, y, 5); doc.text(line, m + 2, y); y += 4.5;
+  });
+  return y + 3;
 }
 
-// ─── Footer ───────────────────────────────────────────────────────
+// ── LINE ITEMS ────────────────────────────────────────────────────────────────
+function drawLineItems(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData, opts: PDFColumnOptions): number {
+  y = guard(doc, y, 30);
+  y = secHead(doc, "LINE ITEMS", y, m, pw - m);
 
-function drawFooter(doc: jsPDF, pageWidth: number, margin: number, settings?: CompanySettings) {
-  const pageCount = doc.getNumberOfPages();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    const footerY = pageHeight - 14;
-    doc.setDrawColor(...COLORS.border);
-    doc.setLineWidth(0.3);
-    doc.line(margin, footerY, pageWidth - margin, footerY);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...COLORS.textMuted);
+  const heads: string[] = [], cols: Record<number, any> = {};
+  let ci = 0;
+  if (opts.showItemNumber)    { heads.push("#");          cols[ci++] = { cellWidth: 7,  halign: "center", fontStyle: "bold" }; }
+  if (opts.showDescription)   { heads.push("Description"); cols[ci++] = { cellWidth: "auto" }; }
+  if (opts.showRegulationRef) { heads.push("Ref");         cols[ci++] = { cellWidth: 24, fontSize: 7 }; }
+  if (opts.showPriority)      { heads.push("Priority");    cols[ci++] = { cellWidth: 16, halign: "center", fontSize: 7 }; }
+  if (opts.showItem)          { heads.push("Item");         cols[ci++] = { cellWidth: 28, fontSize: 7.5 }; }
+  if (opts.showQuantity)      { heads.push("Qty");          cols[ci++] = { cellWidth: 10, halign: "center" }; }
+  if (opts.showUnitPrice)     { heads.push("Unit \u00A3"); cols[ci++] = { cellWidth: 18, halign: "right" }; }
+  if (opts.showLabour)        { heads.push("Labour \u00A3"); cols[ci++] = { cellWidth: 18, halign: "right" }; }
+  if (opts.showTotal)         { heads.push("Total \u00A3"); cols[ci++] = { cellWidth: 20, halign: "right", fontStyle: "bold" }; }
 
-    const parts = [
-      settings?.company_name || COMPANY.name,
-      COMPANY.registration,
-      `VAT: ${settings?.vat_number || COMPANY.vat}`,
-    ];
-    doc.text(parts.join(" | "), margin, footerY + 4);
-    doc.text(
-      `Generated ${format(new Date(), "dd MMM yyyy")}`,
-      pageWidth - margin,
-      footerY + 4,
-      { align: "right" }
-    );
-    doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, footerY + 8.5, { align: "center" });
-  }
-}
-
-const defaultColumnOptions: PDFColumnOptions = {
-  showItemNumber: true,
-  showDescription: true,
-  showRegulationRef: false,
-  showPriority: false,
-  showItem: false,
-  showQuantity: true,
-  showUnitPrice: true,
-  showLabour: false,
-  showTotal: true,
-};
-
-// ─── Main entry ───────────────────────────────────────────────────
-
-export async function generateQuotationPDF(
-  data: QuotationData,
-  companySettings?: CompanySettings,
-  returnBase64: boolean = false,
-  columnOptions: PDFColumnOptions = defaultColumnOptions
-): Promise<string | void> {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 14;
-  const footerReserve = 18;
-  const contentWidth = pageWidth - margin * 2;
-
-  const logoUrl = companySettings?.report_logo_url || companySettings?.company_logo_url;
-  const logoImg = await loadLogo(logoUrl);
-
-  // Page chrome
-  let yPos = drawPageHeader(doc, pageWidth, margin, logoImg, companySettings);
-
-  // Title
-  yPos = drawTitle(doc, pageWidth, margin, yPos, data);
-
-  // Info blocks
-  yPos = drawInfoBlocks(doc, pageWidth, margin, yPos, data);
-
-  // Scope of works
-  yPos = drawScope(doc, pageWidth, margin, yPos, data);
-
-  // ─── LINE ITEMS table ──────────────────────────────────────────
-  // Build dynamic columns
-  const headers: string[] = [];
-  const colStyles: Record<number, any> = {};
-  let colIdx = 0;
-  if (columnOptions.showItemNumber) {
-    headers.push("#");
-    colStyles[colIdx++] = { cellWidth: 8, halign: "center", fontStyle: "bold" };
-  }
-  if (columnOptions.showDescription) {
-    headers.push("Description");
-    colStyles[colIdx++] = { cellWidth: "auto" };
-  }
-  if (columnOptions.showRegulationRef) {
-    headers.push("Ref");
-    colStyles[colIdx++] = { cellWidth: 26, fontSize: 7 };
-  }
-  if (columnOptions.showPriority) {
-    headers.push("Priority");
-    colStyles[colIdx++] = { cellWidth: 18, halign: "center", fontSize: 7 };
-  }
-  if (columnOptions.showItem) {
-    headers.push("Item");
-    colStyles[colIdx++] = { cellWidth: 28, fontSize: 7 };
-  }
-  if (columnOptions.showQuantity) {
-    headers.push("Qty");
-    colStyles[colIdx++] = { cellWidth: 12, halign: "center" };
-  }
-  if (columnOptions.showUnitPrice) {
-    headers.push("Unit £");
-    colStyles[colIdx++] = { cellWidth: 18, halign: "right" };
-  }
-  if (columnOptions.showLabour) {
-    headers.push("Labour £");
-    colStyles[colIdx++] = { cellWidth: 18, halign: "right" };
-  }
-  if (columnOptions.showTotal) {
-    headers.push("Total £");
-    colStyles[colIdx++] = { cellWidth: 22, halign: "right", fontStyle: "bold" };
-  }
-
-  const parents = data.line_items.filter((i) => !i.parent_id);
-  const tableData = parents.map((item, index) => {
+  const totalColIdx = ci - 1;
+  const rows = data.line_items.filter(i => !i.parent_id).map((item, idx) => {
     const labour = item.labour_cost || 0;
-    const qty = item.quantity || 1;
-    const sellPerUnit =
-      qty > 0 ? (item.total_price - labour) / qty : item.unit_price * (1 + (item.markup_percent || 0) / 100);
-
-    const descLines: string[] = [];
-    descLines.push(sanitise(item.description));
-    if (columnOptions.showRegulationRef === false && item.regulation_reference) {
-      // Append ref under description in italic-ish style only if column not shown
-    }
-    // Description cell may include ref line as a marker we render in didDrawCell
-    const descCell: any = {
-      content: descLines.join("\n"),
-      _regRef: item.regulation_reference || null,
-    };
-
-    const row: any[] = [];
-    if (columnOptions.showItemNumber) row.push((index + 1).toString());
-    if (columnOptions.showDescription) row.push(descCell);
-    if (columnOptions.showRegulationRef) row.push(item.regulation_reference || "-");
-    if (columnOptions.showPriority) row.push(item.priority.charAt(0).toUpperCase() + item.priority.slice(1));
-    if (columnOptions.showItem) row.push(item.item_name || "-");
-    if (columnOptions.showQuantity) row.push(item.quantity.toString());
-    if (columnOptions.showUnitPrice) row.push(`£${sellPerUnit.toFixed(2)}`);
-    if (columnOptions.showLabour)
-      row.push(item.labour_included ? "Included" : labour > 0 ? `£${labour.toFixed(2)}` : "-");
-    if (columnOptions.showTotal) row.push(`£${item.total_price.toFixed(2)}`);
+    const qty    = item.quantity || 1;
+    const unit   = qty > 0 ? (item.total_price - labour) / qty : item.unit_price * (1 + (item.markup_percent || 0) / 100);
+    const row: string[] = [];
+    if (opts.showItemNumber)    row.push((idx + 1).toString());
+    if (opts.showDescription)   row.push(san(item.description));
+    if (opts.showRegulationRef) row.push(san(item.regulation_reference || ""));
+    if (opts.showPriority)      row.push(item.priority ? item.priority[0].toUpperCase() + item.priority.slice(1) : "");
+    if (opts.showItem)          row.push(san(item.item_name || ""));
+    if (opts.showQuantity)      row.push(qty.toString());
+    if (opts.showUnitPrice)     row.push(gbp(unit));
+    if (opts.showLabour)        row.push(item.labour_included ? "Incl." : labour > 0 ? gbp(labour) : "");
+    if (opts.showTotal)         row.push(gbp(item.total_price));
     return row;
   });
 
-  // Section header for line items
-  if (yPos + 30 > pageHeight - footerReserve) {
-    doc.addPage();
-    yPos = 20;
-  }
-  yPos = drawSectionHeader(doc, "LINE ITEMS", yPos, margin, contentWidth);
-  yPos += 1;
-
-  const descColIdx = (columnOptions.showItemNumber ? 1 : 0);
-
   autoTable(doc, {
-    startY: yPos,
-    head: [headers],
-    body: tableData,
-    margin: { left: margin, right: margin, bottom: footerReserve + 6 },
-    tableWidth: contentWidth,
+    startY: y,
+    head: [heads],
+    body: rows,
+    margin: { left: m, right: m, bottom: 22 },
+    tableWidth: pw - m * 2,
     styles: {
-      fontSize: 8,
-      cellPadding: 2.5,
-      textColor: COLORS.textPrimary,
-      lineColor: COLORS.border,
-      lineWidth: 0.1,
+      fontSize: 8.5,
+      cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
+      textColor: C.body,
+      lineColor: C.border,
+      lineWidth: 0.15,
       overflow: "linebreak",
-      valign: "top",
+      font: "helvetica",
     },
     headStyles: {
-      fillColor: COLORS.sectionBg,
-      textColor: COLORS.sectionText,
+      fillColor: C.dark,
+      textColor: C.white,
       fontStyle: "bold",
-      fontSize: 7.5,
-      cellPadding: 2.5,
-      halign: "center",
+      fontSize: 8,
+      cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
     },
-    columnStyles: colStyles,
-    alternateRowStyles: { fillColor: COLORS.altRow },
-    bodyStyles: { minCellHeight: 7 },
-    didParseCell: (hookData) => {
-      if (
-        hookData.section === "body" &&
-        hookData.column.index === descColIdx &&
-        columnOptions.showDescription &&
-        !columnOptions.showRegulationRef
-      ) {
-        const raw = hookData.cell.raw as any;
-        if (raw && typeof raw === "object" && raw._regRef) {
-          // Reserve extra height for regulation ref line
-          hookData.cell.styles.minCellHeight = (hookData.cell.styles.minCellHeight || 7) + 4;
-        }
-      }
-    },
-    didDrawCell: (hookData) => {
-      if (
-        hookData.section === "body" &&
-        hookData.column.index === descColIdx &&
-        columnOptions.showDescription &&
-        !columnOptions.showRegulationRef
-      ) {
-        const raw = hookData.cell.raw as any;
-        if (raw && typeof raw === "object" && raw._regRef) {
-          const refText = sanitise(raw._regRef);
-          doc.setFont("helvetica", "italic");
-          doc.setFontSize(7);
-          doc.setTextColor(...COLORS.accent);
-          const x = hookData.cell.x + 2.5;
-          const y = hookData.cell.y + hookData.cell.height - 2;
-          doc.text(refText, x, y);
-        }
+    columnStyles: cols,
+    alternateRowStyles: { fillColor: C.altrow },
+    bodyStyles: { minCellHeight: 8 },
+    didParseCell(h) {
+      if (h.section === "body" && opts.showTotal && h.column.index === totalColIdx) {
+        h.cell.styles.fontStyle = "bold";
+        h.cell.styles.textColor = C.black as any;
       }
     },
   });
 
-  yPos = (doc as any).lastAutoTable.finalY + 4;
+  return (doc as any).lastAutoTable.finalY;
+}
 
-  // ─── TOTALS (right-aligned, no box) ───────────────────────────
-  const vatRate = data.vat_rate ?? 20;
-  const subtotal = data.total_amount;
-  const vatAmount = subtotal * (vatRate / 100);
-  const grandTotal = subtotal + vatAmount;
+// ── TOTALS ────────────────────────────────────────────────────────────────────
+function drawTotals(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData): number {
+  y = guard(doc, y, 28); y += 5;
+  const vr = data.vat_rate ?? 20;
+  const sub = data.total_amount, vat = sub * (vr / 100), tot = sub + vat;
+  const tx = pw - m - 75;
 
-  if (yPos + 24 > pageHeight - footerReserve) {
-    doc.addPage();
-    yPos = 20;
+  doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.muted);
+  doc.text("Subtotal", tx, y);
+  doc.setTextColor(...C.body); doc.text(gbp(sub), pw - m, y, { align: "right" }); y += 5.5;
+
+  doc.setTextColor(...C.muted); doc.text(`VAT (${vr}%)`, tx, y);
+  doc.setTextColor(...C.body); doc.text(gbp(vat), pw - m, y, { align: "right" }); y += 4;
+
+  doc.setDrawColor(...C.border); doc.setLineWidth(0.4); doc.line(tx, y, pw - m, y); y += 5;
+
+  doc.setFontSize(9.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
+  doc.text("Total (inc. VAT)", tx, y);
+  doc.text(gbp(tot), pw - m, y, { align: "right" });
+  return y + 9;
+}
+
+// ── TERMS ─────────────────────────────────────────────────────────────────────
+function drawTerms(doc: jsPDF, pw: number, m: number, y: number, terms: string): number {
+  y = guard(doc, y, 40);
+  y = secHead(doc, "TERMS & CONDITIONS", y, m, pw - m) + 4;
+  const lines = doc.splitTextToSize(san(terms), pw - m * 2 - 4);
+  doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.body);
+  lines.forEach((l: string) => { y = guard(doc, y, 5); doc.text(l, m + 2, y); y += 4; });
+  return y + 4;
+}
+
+// ── ACCEPTANCE ────────────────────────────────────────────────────────────────
+function drawAcceptance(doc: jsPDF, pw: number, m: number, y: number): number {
+  y = guard(doc, y, 36);
+  y = secHead(doc, "ACCEPTANCE & AUTHORISATION", y, m, pw - m) + 5;
+  doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.body);
+  doc.text("I accept this quotation and authorise BHO Fire Ltd to proceed with the works as detailed above.", m + 2, y);
+  y += 10;
+  const fw = (pw - m * 2 - 12) / 3;
+  [{ label: "Signature", x: m + 2 }, { label: "Print Name", x: m + 2 + fw + 6 }, { label: "Date", x: m + 2 + (fw + 6) * 2 }]
+    .forEach(f => {
+      doc.setDrawColor(...C.muted); doc.setLineWidth(0.4);
+      doc.line(f.x, y + 8, f.x + fw - 2, y + 8);
+      doc.setFontSize(7.5); doc.setTextColor(...C.muted);
+      doc.text(f.label, f.x, y + 13);
+    });
+  return y + 18;
+}
+
+// ── FOOTERS ───────────────────────────────────────────────────────────────────
+function drawFooters(doc: jsPDF, pw: number, m: number, s?: CompanySettings) {
+  const ph = doc.internal.pageSize.getHeight(), n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i);
+    const fy = ph - 13;
+    doc.setDrawColor(...C.border); doc.setLineWidth(0.3); doc.line(m, fy, pw - m, fy);
+    doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.light);
+    const left = [s?.company_name || CO.name, CO.reg, `VAT: ${s?.vat_number || CO.vat}`].join("  |  ");
+    doc.text(left, m, fy + 4);
+    doc.text(`Generated ${format(new Date(), "dd/MM/yyyy")}`, pw - m, fy + 4, { align: "right" });
+    doc.text(`Page ${i} of ${n}`, pw / 2, fy + 9, { align: "center" });
   }
+}
 
-  const totalsRight = pageWidth - margin;
-  const totalsLabelX = pageWidth - margin - 60;
+// ── MAIN ──────────────────────────────────────────────────────────────────────
+const DEF_COLS: PDFColumnOptions = {
+  showItemNumber: true, showDescription: true, showRegulationRef: false,
+  showPriority: false, showItem: false, showQuantity: true,
+  showUnitPrice: true, showLabour: false, showTotal: true,
+};
 
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COLORS.textMuted);
-  doc.text("Subtotal", totalsLabelX, yPos);
-  doc.setTextColor(...COLORS.textPrimary);
-  doc.text(`£${subtotal.toFixed(2)}`, totalsRight, yPos, { align: "right" });
-  yPos += 5;
+export async function generateQuotationPDF(
+  data: QuotationData,
+  settings?: CompanySettings,
+  returnBase64 = false,
+  columnOptions: PDFColumnOptions = DEF_COLS
+): Promise<string | void> {
 
-  doc.setTextColor(...COLORS.textMuted);
-  doc.text(`VAT (${vatRate}%)`, totalsLabelX, yPos);
-  doc.setTextColor(...COLORS.textPrimary);
-  doc.text(`£${vatAmount.toFixed(2)}`, totalsRight, yPos, { align: "right" });
-  yPos += 2;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pw = doc.internal.pageSize.getWidth(), m = 15;
+  const logo = await loadLogo(settings?.report_logo_url || settings?.company_logo_url);
 
-  doc.setDrawColor(...COLORS.borderDark);
-  doc.setLineWidth(0.4);
-  doc.line(totalsLabelX, yPos, totalsRight, yPos);
-  yPos += 4.5;
+  let y = drawHeader(doc, pw, m, logo, settings);
+  y     = drawTitle(doc, pw, m, y, data);
+  y     = drawInfoBlocks(doc, pw, m, y, data);
+  y     = drawScope(doc, pw, m, y + 2, data);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(...COLORS.primary);
-  doc.text("Total (inc. VAT)", totalsLabelX, yPos);
-  doc.text(`£${grandTotal.toFixed(2)}`, totalsRight, yPos, { align: "right" });
-  yPos += 8;
+  const tableEnd = drawLineItems(doc, pw, m, y, data, columnOptions);
+  y              = drawTotals(doc, pw, m, tableEnd, data);
 
-  // ─── TERMS & CONDITIONS ───────────────────────────────────────
-  if (data.terms) {
-    if (yPos + 30 > pageHeight - footerReserve) {
-      doc.addPage();
-      yPos = 20;
-    }
-    yPos = drawSectionHeader(doc, "TERMS & CONDITIONS", yPos, margin, contentWidth);
-    yPos += 3;
-    doc.setTextColor(...COLORS.textSecondary);
-    doc.setFont("courier", "normal");
-    doc.setFontSize(8);
-    const lines = doc.splitTextToSize(sanitise(data.terms), contentWidth - 4);
-    doc.text(lines, margin + 2, yPos);
-    yPos += lines.length * 3.4 + 4;
-  }
+  if (data.terms) y = drawTerms(doc, pw, m, y, data.terms);
 
-  // ─── NOTES (optional) ─────────────────────────────────────────
+  // Notes — strip UUID/system content before showing
   if (data.notes) {
-    if (yPos + 20 > pageHeight - footerReserve) {
-      doc.addPage();
-      yPos = 20;
+    const cleaned = data.notes
+      .replace(/Defect IDs?:[\s\S]*$/gi, "")
+      .replace(/Remedial works quotation generated[^.]*\./gi, "")
+      .trim();
+    if (cleaned.length > 10) {
+      y = guard(doc, y, 20);
+      y = secHead(doc, "ADDITIONAL NOTES", y, m, pw - m) + 4;
+      const nl = doc.splitTextToSize(san(cleaned), pw - m * 2 - 4);
+      doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.body);
+      nl.forEach((l: string) => { y = guard(doc, y, 5); doc.text(l, m + 2, y); y += 4; });
+      y += 4;
     }
-    yPos = drawSectionHeader(doc, "ADDITIONAL NOTES", yPos, margin, contentWidth);
-    yPos += 3;
-    doc.setTextColor(...COLORS.textSecondary);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    const lines = doc.splitTextToSize(sanitise(data.notes), contentWidth - 4);
-    doc.text(lines, margin + 2, yPos);
-    yPos += lines.length * 3.6 + 4;
   }
 
-  // ─── BANK DETAILS (optional) ──────────────────────────────────
-  if (companySettings?.bank_name || companySettings?.bank_account_number) {
-    if (yPos + 20 > pageHeight - footerReserve) {
-      doc.addPage();
-      yPos = 20;
-    }
-    yPos = drawSectionHeader(doc, "PAYMENT DETAILS", yPos, margin, contentWidth);
-    yPos += 3;
-    const bankInfo = [
-      companySettings.bank_name ? `Bank: ${companySettings.bank_name}` : null,
-      companySettings.bank_account_name ? `Account Name: ${companySettings.bank_account_name}` : null,
-      companySettings.bank_sort_code ? `Sort Code: ${companySettings.bank_sort_code}` : null,
-      companySettings.bank_account_number ? `Account Number: ${companySettings.bank_account_number}` : null,
-    ]
-      .filter(Boolean)
-      .join("   |   ");
-    doc.setTextColor(...COLORS.textSecondary);
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica", "normal");
-    doc.text(bankInfo, margin + 2, yPos);
-    yPos += 6;
-  }
+  drawAcceptance(doc, pw, m, y);
+  drawFooters(doc, pw, m, settings);
 
-  // ─── ACCEPTANCE & AUTHORISATION ───────────────────────────────
-  if (yPos + 32 > pageHeight - footerReserve) {
-    doc.addPage();
-    yPos = 20;
-  }
-  yPos = drawSectionHeader(doc, "ACCEPTANCE & AUTHORISATION", yPos, margin, contentWidth);
-  yPos += 5;
-  doc.setTextColor(...COLORS.textSecondary);
-  doc.setFontSize(8.5);
-  doc.setFont("helvetica", "normal");
-  doc.text(
-    "I accept this quotation and authorise BHO Fire Ltd to proceed with the works as detailed above.",
-    margin + 2,
-    yPos
-  );
-  yPos += 8;
-
-  const fieldGap = 6;
-  const fieldWidth = (contentWidth - fieldGap * 2) / 3;
-  const fields = [
-    { label: "Signature", x: margin },
-    { label: "Print Name", x: margin + fieldWidth + fieldGap },
-    { label: "Date", x: margin + (fieldWidth + fieldGap) * 2 },
-  ];
-  fields.forEach((f) => {
-    doc.setDrawColor(...COLORS.borderDark);
-    doc.setLineWidth(0.4);
-    doc.line(f.x, yPos + 8, f.x + fieldWidth, yPos + 8);
-    doc.setTextColor(...COLORS.textMuted);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.text(f.label, f.x, yPos + 12);
-  });
-
-  // Footer on every page
-  drawFooter(doc, pageWidth, margin, companySettings);
-
-  if (returnBase64) {
-    return doc.output("datauristring").split(",")[1];
-  }
+  if (returnBase64) return doc.output("datauristring").split(",")[1];
   doc.save(`${data.quotation_number}.pdf`);
 }
