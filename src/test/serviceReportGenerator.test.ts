@@ -26,29 +26,44 @@ vi.mock("jspdf", async () => {
   return { ...actual, default: Wrapped };
 });
 
-// ── Mock the supabase client used by certPdfMasterTemplate.loadCompany ───────
-vi.mock("@/integrations/supabase/client", () => ({
-  supabase: {
-    from: () => ({
-      select: () => ({
-        limit: () => ({
-          maybeSingle: async () => ({
-            data: {
-              company_name: "BHO Fire & Security Solutions Ltd",
-              address: "123 Industrial Estate, Long Road",
-              city: "London",
-              postcode: "SW1A 1AA",
-              phone: "020 1234 5678",
-              email: "info@bhofire.example",
-              // No logo URL → loadLogoData returns null without network.
-              company_logo_url: null,
-              report_logo_url: null,
-            },
-          }),
-        }),
-      }),
+// ── Wrap jsPDF so every instance records draw calls into `recorder` ──────────
+vi.mock("jspdf", async () => {
+  const actual: any = await vi.importActual("jspdf");
+  const Real = actual.default;
+  function Wrapped(this: any, ...args: any[]) {
+    const inst = new Real(...args);
+    return wrapInstance(inst);
+  }
+  Wrapped.prototype = Real.prototype;
+  return { ...actual, default: Wrapped };
+});
+
+// 1×1 transparent PNG so loadLogoData has something predictable to return.
+const TINY_PNG_B64 =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
+vi.mock("@/lib/certPdfMasterTemplate", async () => {
+  const actual: any = await vi.importActual("@/lib/certPdfMasterTemplate");
+  return {
+    ...actual,
+    loadCompany: async () => ({
+      company_name: "BHO Fire & Security Solutions Ltd",
+      address: "123 Industrial Estate, Long Road",
+      city: "London",
+      postcode: "SW1A 1AA",
+      phone: "020 1234 5678",
+      email: "info@bhofire.example",
+      report_logo_url: "https://example.invalid/logo.png",
+      company_logo_url: null,
     }),
-  },
+    loadLogoData: async () => ({ base64: TINY_PNG_B64, w: 200, h: 80 }),
+  };
+});
+
+// supabase client is still imported transitively; stub it so nothing tries
+// to talk to the network.
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: { from: () => ({ select: () => ({ limit: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) },
 }));
 
 // ── jsPDF call recorder ──────────────────────────────────────────────────────
