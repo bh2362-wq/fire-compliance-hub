@@ -606,6 +606,76 @@ export type Database = {
           },
         ]
       }
+      customer_email_drafts: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          form_label: string | null
+          id: string
+          recipient_email: string | null
+          sent_at: string | null
+          site_id: string | null
+          status: string
+          subject: string | null
+          updated_at: string
+          visit_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          form_label?: string | null
+          id?: string
+          recipient_email?: string | null
+          sent_at?: string | null
+          site_id?: string | null
+          status?: string
+          subject?: string | null
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          form_label?: string | null
+          id?: string
+          recipient_email?: string | null
+          sent_at?: string | null
+          site_id?: string | null
+          status?: string
+          subject?: string | null
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_email_drafts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_email_drafts_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_email_drafts_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_form_submissions: {
         Row: {
           completed_at: string | null
