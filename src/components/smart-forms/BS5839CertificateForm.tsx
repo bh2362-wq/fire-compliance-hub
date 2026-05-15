@@ -52,16 +52,22 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 
 /* ─── Status pill helpers ──────────────────────────────────────── */
 type YNStatus = "YES" | "NO" | "N/A" | "";
-function normalizeStatus(s: ChecklistItem["status"]): YNStatus {
-  if (s === "Pass") return "YES";
-  if (s === "Fail") return "NO";
+function normalizeStatus(s: ChecklistItem["status"], invert = false): YNStatus {
   if (s === "YES" || s === "NO" || s === "N/A") return s;
+  // Map stored Pass/Fail back to the engineer's YES/NO answer,
+  // accounting for inverted items where Pass came from a NO answer.
+  if (s === "Pass") return invert ? "NO" : "YES";
+  if (s === "Fail") return invert ? "YES" : "NO";
   return "";
 }
-function storeStatus(s: YNStatus): ChecklistItem["status"] {
-  if (s === "YES") return "Pass";
-  if (s === "NO") return "Fail";
+function storeStatus(s: YNStatus, invert = false): ChecklistItem["status"] {
   if (s === "N/A") return "N/A";
+  if (s === "") return "";
+  // For inverted items (where "No" is the compliant/desired answer),
+  // NO → Pass and YES → Fail. Otherwise YES → Pass and NO → Fail.
+  const yesIsPass = !invert;
+  if (s === "YES") return yesIsPass ? "Pass" : "Fail";
+  if (s === "NO") return yesIsPass ? "Fail" : "Pass";
   return "";
 }
 
@@ -625,7 +631,7 @@ function SectionRows({ section, onChange }: {
         </td>
       </tr>
       {section.items.map(({ item, idx }) => {
-        const status = normalizeStatus(item.status);
+        const status = normalizeStatus(item.status, item.invert);
         const isYes = status === "YES";
         const isNo = status === "NO";
         const isNA = status === "N/A";
@@ -653,9 +659,9 @@ function SectionRows({ section, onChange }: {
                 </td>
               ) : (
                 <>
-                  <StatusCell active={isYes} color="#2e7d32" label="YES" onClick={() => onChange(idx, { status: storeStatus("YES") })} />
-                  <StatusCell active={isNo} color="#c62828" label="NO" onClick={() => onChange(idx, { status: storeStatus("NO") })} />
-                  <StatusCell active={isNA} color="#546e7a" label="N/A" onClick={() => onChange(idx, { status: storeStatus("N/A") })} />
+                  <StatusCell active={isYes} color="#2e7d32" label="YES" onClick={() => onChange(idx, { status: storeStatus("YES", item.invert) })} />
+                  <StatusCell active={isNo} color="#c62828" label="NO" onClick={() => onChange(idx, { status: storeStatus("NO", item.invert) })} />
+                  <StatusCell active={isNA} color="#546e7a" label="N/A" onClick={() => onChange(idx, { status: storeStatus("N/A", item.invert) })} />
                 </>
               )}
             </tr>
