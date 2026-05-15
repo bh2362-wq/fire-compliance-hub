@@ -106,7 +106,16 @@ export function DefectImportPanel({ siteId, alreadyImported, onImport }: Props) 
       .finally(() => setLoading(false));
   }, [open, siteId, loaded]);
 
-  if (!siteId) return null;
+  if (!siteId) {
+    return (
+      <div className="rounded-lg border bg-muted/20 px-3 py-2.5 mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+        <Download className="w-3.5 h-3.5" />
+        <span>
+          <strong>Import from defect register</strong> — link this form to a site (via the Site prefill panel above) to load outstanding defects.
+        </span>
+      </div>
+    );
+  }
 
   const importable = defects.filter(d => !alreadyImported.has(d.id));
   const allSelected = importable.length > 0 && importable.every(d => selected.has(d.id));
