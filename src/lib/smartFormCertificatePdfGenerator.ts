@@ -76,10 +76,15 @@ function triggerPdfDownload(doc: jsPDF, fileName: string): void {
   link.href = blobUrl;
   link.download = fileName;
   link.rel = "noopener";
+  link.target = "_blank";
   link.style.display = "none";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+
+  window.setTimeout(() => {
+    try { window.open(blobUrl, "_blank", "noopener,noreferrer"); } catch {}
+  }, 250);
   window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 }
 
