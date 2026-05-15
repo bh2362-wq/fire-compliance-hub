@@ -72,9 +72,14 @@ export function ClientSummaryPanel({
     try {
       const ctx = (buildContext ?? defaultBuildContext)(payload);
       const baseInstruction =
-        `Write a short plain-English email summary for the client about this ${formLabel}. ` +
-        `Be reassuring but honest. Cover overall outcome, any flagged items or defects, what work was carried out, ` +
-        `and any follow-up actions or next due date. Keep it under 180 words. No markdown.`;
+        `Write a single client-facing email about this ${formLabel}. ` +
+        `Output ONLY the email in this exact order and nothing else:\n` +
+        `1. First line: "Subject: <concise subject>"\n` +
+        `2. Blank line\n` +
+        `3. Greeting (e.g. "Dear <name>,") — use the client/contact name from the context if available, otherwise "Dear Sir/Madam,"\n` +
+        `4. Body paragraphs covering: what was carried out, overall outcome, any flagged items or defects, recommended follow-up actions, and next due date.\n` +
+        `5. Sign-off ("Kind regards,") followed by the engineer's name from the context if available.\n` +
+        `Be reassuring but honest. Plain English, no markdown, no headings, no bullet symbols, no technical engineer summary before the email. Keep the body under 180 words.`;
       const customInstructions = extraInstruction
         ? `${baseInstruction} ${extraInstruction}`
         : baseInstruction;
