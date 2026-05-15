@@ -404,7 +404,13 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
               ))}
             </div>
           </F>
-          <F label="Final Remarks"><Textarea rows={4} value={payload.final_remarks || ""} onChange={(e) => up("final_remarks", e.target.value)} placeholder="Note any observations, recommendations, or conditions..." /></F>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label className="text-xs font-medium">Final Remarks</Label>
+              <AIRewriteButton text={payload.final_remarks || ""} type="comments" onRewrite={(v) => up("final_remarks", v)} />
+            </div>
+            <Textarea rows={4} value={payload.final_remarks || ""} onChange={(e) => up("final_remarks", e.target.value)} placeholder="Note any observations, recommendations, or conditions..." />
+          </div>
         </div>
       );
       case 10: return (
