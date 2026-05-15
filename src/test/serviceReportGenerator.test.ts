@@ -11,8 +11,20 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import jsPDF from "jspdf";
+import RealJsPDF from "jspdf";
 import type { BS5839Payload } from "@/services/smartFormService";
+
+// ── Wrap jsPDF so every instance records draw calls into `recorder` ──────────
+vi.mock("jspdf", async () => {
+  const actual: any = await vi.importActual("jspdf");
+  const Real = actual.default;
+  function Wrapped(this: any, ...args: any[]) {
+    const inst = new Real(...args);
+    return wrapInstance(inst);
+  }
+  Wrapped.prototype = Real.prototype;
+  return { ...actual, default: Wrapped };
+});
 
 // ── Mock the supabase client used by certPdfMasterTemplate.loadCompany ───────
 vi.mock("@/integrations/supabase/client", () => ({
