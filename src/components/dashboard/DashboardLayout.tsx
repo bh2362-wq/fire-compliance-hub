@@ -446,6 +446,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="flex items-center gap-2 md:gap-3">
             <GlobalSearch />
 
+            <button
+              onClick={clearAppCacheAndReload}
+              title="Refresh app (clear cache)"
+              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+
             {/* Notification bell */}
             <button className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
               <Bell className="w-5 h-5" />
