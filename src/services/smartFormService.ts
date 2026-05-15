@@ -25,7 +25,9 @@ export interface BS5839Payload {
   system_type?: "Addressable" | "Conventional" | "Wireless" | "Hybrid" | "";
   panel_manufacturer?: string;
   panel_model?: string;
+  panel_location?: string;
   number_of_panels?: number | "";
+  approx_number_of_zones?: number | "";
   approx_number_of_devices?: number | "";
   areas_covered?: string;
   system_limitations?: string;

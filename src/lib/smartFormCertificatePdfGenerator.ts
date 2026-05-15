@@ -1,10 +1,14 @@
 /**
- * BS 5839-1:2025 Inspection & Servicing Certificate PDF Generator
- * ================================================================
- * Drop-in replacement for the existing smartFormCertificatePdfGenerator.ts
- * All 13 form sections preserved. Design updated to match quotation style.
+ * smartFormCertificatePdfGenerator.ts
  *
- * Function signature unchanged — no other files need editing.
+ * Produces the "Fire Alarm Service Report" — the 4-page format matching
+ * the paper certificate exactly (not the old 9-section complex format).
+ *
+ * Layout:
+ *   p1: Header → Title → SITE/SERVICE blocks → SYSTEM bar → Checklist start
+ *   p2-3: Checklist continues
+ *   p3 end: Condition + Next Service
+ *   p4+: Work Carried Out → Defects → Signatures
  */
 
 import jsPDF from "jspdf";
@@ -13,381 +17,460 @@ import { format } from "date-fns";
 import { BS5839Payload, percentageTested } from "@/services/smartFormService";
 import {
   loadLogoData, loadCompany, san,
-  drawCertHeader, drawPage2Header, drawCertTitle,
-  drawInfoCards, drawSiteBar, drawSectionHeader,
-  drawStatusSection, drawStandardBar, drawSignatureBox,
-  drawMasterFooter, masterTable, kvTable,
-  statusFill, statusText, checkPage,
-  COLORS, MARGIN, FOOTER_RES,
+  drawMasterFooter, MARGIN, FOOTER_RES,
 } from "./certPdfMasterTemplate";
 
-const STANDARD = "BS 5839-1:2025";
-const TITLE    = "Inspection & Servicing Certificate";
+// ── Colours ───────────────────────────────────────────────────────────────────
+const DARK   : [number,number,number] = [60, 60, 60];      // #3c3c3c section headers
+const WHITE  : [number,number,number] = [255,255,255];
+const ORANGE : [number,number,number] = [232, 92, 44];     // #e85c2c BS ref
+const BODY   : [number,number,number] = [55, 65, 81];      // body text
+const MUTED  : [number,number,number] = [107,114,128];     // labels
+const BORDER : [number,number,number] = [224,224,224];     // #e0e0e0
+const ALTROW : [number,number,number] = [250,250,250];
+const G_FILL : [number,number,number] = [46,125,50];       // YES green
+const R_FILL : [number,number,number] = [198,40,40];       // NO red
+const N_FILL : [number,number,number] = [84,110,122];      // N/A grey
 
+const M = MARGIN;
+
+// ── Page break guard ──────────────────────────────────────────────────────────
+function guard(doc: jsPDF, y: number, need: number): number {
+  if (y + need > doc.internal.pageSize.getHeight() - FOOTER_RES) {
+    doc.addPage(); return M;
+  }
+  return y;
+}
+
+// ── Dark section header bar ───────────────────────────────────────────────────
+function secBar(doc: jsPDF, pw: number, y: number, label: string, suffix?: string): number {
+  doc.setFillColor(...DARK);
+  doc.rect(M, y, pw - M * 2, 7, "F");
+  doc.setTextColor(...WHITE);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+  doc.text(label, M + 4, y + 5);
+  if (suffix) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
+    doc.text(suffix, pw - M - 2, y + 5, { align: "right" });
+  }
+  return y + 7;
+}
+
+// ── Inline label + value row ──────────────────────────────────────────────────
+function kv(doc: jsPDF, label: string, value: string, x: number, y: number, lw = 22) {
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+  doc.text(label, x, y);
+  doc.setTextColor(...BODY);
+  doc.text(san(value), x + lw, y);
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
 export async function generateBS5839CertificatePDF(
   payload: BS5839Payload,
   options?: { autoSign?: boolean; engineerFallbackName?: string }
 ): Promise<{ base64: string; fileName: string }> {
 
-  const company = await loadCompany();
-  const logoUrl = company.report_logo_url || company.company_logo_url;
-  const logo    = await loadLogoData(logoUrl);
-  const companyName = san(company.company_name) || "BHO Fire Ltd";
+  const doc  = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pw   = doc.internal.pageSize.getWidth();
+  const ph   = doc.internal.pageSize.getHeight();
 
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pw  = doc.internal.pageSize.getWidth();
-
-  const certRef = san(payload.certificate_reference || "BS5839-CERT");
+  const [logo, company] = await Promise.all([loadLogoData(null), loadCompany()]);
+  const certRef = san(payload.certificate_reference || "DRAFT");
   const svcDate = payload.date_of_service
-    ? format(new Date(payload.date_of_service), "dd MMMM yyyy") : "";
-  const overall = san(payload.overall_status || "Pending");
-  const engName = san(payload.engineer_declaration_name || payload.engineer_name || options?.engineerFallbackName || "");
+    ? format(new Date(payload.date_of_service), "dd MMM yyyy") : "";
+  const engName = san(
+    payload.engineer_declaration_name || payload.engineer_name ||
+    options?.engineerFallbackName || ""
+  );
+  const compName = san(company.company_name || "BHO Fire Ltd");
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // PAGE 1 — COVER
-  // ══════════════════════════════════════════════════════════════════════════
-  let y = drawCertHeader(doc, pw, logo, company);
-
-  y = drawCertTitle(doc, pw, y + 8,
-    certRef, "CERTIFICATE", `Fire Alarm System — ${TITLE}`, STANDARD);
-
-  y = drawInfoCards(doc, pw, y, [
-    { label: "CERTIFICATE REFERENCE", value: certRef },
-    { label: "DATE OF SERVICE",       value: svcDate },
-    { label: "JOB NUMBER",            value: san(payload.job_number || "—") },
-    { label: "NEXT SERVICE DUE",      value: "As per service contract" },
-  ], [
-    { label: "SITE",           value: san(payload.premises_name || "") },
-    { label: "SITE CONTACT",   value: san(payload.responsible_person_name || "") },
-    { label: "", value: san(payload.responsible_person_contact || ""), plain: true },
-    { label: "", value: san(payload.site_contact || ""), plain: true },
-  ]);
-
-  y = drawSiteBar(doc, pw, y, san(payload.premises_address || ""));
-
-  const isOk = ["satisfactory", "satisfactory with observations"]
-    .includes(overall.toLowerCase());
-  y = drawStatusSection(doc, pw, y, overall, overall.toLowerCase() === "satisfactory");
-
-  y = drawStandardBar(doc, pw, y, STANDARD, engName || companyName);
-
-  drawSignatureBox(doc, pw, y,
-    { name: engName,
-      date: payload.engineer_signed_date ? format(new Date(payload.engineer_signed_date), "dd/MM/yyyy") : svcDate,
-      sig:  options?.autoSign && !payload.engineer_signature ? `typed:${engName}` : payload.engineer_signature },
-    { name: san(payload.client_name || ""),
-      date: payload.client_signed_date ? format(new Date(payload.client_signed_date), "dd/MM/yyyy") : "",
-      sig:  payload.client_signature });
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // PAGE 2+ — TECHNICAL DATA
-  // ══════════════════════════════════════════════════════════════════════════
-  doc.addPage();
-  y = drawPage2Header(doc, pw, logo, certRef,
-    `Fire Alarm — ${TITLE}`, STANDARD, company);
-
-  // ── 1. Premises ────────────────────────────────────────────────────────────
-  y = drawSectionHeader(doc, pw, y, "01   PREMISES DETAILS");
-  y = kvTable(doc, pw, y, [
-    ["Premises Name",        payload.premises_name || "—"],
-    ["Premises Address",     payload.premises_address || "—"],
-    ["Responsible Person",   payload.responsible_person_name || "—"],
-    ["RP Contact",           payload.responsible_person_contact || "—"],
-    ["Site Contact",         payload.site_contact || "—"],
-  ]);
-
-  // ── 2. System ──────────────────────────────────────────────────────────────
-  y = checkPage(doc, pw, y, 40, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  y = drawSectionHeader(doc, pw, y, "02   SYSTEM DETAILS");
-  y = kvTable(doc, pw, y, [
-    ["System Categories",     (payload.system_categories ?? []).join(", ") || "—"],
-    ["System Type",           payload.system_type || "—"],
-    ["Panel Manufacturer",    payload.panel_manufacturer || "—"],
-    ["Panel Model",           payload.panel_model || "—"],
-    ["Number of Panels",      String(payload.number_of_panels ?? "—")],
-    ["Approx. Devices",       String(payload.approx_number_of_devices ?? "—")],
-    ["Areas Covered",         payload.areas_covered || "—"],
-    ["Limitations/Exclusions",payload.system_limitations || "—"],
-  ]);
-
-  // ── 3. Service Organisation ────────────────────────────────────────────────
-  y = checkPage(doc, pw, y, 30, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  y = drawSectionHeader(doc, pw, y, "03   SERVICE ORGANISATION");
-  y = kvTable(doc, pw, y, [
-    ["Company",           payload.company_name || companyName],
-    ["Company Address",   payload.company_address || [company.address, company.city, company.postcode].filter(Boolean).join(", ") || "—"],
-    ["Engineer Name",     payload.engineer_name || "—"],
-    ["Competency",        payload.engineer_competency_confirmed ? "Confirmed — competent person under BS 5839-1" : "Not confirmed"],
-  ]);
-
-  // ── 4. Inspection Checklist ────────────────────────────────────────────────
-  const checklist = payload.checklist ?? [];
-  y = checkPage(doc, pw, y, 20, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  y = drawSectionHeader(doc, pw, y, `04   INSPECTION & SERVICING CHECKLIST  (${checklist.length} items)`);
-
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "italic");
-  doc.setTextColor(...COLORS.textSec);
-  doc.text("As recommended in BAFE SP203-1 Clause 9.8 & BS 5839-1:2025 Clause 45", MARGIN, y + 3);
-  y += 8;
-
-  if (checklist.length > 0) {
-    const cw = pw - MARGIN * 2;
-    const colW = { req: cw - 18 - 18 - 18, yes: 18, no: 18, na: 18 };
-
-    type GroupedSection = { name: string; items: typeof checklist };
-    const grouped = checklist.reduce<GroupedSection[]>((acc, item) => {
-      const sName = (item as any).section || "General";
-      const existing = acc.find(s => s.name === sName);
-      if (existing) { existing.items.push(item); }
-      else { acc.push({ name: sName, items: [item] }); }
-      return acc;
-    }, []);
-
-    type BodyRow = (string | { content: string; styles: object })[];
-    const body: BodyRow[] = [];
-    const sectionFill = (COLORS as any).charcoalDark ?? [45, 45, 48];
-    for (const section of grouped) {
-      body.push([
-        { content: section.name.toUpperCase(), styles: { fontStyle: "bold" as const, fontSize: 7.5, fillColor: sectionFill, textColor: [255, 255, 255] as [number, number, number] } },
-        { content: "", styles: { fillColor: sectionFill } },
-        { content: "", styles: { fillColor: sectionFill } },
-        { content: "", styles: { fillColor: sectionFill } },
-      ]);
-      for (const c of section.items) {
-        const isYes = c.status === "Pass" || c.status === "YES";
-        const isNo  = c.status === "Fail" || c.status === "NO";
-        const isNA  = c.status === "N/A";
-        body.push([
-          san(c.label),
-          { content: isYes ? "✓" : "", styles: { halign: "center" as const, fontStyle: "bold" as const, fontSize: 9, fillColor: isYes ? [220, 252, 231] as [number,number,number] : [255,255,255] as [number,number,number], textColor: isYes ? [22, 163, 74] as [number,number,number] : [200,200,200] as [number,number,number] } },
-          { content: isNo  ? "✗" : "", styles: { halign: "center" as const, fontStyle: "bold" as const, fontSize: 9, fillColor: isNo  ? [254, 226, 226] as [number,number,number] : [255,255,255] as [number,number,number], textColor: isNo  ? [185, 28, 28]  as [number,number,number] : [200,200,200] as [number,number,number] } },
-          { content: isNA  ? "—" : "", styles: { halign: "center" as const, fontStyle: "normal" as const, fontSize: 8, fillColor: isNA  ? [241, 245, 249] as [number,number,number] : [255,255,255] as [number,number,number], textColor: isNA  ? [100, 116, 139] as [number,number,number] : [200,200,200] as [number,number,number] } },
-        ]);
-        if (isNo && c.comment) {
-          body.push([
-            { content: `  ↳ ${san(c.comment)}`, styles: { fontStyle: "italic" as const, fontSize: 7, textColor: [185, 28, 28] as [number,number,number], fillColor: [254, 242, 242] as [number,number,number] } },
-            { content: "", styles: { fillColor: [254, 242, 242] as [number,number,number] } },
-            { content: "", styles: { fillColor: [254, 242, 242] as [number,number,number] } },
-            { content: "", styles: { fillColor: [254, 242, 242] as [number,number,number] } },
-          ]);
-        }
-      }
+  // ── PAGE HEADER (draw on every new page via callback) ────────────────────
+  const drawRunningHeader = () => {
+    const cw = pw - M * 2;
+    // Logo
+    if (logo) {
+      try { doc.addImage(logo.data, logo.ext, M, 10, 22, 22); } catch {}
     }
+    // Company block top-right
+    const rx = pw - M; let ry = 12;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(26, 26, 26);
+    doc.text(compName, rx, ry, { align: "right" }); ry += 4;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+    const addr = san(company.address || "St Georges Business Park, Castle Rd");
+    doc.text(addr, rx, ry, { align: "right" }); ry += 3.5;
+    const city = san(company.city ? `${company.city} ${company.postcode || ""}`.trim() : "Sittingbourne ME10 3TB");
+    doc.text(city, rx, ry, { align: "right" }); ry += 3.5;
+    doc.text(`T: ${san(company.phone || "0330 043 8659")}`, rx, ry, { align: "right" }); ry += 3.5;
+    doc.text(`E: ${san(company.email || "admin@bhofire.com")}`, rx, ry, { align: "right" });
+    // Divider
+    doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+    doc.line(M, 34, pw - M, 34);
+  };
 
-    autoTable(doc, {
-      startY: y,
-      head: [[
-        { content: "Requirement", styles: { halign: "left" } },
-        { content: "YES", styles: { halign: "center" } },
-        { content: "NO",  styles: { halign: "center" } },
-        { content: "N/A", styles: { halign: "center" } },
-      ]],
-      body: body as never,
-      theme: "grid",
-      margin: { left: MARGIN, right: MARGIN },
-      tableWidth: cw,
-      headStyles: {
-        fillColor: COLORS.primary,
-        textColor: COLORS.white,
-        fontStyle: "bold",
-        fontSize: 7.5,
-        halign: "center",
-      },
-      styles: {
-        fontSize: 7.5,
-        cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
-        textColor: COLORS.textSec,
-        lineColor: COLORS.border,
-        lineWidth: 0.15,
-        overflow: "linebreak",
-      },
-      columnStyles: {
-        0: { cellWidth: colW.req },
-        1: { cellWidth: colW.yes, halign: "center" },
-        2: { cellWidth: colW.no,  halign: "center" },
-        3: { cellWidth: colW.na,  halign: "center" },
-      },
-      didDrawPage: () => {
-        const pg = doc.getCurrentPageInfo().pageNumber;
-        if (pg > 1) drawPage2Header(doc, pw, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-      },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-  }
+  drawRunningHeader();
+  let y = 40;
 
-  // ── 5. Device Testing ──────────────────────────────────────────────────────
-  y = checkPage(doc, pw, y, 30, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  y = drawSectionHeader(doc, pw, y, "05   DEVICE TESTING");
-  const pct  = percentageTested(payload);
-  const meth = payload.testing_method === "Other"
-    ? `Other: ${san(payload.testing_method_other || "")}` : san(payload.testing_method || "—");
-  y = kvTable(doc, pw, y, [
-    ["Total Devices on System",   String(payload.total_devices ?? "—")],
-    ["Devices Tested This Visit", String(payload.devices_tested ?? "—")],
-    ["Percentage Tested",         `${pct}%`],
-    ["Testing Method",            meth],
-    ["Devices Not Tested",        payload.devices_not_tested || "—"],
-    ["Reason Not Tested",         payload.reason_not_tested || "—"],
-  ]);
+  // ── TITLE BLOCK ──────────────────────────────────────────────────────────
+  doc.setFont("helvetica", "bold"); doc.setFontSize(17); doc.setTextColor(26, 26, 26);
+  doc.text("Fire Alarm Service Report", M, y + 6);
+  // Standard ref top-right
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(26, 26, 26);
+  doc.text(certRef, pw - M, y, { align: "right" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+  doc.text(format(new Date(), "dd MMM yyyy"), pw - M, y + 5, { align: "right" });
+  // BS ref below title
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...ORANGE);
+  doc.text("BS 5839-1:2025", M, y + 12);
+  y += 20;
 
-  // ── 6. Standby Power ──────────────────────────────────────────────────────
-  y = checkPage(doc, pw, y, 30, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  y = drawSectionHeader(doc, pw, y, "06   STANDBY POWER CHECK");
-  y = kvTable(doc, pw, y, [
-    ["Battery Type",           payload.battery_type || "—"],
-    ["Battery Age (years)",    String(payload.battery_age_years ?? "—")],
-    ["Battery Voltage",        payload.battery_voltage || "—"],
-    ["Charger Voltage",        payload.charger_voltage || "—"],
-    ["Charger Operational",    payload.charger_operational || "—"],
-    ["Capacity Adequate",      payload.battery_capacity_adequate || "—"],
-    ["Test Method",            payload.test_method || "—"],
-    ["Test Device",            `${san(payload.test_device || "ACT Chrome")} (S/N: ${san(payload.test_device_serial || "813AK1203058")})`],
-  ]);
+  // ── SITE / SERVICE blocks ────────────────────────────────────────────────
+  const half = (pw - M * 2 - 4) / 2;
+  const lx = M, rx2 = M + half + 4;
 
-  // ── 7. False Alarm Record ──────────────────────────────────────────────────
-  y = checkPage(doc, pw, y, 25, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  y = drawSectionHeader(doc, pw, y, "07   FALSE ALARM RECORD");
-  y = kvTable(doc, pw, y, [
-    ["False Alarms Since Last Visit", String(payload.false_alarm_count ?? "0")],
-    ["Known Causes",                  payload.false_alarm_causes || "—"],
-    ["Actions Taken",                 payload.false_alarm_actions || "—"],
-    ["Recommendations",               payload.false_alarm_recommendations || "—"],
-  ]);
+  // SITE
+  let ly = secBar(doc, pw, y, "SITE") + 3;
+  const siteFields: [string, string][] = [
+    ["Site:",     san(payload.premises_name || "")],
+    ["Address:",  san(payload.premises_address || "")],
+    ["Contact:",  san(payload.responsible_person_name || "")],
+    ["Phone:",    san(payload.responsible_person_contact || "-")],
+  ];
+  siteFields.forEach(([l, v]) => {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+    doc.text(l, lx + 2, ly);
+    doc.setTextColor(...BODY); doc.text(v || "-", lx + 20, ly);
+    ly += 5;
+  });
+  // Draw SITE border
+  doc.setDrawColor(...BORDER); doc.setLineWidth(0.2);
+  doc.rect(lx, y, half, ly - y + 1);
 
-  // ── 8. Defects ────────────────────────────────────────────────────────────
-  const defects = payload.defects ?? [];
-  y = checkPage(doc, pw, y, 20, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  y = drawSectionHeader(doc, pw, y, `08   DEFECTS / NON-COMPLIANCES  (${defects.length})`);
+  // SERVICE
+  let ry3 = y;
+  secBar(doc, pw, ry3, "SERVICE");
+  ry3 += 7 + 3;
+  const svcFields: [string, string][] = [
+    ["Type:",      san(payload.certificate_type || "")],
+    ["Date:",      svcDate],
+    ["Engineer:",  engName || "-"],
+    ["Status:",    san(payload.overall_status || "Completed")],
+  ];
+  svcFields.forEach(([l, v]) => {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+    doc.text(l, rx2 + 2, ry3);
+    doc.setTextColor(...BODY); doc.text(v || "-", rx2 + 20, ry3);
+    ry3 += 5;
+  });
+  doc.setDrawColor(...BORDER); doc.setLineWidth(0.2);
+  doc.rect(rx2, y, half, ry3 - y + 1);
 
-  if (defects.length === 0) {
-    y = kvTable(doc, pw, y, [["", "No defects recorded at this visit."]]);
-  } else {
-    const cw = pw - MARGIN * 2;
-    autoTable(doc, {
-      startY: y,
-      head:   [["#", "LOCATION", "DESCRIPTION", "SEVERITY", "BS REF", "RECOMMENDED ACTION", "STATUS"]],
-      body:   defects.map((d, i) => [
-        String(i + 1),
-        san(d.location),
-        san(d.description),
-        { content: san(d.severity || "—"),
-          styles:  { halign: "center", fontStyle: "bold", fontSize: 7.5,
-                     fillColor: statusFill(d.severity), textColor: statusText(d.severity) } },
-        san(d.bs_reference || "—"),
-        san(d.recommended_action),
-        san(d.status || "Open"),
-      ]) as never,
-      theme:  "grid",
-      margin: { left: MARGIN, right: MARGIN },
-      tableWidth: cw,
-      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: "bold", fontSize: 7.5 },
-      styles: { fontSize: 7.5, cellPadding: { top: 3, bottom: 3, left: 3, right: 3 }, textColor: COLORS.textSec, lineColor: COLORS.border, lineWidth: 0.15 },
-      alternateRowStyles: { fillColor: COLORS.bgLight },
-      columnStyles: {
-        0: { cellWidth: 7,  halign: "center" },
-        1: { cellWidth: 25 },
-        2: { cellWidth: cw * 0.27 },
-        3: { cellWidth: 18, halign: "center" },
-        4: { cellWidth: 16 },
-        5: { cellWidth: cw - 7 - 25 - cw*0.27 - 18 - 16 - 20 },
-        6: { cellWidth: 20, halign: "center" },
-      },
-      didDrawPage: () => {
-        const pg = doc.getCurrentPageInfo().pageNumber;
-        if (pg > 1) drawPage2Header(doc, pw, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-      },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-  }
+  // Draw SITE left border only (for right col, draw after determining height)
+  y = Math.max(ly, ry3) + 5;
 
-  // ── 9. Variations ─────────────────────────────────────────────────────────
-  const variations = payload.variations ?? [];
-  y = checkPage(doc, pw, y, 20, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  y = drawSectionHeader(doc, pw, y, "09   VARIATIONS FROM BS 5839-1");
-  if (payload.variations_present !== "Yes" || variations.length === 0) {
-    y = kvTable(doc, pw, y, [["", payload.variations_present === "No" ? "No variations from BS 5839-1." : "Not declared."]]);
-  } else {
-    const cw = pw - MARGIN * 2;
-    autoTable(doc, {
-      startY: y,
-      head:   [["#", "VARIATION", "JUSTIFICATION", "AGREED?"]],
-      body:   variations.map((v, i) => [
-        String(i + 1), san(v.description), san(v.justification),
-        { content: v.agreed_with_responsible_person || "—",
-          styles:  { halign: "center", fontStyle: "bold" } },
-      ]) as never,
-      theme:  "grid",
-      margin: { left: MARGIN, right: MARGIN },
-      tableWidth: cw,
-      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: "bold", fontSize: 7.5 },
-      styles: { fontSize: 8, cellPadding: 3, textColor: COLORS.textSec, lineColor: COLORS.border, lineWidth: 0.15 },
-      alternateRowStyles: { fillColor: COLORS.bgLight },
-      columnStyles: { 0: { cellWidth: 8, halign: "center" }, 1: { cellWidth: cw * 0.42 }, 2: { cellWidth: cw * 0.42 - 8 }, 3: { cellWidth: cw * 0.16 } },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-  }
+  // ── SYSTEM bar ───────────────────────────────────────────────────────────
+  secBar(doc, pw, y, "SYSTEM");
+  y += 9;
+  const sysFields: [string, string][] = [
+    ["Panel:",    san(payload.panel_manufacturer || "-")],
+    ["Model:",    san(payload.panel_model || "-")],
+    ["Category:", (payload.system_categories || []).join(", ") || "-"],
+    ["Zones:",    String(payload.approx_number_of_zones || "-")],
+    ["Devices:",  String(payload.approx_number_of_devices || "-")],
+  ];
+  const colW = (pw - M * 2) / sysFields.length;
+  sysFields.forEach(([l, v], i) => {
+    const cx = M + i * colW;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+    doc.text(l, cx, y);
+    doc.setTextColor(...BODY); doc.text(v, cx + 14, y);
+  });
+  y += 7;
 
-  // ── 10. System Status Summary ─────────────────────────────────────────────
-  y = checkPage(doc, pw, y, 25, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  y = drawSectionHeader(doc, pw, y, "10   SYSTEM STATUS");
-  const statusBg = statusFill(overall);
-  const statusTc = statusText(overall);
+  // ── CHECKLIST header ──────────────────────────────────────────────────────
+  y = guard(doc, y, 30);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(26, 26, 26);
+  doc.text("Fire Detection & Fire Alarm Inspection & Servicing Checklist", M, y + 5);
+  y += 9;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(...ORANGE);
+  doc.text("As recommended in BAFE SP203-1 Clause 9.8 & BS5839-1:2025 Clause 45", M, y);
+  y += 5;
+
+  // Legend
+  const legendItems: [string, [number,number,number]][] = [
+    ["YES", G_FILL], ["NO", R_FILL], ["N/A", N_FILL],
+  ];
+  let lx2 = pw - M - 80;
+  legendItems.forEach(([label, color]) => {
+    doc.setFillColor(...color);
+    doc.rect(lx2, y - 4, 5, 5, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(...BODY);
+    doc.text(label, lx2 + 7, y);
+    lx2 += 26;
+  });
+  y += 5;
+
+  // ── CHECKLIST TABLE ───────────────────────────────────────────────────────
+  const checklist = payload.checklist || [];
+
+  // Build rows meta and body
+  type RowMeta = { type: "section"; label: string } | { type: "item"; idx: number };
+  const meta: RowMeta[] = [];
+  let lastSection = "";
+  checklist.forEach((item: any, idx: number) => {
+    const sec = item.section || "";
+    if (sec && sec !== lastSection) {
+      meta.push({ type: "section", label: sec });
+      lastSection = sec;
+    }
+    meta.push({ type: "item", idx });
+  });
+
+  const tableBody: any[][] = meta.map(m => {
+    if (m.type === "section") {
+      return [{ content: m.label.toUpperCase(), colSpan: 4 }];
+    }
+    const item: any = checklist[m.idx];
+    const isSpecial = item.special === "number" || item.special === "text";
+    if (isSpecial) {
+      const val = item.comment ?? "";
+      return [
+        { content: san(item.label) },
+        { content: san(val), colSpan: 3, styles: { halign: "center", fontStyle: "bold" } },
+      ];
+    }
+    return [san(item.label), "", "", ""];
+  });
+
+  const CW = pw - M * 2;
+
   autoTable(doc, {
     startY: y,
-    body: [[{
-      content: overall.toUpperCase(),
-      styles: { halign: "center", fontStyle: "bold", fontSize: 12,
-                fillColor: statusBg, textColor: statusTc, cellPadding: 5 },
-    }]],
+    head: [["Requirement", "YES", "NO", "N/A"]],
+    body: tableBody,
+    margin: { left: M, right: M, bottom: FOOTER_RES },
+    tableWidth: CW,
     theme: "grid",
-    margin: { left: MARGIN, right: MARGIN },
-    tableWidth: pw - MARGIN * 2,
-    styles: { lineColor: COLORS.border, lineWidth: 0.15 },
+    headStyles: {
+      fillColor: DARK, textColor: WHITE, fontStyle: "bold", fontSize: 8,
+      cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
+    },
+    styles: {
+      fontSize: 8.5, textColor: BODY,
+      cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
+      lineColor: BORDER, lineWidth: 0.15, overflow: "linebreak",
+    },
+    alternateRowStyles: { fillColor: ALTROW },
+    columnStyles: {
+      0: { cellWidth: CW - 42 },
+      1: { cellWidth: 14, halign: "center" },
+      2: { cellWidth: 14, halign: "center" },
+      3: { cellWidth: 14, halign: "center" },
+    },
+    didParseCell(data) {
+      if (data.section !== "body") return;
+      const rowMeta = meta[data.row.index];
+
+      // Section header rows
+      if (rowMeta?.type === "section") {
+        data.cell.styles.fillColor = DARK;
+        data.cell.styles.textColor = WHITE;
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fontSize = 7.5;
+        data.cell.styles.lineColor = [80, 80, 80] as any;
+        return;
+      }
+
+      // Item rows — colour YES/NO/N/A cells
+      if (rowMeta?.type === "item") {
+        const item: any = checklist[rowMeta.idx];
+        if (!item) return;
+        const status = item.status || "";
+        const ci = data.column.index;
+        if (ci === 1) {
+          data.cell.styles.fillColor = status === "YES" ? G_FILL : WHITE;
+          data.cell.styles.textColor = status === "YES" ? WHITE : MUTED;
+        } else if (ci === 2) {
+          data.cell.styles.fillColor = status === "NO" ? R_FILL : WHITE;
+          data.cell.styles.textColor = status === "NO" ? WHITE : MUTED;
+        } else if (ci === 3) {
+          data.cell.styles.fillColor = status === "N/A" ? N_FILL : WHITE;
+          data.cell.styles.textColor = status === "N/A" ? WHITE : MUTED;
+        }
+      }
+    },
+    didDrawPage() {
+      // Running header on pages 2+
+      const pg = doc.getCurrentPageInfo().pageNumber;
+      if (pg > 1) {
+        drawRunningHeader();
+        doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+        doc.text(`${certRef}  ·  Fire Alarm Service Report  ·  BS 5839-1:2025`, pw / 2, 36, { align: "center" });
+      }
+    },
   });
+
   y = (doc as any).lastAutoTable.finalY + 4;
 
-  // Work carried out, parts used, final remarks, next service
-  const statusRows: [string, string][] = [];
-  if (payload.work_carried_out?.trim())
-    statusRows.push(["Work Carried Out", payload.work_carried_out]);
-  if (payload.parts_used?.trim())
-    statusRows.push(["Parts Used / Replaced", payload.parts_used]);
-  statusRows.push(["Final Remarks", payload.final_remarks || "—"]);
-  if (payload.next_service_date)
-    statusRows.push(["Next Service Due", format(new Date(payload.next_service_date), "dd MMM yyyy")]);
+  // ── CONDITION / NEXT SERVICE footer row ───────────────────────────────────
+  y = guard(doc, y, 10);
+  const cond = san(payload.overall_status || "NOT ASSESSED");
+  const nsd  = payload.next_service_date
+    ? format(new Date(payload.next_service_date), "dd MMM yyyy") : "—";
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(26, 26, 26);
+  doc.setDrawColor(...BORDER); doc.setLineWidth(0.2);
+  doc.rect(M, y, pw - M * 2, 10);
+  doc.text(`Condition: `, M + 4, y + 6.5);
+  doc.setFont("helvetica", "bold"); doc.setTextColor(...ORANGE);
+  doc.text(cond, M + 26, y + 6.5);
+  doc.setFont("helvetica", "normal"); doc.setTextColor(26, 26, 26);
+  doc.text(`Next Service:`, pw / 2 + 4, y + 6.5);
+  doc.setFont("helvetica", "bold"); doc.setTextColor(26, 26, 26);
+  doc.text(nsd, pw / 2 + 32, y + 6.5);
+  y += 14;
 
-  y = kvTable(doc, pw, y, statusRows);
+  // ── WORK CARRIED OUT ──────────────────────────────────────────────────────
+  if (payload.work_carried_out || payload.parts_used || payload.final_remarks) {
+    y = guard(doc, y, 20);
+    y = secBar(doc, pw, y, "WORK CARRIED OUT") + 4;
 
-  // ── 11. Engineer Declaration ───────────────────────────────────────────────
-  y = checkPage(doc, pw, y, 30, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  y = drawSectionHeader(doc, pw, y, "11   ENGINEER DECLARATION");
+    if (payload.work_carried_out) {
+      const lines = doc.splitTextToSize(san(payload.work_carried_out), pw - M * 2 - 6);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...BODY);
+      lines.forEach((l: string) => { y = guard(doc, y, 5); doc.text(l, M + 2, y); y += 4.5; });
+      y += 2;
+    }
 
-  doc.setFillColor(...COLORS.ambBg);
-  doc.setDrawColor(...COLORS.ambBd); doc.setLineWidth(0.5);
-  const declText = "I certify that the inspection and servicing of the fire detection and fire alarm system has been carried out in accordance with BS 5839-1:2025 and that the system status is as stated above.";
-  const declLines = doc.splitTextToSize(declText, pw - MARGIN * 2 - 12);
-  const declH = declLines.length * 5.5 + 8;
-  doc.roundedRect(MARGIN, y, pw - MARGIN * 2, declH, 2, 2, "FD");
-  doc.setFont("helvetica", "italic"); doc.setFontSize(8.5);
-  doc.setTextColor(...COLORS.ambDark);
-  declLines.forEach((l: string, i: number) => doc.text(l, MARGIN + 6, y + 6 + i * 5.5));
-  y += declH + 6;
+    if (payload.parts_used) {
+      y = guard(doc, y, 10);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+      doc.text("Parts used:", M + 2, y);
+      doc.setFont("helvetica", "normal"); doc.setTextColor(...BODY);
+      doc.text(san(payload.parts_used), M + 24, y);
+      y += 5;
+    }
 
-  // ── 12. Signatures ────────────────────────────────────────────────────────
-  y = checkPage(doc, pw, y, 50, logo, certRef, `Fire Alarm — ${TITLE}`, STANDARD, company);
-  drawSignatureBox(doc, pw, y,
-    { name: engName,
-      date: payload.engineer_signed_date ? format(new Date(payload.engineer_signed_date), "dd/MM/yyyy") : svcDate,
-      sig:  options?.autoSign && !payload.engineer_signature ? `typed:${engName}` : payload.engineer_signature },
-    { name: san(payload.client_name || ""),
-      date: payload.client_signed_date ? format(new Date(payload.client_signed_date), "dd/MM/yyyy") : "",
-      sig:  payload.client_signature });
+    if (payload.final_remarks) {
+      y = guard(doc, y, 10);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+      doc.text("Final remarks:", M + 2, y);
+      y += 4.5;
+      const flines = doc.splitTextToSize(san(payload.final_remarks), pw - M * 2 - 6);
+      doc.setFont("helvetica", "normal"); doc.setTextColor(...BODY);
+      flines.forEach((l: string) => { y = guard(doc, y, 5); doc.text(l, M + 2, y); y += 4.5; });
+      y += 2;
+    }
+  }
 
-  // ── Footer & output ───────────────────────────────────────────────────────
-  drawMasterFooter(doc, pw);
-  const fileName = `${certRef}.pdf`;
-  doc.save(fileName);
-  const base64 = (doc.output("datauristring").split(",")[1]) ?? "";
-  return { base64, fileName };
+  // ── DEFECTS ───────────────────────────────────────────────────────────────
+  // Include ALL defects: new ones added this visit AND ones imported from
+  // the site defects register (which have _register_id set).
+  const defects = (payload.defects || []) as any[];
+  if (defects.length > 0) {
+    y = guard(doc, y, 24);
+    y = secBar(doc, pw, y, `DEFECTS / NON-COMPLIANCES (${defects.length})`);
+
+    autoTable(doc, {
+      startY: y,
+      head: [["#", "Location", "Description", "Severity", "Recommended Action", "Status"]],
+      body: defects.map((d: any, i: number) => [
+        i + 1,
+        san(d.location || ""),
+        san(d.description || ""),
+        san(d.severity || ""),
+        san(d.recommended_action || ""),
+        san(d.status || "Open"),
+      ]),
+      margin: { left: M, right: M, bottom: FOOTER_RES },
+      tableWidth: pw - M * 2,
+      headStyles: { fillColor: DARK, textColor: WHITE, fontStyle: "bold", fontSize: 7.5,
+        cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
+      styles: { fontSize: 7.5, textColor: BODY, lineColor: BORDER, lineWidth: 0.15,
+        cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 }, overflow: "linebreak" },
+      columnStyles: {
+        0: { cellWidth: 8, halign: "center" },
+        1: { cellWidth: 26 },
+        2: { cellWidth: "auto" },
+        3: { cellWidth: 18, halign: "center" },
+        4: { cellWidth: "auto" },
+        5: { cellWidth: 18, halign: "center" },
+      },
+      alternateRowStyles: { fillColor: ALTROW },
+      didParseCell(h) {
+        if (h.section !== "body") return;
+        const d = defects[h.row.index];
+        if (!d) return;
+        const sev = (d.severity || "").toLowerCase();
+        if (h.column.index === 3) {
+          h.cell.styles.fontStyle = "bold";
+          if (sev === "critical") h.cell.styles.textColor = [198, 40, 40];
+          else if (sev === "major") h.cell.styles.textColor = [230, 120, 0];
+          else if (sev === "minor") h.cell.styles.textColor = [25, 100, 150];
+        }
+        if (h.column.index === 5) {
+          const st = (d.status || "").toLowerCase();
+          if (st === "open") h.cell.styles.textColor = [198, 40, 40];
+          else if (st === "closed") h.cell.styles.textColor = [46, 125, 50];
+        }
+      },
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+  }
+
+  // ── SIGNATURES ────────────────────────────────────────────────────────────
+  y = guard(doc, y, 40);
+  const sigW = (pw - M * 2 - 4) / 2;
+
+  // ENGINEER
+  const elx = M;
+  secBar(doc, pw, y, "ENGINEER");
+  let ey = y + 9;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(26, 26, 26);
+  doc.text(engName || "—", elx + 2, ey); ey += 5;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+  const engDate = payload.engineer_signed_date
+    ? format(new Date(payload.engineer_signed_date), "dd/MM/yyyy") : svcDate;
+  doc.text(`Signed: ${engDate}`, elx + 2, ey); ey += 14;
+  doc.setDrawColor(...MUTED); doc.setLineWidth(0.4);
+  doc.line(elx + 2, ey, elx + sigW - 4, ey); ey += 4;
+  doc.setFontSize(7.5); doc.text("Signature", elx + 2, ey);
+
+  // CLIENT
+  const clx = M + sigW + 4;
+  secBar(doc, pw, y, "CLIENT");
+  let cy2 = y + 9;
+  const clientName = san(payload.client_name || "—");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(26, 26, 26);
+  doc.text(clientName, clx + 2, cy2); cy2 += 5;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+  const clientDate = payload.client_signed_date
+    ? format(new Date(payload.client_signed_date), "dd/MM/yyyy") : svcDate;
+  doc.text(`Signed: ${clientDate}`, clx + 2, cy2); cy2 += 14;
+  doc.setDrawColor(...MUTED); doc.setLineWidth(0.4);
+  doc.line(clx + 2, cy2, clx + sigW - 4, cy2); cy2 += 4;
+  doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+  doc.text("Signature", clx + 2, cy2);
+
+  // ── FOOTERS ───────────────────────────────────────────────────────────────
+  try {
+    drawMasterFooter(doc, pw);
+  } catch {
+    // fallback simple footer
+    const n = doc.getNumberOfPages();
+    for (let i = 1; i <= n; i++) {
+      doc.setPage(i);
+      const fy = ph - 13;
+      doc.setDrawColor(...BORDER); doc.setLineWidth(0.3); doc.line(M, fy, pw - M, fy);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(156,163,175);
+      doc.text(`${compName} | Company Registration No. 12235152 | FIA Member | BAFE Registered`, M, fy + 4);
+      doc.text(`Generated ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pw - M, fy + 4, { align: "right" });
+      doc.text(`Page ${i} of ${n}`, pw / 2, fy + 9, { align: "center" });
+    }
+  }
+
+  // ── Return ────────────────────────────────────────────────────────────────
+  const b64 = doc.output("datauristring").split(",")[1];
+  return {
+    base64:   b64,
+    fileName: `${certRef}.pdf`,
+  };
 }
