@@ -22,6 +22,7 @@ import {
 } from "@/services/newCertificateService";
 import { checkDuplicateJobCert, autoRegisterCertToSite } from "@/services/newCertificateService";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 const STEPS = [
   "Header", "Premises", "Responsible Person", "Existing System",
