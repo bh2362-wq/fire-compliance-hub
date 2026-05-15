@@ -52,10 +52,12 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 
 /* ─── Status pill helpers ──────────────────────────────────────── */
 type YNStatus = "YES" | "NO" | "N/A" | "";
-function normalizeStatus(s: ChecklistItem["status"]): YNStatus {
-  if (s === "Pass") return "YES";
-  if (s === "Fail") return "NO";
+function normalizeStatus(s: ChecklistItem["status"], invert = false): YNStatus {
   if (s === "YES" || s === "NO" || s === "N/A") return s;
+  // Map stored Pass/Fail back to the engineer's YES/NO answer,
+  // accounting for inverted items where Pass came from a NO answer.
+  if (s === "Pass") return invert ? "NO" : "YES";
+  if (s === "Fail") return invert ? "YES" : "NO";
   return "";
 }
 function storeStatus(s: YNStatus, invert = false): ChecklistItem["status"] {
