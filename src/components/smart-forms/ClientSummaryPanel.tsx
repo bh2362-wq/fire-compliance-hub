@@ -77,16 +77,42 @@ export function ClientSummaryPanel({
   async function generate() {
     setBusy(true);
     try {
-      const ctx = (buildContext ?? defaultBuildContext)(payload);
+      let ctx = (buildContext ?? defaultBuildContext)(payload);
+
+      // Pull existing open defects on this site so the email reflects the full picture
+      // (e.g. previously reported Vesda fault). The AI is then told to dedupe.
+      if (siteId) {
+        try {
+          const { data: prior } = await supabase
+            .from("site_defects")
+            .select("description, location, category, status, raised_at")
+            .eq("site_id", siteId)
+            .in("status", ["open", "quoted"])
+            .order("raised_at", { ascending: false })
+            .limit(40);
+          if (prior && prior.length) {
+            const lines = prior.map((d: any) => {
+              const cat = d.category ? `C${d.category}` : "";
+              const loc = d.location ? ` @ ${d.location}` : "";
+              return `  - [${d.status}${cat ? ` ${cat}` : ""}]${loc} ${d.description}`;
+            });
+            ctx += `\n\nprevious_open_defects: ${prior.length} item(s)\n${lines.join("\n")}`;
+          }
+        } catch (e) {
+          console.warn("Could not load prior defects:", e);
+        }
+      }
+
       const baseInstruction =
         `Write a single client-facing email about this ${formLabel}. ` +
         `Output ONLY the email in this exact order and nothing else:\n` +
         `1. First line: "Subject: <concise subject>"\n` +
         `2. Blank line\n` +
         `3. Greeting (e.g. "Dear <name>,") — use the client/contact name from the context if available, otherwise "Dear Sir/Madam,"\n` +
-        `4. Body paragraphs covering: what was carried out, overall outcome, any flagged items or defects, recommended follow-up actions, and next due date.\n` +
-        `5. Sign-off ("Kind regards,") followed by the engineer's name from the context if available.\n` +
-        `Be reassuring but honest. Plain English, no markdown, no headings, no bullet symbols, no technical engineer summary before the email. Keep the body under 180 words.`;
+        `4. Body paragraphs covering: what was carried out, overall outcome, any flagged items or defects (INCLUDING any items listed under previous_open_defects that are still outstanding, e.g. previously reported Vesda or detector faults), recommended follow-up actions, and next due date.\n` +
+        `5. Sign-off ("Kind regards,") followed by the engineer's name from the context if available.\n\n` +
+        `IMPORTANT — Deduplicate issues: if the same fault appears in both today's findings and previous_open_defects, mention it ONCE only. Match by description and location (case-insensitive, ignore minor wording differences). Never list the same defect twice.\n` +
+        `Be reassuring but honest. Plain English, no markdown, no headings, no bullet symbols, no technical engineer summary before the email. Keep the body under 220 words.`;
       const customInstructions = extraInstruction
         ? `${baseInstruction} ${extraInstruction}`
         : baseInstruction;
