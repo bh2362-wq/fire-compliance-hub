@@ -64,24 +64,32 @@ const recorder = {
   reset() { this.pages = 1; this.textCalls = []; this.rectCalls = []; this.imageCalls = []; },
 };
 
-function installSpies() {
-  const proto: any = (jsPDF as any).prototype;
-  let curSize: number = 10;
-  let curFont: string = "helvetica";
+function wrapInstance(inst: any) {
+  let curSize = 10;
+  let curFont = "helvetica";
   let curFill: [number, number, number] = [0, 0, 0];
   let curText: [number, number, number] = [0, 0, 0];
 
-  vi.spyOn(proto, "setFontSize").mockImplementation(function (this: any, s: number) { curSize = s; return this; });
-  vi.spyOn(proto, "setFont").mockImplementation(function (this: any, f: string) { curFont = f; return this; });
-  vi.spyOn(proto, "setFillColor").mockImplementation(function (this: any, ...rgb: any[]) {
-    curFill = (rgb.length === 3 ? rgb : [rgb[0], rgb[0], rgb[0]]) as [number, number, number]; return this;
-  });
-  vi.spyOn(proto, "setTextColor").mockImplementation(function (this: any, ...rgb: any[]) {
-    curText = (rgb.length === 3 ? rgb : [rgb[0], rgb[0], rgb[0]]) as [number, number, number]; return this;
-  });
+  const origText      = inst.text.bind(inst);
+  const origRect      = inst.rect.bind(inst);
+  const origAddImage  = inst.addImage.bind(inst);
+  const origAddPage   = inst.addPage.bind(inst);
+  const origSetSize   = inst.setFontSize.bind(inst);
+  const origSetFont   = inst.setFont.bind(inst);
+  const origSetFill   = inst.setFillColor.bind(inst);
+  const origSetTxt    = inst.setTextColor.bind(inst);
 
-  const realText = proto.text;
-  vi.spyOn(proto, "text").mockImplementation(function (this: any, text: any, x: number, y: number, opts?: any) {
+  inst.setFontSize  = (s: number) => { curSize = s; return origSetSize(s); };
+  inst.setFont      = (f: string, ...rest: any[]) => { curFont = f; return origSetFont(f, ...rest); };
+  inst.setFillColor = (...rgb: any[]) => {
+    curFill = (rgb.length >= 3 ? [rgb[0], rgb[1], rgb[2]] : [rgb[0], rgb[0], rgb[0]]) as any;
+    return origSetFill(...rgb);
+  };
+  inst.setTextColor = (...rgb: any[]) => {
+    curText = (rgb.length >= 3 ? [rgb[0], rgb[1], rgb[2]] : [rgb[0], rgb[0], rgb[0]]) as any;
+    return origSetTxt(...rgb);
+  };
+  inst.text = (text: any, x: number, y: number, opts?: any) => {
     const items: string[] = Array.isArray(text) ? text : [String(text ?? "")];
     items.forEach((t, i) => {
       recorder.textCalls.push({
@@ -89,30 +97,24 @@ function installSpies() {
         text: t, size: curSize, font: curFont, color: [...curText] as any,
       });
     });
-    return realText.call(this, text, x, y, opts);
-  });
-
-  const realRect = proto.rect;
-  vi.spyOn(proto, "rect").mockImplementation(function (this: any, x: number, y: number, w: number, h: number, style?: string) {
+    return origText(text, x, y, opts);
+  };
+  inst.rect = (x: number, y: number, w: number, h: number, style?: string) => {
     recorder.rectCalls.push({ page: recorder.pages, x, y, w, h, style: style ?? "S", fill: [...curFill] as any });
-    return realRect.call(this, x, y, w, h, style);
-  });
-
-  const realAddImage = proto.addImage;
-  vi.spyOn(proto, "addImage").mockImplementation(function (this: any, ...args: any[]) {
+    return origRect(x, y, w, h, style);
+  };
+  inst.addImage = (...args: any[]) => {
     const [, , x, y, w, h] = args;
     recorder.imageCalls.push({ page: recorder.pages, x, y, w, h });
-    return realAddImage.apply(this, args);
-  });
-
-  const realAddPage = proto.addPage;
-  vi.spyOn(proto, "addPage").mockImplementation(function (this: any, ...args: any[]) {
+    return origAddImage(...args);
+  };
+  inst.addPage = (...args: any[]) => {
     recorder.pages += 1;
-    return realAddPage.apply(this, args);
-  });
+    return origAddPage(...args);
+  };
+  inst.save = () => inst; // suppress browser download
 
-  // doc.save triggers a browser download — stub it.
-  vi.spyOn(proto, "save").mockImplementation(function (this: any) { return this; });
+  return inst;
 }
 
 // ── Sample payloads ──────────────────────────────────────────────────────────
