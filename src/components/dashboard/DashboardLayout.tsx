@@ -5,8 +5,32 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench, RefreshCw
 } from "lucide-react";
+import { toast } from "sonner";
+
+async function clearAppCacheAndReload() {
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    try { sessionStorage.clear(); } catch {}
+    toast.success("Cache cleared — reloading…");
+  } catch (e) {
+    console.warn("Cache clear failed", e);
+  } finally {
+    setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("_r", Date.now().toString());
+      window.location.replace(url.toString());
+    }, 250);
+  }
+}
 import { Button } from "@/components/ui/button";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
