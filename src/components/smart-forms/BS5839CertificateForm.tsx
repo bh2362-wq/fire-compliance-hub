@@ -201,8 +201,13 @@ export default function BS5839CertificateForm({
 
   async function handleGeneratePdf() {
     if (errors.length > 0) {
-      toast.error(`${errors.length} issue(s) — first: ${errors[0].message}`);
-      return;
+      const proceed = window.confirm(
+        `${errors.length} outstanding issue(s):\n\n` +
+        errors.slice(0, 10).map((e, i) => `${i + 1}. ${e.message}`).join("\n") +
+        (errors.length > 10 ? `\n…and ${errors.length - 10} more` : "") +
+        `\n\nComplete and generate the PDF anyway?`
+      );
+      if (!proceed) return;
     }
     const saved = await persist("completed");
     if (!saved) { await runPdf(payload); return; }
