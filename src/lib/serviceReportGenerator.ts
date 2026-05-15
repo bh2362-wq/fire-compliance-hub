@@ -58,7 +58,7 @@ function fullHead(doc: jsPDF, pw: number, y: number, label: string): number {
   return y + 7;
 }
 
-export async function generateBS5839CertificatePDF(
+export async function generateServiceReport(
   payload: BS5839Payload,
   options?: { autoSign?: boolean; engineerFallbackName?: string }
 ): Promise<{ base64: string; fileName: string }> {
