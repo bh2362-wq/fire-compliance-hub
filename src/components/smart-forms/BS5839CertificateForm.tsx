@@ -365,6 +365,40 @@ export default function BS5839CertificateForm({
               </div>
             </DocBlock>
 
+            {/* 3b. DEVICE TESTING */}
+            <DocBlock title="DEVICE TESTING">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <SmallField
+                  label="Total devices"
+                  type="number"
+                  value={payload.total_devices as any}
+                  onChange={(v) => {
+                    const value = v === "" ? "" : Number(v);
+                    setPayload((p) => ({ ...p, total_devices: value, approx_number_of_devices: value }));
+                  }}
+                />
+                <SmallField label="Devices tested" type="number" value={payload.devices_tested as any} onChange={(v) => update("devices_tested", v === "" ? "" : Number(v))} />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Testing method</label>
+                  <Select value={payload.testing_method || undefined} onValueChange={(v) => update("testing_method", v as BS5839Payload["testing_method"])}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="25%">25%</SelectItem>
+                      <SelectItem value="50%">50%</SelectItem>
+                      <SelectItem value="100%">100%</SelectItem>
+                      <SelectItem value="Risk-based">Risk-based</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {payload.testing_method === "Other" ? (
+                  <SmallField label="Other method" value={payload.testing_method_other} onChange={(v) => update("testing_method_other", v)} />
+                ) : (
+                  <SmallField label="Not tested" value={payload.devices_not_tested} onChange={(v) => update("devices_not_tested", v)} />
+                )}
+              </div>
+            </DocBlock>
+
             {/* 4. CHECKLIST */}
             <div className="bg-white border border-border rounded-md overflow-hidden">
               <div className="px-4 py-3 border-b border-border">
