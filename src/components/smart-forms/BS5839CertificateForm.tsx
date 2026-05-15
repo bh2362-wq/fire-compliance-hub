@@ -587,6 +587,15 @@ export default function BS5839CertificateForm({
                 <DocField label="Date" type="date" value={payload.engineer_signed_date} onChange={(v) => update("engineer_signed_date", v)} />
                 <div className="text-[11px] text-muted-foreground mb-1 mt-1">Signature</div>
                 <TypedSignature value={payload.engineer_signature || ""} onChange={(v) => update("engineer_signature", v)} placeholder="Type or draw signature" />
+                <label className="flex items-start gap-2 mt-3 p-2 rounded-md border bg-accent/10 cursor-pointer">
+                  <Checkbox
+                    checked={!!payload.engineer_competency_confirmed}
+                    onCheckedChange={(c) => update("engineer_competency_confirmed", !!c)}
+                  />
+                  <span className="text-[11px] leading-snug">
+                    I am a competent person as defined in BS 5839-1 and am suitably qualified to inspect and service this system.
+                  </span>
+                </label>
               </DocBlock>
               <DocBlock title="CLIENT">
                 <DocField label="Name" value={payload.client_name} onChange={(v) => update("client_name", v)} />
