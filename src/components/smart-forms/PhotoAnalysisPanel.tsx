@@ -108,7 +108,7 @@ export function PhotoAnalysisPanel({ submissionId, context, existingDefects, onA
 
   // ── Handle drop / file select ──────────────────────────────────────────────
   const handleFiles = useCallback((files: File[]) => {
-    files.slice(0, 5).forEach(processFile);  // max 5 at once
+    files.slice(0, 20).forEach(processFile);  // max 20 at once
   }, [processFile]);
 
   const handleDrop = (e: React.DragEvent) => {
