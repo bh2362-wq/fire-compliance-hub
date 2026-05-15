@@ -80,7 +80,6 @@ function san(s: string): string {
 
 function gbp(n: number): string { return "\u00A3" + n.toFixed(2); }
 
-/** Dark section header bar — 7mm tall, white text */
 function secHead(doc: jsPDF, label: string, y: number, left: number, right: number): number {
   doc.setFillColor(...C.dark);
   doc.rect(left, y, right - left, 7, "F");
@@ -90,7 +89,6 @@ function secHead(doc: jsPDF, label: string, y: number, left: number, right: numb
   return y + 7;
 }
 
-/** Page break guard */
 function guard(doc: jsPDF, y: number, need: number): number {
   if (y + need > doc.internal.pageSize.getHeight() - 18) {
     doc.addPage(); return 15;
@@ -98,10 +96,8 @@ function guard(doc: jsPDF, y: number, need: number): number {
   return y;
 }
 
-// ── HEADER ────────────────────────────────────────────────────────────────────
 function drawHeader(doc: jsPDF, pw: number, m: number, logo: HTMLImageElement | null, s?: CompanySettings): number {
   if (logo) { try { doc.addImage(logo, "PNG", m, 16, 30, 26); } catch {} }
-
   const rx = pw - m; let ry = 18;
   doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
   doc.text(s?.company_name || CO.name, rx, ry, { align: "right" }); ry += 4.5;
@@ -111,13 +107,11 @@ function drawHeader(doc: jsPDF, pw: number, m: number, logo: HTMLImageElement | 
   doc.text(san(cl), rx, ry, { align: "right" }); ry += 4;
   doc.text(`T: ${s?.phone || CO.phone}`, rx, ry, { align: "right" }); ry += 4;
   doc.text(`E: ${s?.email || CO.email}`, rx, ry, { align: "right" });
-
   doc.setDrawColor(...C.border); doc.setLineWidth(0.3);
   doc.line(m, 46, pw - m, 46);
   return 54;
 }
 
-// ── TITLE ─────────────────────────────────────────────────────────────────────
 function drawTitle(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData): number {
   doc.setFontSize(18); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
   doc.text("Quotation", m, y + 6);
@@ -126,8 +120,6 @@ function drawTitle(doc: jsPDF, pw: number, m: number, y: number, data: Quotation
   doc.setFontSize(8); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.muted);
   doc.text(format(new Date(data.created_at), "dd MMM yyyy"), pw - m, y + 5, { align: "right" });
   y += 14;
-
-  // Subtitle — scope title as a subtitle line (not a section header)
   if (data.title) {
     doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.muted);
     const tl = doc.splitTextToSize(san(data.title), pw - m * 2);
@@ -136,13 +128,11 @@ function drawTitle(doc: jsPDF, pw: number, m: number, y: number, data: Quotation
   return y + 4;
 }
 
-// ── INFO BLOCKS ───────────────────────────────────────────────────────────────
 function drawInfoBlocks(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData): number {
   const cw = pw - m * 2;
   const half = (cw - 4) / 2;
   const lx = m, rx = m + half + 4;
 
-  // LEFT — CLIENT
   let ly = secHead(doc, "CLIENT", y, lx, lx + half) + 3;
   if (data.customer) {
     const c = data.customer;
@@ -161,7 +151,6 @@ function drawInfoBlocks(doc: jsPDF, pw: number, m: number, y: number, data: Quot
     doc.text("No customer specified", lx + 4, ly); ly += 5;
   }
 
-  // RIGHT — SITE
   let ry2 = secHead(doc, "SITE", y, rx, rx + half) + 3;
   doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
   doc.text(san(data.site.name), rx + 4, ry2); ry2 += 5;
@@ -172,7 +161,6 @@ function drawInfoBlocks(doc: jsPDF, pw: number, m: number, y: number, data: Quot
     doc.text(al, rx + 4, ry2); ry2 += al.length * 4 + 3;
   }
 
-  // QUOTE DETAILS sub-section in right column
   ry2 += 2;
   ry2 = secHead(doc, "QUOTE DETAILS", ry2, rx, rx + half) + 3;
   const qrows: [string,string][] = [
@@ -189,12 +177,10 @@ function drawInfoBlocks(doc: jsPDF, pw: number, m: number, y: number, data: Quot
   return Math.max(ly, ry2) + 5;
 }
 
-// ── SCOPE OF WORKS ────────────────────────────────────────────────────────────
 function drawScope(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData): number {
   if (!data.summary) return y;
   y = guard(doc, y, 20);
   y = secHead(doc, "SCOPE OF WORKS", y, m, pw - m) + 4;
-
   const sumLines = doc.splitTextToSize(san(data.summary), pw - m * 2 - 4);
   doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.body);
   sumLines.forEach((line: string) => {
@@ -203,28 +189,25 @@ function drawScope(doc: jsPDF, pw: number, m: number, y: number, data: Quotation
   return y + 3;
 }
 
-// ── LINE ITEMS ────────────────────────────────────────────────────────────────
 function drawLineItems(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData, opts: PDFColumnOptions): number {
   y = guard(doc, y, 30);
   y = secHead(doc, "LINE ITEMS", y, m, pw - m);
-
   const heads: string[] = [], cols: Record<number, any> = {};
   let ci = 0;
-  if (opts.showItemNumber)    { heads.push("#");          cols[ci++] = { cellWidth: 7,  halign: "center", fontStyle: "bold" }; }
-  if (opts.showDescription)   { heads.push("Description"); cols[ci++] = { cellWidth: "auto" }; }
-  if (opts.showRegulationRef) { heads.push("Ref");         cols[ci++] = { cellWidth: 24, fontSize: 7 }; }
-  if (opts.showPriority)      { heads.push("Priority");    cols[ci++] = { cellWidth: 16, halign: "center", fontSize: 7 }; }
-  if (opts.showItem)          { heads.push("Item");         cols[ci++] = { cellWidth: 28, fontSize: 7.5 }; }
-  if (opts.showQuantity)      { heads.push("Qty");          cols[ci++] = { cellWidth: 10, halign: "center" }; }
-  if (opts.showUnitPrice)     { heads.push("Unit \u00A3"); cols[ci++] = { cellWidth: 18, halign: "right" }; }
+  if (opts.showItemNumber)    { heads.push("#");             cols[ci++] = { cellWidth: 7,  halign: "center", fontStyle: "bold" }; }
+  if (opts.showDescription)   { heads.push("Description");   cols[ci++] = { cellWidth: "auto" }; }
+  if (opts.showRegulationRef) { heads.push("Ref");           cols[ci++] = { cellWidth: 24, fontSize: 7 }; }
+  if (opts.showPriority)      { heads.push("Priority");      cols[ci++] = { cellWidth: 16, halign: "center", fontSize: 7 }; }
+  if (opts.showItem)          { heads.push("Item");          cols[ci++] = { cellWidth: 28, fontSize: 7.5 }; }
+  if (opts.showQuantity)      { heads.push("Qty");           cols[ci++] = { cellWidth: 10, halign: "center" }; }
+  if (opts.showUnitPrice)     { heads.push("Unit \u00A3");   cols[ci++] = { cellWidth: 18, halign: "right" }; }
   if (opts.showLabour)        { heads.push("Labour \u00A3"); cols[ci++] = { cellWidth: 18, halign: "right" }; }
-  if (opts.showTotal)         { heads.push("Total \u00A3"); cols[ci++] = { cellWidth: 20, halign: "right", fontStyle: "bold" }; }
-
+  if (opts.showTotal)         { heads.push("Total \u00A3");  cols[ci++] = { cellWidth: 20, halign: "right", fontStyle: "bold" }; }
   const totalColIdx = ci - 1;
   const rows = data.line_items.filter(i => !i.parent_id).map((item, idx) => {
     const labour = item.labour_cost || 0;
-    const qty    = item.quantity || 1;
-    const unit   = qty > 0 ? (item.total_price - labour) / qty : item.unit_price * (1 + (item.markup_percent || 0) / 100);
+    const qty = item.quantity || 1;
+    const unit = qty > 0 ? (item.total_price - labour) / qty : item.unit_price * (1 + (item.markup_percent || 0) / 100);
     const row: string[] = [];
     if (opts.showItemNumber)    row.push((idx + 1).toString());
     if (opts.showDescription)   row.push(san(item.description));
@@ -237,29 +220,14 @@ function drawLineItems(doc: jsPDF, pw: number, m: number, y: number, data: Quota
     if (opts.showTotal)         row.push(gbp(item.total_price));
     return row;
   });
-
   autoTable(doc, {
     startY: y,
     head: [heads],
     body: rows,
     margin: { left: m, right: m, bottom: 22 },
     tableWidth: pw - m * 2,
-    styles: {
-      fontSize: 8.5,
-      cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
-      textColor: C.body,
-      lineColor: C.border,
-      lineWidth: 0.15,
-      overflow: "linebreak",
-      font: "helvetica",
-    },
-    headStyles: {
-      fillColor: C.dark,
-      textColor: C.white,
-      fontStyle: "bold",
-      fontSize: 8,
-      cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
-    },
+    styles: { fontSize: 8.5, cellPadding: { top: 3, bottom: 3, left: 3, right: 3 }, textColor: C.body, lineColor: C.border, lineWidth: 0.15, overflow: "linebreak", font: "helvetica" },
+    headStyles: { fillColor: C.dark, textColor: C.white, fontStyle: "bold", fontSize: 8, cellPadding: { top: 3, bottom: 3, left: 3, right: 3 } },
     columnStyles: cols,
     alternateRowStyles: { fillColor: C.altrow },
     bodyStyles: { minCellHeight: 8 },
@@ -270,33 +238,26 @@ function drawLineItems(doc: jsPDF, pw: number, m: number, y: number, data: Quota
       }
     },
   });
-
   return (doc as any).lastAutoTable.finalY;
 }
 
-// ── TOTALS ────────────────────────────────────────────────────────────────────
 function drawTotals(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData): number {
   y = guard(doc, y, 28); y += 5;
   const vr = data.vat_rate ?? 20;
   const sub = data.total_amount, vat = sub * (vr / 100), tot = sub + vat;
   const tx = pw - m - 75;
-
   doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.muted);
   doc.text("Subtotal", tx, y);
   doc.setTextColor(...C.body); doc.text(gbp(sub), pw - m, y, { align: "right" }); y += 5.5;
-
   doc.setTextColor(...C.muted); doc.text(`VAT (${vr}%)`, tx, y);
   doc.setTextColor(...C.body); doc.text(gbp(vat), pw - m, y, { align: "right" }); y += 4;
-
   doc.setDrawColor(...C.border); doc.setLineWidth(0.4); doc.line(tx, y, pw - m, y); y += 5;
-
   doc.setFontSize(9.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);
   doc.text("Total (inc. VAT)", tx, y);
   doc.text(gbp(tot), pw - m, y, { align: "right" });
   return y + 9;
 }
 
-// ── TERMS ─────────────────────────────────────────────────────────────────────
 function drawTerms(doc: jsPDF, pw: number, m: number, y: number, terms: string): number {
   y = guard(doc, y, 40);
   y = secHead(doc, "TERMS & CONDITIONS", y, m, pw - m) + 4;
@@ -306,7 +267,6 @@ function drawTerms(doc: jsPDF, pw: number, m: number, y: number, terms: string):
   return y + 4;
 }
 
-// ── ACCEPTANCE ────────────────────────────────────────────────────────────────
 function drawAcceptance(doc: jsPDF, pw: number, m: number, y: number): number {
   y = guard(doc, y, 36);
   y = secHead(doc, "ACCEPTANCE & AUTHORISATION", y, m, pw - m) + 5;
@@ -324,7 +284,6 @@ function drawAcceptance(doc: jsPDF, pw: number, m: number, y: number): number {
   return y + 18;
 }
 
-// ── FOOTERS ───────────────────────────────────────────────────────────────────
 function drawFooters(doc: jsPDF, pw: number, m: number, s?: CompanySettings) {
   const ph = doc.internal.pageSize.getHeight(), n = doc.getNumberOfPages();
   for (let i = 1; i <= n; i++) {
@@ -339,7 +298,6 @@ function drawFooters(doc: jsPDF, pw: number, m: number, s?: CompanySettings) {
   }
 }
 
-// ── MAIN ──────────────────────────────────────────────────────────────────────
 const DEF_COLS: PDFColumnOptions = {
   showItemNumber: true, showDescription: true, showRegulationRef: false,
   showPriority: false, showItem: false, showQuantity: true,
@@ -352,22 +310,16 @@ export async function generateQuotationPDF(
   returnBase64 = false,
   columnOptions: PDFColumnOptions = DEF_COLS
 ): Promise<string | void> {
-
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth(), m = 15;
   const logo = await loadLogo(settings?.report_logo_url || settings?.company_logo_url);
-
   let y = drawHeader(doc, pw, m, logo, settings);
   y     = drawTitle(doc, pw, m, y, data);
   y     = drawInfoBlocks(doc, pw, m, y, data);
   y     = drawScope(doc, pw, m, y + 2, data);
-
   const tableEnd = drawLineItems(doc, pw, m, y, data, columnOptions);
   y              = drawTotals(doc, pw, m, tableEnd, data);
-
   if (data.terms) y = drawTerms(doc, pw, m, y, data.terms);
-
-  // Notes — strip UUID/system content before showing
   if (data.notes) {
     const cleaned = data.notes
       .replace(/Defect IDs?:[\s\S]*$/gi, "")
@@ -382,10 +334,8 @@ export async function generateQuotationPDF(
       y += 4;
     }
   }
-
   drawAcceptance(doc, pw, m, y);
   drawFooters(doc, pw, m, settings);
-
   if (returnBase64) return doc.output("datauristring").split(",")[1];
   doc.save(`${data.quotation_number}.pdf`);
 }
