@@ -361,7 +361,15 @@ export default function BS5839CertificateForm({
                 <SmallField label="Location" value={(payload as any).panel_location} onChange={(v) => update("panel_location" as any, v as any)} />
                 <SmallField label="Category" value={(payload.system_categories ?? []).join(", ")} onChange={(v) => update("system_categories", v.split(",").map(s => s.trim()).filter(Boolean))} />
                 <SmallField label="Zones" value={(payload as any).number_of_zones} onChange={(v) => update("number_of_zones" as any, v as any)} />
-                <SmallField label="Devices" type="number" value={payload.approx_number_of_devices as any} onChange={(v) => update("approx_number_of_devices", v === "" ? "" : Number(v))} />
+                <SmallField
+                  label="Devices"
+                  type="number"
+                  value={payload.approx_number_of_devices as any}
+                  onChange={(v) => {
+                    const value = v === "" ? "" : Number(v);
+                    setPayload((p) => ({ ...p, approx_number_of_devices: value, total_devices: p.total_devices || value }));
+                  }}
+                />
               </div>
             </DocBlock>
 
