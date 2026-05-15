@@ -308,17 +308,15 @@ export default function BS5839CertificateForm({
         {/* Document scroll area */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-5xl mx-auto p-5 md:p-6 space-y-5">
-            {!existing && (
-              <SitePrefillPanel
-                formType="bs5839_inspection_servicing"
-                siteId={linkedSiteId || siteId}
-                onSiteSelected={setLinkedSiteId}
-                onPrefillApplied={(fields, batteryHint) => {
-                  setPayload(prev => ({ ...prev, ...fields } as BS5839Payload));
-                  if (batteryHint) setPayload(prev => ({ ...prev, battery_age_years: batteryHint.suggested_age } as BS5839Payload));
-                }}
-              />
-            )}
+            <SitePrefillPanel
+              formType="bs5839_inspection_servicing"
+              siteId={linkedSiteId || siteId}
+              onSiteSelected={setLinkedSiteId}
+              onPrefillApplied={(fields, batteryHint) => {
+                setPayload(prev => ({ ...prev, ...fields } as BS5839Payload));
+                if (batteryHint) setPayload(prev => ({ ...prev, battery_age_years: batteryHint.suggested_age } as BS5839Payload));
+              }}
+            />
 
             {/* 1. Title block */}
             <div className="bg-white border border-border rounded-md p-5 flex items-start justify-between gap-4 flex-wrap">
