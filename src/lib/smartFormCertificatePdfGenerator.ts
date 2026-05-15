@@ -64,6 +64,25 @@ function kv(doc: jsPDF, label: string, value: string, x: number, y: number, lw =
   doc.text(san(value), x + lw, y);
 }
 
+function triggerPdfDownload(doc: jsPDF, fileName: string): void {
+  if (typeof document === "undefined" || typeof URL === "undefined") {
+    doc.save(fileName);
+    return;
+  }
+
+  const blob = doc.output("blob");
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = fileName;
+  link.rel = "noopener";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 export async function generateBS5839CertificatePDF(
   payload: BS5839Payload,
@@ -471,6 +490,6 @@ export async function generateBS5839CertificatePDF(
   const fileName = `${certRef}.pdf`;
   const b64 = doc.output("datauristring").split(",")[1];
   // Trigger browser download
-  try { doc.save(fileName); } catch (e) { console.error("doc.save failed", e); }
+  try { triggerPdfDownload(doc, fileName); } catch (e) { console.error("PDF download failed", e); doc.save(fileName); }
   return { base64: b64, fileName };
 }
