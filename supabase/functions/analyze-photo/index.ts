@@ -127,37 +127,56 @@ Deno.serve(async (req) => {
       "Return ONLY the JSON response as specified. No other text.",
     ].filter(Boolean).join("\n");
 
-    const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 2000,
-        system: SYSTEM_PROMPT,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type, data: image_base64 },
-            },
-            { type: "text", text: userText },
-          ],
-        }],
-      }),
-    });
-
-    if (!anthropicResp.ok) {
-      const err = await anthropicResp.text();
-      console.error("Anthropic API error:", err);
-      return new Response(JSON.stringify({ error: `Anthropic error: ${anthropicResp.status}` }), {
-        status: 502, headers: { ...CORS, "Content-Type": "application/json" },
+    // Retry on 429 / 5xx with exponential backoff to absorb concurrent-request rate limits
+    let anthropicResp!: Response;
+    let lastErr = "";
+    const delays = [600, 1500, 3500, 7000];
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
+      anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 2000,
+          system: SYSTEM_PROMPT,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type, data: image_base64 } },
+              { type: "text", text: userText },
+            ],
+          }],
+        }),
       });
+      if (anthropicResp.ok) break;
+      const retriable = anthropicResp.status === 429 || anthropicResp.status >= 500;
+      lastErr = await anthropicResp.text().catch(() => "");
+      if (!retriable || attempt === delays.length) {
+        console.error("Anthropic API error:", anthropicResp.status, lastErr);
+        // Return 200 with structured fallback so the client doesn't crash
+        return new Response(JSON.stringify({
+          photo_type: "unknown",
+          confidence: "low",
+          needs_clarification: true,
+          clarification_question: anthropicResp.status === 429
+            ? "AI service is busy right now. Please try this photo again in a few seconds."
+            : "AI analysis failed for this image. Please try again or describe the fault manually.",
+          panel_info: { manufacturer: null, model: null, panel_id: null, total_faults_shown: 0 },
+          detected_faults: [],
+          summary: anthropicResp.status === 429 ? "Rate limited — retry shortly" : "Analysis unavailable",
+          raw_text_extracted: "",
+          fallback: true,
+          upstream_status: anthropicResp.status,
+        }), { status: 200, headers: { ...CORS, "Content-Type": "application/json" } });
+      }
+      const jitter = Math.floor(Math.random() * 250);
+      await new Promise((r) => setTimeout(r, delays[attempt] + jitter));
     }
+
 
     const data = await anthropicResp.json();
     const text = data.content?.find((b: any) => b.type === "text")?.text ?? "{}";
