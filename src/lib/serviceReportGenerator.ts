@@ -90,9 +90,12 @@ export async function generateServiceReport(
   let y = drawCertHeader(doc, pw, logo, company);
 
   // ── Title ─────────────────────────────────────────────────────────────────
+  // Wrap title to leave room for right-aligned cert ref / date / standard
   doc.setFont("helvetica", "bold"); doc.setFontSize(17);
   doc.setTextColor(26, 26, 26);
-  doc.text("Fire Alarm Service Report", M, y + 6);
+  const titleMaxW = pw - M * 2 - 50;
+  const titleLines = doc.splitTextToSize("Fire Alarm Service Report", titleMaxW);
+  doc.text(titleLines, M, y + 6);
 
   doc.setFont("helvetica", "bold"); doc.setFontSize(8.5);
   doc.setTextColor(26, 26, 26);
