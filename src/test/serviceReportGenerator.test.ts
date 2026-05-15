@@ -178,8 +178,7 @@ async function generate(payload: BS5839Payload) {
 
 describe("BS5839 service report PDF — layout regressions", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
-    installSpies();
+    recorder.reset();
   });
 
   it("renders without throwing for a fully-populated payload", async () => {
