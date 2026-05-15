@@ -426,8 +426,11 @@ export default function BS5839CertificateForm({
                   <Textarea rows={3} value={payload.work_carried_out || ""} onChange={(e) => update("work_carried_out", e.target.value)} className="text-xs mt-1" />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Parts used</label>
-                  <Input value={payload.parts_used || ""} onChange={(e) => update("parts_used", e.target.value)} className="text-xs mt-1 h-9" />
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Parts used</label>
+                    <AIRewriteButton text={payload.parts_used || ""} type="parts" onRewrite={(v) => update("parts_used", v)} />
+                  </div>
+                  <Textarea rows={2} value={payload.parts_used || ""} onChange={(e) => update("parts_used", e.target.value)} className="text-xs mt-1" />
                 </div>
                 <div>
                   <div className="flex items-center justify-between">
