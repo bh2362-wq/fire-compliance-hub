@@ -90,9 +90,12 @@ export async function generateServiceReport(
   let y = drawCertHeader(doc, pw, logo, company);
 
   // ── Title ─────────────────────────────────────────────────────────────────
+  // Wrap title to leave room for right-aligned cert ref / date / standard
   doc.setFont("helvetica", "bold"); doc.setFontSize(17);
   doc.setTextColor(26, 26, 26);
-  doc.text("Fire Alarm Service Report", M, y + 6);
+  const titleMaxW = pw - M * 2 - 50;
+  const titleLines = doc.splitTextToSize("Fire Alarm Service Report", titleMaxW);
+  doc.text(titleLines, M, y + 6);
 
   doc.setFont("helvetica", "bold"); doc.setFontSize(8.5);
   doc.setTextColor(26, 26, 26);
@@ -162,7 +165,11 @@ export async function generateServiceReport(
     const cx = M + i * colW;
     doc.setFont("helvetica", "normal"); doc.setFontSize(8);
     doc.setTextColor(...MUTED); doc.text(l, cx, y);
-    doc.setTextColor(...BODY);  doc.text(v, cx + 13, y);
+    doc.setTextColor(...BODY);
+    const labelW = doc.getTextWidth(l) + 1.5;
+    const maxValW = colW - labelW - 2;
+    const fitted = doc.splitTextToSize(String(v), maxValW)[0] || "";
+    doc.text(fitted, cx + labelW, y);
   });
   y += 7;
 
@@ -220,7 +227,7 @@ export async function generateServiceReport(
         },
       ];
     }
-    return [san(item.label), "", "", ""];
+    return [san(item.label), "YES", "NO", "N/A"];
   });
 
   const capturedMeta  = meta;
