@@ -81,7 +81,7 @@ export async function generateBS5839CertificatePDF(
     options?.engineerFallbackName || ""
   );
 
-  // Page 2+ running header function
+  // Page 2+ running header
   const p2Header = () =>
     drawPage2Header(doc, pw, logo, certRef,
       "Fire Alarm Service Report", "BS 5839-1:2025", company);
@@ -117,7 +117,7 @@ export async function generateBS5839CertificatePDF(
     ["Site:",    san(payload.premises_name    || "")],
     ["Address:", san(payload.premises_address || "")],
     ["Contact:", san(payload.responsible_person_name || "")],
-    ["Phone:",   san((payload as any).responsible_person_phone || "-")],
+    ["Phone:",   san(payload.responsible_person_contact || "-")],
   ];
   siteRows.forEach(([l, v]) => {
     doc.setFont("helvetica", "normal"); doc.setFontSize(8);
@@ -192,7 +192,6 @@ export async function generateBS5839CertificatePDF(
   // ── Checklist table ────────────────────────────────────────────────────────
   const checklist = (payload.checklist || []) as any[];
 
-  // Build meta array for row type detection in hooks
   const meta: Array<{ type: "section"; label: string } | { type: "item"; idx: number }> = [];
   let lastSec = "";
   checklist.forEach((item: any, idx: number) => {
@@ -224,7 +223,6 @@ export async function generateBS5839CertificatePDF(
     return [san(item.label), "", "", ""];
   });
 
-  // Capture refs for hooks
   const capturedMeta  = meta;
   const capturedList  = checklist;
   const capturedP2    = p2Header;
@@ -441,8 +439,5 @@ export async function generateBS5839CertificatePDF(
   // ── Footers ────────────────────────────────────────────────────────────────
   drawMasterFooter(doc, pw);
 
-  const fileName = `${certRef}.pdf`;
-  const b64 = doc.output("datauristring").split(",")[1] ?? "";
-  doc.save(fileName);
-  return { base64: b64, fileName };
-}
+  const b64 = doc.output("datauristring").split(",")[1];
+  return { base64: b64, fileName: `${certRef}.pdf` };
