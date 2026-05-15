@@ -259,14 +259,16 @@ describe("BS5839 service report PDF — layout regressions", () => {
       for (let i = 0; i < labelCalls.length; i++) {
         const call = labelCalls[i]!;
         const colRight = M + (i + 1) * colW;
-        // Value is drawn on the same baseline immediately after the label.
+        // Restrict to texts that start inside this column band only.
         const valueCalls = recorder.textCalls.filter(c =>
-          c.page === 1 && Math.abs(c.y - call.y) < 0.1 && c.x > call.x && c.text !== labelTexts[i]
+          c.page === 1 &&
+          Math.abs(c.y - call.y) < 0.1 &&
+          c.x > call.x && c.x < colRight &&
+          !labelTexts.includes(c.text)
         );
         valueCalls.forEach(v => {
-          // Approximate width: helvetica 8pt ≈ 1.6mm per char.
           const approxRight = v.x + v.text.length * 1.4;
-          expect(approxRight, `SYSTEM column ${i} value "${v.text}" overflows`).toBeLessThanOrEqual(colRight + 0.5);
+          expect(approxRight, `SYSTEM column ${i} ("${labelTexts[i]}") value "${v.text}" overflows`).toBeLessThanOrEqual(colRight + 0.5);
         });
       }
     });
