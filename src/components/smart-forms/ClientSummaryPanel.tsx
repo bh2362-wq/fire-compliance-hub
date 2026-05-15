@@ -83,7 +83,7 @@ export function ClientSummaryPanel({
         body: { text: ctx, type: "comments", customInstructions },
       });
       if (error) throw error;
-      const out = (data?.rewritten || data?.text || "").toString();
+      const out = (data?.rewrittenText || data?.rewritten || data?.text || "").toString();
       if (!out.trim()) throw new Error("Empty AI response");
       setSummary(out);
       toast.success("Summary generated");

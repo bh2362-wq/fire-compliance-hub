@@ -26,6 +26,7 @@ import { DefectImportPanel } from "@/components/smart-forms/DefectImportPanel";
 import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
 import { ClientSummaryPanel } from "@/components/smart-forms/ClientSummaryPanel";
 import { PhotoAnalysisPanel } from "@/components/smart-forms/PhotoAnalysisPanel";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 const SERVICE_TYPES = [
   "Quarterly Service",
@@ -201,8 +202,13 @@ export default function BS5839CertificateForm({
 
   async function handleGeneratePdf() {
     if (errors.length > 0) {
-      toast.error(`${errors.length} issue(s) — first: ${errors[0].message}`);
-      return;
+      const proceed = window.confirm(
+        `${errors.length} outstanding issue(s):\n\n` +
+        errors.slice(0, 10).map((e, i) => `${i + 1}. ${e.message}`).join("\n") +
+        (errors.length > 10 ? `\n…and ${errors.length - 10} more` : "") +
+        `\n\nComplete and generate the PDF anyway?`
+      );
+      if (!proceed) return;
     }
     const saved = await persist("completed");
     if (!saved) { await runPdf(payload); return; }
@@ -413,7 +419,10 @@ export default function BS5839CertificateForm({
             <DocBlock title="WORK CARRIED OUT">
               <div className="space-y-3">
                 <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Work done</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Work done</label>
+                    <AIRewriteButton text={payload.work_carried_out || ""} type="works" onRewrite={(v) => update("work_carried_out", v)} />
+                  </div>
                   <Textarea rows={3} value={payload.work_carried_out || ""} onChange={(e) => update("work_carried_out", e.target.value)} className="text-xs mt-1" />
                 </div>
                 <div>
@@ -421,7 +430,10 @@ export default function BS5839CertificateForm({
                   <Input value={payload.parts_used || ""} onChange={(e) => update("parts_used", e.target.value)} className="text-xs mt-1 h-9" />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Final remarks</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Final remarks</label>
+                    <AIRewriteButton text={payload.final_remarks || ""} type="comments" onRewrite={(v) => update("final_remarks", v)} />
+                  </div>
                   <Textarea rows={2} value={payload.final_remarks || ""} onChange={(e) => update("final_remarks", e.target.value)} className="text-xs mt-1" />
                 </div>
                 <div className="pt-2">
