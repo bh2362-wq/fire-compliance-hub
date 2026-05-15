@@ -439,5 +439,8 @@ export async function generateBS5839CertificatePDF(
   // ── Footers ────────────────────────────────────────────────────────────────
   drawMasterFooter(doc, pw);
 
-  const b64 = doc.output("datauristring").split(",")[1];
-  return { base64: b64, fileName: `${certRef}.pdf` };
+  const fileName = `${certRef}.pdf`;
+  doc.save(fileName);
+  const b64 = (doc.output("datauristring").split(",")[1]) ?? "";
+  return { base64: b64, fileName };
+}
