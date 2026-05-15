@@ -530,11 +530,15 @@ export default function BS5839CertificateForm({
                     ].filter(Boolean).join(", ")}
                     existingDefects={defects}
                     onAddDefects={(newDefects) => {
-                      // Functional update so concurrent additions don't clobber each other
-                      setPayload((p) => ({
-                        ...p,
-                        defects: [...(p.defects ?? []), ...newDefects],
-                      }));
+                      // Functional update so concurrent additions don't clobber each other; dedupe against existing
+                      setPayload((p) => {
+                        const fresh = dedupeDefects(p.defects ?? [], newDefects);
+                        if (fresh.length < newDefects.length) {
+                          const skipped = newDefects.length - fresh.length;
+                          toast.info(`Skipped ${skipped} duplicate defect${skipped === 1 ? "" : "s"}`);
+                        }
+                        return { ...p, defects: [...(p.defects ?? []), ...fresh] };
+                      });
                     }}
                   />
                 </div>
