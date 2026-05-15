@@ -220,7 +220,7 @@ export async function generateServiceReport(
         },
       ];
     }
-    return [san(item.label), "", "", ""];
+    return [san(item.label), "YES", "NO", "N/A"];
   });
 
   const capturedMeta  = meta;
