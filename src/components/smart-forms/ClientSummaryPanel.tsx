@@ -1,24 +1,18 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Copy, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Sparkles, Copy, Loader2, Save, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
-  /** Human label for this form, e.g. "BS 5839-1 Commissioning Certificate". */
   formLabel?: string;
-  /** Any form payload — fields are flattened into context for the AI. */
   payload: Record<string, any>;
-  /** Optional extra instruction sentence (form-specific tone or focus). */
   extraInstruction?: string;
-  /** Optional custom context builder; overrides default flatten logic. */
   buildContext?: (payload: Record<string, any>) => string;
 }
 
-/* Default flattener: turns the payload into "key: value" lines, skipping
-   empty values, base64 signatures, large arrays of objects (just counted),
-   and obvious internals. */
 function defaultBuildContext(payload: Record<string, any>): string {
   const SKIP_PREFIXES = ["_", "id", "submission", "user_id", "site_id", "customer_id", "visit_id"];
   const SKIP_KEYS = new Set([
@@ -35,10 +29,9 @@ function defaultBuildContext(payload: Record<string, any>): string {
 
     if (Array.isArray(v)) {
       if (v.length === 0) continue;
-      // Summarise object arrays — list first 8 short string fields per item.
       if (isObj(v[0])) {
         lines.push(`${k}: ${v.length} item(s)`);
-        v.slice(0, 8).forEach((item, i) => {
+        v.slice(0, 8).forEach((item) => {
           const desc = item.description || item.item || item.label || item.name || item.title;
           const status = item.status || item.result || item.severity;
           if (desc) lines.push(`  - ${status ? `[${status}] ` : ""}${desc}`);
@@ -48,14 +41,19 @@ function defaultBuildContext(payload: Record<string, any>): string {
       }
       continue;
     }
-
-    if (isObj(v)) continue; // skip nested objects
+    if (isObj(v)) continue;
     if (typeof v === "string" && v.startsWith("data:image")) continue;
-
     const display = typeof v === "string" && v.length > 240 ? v.slice(0, 240) + "…" : String(v);
     lines.push(`${k}: ${display}`);
   }
   return lines.join("\n");
+}
+
+// Pull subject + body from "Subject: ..." prefixed text
+function splitSubjectBody(text: string): { subject: string; body: string } {
+  const m = text.match(/^\s*Subject:\s*(.+?)\s*\n+([\s\S]*)$/i);
+  if (m) return { subject: m[1].trim(), body: m[2].trim() };
+  return { subject: "", body: text.trim() };
 }
 
 export function ClientSummaryPanel({
@@ -65,7 +63,16 @@ export function ClientSummaryPanel({
   buildContext,
 }: Props) {
   const [summary, setSummary] = useState("");
+  const [recipient, setRecipient] = useState<string>(
+    payload?.contact_email || payload?.client_email || payload?.customer_email || ""
+  );
   const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const customerId = payload?.customer_id || null;
+  const siteId = payload?.site_id || null;
+  const visitId = payload?.visit_id || null;
 
   async function generate() {
     setBusy(true);
@@ -106,13 +113,76 @@ export function ClientSummaryPanel({
     toast.success("Copied to clipboard");
   }
 
+  async function saveDraft() {
+    if (!summary.trim()) {
+      toast.error("Generate or write the email first");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { subject, body } = splitSubjectBody(summary);
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from("customer_email_drafts").insert({
+        customer_id: customerId,
+        site_id: siteId,
+        visit_id: visitId,
+        form_label: formLabel,
+        recipient_email: recipient || null,
+        subject: subject || `Service summary — ${formLabel}`,
+        body,
+        status: "draft",
+        created_by: user?.id || null,
+      });
+      if (error) throw error;
+      toast.success("Saved to customer file");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Failed to save draft");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function sendNow() {
+    if (!summary.trim()) {
+      toast.error("Generate or write the email first");
+      return;
+    }
+    if (!recipient.trim()) {
+      toast.error("Enter a recipient email");
+      return;
+    }
+    setSending(true);
+    try {
+      const { subject, body } = splitSubjectBody(summary);
+      const { data, error } = await supabase.functions.invoke("send-customer-email", {
+        body: {
+          to: recipient.trim(),
+          subject: subject || `Service summary — ${formLabel}`,
+          body,
+          customerId,
+          siteId,
+          visitId,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success("Email sent");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Failed to send email");
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-[11px] text-muted-foreground">
-          Generates a friendly client-facing email from this form's details.
+          Generates a friendly client-facing email. Save it to the customer file or send straight away.
         </p>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button size="sm" variant="outline" onClick={generate} disabled={busy}>
             {busy ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
             Generate
@@ -120,10 +190,25 @@ export function ClientSummaryPanel({
           <Button size="sm" variant="ghost" onClick={copy} disabled={!summary}>
             <Copy className="h-3.5 w-3.5 mr-1" />Copy
           </Button>
+          <Button size="sm" variant="outline" onClick={saveDraft} disabled={!summary || saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+            Save draft
+          </Button>
+          <Button size="sm" onClick={sendNow} disabled={!summary || !recipient || sending}>
+            {sending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+            Send now
+          </Button>
         </div>
       </div>
+      <Input
+        type="email"
+        value={recipient}
+        onChange={(e) => setRecipient(e.target.value)}
+        placeholder="Recipient email (e.g. client@example.com)"
+        className="h-8 text-xs"
+      />
       <Textarea
-        rows={8}
+        rows={10}
         value={summary}
         onChange={(e) => setSummary(e.target.value)}
         placeholder="Click Generate to create a plain-English client summary…"
