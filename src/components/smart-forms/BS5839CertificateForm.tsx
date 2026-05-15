@@ -272,7 +272,7 @@ export default function BS5839CertificateForm({
   }
   function removeDefect(id: string) { update("defects", defects.filter((d) => d.id !== id)); }
   function importDefects(entries: (DefectEntry & { _register_id?: string })[]) {
-    update("defects", [...defects, ...entries]);
+    setPayload((p) => ({ ...p, defects: [...(p.defects ?? []), ...entries] }));
   }
 
   const noCount = checklist.filter(c => c.status === "Fail" || c.status === "NO").length;
