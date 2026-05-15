@@ -162,7 +162,11 @@ export async function generateServiceReport(
     const cx = M + i * colW;
     doc.setFont("helvetica", "normal"); doc.setFontSize(8);
     doc.setTextColor(...MUTED); doc.text(l, cx, y);
-    doc.setTextColor(...BODY);  doc.text(v, cx + 13, y);
+    doc.setTextColor(...BODY);
+    const labelW = doc.getTextWidth(l) + 1.5;
+    const maxValW = colW - labelW - 2;
+    const fitted = doc.splitTextToSize(String(v), maxValW)[0] || "";
+    doc.text(fitted, cx + labelW, y);
   });
   y += 7;
 
