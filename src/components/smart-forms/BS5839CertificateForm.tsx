@@ -631,7 +631,7 @@ function SectionRows({ section, onChange }: {
         </td>
       </tr>
       {section.items.map(({ item, idx }) => {
-        const status = normalizeStatus(item.status);
+        const status = normalizeStatus(item.status, item.invert);
         const isYes = status === "YES";
         const isNo = status === "NO";
         const isNA = status === "N/A";
