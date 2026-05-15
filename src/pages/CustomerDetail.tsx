@@ -377,6 +377,9 @@ const CustomerDetail = () => {
           refreshKey={invoiceRefreshKey}
         />
 
+        {/* Email Drafts */}
+        <CustomerEmailDrafts customerId={customer.id} defaultRecipient={customer.contact_email || undefined} />
+
         {/* Email Logs */}
         <CustomerEmailLogs customerId={customer.id} />
 
