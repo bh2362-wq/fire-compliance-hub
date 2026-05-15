@@ -58,10 +58,14 @@ function normalizeStatus(s: ChecklistItem["status"]): YNStatus {
   if (s === "YES" || s === "NO" || s === "N/A") return s;
   return "";
 }
-function storeStatus(s: YNStatus): ChecklistItem["status"] {
-  if (s === "YES") return "Pass";
-  if (s === "NO") return "Fail";
+function storeStatus(s: YNStatus, invert = false): ChecklistItem["status"] {
   if (s === "N/A") return "N/A";
+  if (s === "") return "";
+  // For inverted items (where "No" is the compliant/desired answer),
+  // NO → Pass and YES → Fail. Otherwise YES → Pass and NO → Fail.
+  const yesIsPass = !invert;
+  if (s === "YES") return yesIsPass ? "Pass" : "Fail";
+  if (s === "NO") return yesIsPass ? "Fail" : "Pass";
   return "";
 }
 
