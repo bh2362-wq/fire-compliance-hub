@@ -203,7 +203,7 @@ Return ONLY this exact JSON structure, no other text:
         .eq("id", siteId)
         .maybeSingle();
 
-      const quotationNumber = `REM-${Date.now().toString().slice(-8)}`;
+      const { data: quotationNumber } = await supabase.rpc("get_next_quotation_number");
 
       // Create quotation
       const { data: quotation, error: qErr } = await supabase
