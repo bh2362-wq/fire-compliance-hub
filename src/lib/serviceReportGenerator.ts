@@ -238,7 +238,7 @@ export async function generateServiceReport(
     startY: y,
     head: [["Requirement", "YES", "NO", "N/A"]],
     body: tableBody,
-    margin: { left: M, right: M, bottom: FOOTER_RES },
+    margin: { top: 58, left: M, right: M, bottom: FOOTER_RES },
     tableWidth: TW,
     theme: "grid",
     headStyles: {
