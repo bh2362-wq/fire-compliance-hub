@@ -26,7 +26,7 @@ interface Props {
 
 async function buildPdfBase64(sub: SmartFormSubmission): Promise<{ base64: string; fileName: string }> {
   const p = (sub.payload || {}) as any;
-  const ft = sub.form_type;
+  const ft = sub.form_type as string;
   if (ft === "bs5839_installation") return generateInstallationCertificatePDF(p, { autoSign: true });
   if (ft === "bs5839_commissioning") return generateCommissioningCertificatePDF(p, { autoSign: true });
   if (ft === "bs5839_modification") return generateModificationCertificatePDF(p, { autoSign: true });
