@@ -28,6 +28,7 @@ import { DefectImportPanel } from "@/components/smart-forms/DefectImportPanel";
 import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
 import { ClientSummaryPanel } from "@/components/smart-forms/ClientSummaryPanel";
 import { PhotoAnalysisPanel } from "@/components/smart-forms/PhotoAnalysisPanel";
+import { scheduleNextServiceFromCert, loadOpenDefectsForSite, loadPreviousChecklistAnswers } from "@/services/nextServiceScheduler";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 const SERVICE_TYPES = [
@@ -92,7 +93,34 @@ export default function BS5839CertificateForm({
       setSubmissionId(null);
       setPayload({ ...buildEmptyPayload(), ...(prefill ?? {}) });
     }
-  }, [open, existing, prefill]);
+
+    if (siteId && !existing) {
+      // Load open defects from site register onto the new cert
+      loadOpenDefectsForSite(siteId).then((openDefects) => {
+        if (openDefects.length > 0) {
+          setPayload((p) => ({
+            ...p,
+            defects: dedupeDefects(p.defects ?? [], openDefects),
+          }));
+        }
+      });
+
+      // Carry forward checklist answers from last cert as starting point
+      loadPreviousChecklistAnswers(siteId).then((prevChecklist) => {
+        if (prevChecklist) {
+          setPayload((p) => ({
+            ...p,
+            checklist: p.checklist?.length
+              ? p.checklist.map((item: any, i: number) => ({
+                  ...item,
+                  status: prevChecklist[i]?.status ?? item.status,
+                }))
+              : prevChecklist,
+          }));
+        }
+      });
+    }
+  }, [open, existing, prefill, siteId]);
 
   const errors = useMemo(() => validatePayload(payload), [payload]);
 
@@ -240,6 +268,30 @@ export default function BS5839CertificateForm({
       ).catch(console.error);
     }
     if (saved.id) await pushDefectsToSiteDefects(saved.id);
+
+    // Schedule next service visit + calendar appointment
+    if (saved.payload?.next_service_date && siteId && user) {
+      try {
+        const siteNameForSchedule = (saved.payload as any).premises_name || "Site";
+        const result = await scheduleNextServiceFromCert({
+          siteId,
+          customerId: customerId ?? null,
+          certRef: saved.certificate_reference || "",
+          visitType: "fire",
+          nextServiceDate: saved.payload.next_service_date,
+          siteName: siteNameForSchedule,
+          engineerId: user.id,
+          userId: user.id,
+        });
+        if (result && !result.alreadyExisted) {
+          const dateLabel = new Date(saved.payload.next_service_date)
+            .toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+          toast.success(`Next service scheduled for ${dateLabel}`);
+        }
+      } catch (e) {
+        console.error("Failed to schedule next service:", e);
+      }
+    }
   }
 
   /* ── Checklist ops ─────────────────────────────────────────────── */
