@@ -155,14 +155,14 @@ function basePayload(over: Partial<BS5839Payload> = {}): BS5839Payload {
     engineer_declaration_name: "John Smith",
     client_name: "Giles Barton-Smith",
     checklist: [
-      { section: "Documentation", label: "Logbook present and up to date", status: "YES" },
-      { section: "Documentation", label: "As-fitted drawings available",   status: "NO"  },
+      { section: "Documentation", label: "Logbook present and up to date", status: "Pass" },
+      { section: "Documentation", label: "As-fitted drawings available",   status: "Fail"  },
       { section: "Documentation", label: "Zone plan adjacent to panel",    status: "N/A" },
-      { section: "Control Panel", label: "Panel powers up correctly",      status: "YES" },
-      { section: "Control Panel", label: "Battery voltage within spec",    status: "YES" },
-      { section: "Control Panel", label: "No outstanding faults",          status: "NO"  },
-      { section: "Devices",       label: "Sounders audible in all areas",  status: "YES" },
-      { section: "Devices",       label: "Manual call points unobstructed", status: "YES" },
+      { section: "Control Panel", label: "Panel powers up correctly",      status: "Pass" },
+      { section: "Control Panel", label: "Battery voltage within spec",    status: "Pass" },
+      { section: "Control Panel", label: "No outstanding faults",          status: "Fail"  },
+      { section: "Devices",       label: "Sounders audible in all areas",  status: "Pass" },
+      { section: "Devices",       label: "Manual call points unobstructed", status: "Pass" },
       // Special inputs (text/number) render value, not tick boxes.
       { section: "Devices", label: "Number of devices tested", special: "number", value: 89 },
     ],
@@ -231,6 +231,25 @@ describe("BS5839 service report PDF — layout regressions", () => {
       expect(greens.length).toBeGreaterThan(0);
       expect(reds.length).toBeGreaterThan(0);
       expect(greys.length).toBeGreaterThan(0);
+    });
+
+    it("maps edited submission Pass / Fail values back to YES / NO tick boxes", async () => {
+      await generate(basePayload({
+        checklist: [
+          { section: "Edited", label: "Normal pass item", status: "Pass" },
+          { section: "Edited", label: "Normal fail item", status: "Fail" },
+          { section: "Edited", label: "Inverted pass item", status: "Pass", invert: true },
+          { section: "Edited", label: "Inverted fail item", status: "Fail", invert: true },
+        ] as any,
+      }));
+
+      const colouredTicks = recorder.rectCalls.filter(r =>
+        (r.style === "F" || r.style === "FD") &&
+        (eqColor(r.fill, G_FILL) || eqColor(r.fill, R_FILL))
+      );
+
+      expect(colouredTicks.filter(r => eqColor(r.fill, G_FILL)).length).toBeGreaterThanOrEqual(2);
+      expect(colouredTicks.filter(r => eqColor(r.fill, R_FILL)).length).toBeGreaterThanOrEqual(2);
     });
   });
 
