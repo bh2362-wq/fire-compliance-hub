@@ -827,6 +827,13 @@ ${priceCtx}` }],
                           ? <Loader2 className="w-3 h-3 animate-spin" />
                           : <RefreshCw className="w-3 h-3" />}
                       </button>
+                      <button
+                        title="Find similar items in price list"
+                        onClick={() => findSimilar(line.id)}
+                        className="p-0.5 rounded hover:bg-accent/40 text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                      >
+                        <Search className="w-3 h-3" />
+                      </button>
                     </div>
                     {line.price_list_match && (
                       <span className="text-[10px] text-green-600 truncate">✓ {line.price_list_match}</span>
