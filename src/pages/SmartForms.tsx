@@ -313,8 +313,8 @@ export default function SmartForms() {
                               <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
                                 <FileDown className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" title="Email" asChild>
-                                <a href={buildMailto(sub)}><Mail className="h-4 w-4" /></a>
+                              <Button variant="ghost" size="icon" title="Email to client" onClick={() => setEmailingSub(sub)}>
+                                <Mail className="h-4 w-4" />
                               </Button>
                             </>
                           )}
