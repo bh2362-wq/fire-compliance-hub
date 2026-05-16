@@ -222,7 +222,11 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
               {loading ? (
                 <div className="flex flex-col items-center gap-3">
                   <Loader2 className="h-8 w-8 animate-spin text-[#e85c2c]" />
-                  <p className="text-sm text-[#5f6368]">Claude is reading your price list…</p>
+                  <p className="text-sm font-medium text-[#1a1a1a]">Reading price list…</p>
+                  <p className="text-xs text-[#5f6368]">
+                    Large PDFs are split into sections and processed in order.
+                    This may take a minute — please keep this window open.
+                  </p>
                   {fileName && <p className="text-xs text-[#9aa0a6]">{fileName}</p>}
                 </div>
               ) : (
