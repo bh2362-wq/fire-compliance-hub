@@ -54,9 +54,14 @@ export default function DevicePricing() {
             <h1 className="text-2xl font-bold">Device Pricing</h1>
             <p className="text-muted-foreground">Upload device health reports, get AI-powered pricing, and generate quotations</p>
           </div>
-          <Button onClick={() => setImportOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" /> Import Device Report
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setImportPriceListOpen(true)}>
+              <FileText className="mr-2 h-4 w-4" /> Import Price List PDF
+            </Button>
+            <Button onClick={() => setImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" /> Import Device Report
+            </Button>
+          </div>
         </div>
 
         {loading ? (
