@@ -16,6 +16,7 @@ export default function DevicePricing() {
   const [loading, setLoading] = useState(true);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [importPriceListOpen, setImportPriceListOpen] = useState(false);
 
   const fetchLists = async () => {
     setLoading(true);
