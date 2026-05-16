@@ -44,9 +44,16 @@ const CATEGORIES = [
 
 const TEXT_CHUNK_SIZE = 5500;
 const PAUSE_BETWEEN_CHUNKS_MS = 2500;
+const MAX_CHUNK_RETRIES = 4;
+const RETRY_BASE_DELAY_MS = 5000;
 
 function wait(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(message: string): boolean {
+  const m = (message || "").toLowerCase();
+  return m.includes("429") || m.includes("rate limit") || m.includes("rate_limit");
 }
 
 function splitTextIntoChunks(text: string, maxChars = TEXT_CHUNK_SIZE): string[] {
