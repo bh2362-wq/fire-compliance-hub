@@ -24,6 +24,7 @@ import { generateServiceReport as generateBS5839CertificatePDF } from "@/lib/ser
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
+import EmailSmartFormDialog from "@/components/smart-forms/EmailSmartFormDialog";
 
 type BS5839Form = "bs5839_inspection_servicing" | "bs5839_installation" | "bs5839_commissioning" | "bs5839_modification";
 type ActiveForm = BS5839Form | "el" | "asd" | "asd_comm" | "dr" | "declination" | null;
@@ -164,6 +165,7 @@ export default function SmartForms() {
   const [loading, setLoading] = useState(true);
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
   const [editing, setEditing] = useState<SmartFormSubmission | null>(null);
+  const [emailingSub, setEmailingSub] = useState<SmartFormSubmission | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -311,8 +313,8 @@ export default function SmartForms() {
                               <Button variant="ghost" size="icon" title="Download PDF" onClick={() => handleDownload(sub)}>
                                 <FileDown className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" title="Email" asChild>
-                                <a href={buildMailto(sub)}><Mail className="h-4 w-4" /></a>
+                              <Button variant="ghost" size="icon" title="Email to client" onClick={() => setEmailingSub(sub)}>
+                                <Mail className="h-4 w-4" />
                               </Button>
                             </>
                           )}
@@ -379,6 +381,12 @@ export default function SmartForms() {
         open={activeForm === "declination"}
         onOpenChange={(o) => { if (!o) closeForm(); }}
         onSaved={load}
+      />
+      <EmailSmartFormDialog
+        open={!!emailingSub}
+        onOpenChange={(o) => { if (!o) setEmailingSub(null); }}
+        submission={emailingSub}
+        formTypeLabel={formTypeLabel}
       />
     </DashboardLayout>
   );
