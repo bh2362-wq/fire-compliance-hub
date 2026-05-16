@@ -92,7 +92,7 @@ export function DevicePricingWorkbench({ priceListId, onBack }: DevicePricingWor
   const handleFieldChange = async (id: string, field: string, value: number) => {
     const item = items.find(i => i.id === id);
     if (!item) return;
-    const updates: Record = { [field]: value };
+    const updates: Record<string, number> = { [field]: value };
     const costPrice  = field === "cost_price"      ? value : item.cost_price;
     const markup     = field === "markup_percent"  ? value : item.markup_percent;
     const qty        = field === "quantity"        ? value : item.quantity;
