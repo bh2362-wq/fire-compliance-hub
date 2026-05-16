@@ -595,8 +595,24 @@ export default function BS5839CertificateForm({
                         </SelectContent>
                       </Select>
                     </div>
-                    <Textarea rows={2} placeholder="Description" value={d.description} onChange={(e) => patchDefect(d.id, { description: e.target.value })} className="text-xs" />
-                    <Textarea rows={2} placeholder="Recommended action" value={d.recommended_action} onChange={(e) => patchDefect(d.id, { recommended_action: e.target.value })} className="text-xs" />
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Defect description</span>
+                        <AIRewriteButton
+                          text={d.description || ""}
+                          type="defect_simplify"
+                          generateRecommendations
+                          context={d.recommended_action || ""}
+                          onRewrite={(v) => patchDefect(d.id, { description: v })}
+                          onRecommendationsGenerated={(rec) => patchDefect(d.id, { recommended_action: rec })}
+                        />
+                      </div>
+                      <Textarea rows={2} placeholder="Description (technical)" value={d.description} onChange={(e) => patchDefect(d.id, { description: e.target.value })} className="text-xs" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Resolution path (shown to client)</div>
+                      <Textarea rows={2} placeholder="Recommended action / resolution path" value={d.recommended_action} onChange={(e) => patchDefect(d.id, { recommended_action: e.target.value })} className="text-xs" />
+                    </div>
                   </div>
                 ))}
               </div>
