@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import type { PriceListItem } from "@/services/priceListService";
-import { buildPriceListContext, findPriceListMatch } from "@/services/priceListService";
+import { buildPriceListContext, findPriceListMatch, filterPriceListByRelevance } from "@/services/priceListService";
 
 export type PriceSource = "price_list" | "ai_estimate" | "web_search";
 
