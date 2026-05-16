@@ -42,7 +42,7 @@ const CATEGORIES = [
   "Cable", "Interface", "Battery", "Other",
 ];
 
-const TEXT_CHUNK_SIZE = 5500;
+const TEXT_CHUNK_SIZE = 3500;
 const PAUSE_BETWEEN_CHUNKS_MS = 2500;
 const MAX_CHUNK_RETRIES = 4;
 const RETRY_BASE_DELAY_MS = 5000;
