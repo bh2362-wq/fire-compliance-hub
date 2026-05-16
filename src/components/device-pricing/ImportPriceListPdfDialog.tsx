@@ -325,23 +325,23 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
     setSaving(true);
     try {
       const upsertRows = selected.map(r => ({
-        part_number:   r.part_number,
+        product_code:  r.part_number,
         description:   r.description,
-        manufacturer:  r.manufacturer || supplierName || null,
-        category:      r.category || "Other",
-        retail_price:  r.unit_cost,
-        trade_price:   r.unit_cost,
-        supplier_name: supplierName || r.manufacturer || null,
+        category:      r.category || null,
+        trade_price:   Number(r.unit_cost) || 0,
+        supplier_name: supplierName || r.manufacturer || "Unknown",
         updated_at:    new Date().toISOString(),
       }));
 
+      // Write to the shared supplier catalog so Product Lookup and Quotation
+      // lookup both see the imported prices.
       const { error } = await supabase
-        .from("materials_catalog")
-        .upsert(upsertRows, { onConflict: "part_number", ignoreDuplicates: false });
+        .from("supplier_products")
+        .upsert(upsertRows, { onConflict: "supplier_name,product_code", ignoreDuplicates: false });
 
       if (error) throw error;
 
-      toast.success(`${selected.length} items saved to price list`);
+      toast.success(`${selected.length} items saved to catalog`);
       setStep("done");
       onSuccess?.();
     } catch (e: any) {
