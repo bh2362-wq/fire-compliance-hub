@@ -493,14 +493,17 @@ For each item verify whether the part number matches the description. Return ONL
 
       // 2. Not in price list — ask Claude to identify + estimate price
       const priceCtx = buildPriceListContext(priceList.slice(0, 80)); // keep prompt short
+      const brandLock = lockedManufacturer
+        ? `\n\nBRAND LOCK: This job is for ${lockedManufacturer} equipment. ASSUME this part is ${lockedManufacturer}. Do NOT suggest other manufacturers.`
+        : "";
       const { data: fnData2, error: fnError2 } = await supabase.functions.invoke("claude-chat", {
         body: {
           model: "claude-sonnet-4-5",
-          system: `You are a fire alarm parts specialist for BHO Fire & Security Ltd. Identify this fire alarm component and provide pricing. Use the price list context if a similar item exists. Return ONLY JSON:
+          system: `You are a fire alarm parts specialist for BHO Fire & Security Ltd. Identify this fire alarm component and provide pricing. Use the price list context if a similar item exists.${brandLock} Return ONLY JSON:
 {"description":"full professional description","manufacturer":"brand","model":"model name","part_number":"correct part number if known","category":"Detector|Sounder|VAD|MCP|Panel|Cable|Other","unit_cost":0.00,"labour_cost":0.00,"confidence":"High|Medium|Low","note":"brief explanation"}`,
           messages: [{
             role: "user",
-            content: `Identify this fire alarm component: "${query}"
+            content: `Identify this fire alarm component: "${query}"${lockedManufacturer ? `\n(Manufacturer is ${lockedManufacturer})` : ""}
 
 Price list for reference:
 ${priceCtx}`,
