@@ -841,6 +841,11 @@ const Quotations = () => {
             })}
           </div>
         )}
+          </TabsContent>
+          <TabsContent value="pipeline">
+            <QuotePipeline />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* View Quotation Dialog */}
