@@ -3,6 +3,7 @@ import StatsCard from "@/components/dashboard/StatsCard";
 import RecentVisits from "@/components/dashboard/RecentVisits";
 import QuickActions from "@/components/dashboard/QuickActions";
 import TodaySchedule from "@/components/dashboard/TodaySchedule";
+import ServiceDueDashboard from "@/components/dashboard/ServiceDueDashboard";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { BankReconciliation } from "@/components/xero/BankReconciliation";
