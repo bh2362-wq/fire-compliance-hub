@@ -23,7 +23,8 @@ const corsHeaders = {
 
 const MAX_RETRIES  = 4;
 const BASE_DELAY   = 4000;  // 4s initial backoff on 429
-const CHUNK_PAGES  = 15;    // pages per Claude request
+const CHUNK_PAGES  = 3;     // pages per Claude request when PDF text extraction is unavailable
+const TEXT_CHARS   = 6000;  // keep each text request safely below token-per-minute limits
 
 // ── Claude call with retry/backoff ────────────────────────────────────────────
 async function callClaude(
@@ -103,6 +104,35 @@ Rules:
   return Array.isArray(rows) ? rows : [];
 }
 
+
+// ── Split pasted/extracted text into small model-safe sections ────────────────
+function splitTextIntoChunks(text: string, maxChars = TEXT_CHARS): string[] {
+  const cleaned = String(text || "").replace(/\r/g, "").trim();
+  if (!cleaned) return [];
+
+  const lines = cleaned.split("\n");
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const line of lines) {
+    const next = current ? `${current}\n${line}` : line;
+    if (next.length > maxChars && current) {
+      chunks.push(current.trim());
+      current = line;
+    } else {
+      current = next;
+    }
+
+    while (current.length > maxChars) {
+      chunks.push(current.slice(0, maxChars).trim());
+      current = current.slice(maxChars);
+    }
+  }
+
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
 // ── Sanitise extracted rows ───────────────────────────────────────────────────
 function sanitise(rows: any[]): any[] {
   return rows
@@ -149,14 +179,31 @@ Deno.serve(async (req) => {
 
     let allRows: any[] = [];
 
-    // ── Email/text-only path ─────────────────────────────────────────────────
+    // ── Email/text-only path — split into smaller model-safe chunks ──────────
     if (!b64 && emailText) {
-      const content = [
-        { type: "text", text: `Email body / quotation text${supplierName ? ` from ${supplierName}` : ""}:\n\n${emailText}` },
-        { type: "text", text: "Extract every fire alarm part with a price from the text above." },
-      ];
-      const rows = await callClaude(ANTHROPIC_API_KEY, content);
-      allRows = sanitise(rows);
+      const textChunks = splitTextIntoChunks(emailText, Math.max(2000, Math.min(Number(chunkSize) || TEXT_CHARS, TEXT_CHARS)));
+      const numChunks = textChunks.length;
+      console.log(`Processing text in ${numChunks} chunk(s)`);
+
+      for (let chunk = 0; chunk < numChunks; chunk++) {
+        const content = [
+          { type: "text", text: `Supplier price list text${supplierName ? ` from ${supplierName}` : ""}. Section ${chunk + 1} of ${numChunks}:\n\n${textChunks[chunk]}` },
+          { type: "text", text: "Extract every fire alarm part with a price from this text section only." },
+        ];
+
+        try {
+          const rows = await callClaude(ANTHROPIC_API_KEY, content);
+          const cleaned = sanitise(rows);
+          allRows.push(...cleaned);
+          console.log(`Text chunk ${chunk + 1}/${numChunks}: extracted ${cleaned.length} items`);
+        } catch (e: any) {
+          console.error(`Text chunk ${chunk + 1} failed:`, e.message);
+        }
+
+        if (chunk < numChunks - 1) {
+          await new Promise(r => setTimeout(r, 2500));
+        }
+      }
 
     } else if (b64) {
       // ── PDF path — split into page chunks ─────────────────────────────────
@@ -206,7 +253,11 @@ Deno.serve(async (req) => {
         pages.forEach(p => chunkDoc.addPage(p));
 
         const chunkBytes  = await chunkDoc.save();
-        const chunkB64    = btoa(String.fromCharCode(...chunkBytes));
+        let binary = "";
+        for (let i = 0; i < chunkBytes.length; i += 8192) {
+          binary += String.fromCharCode(...chunkBytes.slice(i, i + 8192));
+        }
+        const chunkB64 = btoa(binary);
 
         const content = [
           {
@@ -240,7 +291,7 @@ Deno.serve(async (req) => {
     const final = dedup(allRows);
 
     return new Response(
-      JSON.stringify({ rows: final, total: final.length }),
+      JSON.stringify({ rows: final, total: final.length, chunksProcessed: allRows.length ? undefined : 0 }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
