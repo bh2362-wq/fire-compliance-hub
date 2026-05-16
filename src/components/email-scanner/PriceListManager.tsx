@@ -126,7 +126,7 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
     pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
 
     const buffer = await file.arrayBuffer();
-    const pdf = await pdfjs.getDocument({ data: buffer }).promise;
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer), disableWorker: false, isEvalSupported: false }).promise;
     let extracted = "";
 
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
