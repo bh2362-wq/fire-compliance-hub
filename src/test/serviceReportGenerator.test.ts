@@ -351,4 +351,86 @@ describe("BS5839 service report PDF — layout regressions", () => {
       expect(recorder.textCalls.some(c => c.text === "Giles Barton Smith" && c.font === "times")).toBe(true);
     });
   });
+
+  // Regression: BS5839-IS-2026-00018 was reported "jumbled" after edit + re-download.
+  // The edit flow stores checklist as Pass/Fail and signatures as plain strings.
+  // This test re-generates a payload shaped like that submission and asserts the
+  // three failure modes the user hit (ticks, layout, signatures) cannot regress.
+  describe("BS5839-IS-2026-00018 — edited submission regression", () => {
+    const editedPayload = (): BS5839Payload => basePayload({
+      certificate_reference: "BS5839-IS-2026-00018",
+      certificate_type: "Inspection & Service",
+      premises_name: "Palantir Technologies UK Ltd",
+      panel_manufacturer: "Advanced MxPro 5",
+      panel_model: "MX-5402",
+      // Edited submissions: Pass/Fail strings, mixed with N/A and an inverted item.
+      checklist: [
+        { section: "Documentation", label: "Logbook present",         status: "Pass" },
+        { section: "Documentation", label: "Zone plan adjacent",      status: "Pass" },
+        { section: "Documentation", label: "As-fitted drawings",      status: "Fail" },
+        { section: "Control Panel", label: "Panel powers up",         status: "Pass" },
+        { section: "Control Panel", label: "Battery within spec",     status: "Pass" },
+        { section: "Control Panel", label: "Outstanding faults",      status: "Fail", invert: true },
+        { section: "Devices",       label: "Sounders audible",        status: "Pass" },
+        { section: "Devices",       label: "MCPs unobstructed",       status: "Pass" },
+        { section: "Devices",       label: "Detector heads clean",    status: "N/A" },
+        { section: "Devices", label: "Devices tested", special: "number", value: 89 },
+      ] as any,
+      // Plain typed signatures (no data: URI) — this is what the edit form saves.
+      engineer_signature: "B Holden",
+      client_signature: "G Barton-Smith",
+    });
+
+    it("regenerates without throwing and produces the correct filename", async () => {
+      const result = await generate(editedPayload());
+      expect(result.fileName).toContain("BS5839-IS-2026-00018");
+    });
+
+    it("draws coloured tick boxes for every Pass / Fail / N/A row (no missing ticks)", async () => {
+      await generate(editedPayload());
+
+      const filled = recorder.rectCalls.filter(r =>
+        (r.style === "F" || r.style === "FD") &&
+        (eqColor(r.fill, G_FILL) || eqColor(r.fill, R_FILL) || eqColor(r.fill, N_FILL))
+      );
+
+      // 9 non-special items → expect at least one filled tick per row.
+      expect(filled.length).toBeGreaterThanOrEqual(9);
+      expect(filled.some(r => eqColor(r.fill, G_FILL))).toBe(true);
+      expect(filled.some(r => eqColor(r.fill, R_FILL))).toBe(true);
+      expect(filled.some(r => eqColor(r.fill, N_FILL))).toBe(true);
+    });
+
+    it("keeps the SYSTEM row aligned in 5 columns (not jumbled)", async () => {
+      await generate(editedPayload());
+
+      const colW = (A4_W - M * 2) / 5;
+      const labels = ["Panel:", "Model:", "Category:", "Zones:", "Devices:"];
+      labels.forEach((label, i) => {
+        const call = recorder.textCalls.find(c => c.page === 1 && c.text === label && c.size === 8);
+        expect(call, `missing SYSTEM label "${label}"`).toBeTruthy();
+        expect(Math.abs(call!.x - (M + i * colW))).toBeLessThan(0.5);
+      });
+    });
+
+    it("renders both typed signatures and never overlaps the logo header", async () => {
+      await generate(editedPayload());
+
+      // Signatures present.
+      expect(recorder.textCalls.some(c => c.text === "B Holden" && c.font === "times")).toBe(true);
+      expect(recorder.textCalls.some(c => c.text === "G Barton-Smith" && c.font === "times")).toBe(true);
+
+      // Header: no left/right anchored text shares a baseline (logo overlap guard).
+      const headerBand = recorder.textCalls.filter(c => c.page === 1 && c.y < 50);
+      const left  = headerBand.filter(c => c.x <= M + 0.1);
+      const right = headerBand.filter(c => Math.abs(c.x - (A4_W - M)) < 0.1);
+      right.forEach(r => {
+        const clash = left.find(l => Math.abs(l.y - r.y) < 1.5);
+        expect(clash, `header overlap at y=${r.y}: "${clash?.text}" vs "${r.text}"`).toBeUndefined();
+      });
+
+      // Cert reference renders right-anchored on page 1.
+      expect(recorder.textCalls.some(c => c.page === 1 && c.text === "BS5839-IS-2026-00018")).toBe(true);
+    });
+  });
 });
