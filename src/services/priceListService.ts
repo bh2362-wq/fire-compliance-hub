@@ -351,11 +351,13 @@ function generateKeywords(r: ParsedPriceRow): string[] {
 export async function updatePriceListItem(id: string, updates: Partial<PriceListItem>): Promise<void> {
   const { error } = await supabase.from("price_list_items").update(updates as any).eq("id", id);
   if (error) throw error;
+  invalidatePriceListCache();
 }
 
 export async function deletePriceListItem(id: string): Promise<void> {
   const { error } = await supabase.from("price_list_items").delete().eq("id", id);
   if (error) throw error;
+  invalidatePriceListCache();
 }
 
 // ── Price list lookup ─────────────────────────────────────────────────────────
@@ -364,6 +366,11 @@ export async function deletePriceListItem(id: string): Promise<void> {
 export async function findPriceListMatch(query: string): Promise<PriceListItem[]> {
   if (!query.trim()) return [];
   const q = query.trim();
+  const cacheKey = q.toLowerCase();
+  const now = Date.now();
+
+  const cached = matchCache.get(cacheKey);
+  if (cached && now - cached.fetchedAt < MATCH_TTL_MS) return cached.items;
 
   // 1. Exact part number match
   const { data: exact } = await supabase
@@ -372,16 +379,28 @@ export async function findPriceListMatch(query: string): Promise<PriceListItem[]
     .ilike("part_number", q)
     .eq("is_active", true)
     .limit(3);
-  if (exact && exact.length > 0) return exact as unknown as PriceListItem[];
 
-  // 2. Fuzzy: part number contains OR description contains
-  const { data: fuzzy } = await supabase
-    .from("price_list_items")
-    .select("*")
-    .or(`part_number.ilike.%${q}%,description.ilike.%${q}%`)
-    .eq("is_active", true)
-    .limit(5);
-  return (fuzzy ?? []) as unknown as PriceListItem[];
+  let result: PriceListItem[];
+  if (exact && exact.length > 0) {
+    result = exact as unknown as PriceListItem[];
+  } else {
+    // 2. Fuzzy: part number contains OR description contains
+    const { data: fuzzy } = await supabase
+      .from("price_list_items")
+      .select("*")
+      .or(`part_number.ilike.%${q}%,description.ilike.%${q}%`)
+      .eq("is_active", true)
+      .limit(5);
+    result = (fuzzy ?? []) as unknown as PriceListItem[];
+  }
+
+  if (matchCache.size >= MATCH_CACHE_MAX) {
+    // Drop oldest entry (Map preserves insertion order)
+    const firstKey = matchCache.keys().next().value;
+    if (firstKey) matchCache.delete(firstKey);
+  }
+  matchCache.set(cacheKey, { items: result, fetchedAt: now });
+  return result;
 }
 
 // ── Context builder for Claude ─────────────────────────────────────────────────
