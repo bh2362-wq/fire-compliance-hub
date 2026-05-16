@@ -474,6 +474,9 @@ export async function generateServiceReport(
   // ── Footers ────────────────────────────────────────────────────────────────
   drawMasterFooter(doc, pw);
 
+  const fileName = `${certRef}.pdf`;
   const b64 = doc.output("datauristring").split(",")[1];
-  return { base64: b64, fileName: `${certRef}.pdf` };
+  // Trigger browser download so the user actually gets the file
+  try { doc.save(fileName); } catch (e) { console.error("doc.save failed", e); }
+  return { base64: b64, fileName };
 }
