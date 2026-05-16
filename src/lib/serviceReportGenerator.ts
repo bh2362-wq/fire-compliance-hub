@@ -160,7 +160,7 @@ export async function generateServiceReport(
 
   // ── SYSTEM bar ─────────────────────────────────────────────────────────────
   fullHead(doc, pw, y, "SYSTEM");
-  y += 9;
+  y += 11;
   const sysItems: [string, string][] = [
     ["Panel:",    san(payload.panel_manufacturer || "-")],
     ["Model:",    san(payload.panel_model        || "-")],
