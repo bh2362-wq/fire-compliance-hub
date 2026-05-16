@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { TypedSignature } from "@/components/ui/typed-signature";
 import {
   Plus, Trash2, Save, FileDown, AlertCircle, CheckCircle2,
-  ChevronDown, Sparkles,
+  ChevronDown, Sparkles, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
