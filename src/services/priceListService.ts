@@ -364,6 +364,44 @@ export async function deletePriceListItem(id: string): Promise<void> {
 // ── Price list lookup ─────────────────────────────────────────────────────────
 
 /** Search price list by part number (exact first, then fuzzy) or description */
+/**
+ * Generate sensible search variants for a raw query:
+ *  "S4-771 S"      -> ["S4-771 S", "S4-771", "S4-771S", "S4771"]
+ *  "S4-901 CO"     -> ["S4-901 CO", "S4-901", "S4-901CO", "S4901"]
+ *  "UBT024F-EL(68)001" -> ["UBT024F-EL(68)001", "UBT024F-EL", "UBT024FEL"]
+ */
+function buildQueryVariants(raw: string): string[] {
+  const variants = new Set<string>();
+  const base = raw.trim();
+  variants.add(base);
+
+  // Strip parenthetical / bracket address tails
+  const noParen = base.replace(/\s*[\(\[].*$/, "").trim();
+  if (noParen) variants.add(noParen);
+
+  // Strip trailing single-letter suffix preceded by space ("S4-771 S")
+  const noTrailingLetter = noParen.replace(/\s+[a-z]$/i, "").trim();
+  if (noTrailingLetter && noTrailingLetter !== noParen) variants.add(noTrailingLetter);
+
+  // Strip trailing short alpha tag preceded by space ("S4-901 CO")
+  const noTrailingTag = noParen.replace(/\s+[a-z]{1,4}$/i, "").trim();
+  if (noTrailingTag && noTrailingTag !== noParen) variants.add(noTrailingTag);
+
+  // Core: keep up to and including a dash-number block like "XX-NNN"
+  const coreMatch = noParen.match(/^([A-Za-z]+\d*-\d+)/);
+  if (coreMatch) variants.add(coreMatch[1]);
+
+  // Compact: remove spaces (so "S4-771 S" -> "S4-771S")
+  const compact = base.replace(/\s+/g, "");
+  if (compact) variants.add(compact);
+
+  // Alphanumeric only
+  const alnum = base.replace(/[^a-z0-9]/gi, "");
+  if (alnum && alnum.length >= 4) variants.add(alnum);
+
+  return Array.from(variants).filter(v => v.length >= 2);
+}
+
 export async function findPriceListMatch(query: string): Promise<PriceListItem[]> {
   if (!query.trim()) return [];
   const q = query.trim();
@@ -373,26 +411,39 @@ export async function findPriceListMatch(query: string): Promise<PriceListItem[]
   const cached = matchCache.get(cacheKey);
   if (cached && now - cached.fetchedAt < MATCH_TTL_MS) return cached.items;
 
-  // 1. Exact part number match
-  const { data: exact } = await supabase
-    .from("price_list_items")
-    .select("*")
-    .ilike("part_number", q)
-    .eq("is_active", true)
-    .limit(3);
+  const variants = buildQueryVariants(q);
+  let result: PriceListItem[] = [];
 
-  let result: PriceListItem[];
-  if (exact && exact.length > 0) {
-    result = exact as unknown as PriceListItem[];
-  } else {
-    // 2. Fuzzy: part number contains OR description contains
-    const { data: fuzzy } = await supabase
+  // 1. Try EXACT part_number match across all variants
+  for (const v of variants) {
+    const { data: exact } = await supabase
       .from("price_list_items")
       .select("*")
-      .or(`part_number.ilike.%${q}%,description.ilike.%${q}%`)
+      .ilike("part_number", v)
       .eq("is_active", true)
       .limit(5);
-    result = (fuzzy ?? []) as unknown as PriceListItem[];
+    if (exact && exact.length > 0) {
+      result = exact as unknown as PriceListItem[];
+      break;
+    }
+  }
+
+  // 2. Fuzzy contains across variants — accumulate, dedupe
+  if (result.length === 0) {
+    const seen = new Set<string>();
+    for (const v of variants) {
+      const { data: fuzzy } = await supabase
+        .from("price_list_items")
+        .select("*")
+        .or(`part_number.ilike.%${v}%,description.ilike.%${v}%`)
+        .eq("is_active", true)
+        .limit(8);
+      for (const row of (fuzzy ?? []) as unknown as PriceListItem[]) {
+        if (!seen.has(row.id)) { seen.add(row.id); result.push(row); }
+        if (result.length >= 10) break;
+      }
+      if (result.length >= 10) break;
+    }
   }
 
   if (matchCache.size >= MATCH_CACHE_MAX) {

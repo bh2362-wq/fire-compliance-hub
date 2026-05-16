@@ -112,6 +112,26 @@ export function SmartQuoteGenerator({
   const [lookupResults, setLookupResults]   = useState<PriceListItem[]>([]);
   const [lookupLoading, setLookupLoading]   = useState(false);
   const [lookupSearched, setLookupSearched] = useState(false);
+  // Per-line "find similar" inline picker
+  const [similarOpenId, setSimilarOpenId]   = useState<string | null>(null);
+  const [similarResults, setSimilarResults] = useState<PriceListItem[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
+
+  // Derive the dominant manufacturer from current lines so subsequent AI
+  // lookups can be locked to that brand (e.g. "if 1 Gent part found, all Gent").
+  const lockedManufacturer = (() => {
+    const counts: Record<string, number> = {};
+    for (const l of lines) {
+      const m = (l.manufacturer || "").trim();
+      if (!m) continue;
+      counts[m] = (counts[m] || 0) + 1;
+    }
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (sorted.length === 0) return "";
+    // Lock if the top brand accounts for >=50% of branded lines
+    const totalBranded = sorted.reduce((s, [, n]) => s + n, 0);
+    return sorted[0][1] / totalBranded >= 0.5 ? sorted[0][0] : "";
+  })();
 
   function uid() { return Math.random().toString(36).slice(2, 10); }
 
@@ -393,6 +413,61 @@ For each item verify whether the part number matches the description. Return ONL
     onLinesGenerated(updated, includeLabour);
   }
 
+  // ── Find similar items in the price list for a line and show inline picker ──
+  async function findSimilar(lineId: string) {
+    const line = lines.find(l => l.id === lineId);
+    if (!line) return;
+    const query = (line.part_number || line.description || "").trim();
+    if (!query) { toast.error("Enter a part number or description first"); return; }
+    if (similarOpenId === lineId) {
+      setSimilarOpenId(null);
+      setSimilarResults([]);
+      return;
+    }
+    setSimilarOpenId(lineId);
+    setSimilarLoading(true);
+    setSimilarResults([]);
+    try {
+      let matches = await findPriceListMatch(query);
+      if (lockedManufacturer && matches.length > 0) {
+        const same = matches.filter(m => (m.manufacturer || "").toLowerCase() === lockedManufacturer.toLowerCase());
+        if (same.length > 0) matches = same;
+      }
+      setSimilarResults(matches);
+      if (matches.length === 0) toast.info("No near matches in price list");
+    } catch {
+      toast.error("Search failed");
+    } finally {
+      setSimilarLoading(false);
+    }
+  }
+
+  function applySimilar(lineId: string, item: PriceListItem) {
+    setLines(prev => {
+      const updated = prev.map(l => l.id !== lineId ? l : {
+        ...l,
+        description: item.description,
+        manufacturer: item.manufacturer || l.manufacturer,
+        model: item.model || l.model,
+        part_number: item.part_number || l.part_number,
+        category: item.category || l.category,
+        unit_cost: item.unit_cost,
+        labour_cost: item.labour_cost,
+        price_source: "price_list" as PriceSource,
+        confidence: "High" as const,
+        price_list_match: item.description,
+        ai_note: `Selected from price list: ${item.part_number || item.description}`,
+        total: (item.unit_cost + (includeLabour ? item.labour_cost : 0)) * l.quantity,
+      });
+      onLinesGenerated(updated, includeLabour);
+      return updated;
+    });
+    setSimilarOpenId(null);
+    setSimilarResults([]);
+    toast.success(`Updated: ${item.description}`);
+  }
+
+
   // ── Re-match a line against price list + Claude ──────────────────────────────
   async function rematchLine(lineId: string) {
     const line = lines.find(l => l.id === lineId);
@@ -473,14 +548,17 @@ For each item verify whether the part number matches the description. Return ONL
 
       // 2. Not in price list — ask Claude to identify + estimate price
       const priceCtx = buildPriceListContext(priceList.slice(0, 80)); // keep prompt short
+      const brandLock = lockedManufacturer
+        ? `\n\nBRAND LOCK: This job is for ${lockedManufacturer} equipment. ASSUME this part is ${lockedManufacturer}. Do NOT suggest other manufacturers.`
+        : "";
       const { data: fnData2, error: fnError2 } = await supabase.functions.invoke("claude-chat", {
         body: {
           model: "claude-sonnet-4-5",
-          system: `You are a fire alarm parts specialist for BHO Fire & Security Ltd. Identify this fire alarm component and provide pricing. Use the price list context if a similar item exists. Return ONLY JSON:
+          system: `You are a fire alarm parts specialist for BHO Fire & Security Ltd. Identify this fire alarm component and provide pricing. Use the price list context if a similar item exists.${brandLock} Return ONLY JSON:
 {"description":"full professional description","manufacturer":"brand","model":"model name","part_number":"correct part number if known","category":"Detector|Sounder|VAD|MCP|Panel|Cable|Other","unit_cost":0.00,"labour_cost":0.00,"confidence":"High|Medium|Low","note":"brief explanation"}`,
           messages: [{
             role: "user",
-            content: `Identify this fire alarm component: "${query}"
+            content: `Identify this fire alarm component: "${query}"${lockedManufacturer ? `\n(Manufacturer is ${lockedManufacturer})` : ""}
 
 Price list for reference:
 ${priceCtx}`,
@@ -565,12 +643,15 @@ ${priceCtx}`,
     setLookupLoading(true);
     try {
       const priceCtx = buildPriceListContext(priceList.slice(0, 80));
+      const brandLock = lockedManufacturer
+        ? `\n\nBRAND LOCK: Quote is for ${lockedManufacturer} equipment — assume this part is ${lockedManufacturer}. Do NOT suggest other brands.`
+        : "";
       const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-chat", {
         body: {
           model: "claude-sonnet-4-5",
-          system: `You are a fire alarm parts specialist. Identify this component and provide a quote line. Return ONLY JSON:
+          system: `You are a fire alarm parts specialist. Identify this component and provide a quote line.${brandLock} Return ONLY JSON:
 {"description":"professional description","manufacturer":"brand","model":"model","part_number":"part number if known","category":"Detector|Sounder|VAD|MCP|Panel|Cable|Other","unit_cost":0.00,"labour_cost":0.00,"confidence":"High|Medium|Low","note":"explanation"}`,
-          messages: [{ role: "user", content: `Identify and price: "${lookupQuery}"
+          messages: [{ role: "user", content: `Identify and price: "${lookupQuery}"${lockedManufacturer ? `\n(Manufacturer is ${lockedManufacturer})` : ""}
 
 Price list:
 ${priceCtx}` }],
@@ -690,9 +771,13 @@ ${priceCtx}` }],
             {Object.values(verifications).filter(v => v.status === "incorrect").length} part no. issues
           </Badge>
         )}
+        {lockedManufacturer && (
+          <Badge variant="outline" className="gap-1 border-blue-300/60 text-blue-700">
+            <ShieldCheck className="w-2.5 h-2.5" />
+            Locked to {lockedManufacturer}
+          </Badge>
+        )}
       </div>
-
-      {/* Lines */}
       <div className="space-y-2">
         {lines.map((line, idx) => {
           const v = verifications[line.id];
@@ -746,6 +831,13 @@ ${priceCtx}` }],
                           ? <Loader2 className="w-3 h-3 animate-spin" />
                           : <RefreshCw className="w-3 h-3" />}
                       </button>
+                      <button
+                        title="Find similar items in price list"
+                        onClick={() => findSimilar(line.id)}
+                        className="p-0.5 rounded hover:bg-accent/40 text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                      >
+                        <Search className="w-3 h-3" />
+                      </button>
                     </div>
                     {line.price_list_match && (
                       <span className="text-[10px] text-green-600 truncate">✓ {line.price_list_match}</span>
@@ -798,6 +890,35 @@ ${priceCtx}` }],
                     <p className="text-[10px] text-green-600 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" />{v.note}
                     </p>
+                  )}
+
+                  {similarOpenId === line.id && (
+                    <div className="rounded-md border border-border bg-muted/40 p-2 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-semibold text-muted-foreground">
+                          {similarLoading ? "Searching price list…" : `${similarResults.length} near match${similarResults.length !== 1 ? "es" : ""} — click to apply`}
+                          {lockedManufacturer && !similarLoading && <span className="ml-1.5 font-normal">(filtered to {lockedManufacturer})</span>}
+                        </p>
+                        <button className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                          onClick={() => { setSimilarOpenId(null); setSimilarResults([]); }}>
+                          Close
+                        </button>
+                      </div>
+                      {similarLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                      {!similarLoading && similarResults.map(item => (
+                        <button key={item.id} onClick={() => applySimilar(line.id, item)}
+                          className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent/60 border border-transparent hover:border-primary/30 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-medium truncate">{item.description}</p>
+                            <div className="flex gap-2 text-[9px] text-muted-foreground">
+                              {item.manufacturer && <span>{item.manufacturer}</span>}
+                              {item.part_number && <span className="font-mono">{item.part_number}</span>}
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-semibold flex-shrink-0">£{Number(item.unit_cost).toFixed(2)}</span>
+                        </button>
+                      ))}
+                    </div>
                   )}
 
                   <div className={cn("grid gap-2", includeLabour ? "grid-cols-4" : "grid-cols-3")}>
