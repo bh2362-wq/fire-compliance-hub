@@ -111,52 +111,103 @@ export function DevicePricingWorkbench({ priceListId, onBack }: DevicePricingWor
     else { toast.success("Items merged"); setSelectedIds(new Set()); fetchData(); }
   };
 
-  // ── AI search all ────────────────────────────────────────────────────────────
+  // ── Catalog-first lookup ──────────────────────────────────────────────────────
+  const lookupFromCatalog = async (model_number: string | undefined, description: string) => {
+    const query = model_number?.trim() || description.trim();
+    if (!query) return null;
+    const { data } = await supabase.functions.invoke("lookup-material", {
+      body: { query, limit: 3 },
+    });
+    if (!data?.suggestions?.length) return null;
+    const top = data.suggestions[0];
+    const price = Number(top.retail_price) || 0;
+    if (price <= 0) return null;
+    // Confidence check
+    const words = query.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
+    const descLow = (top.description || "").toLowerCase();
+    const matched = words.filter((w: string) => descLow.includes(w)).length;
+    const ratio = words.length > 0 ? matched / words.length : 0;
+    return ratio >= 0.4 ? { price, description: top.description, part_number: top.part_number, source: top.source } : null;
+  };
+
+  // ── AI search all (catalog-first, AI fallback) ────────────────────────────────
   const handleSearchAll = async () => {
     const pendingItems = items.filter(i =>
       i.ai_search_status === "pending" || i.ai_search_status === "error"
     );
     if (pendingItems.length === 0) { toast.info("All items already priced"); return; }
     setSearchingAll(true);
-    for (let i = 0; i < pendingItems.length; i += 10) {
-      const batch = pendingItems.slice(i, i + 10);
-      const devices = batch.map(d => ({
-        model_number: d.model_number || undefined,
-        description:  d.description,
-        quantity:     d.quantity,
-      }));
-      const { results, error } = await searchDevicePrices(devices);
-      if (error) { toast.error(`Price search failed: ${error.message}`); break; }
-      for (const result of results) {
-        const idx  = (result.index || 1) - 1;
-        const item = batch[idx];
-        if (!item) continue;
-        const bestPrice = result.estimated_trade_price || 0;
+
+    let catalogHits = 0, aiHits = 0;
+
+    for (const item of pendingItems) {
+      // Step 1 — check Huvo catalog first
+      const catalogMatch = await lookupFromCatalog(item.model_number || undefined, item.description);
+      if (catalogMatch) {
         const updates = {
-          cost_price:        bestPrice,
-          sell_price:        bestPrice * (1 + item.markup_percent / 100) * item.quantity + item.labour_cost,
-          ai_search_status:  "completed" as const,
-          ai_price_results:  result.suppliers || [],
+          cost_price:       catalogMatch.price,
+          sell_price:       catalogMatch.price * (1 + item.markup_percent / 100) * item.quantity + item.labour_cost,
+          ai_search_status: "completed" as const,
+          ai_price_results: [{ name: "Huvo Catalog", estimated_price: catalogMatch.price, source: catalogMatch.source, description: catalogMatch.description }],
         };
         await updatePriceItem(item.id, updates);
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, ...updates } : i));
+        catalogHits++;
+        continue;
+      }
+
+      // Step 2 — fall back to AI estimate
+      const { results, error } = await searchDevicePrices([{
+        model_number: item.model_number || undefined,
+        description:  item.description,
+        quantity:     item.quantity,
+      }]);
+      if (!error && results[0]) {
+        const bestPrice = results[0].estimated_trade_price || 0;
+        const updates = {
+          cost_price:       bestPrice,
+          sell_price:       bestPrice * (1 + item.markup_percent / 100) * item.quantity + item.labour_cost,
+          ai_search_status: "completed" as const,
+          ai_price_results: results[0].suppliers || [],
+        };
+        await updatePriceItem(item.id, updates);
+        setItems(prev => prev.map(i => i.id === item.id ? { ...i, ...updates } : i));
+        aiHits++;
       }
     }
+
     await updatePriceListTotals(priceListId);
+    toast.success(`Priced ${catalogHits + aiHits} items — ${catalogHits} from Huvo catalog, ${aiHits} AI estimates`);
     setSearchingAll(false);
-    toast.success("AI price search complete");
     fetchData();
   };
 
-  // ── AI search single ─────────────────────────────────────────────────────────
+  // ── Single item search (catalog-first, AI fallback) ─────────────────────────
   const handleSearchSingle = async (item: DevicePriceItem) => {
     setSearchingItem(item.id);
     const edit = getEdit(item);
-    const { results, error } = await searchDevicePrices([{
-      model_number: edit.model_number || item.model_number || undefined,
-      description:  edit.description  || item.description,
-      quantity:     item.quantity,
-    }]);
+    const modelNum = edit.model_number || item.model_number || undefined;
+    const desc     = edit.description  || item.description;
+
+    // Step 1 — Huvo catalog
+    const catalogMatch = await lookupFromCatalog(modelNum, desc);
+    if (catalogMatch) {
+      const updates = {
+        cost_price:       catalogMatch.price,
+        sell_price:       catalogMatch.price * (1 + item.markup_percent / 100) * item.quantity + item.labour_cost,
+        ai_search_status: "completed" as const,
+        ai_price_results: [{ name: "Huvo Catalog", estimated_price: catalogMatch.price, source: catalogMatch.source, description: catalogMatch.description }],
+      };
+      await updatePriceItem(item.id, updates);
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, ...updates } : i));
+      await updatePriceListTotals(priceListId);
+      toast.success(`Matched from Huvo catalog — £${catalogMatch.price.toFixed(2)}`);
+      setSearchingItem(null);
+      return;
+    }
+
+    // Step 2 — AI estimate fallback
+    const { results, error } = await searchDevicePrices([{ model_number: modelNum, description: desc, quantity: item.quantity }]);
     if (error) { toast.error(error.message); setSearchingItem(null); return; }
     const result = results[0];
     if (result) {
@@ -170,6 +221,7 @@ export function DevicePricingWorkbench({ priceListId, onBack }: DevicePricingWor
       await updatePriceItem(item.id, updates);
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, ...updates } : i));
       await updatePriceListTotals(priceListId);
+      toast.info(`AI estimate — £${bestPrice.toFixed(2)} (not in Huvo catalog)`);
     }
     setSearchingItem(null);
   };
@@ -353,13 +405,15 @@ export function DevicePricingWorkbench({ priceListId, onBack }: DevicePricingWor
                           className={`h-8 text-sm p-1 flex-1 ${isDirty ? "border-amber-400" : ""}`}
                         />
                         {isDirty && (
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => resetEdit(item.id)}
-                            className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                            className="text-muted-foreground hover:text-foreground flex-shrink-0 h-8 w-8"
                             title="Reset to original"
                           >
                             <RotateCcw className="h-3.5 w-3.5" />
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </TableCell>
@@ -411,44 +465,43 @@ export function DevicePricingWorkbench({ priceListId, onBack }: DevicePricingWor
                     {/* Price Check column */}
                     <TableCell>
                       {busy ? (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
                           {isVerifying ? "Searching web…" : "AI search…"}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1 flex-wrap">
+                        <div className="flex items-center gap-2">
                           {/* Web Look Up — primary CTA when dirty or no prices */}
                           <Button
-                            variant={isDirty ? "default" : "outline"}
                             size="sm"
-                            className={`h-7 text-xs gap-1 ${isDirty ? "bg-amber-500 hover:bg-amber-600 text-white" : ""}`}
+                            variant={isDirty || !hasPrices ? "default" : "outline"}
                             onClick={() => handleWebVerify(item)}
                             title="Search web for real UK trade prices"
                           >
-                            <Globe className="h-3 w-3" />
+                            <Globe className="mr-1.5 h-3.5 w-3.5" />
                             {isDirty ? "Look Up" : "Web"}
                           </Button>
 
                           {/* AI estimate — secondary */}
                           {!hasPrices && (
                             <Button
-                              variant="ghost" size="sm"
-                              className="h-7 text-xs gap-1"
+                              size="sm"
+                              variant="ghost"
                               onClick={() => handleSearchSingle(item)}
                               title="AI estimated price (not live)"
                             >
-                              <Sparkles className="h-3 w-3" />
+                              <Sparkles className="h-3.5 w-3.5" />
                             </Button>
                           )}
 
                           {/* View results */}
                           {hasPrices && (
                             <Button
-                              variant="ghost" size="sm"
-                              className="h-7 text-xs gap-1 text-green-700"
+                              size="sm"
+                              variant="ghost"
                               onClick={() => setPriceDialogItem(item)}
                             >
-                              <CheckCircle2 className="h-3 w-3" />
+                              <Search className="mr-1 h-3.5 w-3.5" />
                               View
                             </Button>
                           )}
@@ -477,10 +530,10 @@ export function DevicePricingWorkbench({ priceListId, onBack }: DevicePricingWor
 
       {pushToQuoteOpen && priceList && (
         <PushToQuotationDialog
-          open={pushToQuoteOpen}
-          onOpenChange={setPushToQuoteOpen}
           priceList={priceList}
           items={items}
+          open={pushToQuoteOpen}
+          onOpenChange={setPushToQuoteOpen}
         />
       )}
     </div>
@@ -491,9 +544,9 @@ function SummaryCard({
   label, value, variant = "default",
 }: { label: string; value: string; variant?: "default" | "success" }) {
   return (
-    <div className={`p-3 rounded-lg border ${variant === "success" ? "bg-success/5 border-success/20" : "bg-card"}`}>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-lg font-bold ${variant === "success" ? "text-success" : ""}`}>{value}</p>
+    <div className={`bg-card border border-border rounded-lg p-3 ${variant === "success" ? "border-green-200 bg-green-50/30" : ""}`}>
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className={`text-lg font-semibold ${variant === "success" ? "text-green-700" : ""}`}>{value}</p>
     </div>
   );
 }
