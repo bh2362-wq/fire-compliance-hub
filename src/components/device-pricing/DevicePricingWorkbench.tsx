@@ -208,10 +208,16 @@ export function DevicePricingWorkbench({ priceListId, onBack }: DevicePricingWor
 
     // Step 2 — AI estimate fallback
     const { results, error } = await searchDevicePrices([{ model_number: modelNum, description: desc, quantity: item.quantity }]);
-    if (error) { toast.error(error.message); setSearchingItem(null); return; }
+    if (error) {
+      await updatePriceItem(item.id, { ai_search_status: "error" });
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, ai_search_status: "error" } : i));
+      toast.error(error.message);
+      setSearchingItem(null);
+      return;
+    }
     const result = results[0];
-    if (result) {
-      const bestPrice = result.estimated_trade_price || 0;
+    const bestPrice = Number(result?.estimated_trade_price) || 0;
+    if (result && bestPrice > 0) {
       const updates = {
         cost_price:       bestPrice,
         sell_price:       bestPrice * (1 + item.markup_percent / 100) * item.quantity + item.labour_cost,
@@ -222,6 +228,10 @@ export function DevicePricingWorkbench({ priceListId, onBack }: DevicePricingWor
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, ...updates } : i));
       await updatePriceListTotals(priceListId);
       toast.info(`AI estimate — £${bestPrice.toFixed(2)} (not in Huvo catalog)`);
+    } else {
+      await updatePriceItem(item.id, { ai_search_status: "not_found" });
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, ai_search_status: "not_found" } : i));
+      toast.warning("No match in Huvo catalog or AI sources — enter price manually");
     }
     setSearchingItem(null);
   };
