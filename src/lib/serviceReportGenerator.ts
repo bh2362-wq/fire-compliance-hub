@@ -28,6 +28,14 @@ const N_FILL : RGB = [ 84, 110, 122];
 
 const M = MARGIN;
 
+function selectedChecklistStatus(item: any): "YES" | "NO" | "N/A" | "" {
+  const raw = String(item?.status ?? "").trim().toUpperCase();
+  if (raw === "YES" || raw === "NO" || raw === "N/A") return raw;
+  if (raw === "PASS") return item?.invert ? "NO" : "YES";
+  if (raw === "FAIL") return item?.invert ? "YES" : "NO";
+  return "";
+}
+
 function guard(doc: jsPDF, y: number, need: number): number {
   if (y + need > doc.internal.pageSize.getHeight() - FOOTER_RES) {
     doc.addPage();
@@ -273,12 +281,28 @@ export async function generateServiceReport(
       if (row.type === "item") {
         const item = capturedList[row.idx] as any;
         if (!item) return;
-        const s  = item.status || "";
+        const s  = selectedChecklistStatus(item);
         const ci = data.column.index;
         if      (ci === 1) { data.cell.styles.fillColor = s === "YES" ? G_FILL : WHITE; data.cell.styles.textColor = s === "YES" ? WHITE : MUTED; }
         else if (ci === 2) { data.cell.styles.fillColor = s === "NO"  ? R_FILL : WHITE; data.cell.styles.textColor = s === "NO"  ? WHITE : MUTED; }
         else if (ci === 3) { data.cell.styles.fillColor = s === "N/A" ? N_FILL : WHITE; data.cell.styles.textColor = s === "N/A" ? WHITE : MUTED; }
       }
+    },
+    willDrawCell(data) {
+      if (data.section !== "body") return;
+      const row = capturedMeta[data.row.index];
+      if (!row || row.type !== "item") return;
+      const s = selectedChecklistStatus(capturedList[row.idx]);
+      const ci = data.column.index;
+      const active = (ci === 1 && s === "YES") || (ci === 2 && s === "NO") || (ci === 3 && s === "N/A");
+      if (!active) return;
+      const fill = ci === 1 ? G_FILL : ci === 2 ? R_FILL : N_FILL;
+      doc.setFillColor(...fill);
+      doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(...WHITE);
+      doc.text(String(data.cell.raw ?? ""), data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2 + 1.4, { align: "center" });
     },
     didDrawPage(tableData) {
       if (tableData.pageNumber > 1) capturedP2();
@@ -420,15 +444,15 @@ export async function generateServiceReport(
   const clientDate = payload.client_signed_date
     ? format(new Date(payload.client_signed_date), "dd/MM/yyyy") : svcDate;
 
-  const engSig    = (payload as any).engineer_signature as string | undefined;
-  const clientSig = (payload as any).client_signature   as string | undefined;
+  const engSig = ((payload as any).engineer_signature || (options?.autoSign && engName ? `typed:${engName}` : "")) as string | undefined;
+  const clientSig = (payload as any).client_signature as string | undefined;
 
   function drawSig(x: number, baseY: number, sig: string | undefined) {
     // Box for signature: ~20mm tall, sits above the line
     const boxTop = baseY;
     const boxH   = 18;
     if (!sig) return;
-    if (sig.startsWith("typed:")) {
+    if (sig.startsWith("typed:") || !sig.startsWith("data:image")) {
       const name = sig.replace(/^typed:/, "");
       doc.setFont("times", "bolditalic"); doc.setFontSize(20);
       doc.setTextColor(26, 26, 26);
