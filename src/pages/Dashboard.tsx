@@ -296,6 +296,9 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* ── Service Due ──────────────────────────────────────────────── */}
+        <ServiceDueDashboard />
+
         {/* ── Quick actions + schedule ─────────────────────────────────── */}
         <div className="grid lg:grid-cols-2 gap-5">
           <QuickActions />
