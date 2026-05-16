@@ -1,17 +1,12 @@
 /**
  * ImportPriceListPdfDialog.tsx
  *
- * Imports a supplier price list PDF using Claude (extract-pdf-prices).
- * Completely separate from ImportDeviceReportDialog which handles Gent device reports.
- *
- * Workflow:
- *   1. User uploads PDF + optionally names the supplier
- *   2. Claude reads the PDF and extracts part numbers + prices
- *   3. User reviews the extracted table, can delete rows
- *   4. Confirm saves to materials_catalog (via upsert on part_number)
+ * Imports supplier price lists from selectable PDF text or pasted text.
+ * The client extracts PDF text first, then sends small text chunks to the
+ * extract-pdf-prices edge function to avoid oversized AI requests/rate limits.
  */
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -19,9 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Upload, FileText, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Upload, FileText, Trash2, CheckCircle2, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface ExtractedRow {
   part_number:  string;
@@ -44,6 +42,68 @@ const CATEGORIES = [
   "Cable", "Interface", "Battery", "Other",
 ];
 
+const TEXT_CHUNK_SIZE = 5500;
+const PAUSE_BETWEEN_CHUNKS_MS = 2500;
+
+function wait(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function splitTextIntoChunks(text: string, maxChars = TEXT_CHUNK_SIZE): string[] {
+  const cleaned = text.replace(/\r/g, "").trim();
+  if (!cleaned) return [];
+
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const line of cleaned.split("\n")) {
+    const next = current ? `${current}\n${line}` : line;
+    if (next.length > maxChars && current) {
+      chunks.push(current.trim());
+      current = line;
+    } else {
+      current = next;
+    }
+
+    while (current.length > maxChars) {
+      chunks.push(current.slice(0, maxChars).trim());
+      current = current.slice(maxChars);
+    }
+  }
+
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
+function dedupeRows(rows: ExtractedRow[]): ExtractedRow[] {
+  const map = new Map<string, ExtractedRow>();
+  rows.forEach(row => {
+    const key = row.part_number.trim().toLowerCase();
+    if (key) map.set(key, row);
+  });
+  return Array.from(map.values());
+}
+
+async function extractPdfText(file: File, onPage: (page: number, total: number) => void): Promise<string> {
+  const pdfjs: any = await import("pdfjs-dist");
+  const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data: buffer }).promise;
+  let text = "";
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const pageText = content.items.map((item: any) => item.str).join(" ");
+    text += `\n\n--- Page ${pageNumber} ---\n${pageText}`;
+    onPage(pageNumber, pdf.numPages);
+  }
+
+  return text;
+}
+
 export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Props) {
   const [step,          setStep]         = useState<"upload" | "review" | "done">("upload");
   const [supplierName,  setSupplierName] = useState("");
@@ -51,6 +111,10 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
   const [loading,       setLoading]      = useState(false);
   const [rows,          setRows]         = useState<ExtractedRow[]>([]);
   const [saving,        setSaving]       = useState(false);
+  const [mode,          setMode]         = useState<"pdf" | "text">("pdf");
+  const [pastedText,    setPastedText]   = useState("");
+  const [progress,      setProgress]     = useState(0);
+  const [progressText,  setProgressText] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   function reset() {
@@ -60,20 +124,85 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
     setRows([]);
     setLoading(false);
     setSaving(false);
+    setMode("pdf");
+    setPastedText("");
+    setProgress(0);
+    setProgressText("");
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  // ── Convert file to base64 ─────────────────────────────────────────────────
-  async function toBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload  = () => resolve((reader.result as string).split(",")[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  function normaliseRows(rawRows: any[]): ExtractedRow[] {
+    return rawRows
+      .filter(r => r?.part_number && Number(r?.unit_cost) > 0)
+      .map((r) => ({
+        part_number:  String(r.part_number  || "").trim(),
+        description:  String(r.description  || "").trim(),
+        manufacturer: String(r.manufacturer || supplierName || "").trim(),
+        category:     CATEGORIES.includes(r.category) ? r.category : "Other",
+        unit_cost:    Number(r.unit_cost)   || 0,
+        labour_cost:  Number(r.labour_cost) || 0,
+        selected:     true,
+      }));
   }
 
-  // ── Handle file select ─────────────────────────────────────────────────────
+  async function extractFromText(text: string, sourceName: string) {
+    const chunks = splitTextIntoChunks(text);
+    if (chunks.length === 0) {
+      toast.error("No text found to process");
+      return;
+    }
+
+    setLoading(true);
+    setProgress(10);
+    setProgressText(`Processing ${chunks.length} text section${chunks.length !== 1 ? "s" : ""}…`);
+
+    try {
+      const extractedRows: ExtractedRow[] = [];
+
+      for (let i = 0; i < chunks.length; i++) {
+        setProgressText(`Extracting prices from section ${i + 1} of ${chunks.length}…`);
+        setProgress(15 + Math.round((i / chunks.length) * 75));
+
+        const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
+          body: {
+            emailText: chunks[i],
+            filename: sourceName,
+            supplierName: supplierName.trim() || undefined,
+            chunkSize: TEXT_CHUNK_SIZE,
+          },
+        });
+
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.error);
+
+        extractedRows.push(...normaliseRows(data?.rows || []));
+
+        if (i < chunks.length - 1) {
+          setProgressText(`Waiting briefly before section ${i + 2} to avoid rate limits…`);
+          await wait(PAUSE_BETWEEN_CHUNKS_MS);
+        }
+      }
+
+      const uniqueRows = dedupeRows(extractedRows);
+      setProgress(100);
+      setProgressText(`Completed — ${uniqueRows.length} item${uniqueRows.length !== 1 ? "s" : ""} found`);
+
+      if (uniqueRows.length === 0) {
+        toast.warning("No priced items found. Check the text contains part numbers and prices.");
+        return;
+      }
+
+      setRows(uniqueRows);
+      setStep("review");
+      toast.success(`${uniqueRows.length} item${uniqueRows.length !== 1 ? "s" : ""} extracted — review and confirm`);
+    } catch (e: any) {
+      console.error("Price list extract error:", e);
+      toast.error(`Failed to extract prices: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -83,54 +212,51 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("PDF is too large — maximum 10 MB");
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("PDF is too large — maximum 20 MB");
       return;
     }
 
     setFileName(file.name);
     setLoading(true);
+    setProgress(5);
+    setProgressText("Reading PDF text…");
 
     try {
-      const pdfBase64 = await toBase64(file);
-
-      const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
-        body: {
-          pdfBase64,
-          filename:     file.name,
-          supplierName: supplierName.trim() || undefined,
-        },
+      const text = await extractPdfText(file, (page, total) => {
+        setProgress(5 + Math.round((page / total) * 20));
+        setProgressText(`Reading PDF text — page ${page} of ${total}…`);
       });
 
-      if (error) throw new Error(error.message);
-      if (!data?.rows?.length) {
-        toast.warning("No priced items found in this PDF. Make sure it contains part numbers and prices.");
-        setLoading(false);
+      if (text.trim().length < 80) {
+        toast.warning("This PDF does not contain enough selectable text. Copy/paste the price list text instead.");
+        setMode("text");
+        setProgress(0);
+        setProgressText("");
         return;
       }
 
-      const extracted: ExtractedRow[] = (data.rows as any[]).map((r) => ({
-        part_number:  r.part_number  || "",
-        description:  r.description  || "",
-        manufacturer: r.manufacturer || supplierName || "",
-        category:     r.category     || "Other",
-        unit_cost:    Number(r.unit_cost)   || 0,
-        labour_cost:  Number(r.labour_cost) || 0,
-        selected:     true,
-      }));
-
-      setRows(extracted);
-      setStep("review");
-      toast.success(`${extracted.length} item${extracted.length !== 1 ? "s" : ""} extracted — review and confirm`);
+      await extractFromText(text, file.name);
     } catch (e: any) {
-      console.error("PDF extract error:", e);
-      toast.error(`Failed to extract prices: ${e.message}`);
+      console.error("PDF text read error:", e);
+      toast.error("Could not read selectable text from this PDF. Try copying and pasting the price list text.");
+      setMode("text");
+      setProgress(0);
+      setProgressText("");
     } finally {
       setLoading(false);
     }
   }
 
-  // ── Toggle row selection ───────────────────────────────────────────────────
+  async function handlePasteImport() {
+    if (pastedText.trim().length < 20) {
+      toast.error("Paste the price list text first");
+      return;
+    }
+    setFileName("Pasted price list text");
+    await extractFromText(pastedText, "pasted-price-list.txt");
+  }
+
   function toggleRow(i: number) {
     setRows(prev => prev.map((r, idx) =>
       idx === i ? { ...r, selected: !r.selected } : r
@@ -152,7 +278,6 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
     ));
   }
 
-  // ── Save to materials_catalog ──────────────────────────────────────────────
   async function handleSave() {
     const selected = rows.filter(r => r.selected);
     if (selected.length === 0) {
@@ -173,7 +298,6 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
         updated_at:    new Date().toISOString(),
       }));
 
-      // Upsert — update on conflict with part_number
       const { error } = await supabase
         .from("materials_catalog")
         .upsert(upsertRows, { onConflict: "part_number", ignoreDuplicates: false });
@@ -194,15 +318,14 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Import Supplier Price List</DialogTitle>
           <DialogDescription>
-            Upload a supplier PDF price list. Claude will extract part numbers and prices automatically.
+            Upload a selectable PDF or paste price-list text. Large imports are split into smaller sections automatically.
           </DialogDescription>
         </DialogHeader>
 
-        {/* ── Step 1: Upload ─────────────────────────────────────────────── */}
         {step === "upload" && (
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -212,36 +335,93 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
                 value={supplierName}
                 onChange={(e) => setSupplierName(e.target.value)}
                 className="max-w-sm"
+                disabled={loading}
               />
             </div>
 
-            <div
-              onClick={() => fileRef.current?.click()}
-              className="border-2 border-dashed border-[#dadce0] rounded-sm p-10 text-center cursor-pointer hover:border-[#e85c2c] hover:bg-[#fafafa] transition-colors"
-            >
-              {loading ? (
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#e85c2c]" />
-                  <p className="text-sm font-medium text-[#1a1a1a]">Reading price list…</p>
-                  <p className="text-xs text-[#5f6368]">
-                    Large PDFs are split into sections and processed in order.
-                    This may take a minute — please keep this window open.
-                  </p>
-                  {fileName && <p className="text-xs text-[#9aa0a6]">{fileName}</p>}
+            <div className="inline-flex rounded-sm border border-border bg-muted p-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "pdf" ? "default" : "ghost"}
+                onClick={() => setMode("pdf")}
+                disabled={loading}
+                className="rounded-sm"
+              >
+                <FileText className="mr-2 h-4 w-4" /> PDF upload
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "text" ? "default" : "ghost"}
+                onClick={() => setMode("text")}
+                disabled={loading}
+                className="rounded-sm"
+              >
+                <ClipboardList className="mr-2 h-4 w-4" /> Paste text
+              </Button>
+            </div>
+
+            {loading && (
+              <div className="space-y-2 rounded-sm border border-border bg-muted/40 p-3">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="font-medium text-foreground">{progressText || "Processing…"}</span>
+                  <span className="text-muted-foreground">{Math.round(progress)}%</span>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center gap-3">
-                  <FileText className="h-10 w-10 text-[#9aa0a6]" />
-                  <div>
-                    <p className="text-sm font-medium text-[#1a1a1a]">Drop PDF here or click to browse</p>
-                    <p className="text-xs text-[#9aa0a6] mt-1">Supplier invoices, quotations, price lists · Max 10 MB</p>
+                <Progress value={progress} className="h-2" />
+                {fileName && <p className="text-xs text-muted-foreground truncate">{fileName}</p>}
+              </div>
+            )}
+
+            {mode === "pdf" ? (
+              <div
+                onClick={() => !loading && fileRef.current?.click()}
+                className={cn(
+                  "border-2 border-dashed border-border rounded-sm p-10 text-center transition-colors",
+                  loading ? "cursor-not-allowed bg-muted/30" : "cursor-pointer hover:border-primary hover:bg-muted/40"
+                )}
+              >
+                {loading ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm font-medium text-foreground">Importing price list…</p>
+                    <p className="text-xs text-muted-foreground">
+                      The PDF is read locally, then sent in small sections to avoid rate limits.
+                    </p>
                   </div>
-                  <Button variant="outline" size="sm" type="button">
-                    <Upload className="mr-2 h-4 w-4" /> Choose PDF
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <FileText className="h-10 w-10 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Drop PDF here or click to browse</p>
+                      <p className="text-xs text-muted-foreground mt-1">Best with selectable text · Scanned PDFs may need paste text · Max 20 MB</p>
+                    </div>
+                    <Button variant="outline" size="sm" type="button">
+                      <Upload className="mr-2 h-4 w-4" /> Choose PDF
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <Textarea
+                  value={pastedText}
+                  onChange={(e) => setPastedText(e.target.value)}
+                  placeholder="Paste copied text from the supplier PDF, invoice, quote or price list…"
+                  className="min-h-[260px] font-mono text-xs"
+                  disabled={loading}
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    {pastedText.trim().length.toLocaleString()} characters pasted. Long text is processed section by section.
+                  </p>
+                  <Button type="button" onClick={handlePasteImport} disabled={loading || pastedText.trim().length < 20}>
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardList className="mr-2 h-4 w-4" />}
+                    Extract Prices
                   </Button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <input
               ref={fileRef}
@@ -249,30 +429,25 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
               accept=".pdf"
               className="hidden"
               onChange={handleFile}
+              disabled={loading}
             />
           </div>
         )}
 
-        {/* ── Step 2: Review ─────────────────────────────────────────────── */}
         {step === "review" && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
-            <div className="flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between flex-shrink-0 gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="outline">{rows.length} extracted</Badge>
-                <Badge className="bg-green-50 text-green-700 border-green-200">
-                  {selectedCount} selected
-                </Badge>
-                {supplierName && (
-                  <Badge variant="secondary">{supplierName}</Badge>
-                )}
+                <Badge variant="secondary">{selectedCount} selected</Badge>
+                {supplierName && <Badge variant="secondary">{supplierName}</Badge>}
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { reset(); }}>
+                <Button variant="outline" size="sm" onClick={reset}>
                   Start Over
                 </Button>
                 <Button
                   size="sm"
-                  className="bg-[#e85c2c] hover:bg-[#d44f20] text-white"
                   onClick={handleSave}
                   disabled={saving || selectedCount === 0}
                 >
@@ -283,14 +458,13 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
               </div>
             </div>
 
-            <p className="text-xs text-[#5f6368] flex-shrink-0">
+            <p className="text-xs text-muted-foreground flex-shrink-0">
               Review extracted items. Edit any values, deselect rows to skip, then save to update the price list.
             </p>
 
-            {/* Scrollable table */}
-            <div className="flex-1 overflow-auto border border-[#e0e0e0] rounded-sm min-h-0">
+            <div className="flex-1 overflow-auto border border-border rounded-sm min-h-0">
               <table className="w-full text-[12px]">
-                <thead className="sticky top-0 bg-[#3c3c3c] text-white">
+                <thead className="sticky top-0 bg-muted text-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left w-8">
                       <input
@@ -311,10 +485,12 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
                 <tbody>
                   {rows.map((row, i) => (
                     <tr
-                      key={i}
-                      className={`border-b border-[#f0f0f0] ${
-                        row.selected ? "" : "opacity-40"
-                      } ${i % 2 === 0 ? "bg-white" : "bg-[#fafafa]"} hover:bg-[#f9fbe7]`}
+                      key={`${row.part_number}-${i}`}
+                      className={cn(
+                        "border-b border-border hover:bg-muted/40",
+                        !row.selected && "opacity-40",
+                        i % 2 === 0 ? "bg-background" : "bg-muted/20"
+                      )}
                     >
                       <td className="px-3 py-2">
                         <input
@@ -349,7 +525,7 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
                         <select
                           value={row.category}
                           onChange={(e) => editRow(i, "category", e.target.value)}
-                          className="h-7 text-xs border border-[#dadce0] rounded px-1 w-full bg-white"
+                          className="h-7 text-xs border border-input rounded-sm px-1 w-full bg-background text-foreground"
                         >
                           {CATEGORIES.map(c => (
                             <option key={c} value={c}>{c}</option>
@@ -367,7 +543,8 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
                       <td className="px-3 py-2">
                         <button
                           onClick={() => deleteRow(i)}
-                          className="text-[#9aa0a6] hover:text-red-600 transition-colors"
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          type="button"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -380,13 +557,12 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
           </div>
         )}
 
-        {/* ── Step 3: Done ───────────────────────────────────────────────── */}
         {step === "done" && (
           <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <CheckCircle2 className="h-12 w-12 text-green-600" />
+            <CheckCircle2 className="h-12 w-12 text-primary" />
             <div className="text-center">
-              <p className="font-semibold text-[#1a1a1a]">Price list imported</p>
-              <p className="text-sm text-[#5f6368] mt-1">
+              <p className="font-semibold text-foreground">Price list imported</p>
+              <p className="text-sm text-muted-foreground mt-1">
                 Items have been added to your materials catalog. They will appear in device price lookups.
               </p>
             </div>
