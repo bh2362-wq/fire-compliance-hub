@@ -47,6 +47,11 @@ export interface AutoInvoiceSkipped {
 
 export type AutoInvoiceOutcome = AutoInvoiceResult | AutoInvoiceSkipped;
 
+// In-flight dedupe — prevents concurrent PDF generations from racing
+const inFlight = new Map<string, Promise<AutoInvoiceOutcome>>();
+const dedupeKey = (siteId: string, certRef: string, visitId: string | null) =>
+  `${siteId}::${certRef}::${visitId ?? "no-visit"}`;
+
 export async function autoCreateCertInvoice(opts: {
   visitId:     string | null;
   siteId:      string;
@@ -58,6 +63,12 @@ export async function autoCreateCertInvoice(opts: {
 }): Promise<AutoInvoiceOutcome> {
   const { visitId, siteId, certRef, jobNumber, certType, visitDate, userId } = opts;
 
+  // ── 0. In-flight guard ────────────────────────────────────────────────────
+  const key = dedupeKey(siteId, certRef, visitId);
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+
+  const promise = (async (): Promise<AutoInvoiceOutcome> => {
   // ── 1. Check Xero connection ──────────────────────────────────────────────
   const connection = await getXeroConnection(userId);
   if (!connection) {
@@ -88,18 +99,24 @@ export async function autoCreateCertInvoice(opts: {
     return { skipped: true, reason: "No service contract with value found for this site" };
   }
 
-  // ── 4. Already invoiced? Check for existing invoice for this visit ────────
+  // ── 4. Already invoiced? Check by visit_id AND by cert reference ──────────
   if (visitId) {
-    const { data: existing } = await supabase
+    const { data: existingByVisit } = await supabase
       .from("xero_invoices")
-      .select("id")
+      .select("id, xero_invoice_number")
       .eq("visit_id", visitId)
+      .limit(1)
       .maybeSingle();
 
-    if (existing) {
-      return { skipped: true, reason: "Invoice already exists for this visit" };
+    if (existingByVisit) {
+      return { skipped: true, reason: `Invoice ${existingByVisit.xero_invoice_number ?? ""} already exists for this visit` };
     }
   }
+
+  // Note: xero_invoices has no reference column, so cert-ref dedupe relies on
+  // the in-flight guard above + visit_id check. visit_id is required on insert,
+  // so calls with null visitId can't actually create rows here anyway.
+
 
   // ── 5. Build line item ────────────────────────────────────────────────────
   const visitLabel    = format(new Date(visitDate), "dd MMMM yyyy");
@@ -136,4 +153,10 @@ export async function autoCreateCertInvoice(opts: {
     invoiceNumber: result.number,
     total:         result.total,
   };
+  })();
+
+  inFlight.set(key, promise);
+  // Clear after 5s so retries after genuine failures aren't blocked
+  promise.finally(() => setTimeout(() => inFlight.delete(key), 5000));
+  return promise;
 }
