@@ -83,6 +83,7 @@ export default function BS5839CertificateForm({
   const [saving, setSaving] = useState(false);
   const [linkedSiteId, setLinkedSiteId] = useState<string | null>(siteId ?? null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [prefilling, setPrefilling] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -95,30 +96,30 @@ export default function BS5839CertificateForm({
     }
 
     if (siteId && !existing) {
-      // Load open defects from site register onto the new cert
-      loadOpenDefectsForSite(siteId).then((openDefects) => {
-        if (openDefects.length > 0) {
-          setPayload((p) => ({
-            ...p,
-            defects: dedupeDefects(p.defects ?? [], openDefects),
-          }));
-        }
-      });
-
-      // Carry forward checklist answers from last cert as starting point
-      loadPreviousChecklistAnswers(siteId).then((prevChecklist) => {
-        if (prevChecklist) {
-          setPayload((p) => ({
-            ...p,
-            checklist: p.checklist?.length
-              ? p.checklist.map((item: any, i: number) => ({
-                  ...item,
-                  status: prevChecklist[i]?.status ?? item.status,
-                }))
-              : prevChecklist,
-          }));
-        }
-      });
+      setPrefilling(true);
+      Promise.allSettled([
+        loadOpenDefectsForSite(siteId).then((openDefects) => {
+          if (openDefects.length > 0) {
+            setPayload((p) => ({
+              ...p,
+              defects: dedupeDefects(p.defects ?? [], openDefects),
+            }));
+          }
+        }),
+        loadPreviousChecklistAnswers(siteId).then((prevChecklist) => {
+          if (prevChecklist) {
+            setPayload((p) => ({
+              ...p,
+              checklist: p.checklist?.length
+                ? p.checklist.map((item: any, i: number) => ({
+                    ...item,
+                    status: prevChecklist[i]?.status ?? item.status,
+                  }))
+                : prevChecklist,
+            }));
+          }
+        }),
+      ]).finally(() => setPrefilling(false));
     }
   }, [open, existing, prefill, siteId]);
 
