@@ -36,6 +36,8 @@ const CERT_TYPE_TO_SERVICE: Record<string, string> = {
 
 export interface AutoInvoiceResult {
   invoiceNumber: string;
+  invoiceId:     string;
+  invoiceUrl:    string;
   total:         number;
   skipped?:      never;
 }
@@ -151,6 +153,8 @@ export async function autoCreateCertInvoice(opts: {
 
   return {
     invoiceNumber: result.number,
+    invoiceId:     result.id,
+    invoiceUrl:    `https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${result.id}`,
     total:         result.total,
   };
   })();

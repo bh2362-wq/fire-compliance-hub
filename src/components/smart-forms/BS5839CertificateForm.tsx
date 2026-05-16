@@ -284,7 +284,18 @@ export default function BS5839CertificateForm({
           userId:    user.id,
         });
         if (!("skipped" in invoiceResult)) {
-          toast.success(`Xero invoice ${invoiceResult.invoiceNumber} drafted — £${invoiceResult.total.toFixed(2)}`);
+          toast.success(
+            `Xero invoice ${invoiceResult.invoiceNumber} drafted — £${invoiceResult.total.toFixed(2)}`,
+            {
+              duration: 10000,
+              action: invoiceResult.invoiceUrl
+                ? {
+                    label: "Open in Xero",
+                    onClick: () => window.open(invoiceResult.invoiceUrl, "_blank", "noopener,noreferrer"),
+                  }
+                : undefined,
+            },
+          );
         }
       } catch (e) {
         console.warn("Auto-invoice skipped:", e);
