@@ -113,19 +113,10 @@ export async function autoCreateCertInvoice(opts: {
     }
   }
 
-  // Fallback dedupe: any invoice whose reference contains the cert ref
-  if (certRef) {
-    const { data: existingByRef } = await supabase
-      .from("xero_invoices")
-      .select("id, xero_invoice_number")
-      .ilike("reference", `%${certRef}%`)
-      .limit(1)
-      .maybeSingle();
+  // Note: xero_invoices has no reference column, so cert-ref dedupe relies on
+  // the in-flight guard above + visit_id check. visit_id is required on insert,
+  // so calls with null visitId can't actually create rows here anyway.
 
-    if (existingByRef) {
-      return { skipped: true, reason: `Invoice ${existingByRef.xero_invoice_number ?? ""} already drafted for ${certRef}` };
-    }
-  }
 
   // ── 5. Build line item ────────────────────────────────────────────────────
   const visitLabel    = format(new Date(visitDate), "dd MMMM yyyy");
