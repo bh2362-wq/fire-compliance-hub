@@ -86,12 +86,60 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
     }
   }
 
+  async function parsePdfFile(file: File) {
+    toast.info("Reading PDF with AI — extracting part numbers and prices…");
+    setUploading(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      // base64-encode in chunks to avoid call-stack overflow on large PDFs
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+      }
+      const b64 = btoa(binary);
+
+      const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
+        body: { pdfBase64: b64, filename: file.name, supplierName: "" },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      const rows: ParsedPriceRow[] = (data?.rows || []).map((r: any, i: number) => ({
+        ...r,
+        unit_cost: Number(r.unit_cost) || 0,
+        labour_cost: Number(r.labour_cost) || 0,
+        _rowIndex: i + 1,
+      }));
+
+      setExcelBuffer(null);
+      setExcelSheets([]);
+      setSelectedSheet("");
+      setRawCsvText("");
+
+      if (rows.length === 0) {
+        toast.warning("No priced items found in PDF — try a different file or check it contains a price list");
+        setPreview([]);
+        return;
+      }
+      applyParseResult({ rows, allPricesZero: false } as ParseResult, file.name);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to extract prices from PDF");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function parseFile(file: File) {
     const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls") || file.name.endsWith(".xlsm");
     const isCsv   = file.name.endsWith(".csv") || file.type.includes("csv");
+    const isPdf   = file.name.toLowerCase().endsWith(".pdf") || file.type.includes("pdf");
+
+    if (isPdf) { parsePdfFile(file); return; }
 
     if (!isExcel && !isCsv) {
-      toast.error("Please upload a .csv, .xlsx, or .xls file");
+      toast.error("Please upload a .csv, .xlsx, .xls, or .pdf file");
       return;
     }
 
@@ -292,7 +340,7 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
             {purging ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             Purge All
           </Button>
-          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.xlsm,text/csv" className="hidden" onChange={e => { if (e.target.files?.[0]) parseFile(e.target.files[0]); e.target.value = ""; }} />
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.xlsm,.pdf,text/csv,application/pdf" className="hidden" onChange={e => { if (e.target.files?.[0]) parseFile(e.target.files[0]); e.target.value = ""; }} />
         </div>
       </div>
 
@@ -385,9 +433,10 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
             )}
           >
             <FileSpreadsheet className="w-8 h-8 mx-auto mb-2 text-muted-foreground/60" />
-            <p className="text-sm font-medium">Drop CSV or Excel file here, or click to browse</p>
+            <p className="text-sm font-medium">Drop CSV, Excel or PDF file here, or click to browse</p>
             <p className="text-xs text-muted-foreground mt-1">
-              CSV, Excel (.xlsx/.xls) — Required: Description, Unit Cost. Optional: Part Number, Manufacturer, Category, Labour
+              CSV / Excel (.xlsx/.xls): Required Description &amp; Unit Cost. Optional Part Number, Manufacturer, Category, Labour.
+              PDF: AI extracts part numbers and prices automatically — review &amp; edit before importing.
             </p>
           </div>
 
