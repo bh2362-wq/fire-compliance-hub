@@ -340,7 +340,7 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
             {purging ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             Purge All
           </Button>
-          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.xlsm,text/csv" className="hidden" onChange={e => { if (e.target.files?.[0]) parseFile(e.target.files[0]); e.target.value = ""; }} />
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.xlsm,.pdf,text/csv,application/pdf" className="hidden" onChange={e => { if (e.target.files?.[0]) parseFile(e.target.files[0]); e.target.value = ""; }} />
         </div>
       </div>
 
