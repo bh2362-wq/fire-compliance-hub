@@ -30,6 +30,7 @@ import { ClientSummaryPanel } from "@/components/smart-forms/ClientSummaryPanel"
 import { PhotoAnalysisPanel } from "@/components/smart-forms/PhotoAnalysisPanel";
 import { scheduleNextServiceFromCert, loadOpenDefectsForSite, loadPreviousChecklistAnswers } from "@/services/nextServiceScheduler";
 import { autoCreateCertInvoice } from "@/services/certInvoiceService";
+import { autoEmailCert } from "@/services/certEmailService";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 const SERVICE_TYPES = [
