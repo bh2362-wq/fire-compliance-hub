@@ -44,9 +44,16 @@ const CATEGORIES = [
 
 const TEXT_CHUNK_SIZE = 5500;
 const PAUSE_BETWEEN_CHUNKS_MS = 2500;
+const MAX_CHUNK_RETRIES = 4;
+const RETRY_BASE_DELAY_MS = 5000;
 
 function wait(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(message: string): boolean {
+  const m = (message || "").toLowerCase();
+  return m.includes("429") || m.includes("rate limit") || m.includes("rate_limit");
 }
 
 function splitTextIntoChunks(text: string, maxChars = TEXT_CHUNK_SIZE): string[] {
@@ -160,25 +167,55 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
       const extractedRows: ExtractedRow[] = [];
 
       for (let i = 0; i < chunks.length; i++) {
-        setProgressText(`Extracting prices from section ${i + 1} of ${chunks.length}…`);
+        const chunkLabel = `section ${i + 1} of ${chunks.length}`;
         setProgress(15 + Math.round((i / chunks.length) * 75));
 
-        const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
-          body: {
-            emailText: chunks[i],
-            filename: sourceName,
-            supplierName: supplierName.trim() || undefined,
-            chunkSize: TEXT_CHUNK_SIZE,
-          },
-        });
+        let attempt = 0;
+        let success = false;
+        let lastError: any = null;
 
-        if (error) throw new Error(error.message);
-        if (data?.error) throw new Error(data.error);
+        while (attempt <= MAX_CHUNK_RETRIES && !success) {
+          if (attempt === 0) {
+            setProgressText(`Extracting prices from ${chunkLabel}…`);
+          } else {
+            setProgressText(`Retry ${attempt}/${MAX_CHUNK_RETRIES} for ${chunkLabel} (rate limited)…`);
+          }
 
-        extractedRows.push(...normaliseRows(data?.rows || []));
+          const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
+            body: {
+              emailText: chunks[i],
+              filename: sourceName,
+              supplierName: supplierName.trim() || undefined,
+              chunkSize: TEXT_CHUNK_SIZE,
+            },
+          });
+
+          const errMessage = error?.message || data?.error || "";
+          if (!errMessage) {
+            extractedRows.push(...normaliseRows(data?.rows || []));
+            success = true;
+            break;
+          }
+
+          lastError = new Error(errMessage);
+
+          if (!isRateLimitError(errMessage) || attempt >= MAX_CHUNK_RETRIES) {
+            throw lastError;
+          }
+
+          const delayMs = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+          const totalSeconds = Math.ceil(delayMs / 1000);
+          for (let s = totalSeconds; s > 0; s--) {
+            setProgressText(`Rate limited on ${chunkLabel} — retry ${attempt + 1}/${MAX_CHUNK_RETRIES} in ${s}s…`);
+            await wait(1000);
+          }
+          attempt++;
+        }
+
+        if (!success && lastError) throw lastError;
 
         if (i < chunks.length - 1) {
-          setProgressText(`Waiting briefly before section ${i + 2} to avoid rate limits…`);
+          setProgressText(`Section ${i + 1} done (${extractedRows.length} items so far) — pausing before section ${i + 2}…`);
           await wait(PAUSE_BETWEEN_CHUNKS_MS);
         }
       }

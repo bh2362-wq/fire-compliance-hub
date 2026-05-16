@@ -76,9 +76,16 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
 
   const TEXT_CHUNK_SIZE = 5500;
   const PAUSE_BETWEEN_CHUNKS_MS = 2500;
+  const MAX_CHUNK_RETRIES = 4;
+  const RETRY_BASE_DELAY_MS = 5000;
 
   function wait(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function isRateLimitError(message: string): boolean {
+    const m = (message || "").toLowerCase();
+    return m.includes("429") || m.includes("rate limit") || m.includes("rate_limit");
   }
 
   function splitTextIntoChunks(text: string, maxChars = TEXT_CHUNK_SIZE): string[] {
@@ -140,29 +147,59 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
     setPdfProgressText(`Processing ${chunks.length} text section${chunks.length !== 1 ? "s" : ""}…`);
 
     for (let i = 0; i < chunks.length; i++) {
+      const chunkLabel = `section ${i + 1} of ${chunks.length}`;
       setPdfProgress(25 + Math.round((i / chunks.length) * 70));
-      setPdfProgressText(`Extracting prices from section ${i + 1} of ${chunks.length}…`);
 
-      const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
-        body: {
-          emailText: chunks[i],
-          filename: sourceName,
-          supplierName: "",
-          chunkSize: TEXT_CHUNK_SIZE,
-        },
-      });
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
+      let attempt = 0;
+      let success = false;
+      let lastError: any = null;
 
-      extracted.push(...(data?.rows || []).map((r: any) => ({
-        ...r,
-        unit_cost: Number(r.unit_cost) || 0,
-        labour_cost: Number(r.labour_cost) || 0,
-        _rowIndex: extracted.length + 1,
-      })));
+      while (attempt <= MAX_CHUNK_RETRIES && !success) {
+        if (attempt === 0) {
+          setPdfProgressText(`Extracting prices from ${chunkLabel}…`);
+        } else {
+          setPdfProgressText(`Retry ${attempt}/${MAX_CHUNK_RETRIES} for ${chunkLabel} (rate limited)…`);
+        }
+
+        const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
+          body: {
+            emailText: chunks[i],
+            filename: sourceName,
+            supplierName: "",
+            chunkSize: TEXT_CHUNK_SIZE,
+          },
+        });
+
+        const errMessage = error?.message || data?.error || "";
+        if (!errMessage) {
+          extracted.push(...(data?.rows || []).map((r: any) => ({
+            ...r,
+            unit_cost: Number(r.unit_cost) || 0,
+            labour_cost: Number(r.labour_cost) || 0,
+            _rowIndex: extracted.length + 1,
+          })));
+          success = true;
+          break;
+        }
+
+        lastError = new Error(errMessage);
+        if (!isRateLimitError(errMessage) || attempt >= MAX_CHUNK_RETRIES) {
+          throw lastError;
+        }
+
+        const delayMs = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+        const totalSeconds = Math.ceil(delayMs / 1000);
+        for (let s = totalSeconds; s > 0; s--) {
+          setPdfProgressText(`Rate limited on ${chunkLabel} — retry ${attempt + 1}/${MAX_CHUNK_RETRIES} in ${s}s…`);
+          await wait(1000);
+        }
+        attempt++;
+      }
+
+      if (!success && lastError) throw lastError;
 
       if (i < chunks.length - 1) {
-        setPdfProgressText(`Waiting briefly before section ${i + 2} to avoid rate limits…`);
+        setPdfProgressText(`${chunkLabel} done (${extracted.length} items so far) — pausing before next section…`);
         await wait(PAUSE_BETWEEN_CHUNKS_MS);
       }
     }
