@@ -74,33 +74,41 @@ export async function scheduleNextServiceFromCert(
       return { visitId: existing.id, appointmentId: "", alreadyExisted: true };
     }
 
+    // ── Create appointment (which also creates the visit) ───────────────────
+    const label = format(new Date(nextServiceDate), "dd MMM yyyy");
+    const title = `Fire Alarm Service — ${siteName}`;
 
-  // ── Create appointment (which also creates the visit) ─────────────────────
-  const label = format(new Date(nextServiceDate), "dd MMM yyyy");
-  const title = `Fire Alarm Service — ${siteName}`;
+    const appointment = await createAppointment(
+      {
+        site_id:          siteId,
+        customer_id:      customerId ?? null,
+        visit_id:         null,              // createAppointment creates this
+        engineer_id:      engineerId ?? null,
+        title,
+        description:      `Next service scheduled from cert ${certRef}.\nDue: ${label}`,
+        appointment_date: nextServiceDate,
+        start_time:       "09:00",
+        end_time:         "17:00",
+        visit_type:       visitType,
+        status:           "scheduled",
+      },
+      userId
+    );
 
-  const appointment = await createAppointment(
-    {
-      site_id:          siteId,
-      customer_id:      customerId ?? null,
-      visit_id:         null,              // createAppointment creates this
-      engineer_id:      engineerId ?? null,
-      title,
-      description:      `Next service scheduled from cert ${certRef}.\nDue: ${label}`,
-      appointment_date: nextServiceDate,
-      start_time:       "09:00",
-      end_time:         "17:00",
-      visit_type:       visitType,
-      status:           "scheduled",
-    },
-    userId
-  );
+    return {
+      visitId:       (appointment as any).visit_id ?? "",
+      appointmentId: (appointment as any).id ?? "",
+      alreadyExisted: false,
+    };
+  })();
 
-  return {
-    visitId:       (appointment as any).visit_id ?? "",
-    appointmentId: (appointment as any).id ?? "",
-    alreadyExisted: false,
-  };
+  inFlight.set(key, run);
+  try {
+    return await run;
+  } finally {
+    // Keep the key briefly to absorb rapid duplicate clicks, then clear.
+    setTimeout(() => inFlight.delete(key), 5000);
+  }
 }
 
 /**
