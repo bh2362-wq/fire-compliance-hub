@@ -103,13 +103,13 @@ export async function autoCreateCertInvoice(opts: {
   if (visitId) {
     const { data: existingByVisit } = await supabase
       .from("xero_invoices")
-      .select("id, invoice_number")
+      .select("id, xero_invoice_number")
       .eq("visit_id", visitId)
       .limit(1)
       .maybeSingle();
 
     if (existingByVisit) {
-      return { skipped: true, reason: `Invoice ${existingByVisit.invoice_number ?? ""} already exists for this visit` };
+      return { skipped: true, reason: `Invoice ${existingByVisit.xero_invoice_number ?? ""} already exists for this visit` };
     }
   }
 
@@ -117,13 +117,13 @@ export async function autoCreateCertInvoice(opts: {
   if (certRef) {
     const { data: existingByRef } = await supabase
       .from("xero_invoices")
-      .select("id, invoice_number")
+      .select("id, xero_invoice_number")
       .ilike("reference", `%${certRef}%`)
       .limit(1)
       .maybeSingle();
 
     if (existingByRef) {
-      return { skipped: true, reason: `Invoice ${existingByRef.invoice_number ?? ""} already drafted for ${certRef}` };
+      return { skipped: true, reason: `Invoice ${existingByRef.xero_invoice_number ?? ""} already drafted for ${certRef}` };
     }
   }
 
