@@ -119,7 +119,9 @@ export function SmartQuoteGenerator({
     setGenerating(true);
     setVerifications({});
     try {
-      const priceListContext = buildPriceListContext(priceList);
+      const searchBlob = `${emailContent}\n${extractedScope}\n${extractedRequirements.map(r => r.description).join("\n")}`;
+      const relevantItems = filterPriceListByRelevance(priceList, searchBlob, 200);
+      const priceListContext = buildPriceListContext(relevantItems, 200);
       const hasPriceList = priceList.length > 0;
 
       const requirements = extractedRequirements.length > 0
