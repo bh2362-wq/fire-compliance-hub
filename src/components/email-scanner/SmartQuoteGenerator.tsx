@@ -413,6 +413,61 @@ For each item verify whether the part number matches the description. Return ONL
     onLinesGenerated(updated, includeLabour);
   }
 
+  // ── Find similar items in the price list for a line and show inline picker ──
+  async function findSimilar(lineId: string) {
+    const line = lines.find(l => l.id === lineId);
+    if (!line) return;
+    const query = (line.part_number || line.description || "").trim();
+    if (!query) { toast.error("Enter a part number or description first"); return; }
+    if (similarOpenId === lineId) {
+      setSimilarOpenId(null);
+      setSimilarResults([]);
+      return;
+    }
+    setSimilarOpenId(lineId);
+    setSimilarLoading(true);
+    setSimilarResults([]);
+    try {
+      let matches = await findPriceListMatch(query);
+      if (lockedManufacturer && matches.length > 0) {
+        const same = matches.filter(m => (m.manufacturer || "").toLowerCase() === lockedManufacturer.toLowerCase());
+        if (same.length > 0) matches = same;
+      }
+      setSimilarResults(matches);
+      if (matches.length === 0) toast.info("No near matches in price list");
+    } catch {
+      toast.error("Search failed");
+    } finally {
+      setSimilarLoading(false);
+    }
+  }
+
+  function applySimilar(lineId: string, item: PriceListItem) {
+    setLines(prev => {
+      const updated = prev.map(l => l.id !== lineId ? l : {
+        ...l,
+        description: item.description,
+        manufacturer: item.manufacturer || l.manufacturer,
+        model: item.model || l.model,
+        part_number: item.part_number || l.part_number,
+        category: item.category || l.category,
+        unit_cost: item.unit_cost,
+        labour_cost: item.labour_cost,
+        price_source: "price_list" as PriceSource,
+        confidence: "High" as const,
+        price_list_match: item.description,
+        ai_note: `Selected from price list: ${item.part_number || item.description}`,
+        total: (item.unit_cost + (includeLabour ? item.labour_cost : 0)) * l.quantity,
+      });
+      onLinesGenerated(updated, includeLabour);
+      return updated;
+    });
+    setSimilarOpenId(null);
+    setSimilarResults([]);
+    toast.success(`Updated: ${item.description}`);
+  }
+
+
   // ── Re-match a line against price list + Claude ──────────────────────────────
   async function rematchLine(lineId: string) {
     const line = lines.find(l => l.id === lineId);
