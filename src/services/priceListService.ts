@@ -338,6 +338,7 @@ export async function uploadPriceList(
     else created += chunk.length;
   }
 
+  invalidatePriceListCache();
   return { created, errors };
 }
 
