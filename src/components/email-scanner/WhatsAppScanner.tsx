@@ -44,6 +44,66 @@ interface Props {
   onScanMessage: (content: string, from: string) => void;
 }
 
+function waitForExtensionChats(script: string): Promise<any[]> {
+  const requestId = `wa-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Chrome extension required to read WhatsApp automatically"));
+    }, 12000);
+
+    const extractChats = (payload: any): any[] | null => {
+      if (!payload || payload.requestId !== requestId) return null;
+      if (Array.isArray(payload.chats)) return payload.chats;
+      if (Array.isArray(payload.result)) return payload.result;
+      if (typeof payload.result === "string") {
+        try {
+          const parsed = JSON.parse(payload.result);
+          return Array.isArray(parsed) ? parsed : parsed?.chats || null;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window) return;
+      const chats = extractChats(event.data);
+      if (!chats) return;
+      cleanup();
+      resolve(chats);
+    };
+
+    const onCustomEvent = (event: Event) => {
+      const chats = extractChats((event as CustomEvent).detail);
+      if (!chats) return;
+      cleanup();
+      resolve(chats);
+    };
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("firelogbook:whatsapp-result", onCustomEvent);
+    };
+
+    window.addEventListener("message", onMessage);
+    window.addEventListener("firelogbook:whatsapp-result", onCustomEvent);
+
+    const payload = {
+      source: "fire-logbook",
+      type: "READ_WHATSAPP_CHATS",
+      requestId,
+      script,
+    };
+
+    window.dispatchEvent(new CustomEvent("firelogbook:read-whatsapp", { detail: payload }));
+    window.postMessage(payload, window.location.origin);
+  });
+}
+
 export function WhatsAppScanner({ onScanMessage }: Props) {
   const [chats, setChats] = useState<WaChat[]>([]);
   const [loading, setLoading] = useState(false);
@@ -53,21 +113,27 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
   const [lastRead, setLastRead] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "business" | "unread">("business");
 
-  // ── Read WhatsApp via edge function that calls Claude in Chrome ───────────────
+  // ── Read WhatsApp via Chrome extension script bridge ─────────────────────────
   async function readWhatsApp() {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("whatsapp-reader", {});
+      const { data, error, response } = await supabase.functions.invoke("whatsapp-reader", {});
 
-      // Server returns 503 with the Chrome extension extraction script —
-      // there's no way to read WhatsApp Web from the server, so fall back to paste mode.
-      if (error || !data?.chats?.length) {
-        setMode("paste");
-        toast.info("WhatsApp Web can't be read directly — paste your conversation below instead");
-        return;
+      let payload: any = data;
+      if (error) {
+        if (response?.json) payload = await response.clone().json();
+        else throw error;
       }
 
-      const parsed: WaChat[] = (data.chats || []).map((c: any) => ({
+      const sourceChats = payload?.script
+        ? await waitForExtensionChats(payload.script)
+        : payload?.chats;
+
+      if (!Array.isArray(sourceChats) || sourceChats.length === 0) {
+        throw new Error("No WhatsApp chats were returned from the Chrome extension");
+      }
+
+      const parsed: WaChat[] = sourceChats.map((c: any) => ({
         ...c,
         isBusiness: isBusinessContact(c.name, c.preview),
       }));
@@ -81,7 +147,6 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to read WhatsApp";
       toast.error(msg);
-      setMode("paste");
     } finally {
       setLoading(false);
     }
