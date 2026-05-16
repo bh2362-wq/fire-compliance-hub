@@ -20,7 +20,7 @@ import ASDServiceForm from "@/components/smart-forms/ASDServiceForm";
 import ASDCommissioningForm from "@/components/smart-forms/ASDCommissioningForm";
 import DryRiserForm from "@/components/smart-forms/DryRiserForm";
 import DeclinationForm from "@/components/smart-forms/DeclinationForm";
-import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
+import { generateServiceReport as generateBS5839CertificatePDF } from "@/lib/serviceReportGenerator";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
