@@ -382,6 +382,12 @@ export default function SmartForms() {
         onOpenChange={(o) => { if (!o) closeForm(); }}
         onSaved={load}
       />
+      <EmailSmartFormDialog
+        open={!!emailingSub}
+        onOpenChange={(o) => { if (!o) setEmailingSub(null); }}
+        submission={emailingSub}
+        formTypeLabel={formTypeLabel}
+      />
     </DashboardLayout>
   );
 }
