@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       text: `Extract every fire alarm part with a price from the ${b64 ? "attached document" : "text above"}${supplierName ? ` (supplier: ${supplierName})` : ""}.`,
     });
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const callClaude = () => fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "x-api-key": ANTHROPIC_API_KEY,
@@ -79,9 +79,42 @@ Rules:
       }),
     });
 
-    if (!response.ok) {
+    // Retry on 429 / 5xx with exponential backoff, honoring Retry-After
+    let response: Response | null = null;
+    let lastErr = "";
+    const maxAttempts = 4;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      response = await callClaude();
+      if (response.ok) break;
+
+      const status = response.status;
       const errText = await response.text();
-      throw new Error(`Claude API error ${response.status}: ${errText.slice(0, 300)}`);
+      lastErr = errText;
+
+      const retriable = status === 429 || status === 529 || (status >= 500 && status < 600);
+      if (!retriable || attempt === maxAttempts) {
+        if (status === 429) {
+          const retryAfter = Number(response.headers.get("retry-after")) || 60;
+          return new Response(JSON.stringify({
+            error: `AI rate limit reached. The PDF is too large for the current per-minute token quota. Please wait ~${retryAfter}s and try again, or split the PDF into smaller files.`,
+            rows: [],
+            total: 0,
+            rateLimited: true,
+            retryAfterSeconds: retryAfter,
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        throw new Error(`Claude API error ${status}: ${errText.slice(0, 300)}`);
+      }
+
+      // Backoff: prefer Retry-After header, else exponential (2s, 4s, 8s)
+      const retryAfterHdr = Number(response.headers.get("retry-after"));
+      const waitMs = (retryAfterHdr > 0 ? retryAfterHdr : Math.pow(2, attempt)) * 1000;
+      console.log(`extract-pdf-prices: ${status} on attempt ${attempt}, retrying in ${waitMs}ms`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+
+    if (!response || !response.ok) {
+      throw new Error(`Claude API failed after retries: ${lastErr.slice(0, 300)}`);
     }
 
     const aiData = await response.json();
