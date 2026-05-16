@@ -93,7 +93,34 @@ export default function BS5839CertificateForm({
       setSubmissionId(null);
       setPayload({ ...buildEmptyPayload(), ...(prefill ?? {}) });
     }
-  }, [open, existing, prefill]);
+
+    if (siteId && !existing) {
+      // Load open defects from site register onto the new cert
+      loadOpenDefectsForSite(siteId).then((openDefects) => {
+        if (openDefects.length > 0) {
+          setPayload((p) => ({
+            ...p,
+            defects: dedupeDefects(p.defects ?? [], openDefects),
+          }));
+        }
+      });
+
+      // Carry forward checklist answers from last cert as starting point
+      loadPreviousChecklistAnswers(siteId).then((prevChecklist) => {
+        if (prevChecklist) {
+          setPayload((p) => ({
+            ...p,
+            checklist: p.checklist?.length
+              ? p.checklist.map((item: any, i: number) => ({
+                  ...item,
+                  status: prevChecklist[i]?.status ?? item.status,
+                }))
+              : prevChecklist,
+          }));
+        }
+      });
+    }
+  }, [open, existing, prefill, siteId]);
 
   const errors = useMemo(() => validatePayload(payload), [payload]);
 
