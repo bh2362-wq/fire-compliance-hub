@@ -130,6 +130,106 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_quote_disambiguations: {
+        Row: {
+          candidates: Json | null
+          created_at: string | null
+          id: string
+          job_id: string | null
+          notes: string | null
+          original_description: string
+          quantity: number
+          selected_candidate: Json | null
+          status: string
+        }
+        Insert: {
+          candidates?: Json | null
+          created_at?: string | null
+          id?: string
+          job_id?: string | null
+          notes?: string | null
+          original_description: string
+          quantity?: number
+          selected_candidate?: Json | null
+          status?: string
+        }
+        Update: {
+          candidates?: Json | null
+          created_at?: string | null
+          id?: string
+          job_id?: string | null
+          notes?: string | null
+          original_description?: string
+          quantity?: number
+          selected_candidate?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_quote_disambiguations_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "auto_quote_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_quote_jobs: {
+        Row: {
+          created_at: string | null
+          email_id: string
+          email_type: string | null
+          id: string
+          items_matched: number | null
+          items_pending: number | null
+          quotation_id: string | null
+          received_at: string | null
+          sender: string | null
+          site_address: string | null
+          site_name: string | null
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email_id: string
+          email_type?: string | null
+          id?: string
+          items_matched?: number | null
+          items_pending?: number | null
+          quotation_id?: string | null
+          received_at?: string | null
+          sender?: string | null
+          site_address?: string | null
+          site_name?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email_id?: string
+          email_type?: string | null
+          id?: string
+          items_matched?: number | null
+          items_pending?: number | null
+          quotation_id?: string | null
+          received_at?: string | null
+          sender?: string | null
+          site_address?: string | null
+          site_name?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_quote_jobs_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           address: string | null

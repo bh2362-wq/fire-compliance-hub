@@ -34,6 +34,7 @@ import { getPriceList, type PriceListItem, uploadPriceList, type ParsedPriceRow 
 import { InboxBrowser } from "@/components/email-scanner/InboxBrowser";
 import { SupplierPriceImport } from "@/components/email-scanner/SupplierPriceImport";
 import { WhatsAppScanner } from "@/components/email-scanner/WhatsAppScanner";
+import { AutoQuoteReview } from "@/components/email-scanner/AutoQuoteReview";
 import type { SmartQuoteLine } from "@/components/email-scanner/SmartQuoteGenerator";
 
 export interface ExtractedEmailData {
@@ -317,7 +318,14 @@ const EmailScanner = () => {
                 <BookOpen className="w-3.5 h-3.5" />Price List
                 {priceList.length > 0 && <Badge variant="secondary" className="ml-1 text-[9px]">{priceList.length}</Badge>}
               </TabsTrigger>
+              <TabsTrigger value="autoquote" className="gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />Auto-Quote
+              </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="autoquote" className="mt-4">
+              <AutoQuoteReview />
+            </TabsContent>
 
             {/* ── Scanner tab ── */}
             <TabsContent value="scanner" className="mt-4 space-y-4">
