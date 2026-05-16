@@ -288,6 +288,22 @@ export async function generateServiceReport(
         else if (ci === 3) { data.cell.styles.fillColor = s === "N/A" ? N_FILL : WHITE; data.cell.styles.textColor = s === "N/A" ? WHITE : MUTED; }
       }
     },
+    willDrawCell(data) {
+      if (data.section !== "body") return;
+      const row = capturedMeta[data.row.index];
+      if (!row || row.type !== "item") return;
+      const s = selectedChecklistStatus(capturedList[row.idx]);
+      const ci = data.column.index;
+      const active = (ci === 1 && s === "YES") || (ci === 2 && s === "NO") || (ci === 3 && s === "N/A");
+      if (!active) return;
+      const fill = ci === 1 ? G_FILL : ci === 2 ? R_FILL : N_FILL;
+      doc.setFillColor(...fill);
+      doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(...WHITE);
+      doc.text(String(data.cell.raw ?? ""), data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2 + 1.4, { align: "center" });
+    },
     didDrawPage(tableData) {
       if (tableData.pageNumber > 1) capturedP2();
     },
