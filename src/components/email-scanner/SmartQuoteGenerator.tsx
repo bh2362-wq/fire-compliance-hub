@@ -115,17 +115,50 @@ export function SmartQuoteGenerator({
 
   function uid() { return Math.random().toString(36).slice(2, 10); }
 
+  // Strip group / loop / address suffixes from part numbers e.g.
+  // "UBT024F-EL(68)001" -> "UBT024F-EL", "S4-711 (12)034" -> "S4-711",
+  // also trailing " - L1.23" style loop refs.
+  function stripGroupSuffix(text: string): string {
+    if (!text) return text;
+    return text
+      .replace(/\s*\(\s*\d+\s*\)\s*\d+/g, "")        // (68)001
+      .replace(/\s*\[\s*\d+\s*\]\s*\d+/g, "")        // [68]001
+      .replace(/\s*-\s*L\d+[.\-/]\d+/gi, "")          // -L1.23 / L1-23
+      .replace(/\s*loop\s*\d+\s*\/\s*\d+/gi, "")      // Loop 1 / 23
+      .trim();
+  }
+
+  // Merge lines that refer to the same item, summing quantities.
+  function mergeDuplicateLines(items: SmartQuoteLine[]): SmartQuoteLine[] {
+    const map = new Map<string, SmartQuoteLine>();
+    for (const l of items) {
+      const key = (l.part_number || l.description || "").toLowerCase().replace(/\s+/g, " ").trim();
+      if (!key) { map.set(uid(), l); continue; }
+      const existing = map.get(key);
+      if (existing) {
+        existing.quantity = Number(existing.quantity) + Number(l.quantity);
+        existing.total = (Number(existing.unit_cost) + (includeLabour ? Number(existing.labour_cost) : 0)) * existing.quantity;
+      } else {
+        map.set(key, { ...l });
+      }
+    }
+    return Array.from(map.values());
+  }
+
   async function generate() {
     setGenerating(true);
     setVerifications({});
     try {
-      const searchBlob = `${emailContent}\n${extractedScope}\n${extractedRequirements.map(r => r.description).join("\n")}`;
+      const cleanedEmail = stripGroupSuffix(emailContent);
+      const cleanedScope = stripGroupSuffix(extractedScope);
+      const cleanedReqs  = extractedRequirements.map(r => ({ ...r, description: stripGroupSuffix(r.description) }));
+      const searchBlob = `${cleanedEmail}\n${cleanedScope}\n${cleanedReqs.map(r => r.description).join("\n")}`;
       const relevantItems = filterPriceListByRelevance(priceList, searchBlob, 200);
       const priceListContext = buildPriceListContext(relevantItems, 200);
       const hasPriceList = priceList.length > 0;
 
-      const requirements = extractedRequirements.length > 0
-        ? extractedRequirements.map((r, i) =>
+      const requirements = cleanedReqs.length > 0
+        ? cleanedReqs.map((r, i) =>
             `${i + 1}. ${r.description}${r.estimated_quantity ? ` — qty: ${r.estimated_quantity}` : ""}${r.unit ? ` ${r.unit}` : ""}`
           ).join("\n")
         : "(No structured requirements extracted — use the email text and scope below)";
@@ -162,6 +195,10 @@ Prices: detectors £25-55, sounders £30-65, VADs £55-110, MCPs £18-40
 
 Always include cable and bases as separate line items where applicable.
 
+CRITICAL DEDUPLICATION & PART NUMBER RULES:
+- Use ONLY the model / part number and its product description. IGNORE any trailing group, loop, zone or address references such as "(68)001", "[12]034", "L1.23", "Loop 1/23" — these are install references, NOT part of the part number.
+- If the same item (same part number or same described product) appears multiple times — whether as separate rows, repeated lines, or per-address entries — produce ONE quote line and SUM all the quantities into that single line. Never output duplicates.
+
 Return ONLY this JSON (no other text):
 {
   "quote_lines": [
@@ -169,7 +206,7 @@ Return ONLY this JSON (no other text):
       "description": "Full professional trade description",
       "manufacturer": "Brand name or empty string",
       "model": "Model name or empty string",
-      "part_number": "Part number if known or empty string",
+      "part_number": "Part number ONLY — strip any (NN)NNN group/address suffixes",
       "category": "Detector|Sounder|VAD|MCP|Panel|Cable|Labour|Other",
       "quantity": 1,
       "unit_cost": 0.00,
@@ -182,7 +219,7 @@ Return ONLY this JSON (no other text):
   ]
 }`;
 
-      const userMsg = `EMAIL CONTENT:\n${emailContent.slice(0, 3000)}\n\nEXTRACTED SCOPE:\n${extractedScope || "(not extracted)"}\n\nEXTRACTED REQUIREMENTS:\n${requirements}\n\nIdentify every device/material/labour item and produce priced quote lines.`;
+      const userMsg = `EMAIL CONTENT (group/address suffixes already stripped):\n${cleanedEmail.slice(0, 3000)}\n\nEXTRACTED SCOPE:\n${cleanedScope || "(not extracted)"}\n\nEXTRACTED REQUIREMENTS:\n${requirements}\n\nIdentify every device/material/labour item and produce priced quote lines. Remember: merge duplicates and sum quantities.`;
 
       const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-chat", {
         body: { system: systemPrompt, messages: [{ role: "user", content: userMsg }], model: "claude-sonnet-4-5" },
@@ -199,17 +236,22 @@ Return ONLY this JSON (no other text):
         throw new Error("AI returned unexpected format — try again");
       }
 
-      const result: SmartQuoteLine[] = (parsed.quote_lines || []).map(l => ({
+      const rawLines: SmartQuoteLine[] = (parsed.quote_lines || []).map(l => ({
         ...l,
+        part_number: stripGroupSuffix(l.part_number || ""),
         id: uid(),
         total: (Number(l.unit_cost) + (includeLabour ? Number(l.labour_cost) : 0)) * Number(l.quantity),
       }));
+
+      // Client-side safety net: merge any duplicates the model missed
+      const result = mergeDuplicateLines(rawLines);
 
       setLines(result);
       setGenerated(true);
       onLinesGenerated(result, includeLabour);
       const fromList = result.filter(l => l.price_source === "price_list").length;
-      toast.success(`${result.length} line items generated${fromList > 0 ? ` — ${fromList} matched your price list` : ""}`);
+      const merged = rawLines.length - result.length;
+      toast.success(`${result.length} line items generated${fromList > 0 ? ` — ${fromList} matched your price list` : ""}${merged > 0 ? ` (merged ${merged} duplicate${merged !== 1 ? "s" : ""})` : ""}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Generation failed — try again");
     } finally {
