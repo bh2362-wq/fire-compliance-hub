@@ -315,15 +315,15 @@ export default function ServiceDueDashboard() {
                   <td className="px-3 py-3 text-center">
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="h-6 text-[11px] gap-1"
+                      className="h-7 text-[11px] gap-1.5 bg-[#e85c2c] hover:bg-[#d24e1f] text-white font-semibold px-3 shadow-sm"
                       disabled={scheduling === row.siteId}
                       onClick={() => createVisit(row)}
+                      title={`Schedule fire alarm visit for ${row.siteName} on ${format(parseISO(row.nextServiceDate), "dd MMM yyyy")}`}
                     >
                       {scheduling === row.siteId
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : <CalendarPlus className="w-3 h-3" />}
-                      Schedule
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <CalendarPlus className="w-3.5 h-3.5" />}
+                      Schedule visit
                     </Button>
                   </td>
                 </tr>
