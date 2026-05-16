@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import QuotePipeline from "@/components/quotations/QuotePipeline";
 import {
   Select,
   SelectContent,
@@ -471,6 +473,12 @@ const Quotations = () => {
           </Button>
         </div>
 
+        <Tabs defaultValue="list" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="list">List</TabsTrigger>
+            <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          </TabsList>
+          <TabsContent value="list" className="space-y-8">
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
@@ -833,6 +841,11 @@ const Quotations = () => {
             })}
           </div>
         )}
+          </TabsContent>
+          <TabsContent value="pipeline">
+            <QuotePipeline />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* View Quotation Dialog */}

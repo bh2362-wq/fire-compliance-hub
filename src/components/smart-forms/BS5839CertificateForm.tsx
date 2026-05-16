@@ -30,6 +30,7 @@ import { ClientSummaryPanel } from "@/components/smart-forms/ClientSummaryPanel"
 import { PhotoAnalysisPanel } from "@/components/smart-forms/PhotoAnalysisPanel";
 import { scheduleNextServiceFromCert, loadOpenDefectsForSite, loadPreviousChecklistAnswers } from "@/services/nextServiceScheduler";
 import { autoCreateCertInvoice } from "@/services/certInvoiceService";
+import { autoEmailCert } from "@/services/certEmailService";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 const SERVICE_TYPES = [
@@ -299,6 +300,26 @@ export default function BS5839CertificateForm({
         }
       } catch (e) {
         console.warn("Auto-invoice skipped:", e);
+      }
+    }
+
+    // Auto-email cert to responsible person
+    if (pdf && saved.id) {
+      const toEmail = (saved.payload as any)?.responsible_person_contact ||
+                      (saved.payload as any)?.responsible_person_email || null;
+      if (toEmail) {
+        autoEmailCert({
+          pdfBase64:   pdf.base64,
+          fileName:    pdf.fileName,
+          certRef:     saved.certificate_reference || "",
+          formType:    "bs5839_inspection_servicing",
+          siteName:    (saved.payload as any)?.premises_name || "",
+          visitDate:   (saved.payload as any)?.date_of_service || "",
+          toEmail,
+          contactName: (saved.payload as any)?.responsible_person_name || null,
+        }).then((sent) => {
+          if (sent) toast.success(`Certificate emailed to ${toEmail}`);
+        }).catch(console.warn);
       }
     }
 
