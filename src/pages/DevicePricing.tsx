@@ -3,18 +3,20 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Trash2, ArrowRight, Package } from "lucide-react";
+import { Plus, Upload, Trash2, ArrowRight, Package, FileText } from "lucide-react";
 import { getPriceLists, deletePriceList, DevicePriceList } from "@/services/devicePricingService";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { DevicePricingWorkbench } from "@/components/device-pricing/DevicePricingWorkbench";
 import { ImportDeviceReportDialog } from "@/components/device-pricing/ImportDeviceReportDialog";
+import { ImportPriceListPdfDialog } from "@/components/device-pricing/ImportPriceListPdfDialog";
 
 export default function DevicePricing() {
   const [priceLists, setPriceLists] = useState<DevicePriceList[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [importPriceListOpen, setImportPriceListOpen] = useState(false);
 
   const fetchLists = async () => {
     setLoading(true);
@@ -52,9 +54,14 @@ export default function DevicePricing() {
             <h1 className="text-2xl font-bold">Device Pricing</h1>
             <p className="text-muted-foreground">Upload device health reports, get AI-powered pricing, and generate quotations</p>
           </div>
-          <Button onClick={() => setImportOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" /> Import Device Report
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setImportPriceListOpen(true)}>
+              <FileText className="mr-2 h-4 w-4" /> Import Price List PDF
+            </Button>
+            <Button onClick={() => setImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" /> Import Device Report
+            </Button>
+          </div>
         </div>
 
         {loading ? (
@@ -116,6 +123,12 @@ export default function DevicePricing() {
         open={importOpen}
         onOpenChange={setImportOpen}
         onSuccess={(id) => { setImportOpen(false); setSelectedListId(id); fetchLists(); }}
+      />
+
+      <ImportPriceListPdfDialog
+        open={importPriceListOpen}
+        onOpenChange={setImportPriceListOpen}
+        onSuccess={() => { setImportPriceListOpen(false); fetchLists(); }}
       />
     </DashboardLayout>
   );
