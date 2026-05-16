@@ -433,9 +433,10 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
             )}
           >
             <FileSpreadsheet className="w-8 h-8 mx-auto mb-2 text-muted-foreground/60" />
-            <p className="text-sm font-medium">Drop CSV or Excel file here, or click to browse</p>
+            <p className="text-sm font-medium">Drop CSV, Excel or PDF file here, or click to browse</p>
             <p className="text-xs text-muted-foreground mt-1">
-              CSV, Excel (.xlsx/.xls) — Required: Description, Unit Cost. Optional: Part Number, Manufacturer, Category, Labour
+              CSV / Excel (.xlsx/.xls): Required Description &amp; Unit Cost. Optional Part Number, Manufacturer, Category, Labour.
+              PDF: AI extracts part numbers and prices automatically — review &amp; edit before importing.
             </p>
           </div>
 
