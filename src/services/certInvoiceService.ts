@@ -36,6 +36,8 @@ const CERT_TYPE_TO_SERVICE: Record<string, string> = {
 
 export interface AutoInvoiceResult {
   invoiceNumber: string;
+  invoiceId:     string;
+  invoiceUrl:    string;
   total:         number;
   skipped?:      never;
 }
