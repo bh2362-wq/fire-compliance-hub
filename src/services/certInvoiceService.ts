@@ -162,4 +162,10 @@ export async function autoCreateCertInvoice(opts: {
     invoiceNumber: result.number,
     total:         result.total,
   };
+  })();
+
+  inFlight.set(key, promise);
+  // Clear after 5s so retries after genuine failures aren't blocked
+  promise.finally(() => setTimeout(() => inFlight.delete(key), 5000));
+  return promise;
 }
