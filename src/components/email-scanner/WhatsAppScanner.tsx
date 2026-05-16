@@ -58,12 +58,12 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("whatsapp-reader", {});
-      if (error) throw new Error(error.message);
 
-      // Server can't actually read WhatsApp Web — fall back to paste mode.
-      if (data?.requiresPasteMode || !data?.chats?.length) {
+      // Server returns 503 with the Chrome extension extraction script —
+      // there's no way to read WhatsApp Web from the server, so fall back to paste mode.
+      if (error || !data?.chats?.length) {
         setMode("paste");
-        toast.info(data?.message || "Switched to paste mode — paste your WhatsApp conversation below");
+        toast.info("WhatsApp Web can't be read directly — paste your conversation below instead");
         return;
       }
 
