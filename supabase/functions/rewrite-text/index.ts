@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface RewriteRequest {
   text: string;
-  type: "defects" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary" | "po_line_items" | "quotation_bs5839_expand";
+  type: "defects" | "defect_simplify" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary" | "po_line_items" | "quotation_bs5839_expand";
   context?: string;
   customInstructions?: string;
   generateRecommendations?: boolean;
@@ -50,6 +50,19 @@ STRICT RULES:
     switch (type) {
       case "defects":
         systemPrompt = `You are a professional fire safety engineer. Rewrite this defect description using proper BS5839 terminology. Keep it concise - don't add details that weren't in the original. Separate different defects or issues with blank lines.${formatRules}`;
+        break;
+      case "defect_simplify":
+        systemPrompt = `You are explaining a fire alarm system defect to a non-technical building owner or facilities manager.
+
+Rewrite the defect in PLAIN ENGLISH that a layperson can understand:
+- Avoid jargon, acronyms (BS5839, EOL, MCP, IRS) and clause references
+- Briefly say WHAT the issue is and WHY it matters for safety (1-2 short sentences)
+- Use everyday language (e.g. "smoke detector" not "optical sensor", "call point" not "MCP")
+- Do not invent details that aren't in the original
+- Keep it under 60 words
+- Plain text only, no markdown, no bullets
+
+Return ONLY the simplified description.`;
         break;
       case "recommendations":
         systemPrompt = `You are a professional fire safety engineer. Rewrite these recommendations using proper BS5839 terminology. Keep it concise - don't add details that weren't in the original. Separate different recommendations with blank lines.${formatRules}`;
@@ -185,8 +198,22 @@ Example output:
 
     // If generateRecommendations is requested and this is a works report, generate recommendations
     let generatedRecommendations: string | null = null;
-    if (generateRecommendations && type === "works") {
-      const recommendationsPrompt = `You are a professional fire safety engineer. Based on the following work report, analyze if there are any issues, defects, or areas that need follow-up action. If the work mentions any problems, faults, repairs needed, or areas of concern, generate a concise recommendation for further action.
+    if (generateRecommendations && (type === "works" || type === "defect_simplify")) {
+      const recommendationsPrompt = type === "defect_simplify"
+        ? `You are explaining the resolution path for a fire alarm defect to a non-technical building owner.
+
+Defect: ${text}
+${context ? `Engineer's recommended action (technical): ${context}` : ""}
+
+Write a short, clear RESOLUTION PATH the customer can follow:
+- 2-4 short steps in plain English (no jargon, no clause numbers)
+- Say who typically does each step (e.g. "your fire alarm engineer", "your facilities team")
+- Mention urgency in simple terms (e.g. "address within the next service visit", "arrange repair as soon as possible")
+- Plain text only, separate steps with blank lines, no markdown or bullets
+- Keep under 100 words
+
+Return ONLY the resolution path text.`
+        : `You are a professional fire safety engineer. Based on the following work report, analyze if there are any issues, defects, or areas that need follow-up action. If the work mentions any problems, faults, repairs needed, or areas of concern, generate a concise recommendation for further action.
 
 STRICT RULES:
 1. If the work report indicates everything is fine with no issues, return exactly: "No further action required."
