@@ -23,7 +23,7 @@ import {
   XCircle, FileText, AlertTriangle, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
-import QuotationDetailDialog from "@/components/quotations/QuotationDetailDialog";
+import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDialog";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface QuoteRow {
