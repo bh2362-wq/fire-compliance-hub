@@ -28,8 +28,21 @@ export interface ScheduleResult {
 }
 
 /**
+ * In-flight idempotency guard.
+ * Prevents duplicate appointments when handleGeneratePdf is invoked rapidly
+ * (e.g. user double-clicks "Complete & PDF") before the DB row has been
+ * committed and the duplicate-check below can see it.
+ */
+const inFlight = new Map<string, Promise<ScheduleResult | null>>();
+
+function dedupeKey(siteId: string, visitType: string, date: string) {
+  return `${siteId}::${visitType}::${date}`;
+}
+
+/**
  * Schedules the next service visit and appointment.
- * Skips creation if a visit of the same type already exists on that date.
+ * Skips creation if a visit of the same type already exists on that date,
+ * or if an equivalent schedule call is already in flight in this tab.
  */
 export async function scheduleNextServiceFromCert(
   input: ScheduleNextServiceInput
@@ -39,46 +52,63 @@ export async function scheduleNextServiceFromCert(
     siteName, engineerId, userId,
   } = input;
 
-  // ── Check for duplicate ───────────────────────────────────────────────────
-  const { data: existing } = await supabase
-    .from("visits")
-    .select("id")
-    .eq("site_id",    siteId)
-    .eq("visit_date", nextServiceDate)
-    .eq("visit_type", visitType)
-    .neq("status",    "cancelled")
-    .maybeSingle();
-
-  if (existing) {
-    return { visitId: existing.id, appointmentId: "", alreadyExisted: true };
+  const key = dedupeKey(siteId, visitType, nextServiceDate);
+  const pending = inFlight.get(key);
+  if (pending) {
+    const r = await pending;
+    return r ? { ...r, alreadyExisted: true } : null;
   }
 
-  // ── Create appointment (which also creates the visit) ─────────────────────
-  const label = format(new Date(nextServiceDate), "dd MMM yyyy");
-  const title = `Fire Alarm Service — ${siteName}`;
+  const run = (async (): Promise<ScheduleResult | null> => {
+    // ── Check for duplicate in DB ──────────────────────────────────────────
+    const { data: existing } = await supabase
+      .from("visits")
+      .select("id")
+      .eq("site_id",    siteId)
+      .eq("visit_date", nextServiceDate)
+      .eq("visit_type", visitType)
+      .neq("status",    "cancelled")
+      .maybeSingle();
 
-  const appointment = await createAppointment(
-    {
-      site_id:          siteId,
-      customer_id:      customerId ?? null,
-      visit_id:         null,              // createAppointment creates this
-      engineer_id:      engineerId ?? null,
-      title,
-      description:      `Next service scheduled from cert ${certRef}.\nDue: ${label}`,
-      appointment_date: nextServiceDate,
-      start_time:       "09:00",
-      end_time:         "17:00",
-      visit_type:       visitType,
-      status:           "scheduled",
-    },
-    userId
-  );
+    if (existing) {
+      return { visitId: existing.id, appointmentId: "", alreadyExisted: true };
+    }
 
-  return {
-    visitId:       (appointment as any).visit_id ?? "",
-    appointmentId: (appointment as any).id ?? "",
-    alreadyExisted: false,
-  };
+    // ── Create appointment (which also creates the visit) ───────────────────
+    const label = format(new Date(nextServiceDate), "dd MMM yyyy");
+    const title = `Fire Alarm Service — ${siteName}`;
+
+    const appointment = await createAppointment(
+      {
+        site_id:          siteId,
+        customer_id:      customerId ?? null,
+        visit_id:         null,              // createAppointment creates this
+        engineer_id:      engineerId ?? null,
+        title,
+        description:      `Next service scheduled from cert ${certRef}.\nDue: ${label}`,
+        appointment_date: nextServiceDate,
+        start_time:       "09:00",
+        end_time:         "17:00",
+        visit_type:       visitType,
+        status:           "scheduled",
+      },
+      userId
+    );
+
+    return {
+      visitId:       (appointment as any).visit_id ?? "",
+      appointmentId: (appointment as any).id ?? "",
+      alreadyExisted: false,
+    };
+  })();
+
+  inFlight.set(key, run);
+  try {
+    return await run;
+  } finally {
+    // Keep the key briefly to absorb rapid duplicate clicks, then clear.
+    setTimeout(() => inFlight.delete(key), 5000);
+  }
 }
 
 /**
