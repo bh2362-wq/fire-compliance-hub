@@ -64,7 +64,7 @@ export function DevicePricingWorkbench({ priceListId, onBack }: DevicePricingWor
     };
   }
 
-  function setEdit(id: string, patch: Partial) {
+  function setEdit(id: string, patch: Partial<EditState>) {
     setEdits(prev => ({
       ...prev,
       [id]: { ...getEditById(id), ...patch, dirty: true },
