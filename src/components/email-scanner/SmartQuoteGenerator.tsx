@@ -771,9 +771,13 @@ ${priceCtx}` }],
             {Object.values(verifications).filter(v => v.status === "incorrect").length} part no. issues
           </Badge>
         )}
+        {lockedManufacturer && (
+          <Badge variant="outline" className="gap-1 border-blue-300/60 text-blue-700">
+            <ShieldCheck className="w-2.5 h-2.5" />
+            Locked to {lockedManufacturer}
+          </Badge>
+        )}
       </div>
-
-      {/* Lines */}
       <div className="space-y-2">
         {lines.map((line, idx) => {
           const v = verifications[line.id];
