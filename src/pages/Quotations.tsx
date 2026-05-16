@@ -473,6 +473,12 @@ const Quotations = () => {
           </Button>
         </div>
 
+        <Tabs defaultValue="list" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="list">List</TabsTrigger>
+            <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          </TabsList>
+          <TabsContent value="list" className="space-y-8">
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
