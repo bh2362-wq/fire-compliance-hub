@@ -437,7 +437,7 @@ export async function generateServiceReport(
   }
 
   // ── Signatures ─────────────────────────────────────────────────────────────
-  y = guard(doc, y, 48);
+  y = guard(doc, y, 54);
   const sigW = (pw - M * 2 - 4) / 2;
   const engDate    = payload.engineer_signed_date
     ? format(new Date(payload.engineer_signed_date), "dd/MM/yyyy") : svcDate;
