@@ -112,6 +112,26 @@ export function SmartQuoteGenerator({
   const [lookupResults, setLookupResults]   = useState<PriceListItem[]>([]);
   const [lookupLoading, setLookupLoading]   = useState(false);
   const [lookupSearched, setLookupSearched] = useState(false);
+  // Per-line "find similar" inline picker
+  const [similarOpenId, setSimilarOpenId]   = useState<string | null>(null);
+  const [similarResults, setSimilarResults] = useState<PriceListItem[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
+
+  // Derive the dominant manufacturer from current lines so subsequent AI
+  // lookups can be locked to that brand (e.g. "if 1 Gent part found, all Gent").
+  const lockedManufacturer = (() => {
+    const counts: Record<string, number> = {};
+    for (const l of lines) {
+      const m = (l.manufacturer || "").trim();
+      if (!m) continue;
+      counts[m] = (counts[m] || 0) + 1;
+    }
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (sorted.length === 0) return "";
+    // Lock if the top brand accounts for >=50% of branded lines
+    const totalBranded = sorted.reduce((s, [, n]) => s + n, 0);
+    return sorted[0][1] / totalBranded >= 0.5 ? sorted[0][0] : "";
+  })();
 
   function uid() { return Math.random().toString(36).slice(2, 10); }
 
