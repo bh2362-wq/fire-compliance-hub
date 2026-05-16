@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface RewriteRequest {
   text: string;
-  type: "defects" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary" | "po_line_items" | "quotation_bs5839_expand";
+  type: "defects" | "defect_simplify" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary" | "po_line_items" | "quotation_bs5839_expand";
   context?: string;
   customInstructions?: string;
   generateRecommendations?: boolean;
