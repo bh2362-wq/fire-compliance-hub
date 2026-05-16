@@ -888,6 +888,35 @@ ${priceCtx}` }],
                     </p>
                   )}
 
+                  {similarOpenId === line.id && (
+                    <div className="rounded-md border border-border bg-muted/40 p-2 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-semibold text-muted-foreground">
+                          {similarLoading ? "Searching price list…" : `${similarResults.length} near match${similarResults.length !== 1 ? "es" : ""} — click to apply`}
+                          {lockedManufacturer && !similarLoading && <span className="ml-1.5 font-normal">(filtered to {lockedManufacturer})</span>}
+                        </p>
+                        <button className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                          onClick={() => { setSimilarOpenId(null); setSimilarResults([]); }}>
+                          Close
+                        </button>
+                      </div>
+                      {similarLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                      {!similarLoading && similarResults.map(item => (
+                        <button key={item.id} onClick={() => applySimilar(line.id, item)}
+                          className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent/60 border border-transparent hover:border-primary/30 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-medium truncate">{item.description}</p>
+                            <div className="flex gap-2 text-[9px] text-muted-foreground">
+                              {item.manufacturer && <span>{item.manufacturer}</span>}
+                              {item.part_number && <span className="font-mono">{item.part_number}</span>}
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-semibold flex-shrink-0">£{Number(item.unit_cost).toFixed(2)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   <div className={cn("grid gap-2", includeLabour ? "grid-cols-4" : "grid-cols-3")}>
                     <div>
                       <Label className="text-[10px] text-muted-foreground">Qty</Label>
