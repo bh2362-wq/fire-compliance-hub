@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
-import { generateBS5839CertificatePDF } from "@/lib/smartFormCertificatePdfGenerator";
+import { generateServiceReport as generateBS5839CertificatePDF } from "@/lib/serviceReportGenerator";
 import { toast } from "sonner";
 
 // ── Full CERT_META — all disciplines ──────────────────────────────────────────
