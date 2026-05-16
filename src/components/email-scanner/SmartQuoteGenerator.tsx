@@ -588,12 +588,15 @@ ${priceCtx}`,
     setLookupLoading(true);
     try {
       const priceCtx = buildPriceListContext(priceList.slice(0, 80));
+      const brandLock = lockedManufacturer
+        ? `\n\nBRAND LOCK: Quote is for ${lockedManufacturer} equipment — assume this part is ${lockedManufacturer}. Do NOT suggest other brands.`
+        : "";
       const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-chat", {
         body: {
           model: "claude-sonnet-4-5",
-          system: `You are a fire alarm parts specialist. Identify this component and provide a quote line. Return ONLY JSON:
+          system: `You are a fire alarm parts specialist. Identify this component and provide a quote line.${brandLock} Return ONLY JSON:
 {"description":"professional description","manufacturer":"brand","model":"model","part_number":"part number if known","category":"Detector|Sounder|VAD|MCP|Panel|Cable|Other","unit_cost":0.00,"labour_cost":0.00,"confidence":"High|Medium|Low","note":"explanation"}`,
-          messages: [{ role: "user", content: `Identify and price: "${lookupQuery}"
+          messages: [{ role: "user", content: `Identify and price: "${lookupQuery}"${lockedManufacturer ? `\n(Manufacturer is ${lockedManufacturer})` : ""}
 
 Price list:
 ${priceCtx}` }],
