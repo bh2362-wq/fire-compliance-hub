@@ -11,7 +11,7 @@
  *   emailText?   string  — fallback plain text if no PDF
  *   filename?    string
  *   supplierName? string
- *   chunkSize?   number  — pages per chunk (default 15)
+ *   chunkSize?   number  — pages per PDF chunk, or characters per text chunk
  */
 
 import { PDFDocument } from "npm:pdf-lib@1.17.1";
@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
     const final = dedup(allRows);
 
     return new Response(
-      JSON.stringify({ rows: final, total: final.length, chunksProcessed: allRows.length ? undefined : 0 }),
+      JSON.stringify({ rows: final, total: final.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
