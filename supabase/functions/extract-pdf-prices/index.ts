@@ -93,14 +93,43 @@ Rules:
 
   // Parse JSON array from response
   let rows: any[] = [];
+  const cleaned = rawText.replace(/```json|```/g, "").trim();
   try {
-    rows = JSON.parse(rawText.replace(/```json|```/g, "").trim());
+    rows = JSON.parse(cleaned);
   } catch {
-    const match = rawText.match(/\[[\s\S]*\]/);
+    const match = cleaned.match(/\[[\s\S]*\]/);
     if (match) {
       try { rows = JSON.parse(match[0]); } catch { rows = []; }
     }
+    // Fallback: recover complete {...} objects from a truncated array
+    if (!Array.isArray(rows) || rows.length === 0) {
+      const recovered: any[] = [];
+      let depth = 0, start = -1, inStr = false, esc = false;
+      for (let i = 0; i < cleaned.length; i++) {
+        const ch = cleaned[i];
+        if (inStr) {
+          if (esc) esc = false;
+          else if (ch === "\\") esc = true;
+          else if (ch === '"') inStr = false;
+          continue;
+        }
+        if (ch === '"') { inStr = true; continue; }
+        if (ch === "{") { if (depth === 0) start = i; depth++; }
+        else if (ch === "}") {
+          depth--;
+          if (depth === 0 && start >= 0) {
+            try { recovered.push(JSON.parse(cleaned.slice(start, i + 1))); } catch {}
+            start = -1;
+          }
+        }
+      }
+      if (recovered.length > 0) {
+        console.log(`Recovered ${recovered.length} objects from truncated JSON`);
+        rows = recovered;
+      }
+    }
   }
+  console.log(`Claude returned ${Array.isArray(rows) ? rows.length : 0} rows (raw length: ${cleaned.length})`);
   return Array.isArray(rows) ? rows : [];
 }
 
