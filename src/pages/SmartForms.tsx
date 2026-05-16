@@ -24,6 +24,7 @@ import { generateServiceReport as generateBS5839CertificatePDF } from "@/lib/ser
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
+import EmailSmartFormDialog from "@/components/smart-forms/EmailSmartFormDialog";
 
 type BS5839Form = "bs5839_inspection_servicing" | "bs5839_installation" | "bs5839_commissioning" | "bs5839_modification";
 type ActiveForm = BS5839Form | "el" | "asd" | "asd_comm" | "dr" | "declination" | null;
