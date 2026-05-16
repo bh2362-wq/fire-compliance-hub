@@ -470,11 +470,11 @@ export async function generateServiceReport(
 
   // ENGINEER (left half)
   halfHead(doc, "ENGINEER", M, y, sigW);
-  let ey = y + 9;
+  let ey = y + 11;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(26, 26, 26);
   doc.text(engName || "—", M + 2, ey); ey += 5;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
-  doc.text(`Signed: ${engDate}`, M + 2, ey); ey += 3;
+  doc.text(`Signed: ${engDate}`, M + 2, ey); ey += 6;
   drawSig(M + 2, ey, engSig); ey += 19;
   doc.setDrawColor(...MUTED); doc.setLineWidth(0.4);
   doc.line(M + 2, ey, M + sigW - 2, ey); ey += 4;
@@ -483,12 +483,12 @@ export async function generateServiceReport(
 
   // CLIENT (right half)
   halfHead(doc, "CLIENT", M + sigW + 4, y, sigW);
-  let cy2 = y + 9;
+  let cy2 = y + 11;
   const clx2 = M + sigW + 4;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(26, 26, 26);
   doc.text(san(payload.client_name || "—"), clx2 + 2, cy2); cy2 += 5;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
-  doc.text(`Signed: ${clientDate}`, clx2 + 2, cy2); cy2 += 3;
+  doc.text(`Signed: ${clientDate}`, clx2 + 2, cy2); cy2 += 6;
   drawSig(clx2 + 2, cy2, clientSig); cy2 += 19;
   doc.setDrawColor(...MUTED); doc.setLineWidth(0.4);
   doc.line(clx2 + 2, cy2, clx2 + sigW - 2, cy2); cy2 += 4;
