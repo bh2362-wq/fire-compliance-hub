@@ -117,11 +117,10 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
   async function readWhatsApp() {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("whatsapp-reader", {});
+      const { data, error, response } = await supabase.functions.invoke("whatsapp-reader", {});
 
       let payload: any = data;
       if (error) {
-        const response = (error as any)?.context;
         if (response?.json) payload = await response.clone().json();
         else throw error;
       }
