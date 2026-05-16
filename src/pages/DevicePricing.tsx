@@ -3,12 +3,13 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Trash2, ArrowRight, Package } from "lucide-react";
+import { Plus, Upload, Trash2, ArrowRight, Package, FileText } from "lucide-react";
 import { getPriceLists, deletePriceList, DevicePriceList } from "@/services/devicePricingService";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { DevicePricingWorkbench } from "@/components/device-pricing/DevicePricingWorkbench";
 import { ImportDeviceReportDialog } from "@/components/device-pricing/ImportDeviceReportDialog";
+import { ImportPriceListPdfDialog } from "@/components/device-pricing/ImportPriceListPdfDialog";
 
 export default function DevicePricing() {
   const [priceLists, setPriceLists] = useState<DevicePriceList[]>([]);
