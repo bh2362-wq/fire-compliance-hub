@@ -14,7 +14,7 @@
  *   chunkSize?   number  — pages per chunk (default 15)
  */
 
-import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1?dts";
+import { PDFDocument } from "npm:pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
