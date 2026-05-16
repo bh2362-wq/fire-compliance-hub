@@ -198,8 +198,22 @@ Example output:
 
     // If generateRecommendations is requested and this is a works report, generate recommendations
     let generatedRecommendations: string | null = null;
-    if (generateRecommendations && type === "works") {
-      const recommendationsPrompt = `You are a professional fire safety engineer. Based on the following work report, analyze if there are any issues, defects, or areas that need follow-up action. If the work mentions any problems, faults, repairs needed, or areas of concern, generate a concise recommendation for further action.
+    if (generateRecommendations && (type === "works" || type === "defect_simplify")) {
+      const recommendationsPrompt = type === "defect_simplify"
+        ? `You are explaining the resolution path for a fire alarm defect to a non-technical building owner.
+
+Defect: ${text}
+${context ? `Engineer's recommended action (technical): ${context}` : ""}
+
+Write a short, clear RESOLUTION PATH the customer can follow:
+- 2-4 short steps in plain English (no jargon, no clause numbers)
+- Say who typically does each step (e.g. "your fire alarm engineer", "your facilities team")
+- Mention urgency in simple terms (e.g. "address within the next service visit", "arrange repair as soon as possible")
+- Plain text only, separate steps with blank lines, no markdown or bullets
+- Keep under 100 words
+
+Return ONLY the resolution path text.`
+        : `You are a professional fire safety engineer. Based on the following work report, analyze if there are any issues, defects, or areas that need follow-up action. If the work mentions any problems, faults, repairs needed, or areas of concern, generate a concise recommendation for further action.
 
 STRICT RULES:
 1. If the work report indicates everything is fine with no issues, return exactly: "No further action required."
