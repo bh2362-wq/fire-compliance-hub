@@ -157,8 +157,8 @@ export function SmartQuoteGenerator({
       const priceListContext = buildPriceListContext(relevantItems, 200);
       const hasPriceList = priceList.length > 0;
 
-      const requirements = extractedRequirements.length > 0
-        ? extractedRequirements.map((r, i) =>
+      const requirements = cleanedReqs.length > 0
+        ? cleanedReqs.map((r, i) =>
             `${i + 1}. ${r.description}${r.estimated_quantity ? ` — qty: ${r.estimated_quantity}` : ""}${r.unit ? ` ${r.unit}` : ""}`
           ).join("\n")
         : "(No structured requirements extracted — use the email text and scope below)";
