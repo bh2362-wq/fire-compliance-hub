@@ -595,9 +595,11 @@ export default function BS5839CertificateForm({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Defect description</span>
+                    <div className="rounded-md border border-primary/30 bg-primary/5 p-2">
+                      <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
+                        <span className="text-[11px] font-semibold text-primary uppercase tracking-wide">
+                          AI · Simplify defect & generate client resolution
+                        </span>
                         <AIRewriteButton
                           text={d.description || ""}
                           type="defect_simplify"
@@ -607,6 +609,13 @@ export default function BS5839CertificateForm({
                           onRecommendationsGenerated={(rec) => patchDefect(d.id, { recommended_action: rec })}
                         />
                       </div>
+                      <p className="text-[10px] text-muted-foreground leading-snug">
+                        Rewrites the description in plain English and auto-fills a step-by-step resolution path for the client.
+                        {!d.description?.trim() && <span className="text-amber-700"> Enter a description below first.</span>}
+                      </p>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Defect description</div>
                       <Textarea rows={2} placeholder="Description (technical)" value={d.description} onChange={(e) => patchDefect(d.id, { description: e.target.value })} className="text-xs" />
                     </div>
                     <div>
