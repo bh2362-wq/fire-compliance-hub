@@ -238,7 +238,7 @@ export async function generateServiceReport(
     startY: y,
     head: [["Requirement", "YES", "NO", "N/A"]],
     body: tableBody,
-    margin: { left: M, right: M, bottom: FOOTER_RES },
+    margin: { top: 58, left: M, right: M, bottom: FOOTER_RES },
     tableWidth: TW,
     theme: "grid",
     headStyles: {
@@ -375,7 +375,7 @@ export async function generateServiceReport(
         san(d.recommended_action || ""),
         san(d.status || "Open"),
       ]),
-      margin: { left: M, right: M, bottom: FOOTER_RES },
+      margin: { top: 58, left: M, right: M, bottom: FOOTER_RES },
       tableWidth: pw - M * 2,
       headStyles: { fillColor: DARK, textColor: WHITE, fontStyle: "bold", fontSize: 7.5,
         cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
@@ -413,12 +413,36 @@ export async function generateServiceReport(
   }
 
   // ── Signatures ─────────────────────────────────────────────────────────────
-  y = guard(doc, y, 42);
+  y = guard(doc, y, 48);
   const sigW = (pw - M * 2 - 4) / 2;
   const engDate    = payload.engineer_signed_date
     ? format(new Date(payload.engineer_signed_date), "dd/MM/yyyy") : svcDate;
   const clientDate = payload.client_signed_date
     ? format(new Date(payload.client_signed_date), "dd/MM/yyyy") : svcDate;
+
+  const engSig    = (payload as any).engineer_signature as string | undefined;
+  const clientSig = (payload as any).client_signature   as string | undefined;
+
+  function drawSig(x: number, baseY: number, sig: string | undefined) {
+    // Box for signature: ~20mm tall, sits above the line
+    const boxTop = baseY;
+    const boxH   = 18;
+    if (!sig) return;
+    if (sig.startsWith("typed:")) {
+      const name = sig.replace(/^typed:/, "");
+      doc.setFont("times", "bolditalic"); doc.setFontSize(20);
+      doc.setTextColor(26, 26, 26);
+      doc.text(name, x, boxTop + boxH - 3);
+    } else if (sig.startsWith("data:image")) {
+      try {
+        doc.addImage(sig, "PNG", x, boxTop, sigW - 6, boxH, undefined, "FAST");
+      } catch { /* ignore bad image */ }
+    } else if (sig === "absent") {
+      doc.setFont("helvetica", "bolditalic"); doc.setFontSize(9);
+      doc.setTextColor(180, 100, 10);
+      doc.text("Not present on site", x, boxTop + boxH / 2);
+    }
+  }
 
   // ENGINEER (left half)
   halfHead(doc, "ENGINEER", M, y, sigW);
@@ -426,10 +450,12 @@ export async function generateServiceReport(
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(26, 26, 26);
   doc.text(engName || "—", M + 2, ey); ey += 5;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
-  doc.text(`Signed: ${engDate}`, M + 2, ey); ey += 16;
+  doc.text(`Signed: ${engDate}`, M + 2, ey); ey += 3;
+  drawSig(M + 2, ey, engSig); ey += 19;
   doc.setDrawColor(...MUTED); doc.setLineWidth(0.4);
   doc.line(M + 2, ey, M + sigW - 2, ey); ey += 4;
-  doc.setFontSize(7.5); doc.text("Signature", M + 2, ey);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+  doc.text("Signature", M + 2, ey);
 
   // CLIENT (right half)
   halfHead(doc, "CLIENT", M + sigW + 4, y, sigW);
@@ -438,10 +464,12 @@ export async function generateServiceReport(
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(26, 26, 26);
   doc.text(san(payload.client_name || "—"), clx2 + 2, cy2); cy2 += 5;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED);
-  doc.text(`Signed: ${clientDate}`, clx2 + 2, cy2); cy2 += 16;
+  doc.text(`Signed: ${clientDate}`, clx2 + 2, cy2); cy2 += 3;
+  drawSig(clx2 + 2, cy2, clientSig); cy2 += 19;
   doc.setDrawColor(...MUTED); doc.setLineWidth(0.4);
   doc.line(clx2 + 2, cy2, clx2 + sigW - 2, cy2); cy2 += 4;
-  doc.setFontSize(7.5); doc.text("Signature", clx2 + 2, cy2);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+  doc.text("Signature", clx2 + 2, cy2);
 
   // ── Footers ────────────────────────────────────────────────────────────────
   drawMasterFooter(doc, pw);
