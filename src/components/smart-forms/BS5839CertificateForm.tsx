@@ -29,6 +29,7 @@ import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
 import { ClientSummaryPanel } from "@/components/smart-forms/ClientSummaryPanel";
 import { PhotoAnalysisPanel } from "@/components/smart-forms/PhotoAnalysisPanel";
 import { scheduleNextServiceFromCert, loadOpenDefectsForSite, loadPreviousChecklistAnswers } from "@/services/nextServiceScheduler";
+import { autoCreateCertInvoice } from "@/services/certInvoiceService";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 const SERVICE_TYPES = [
@@ -269,6 +270,26 @@ export default function BS5839CertificateForm({
       ).catch(console.error);
     }
     if (saved.id) await pushDefectsToSiteDefects(saved.id);
+
+    // Auto-draft Xero invoice from service contract
+    if (siteId && user && saved.id) {
+      try {
+        const invoiceResult = await autoCreateCertInvoice({
+          visitId:   visitId ?? null,
+          siteId,
+          certRef:   saved.certificate_reference || "",
+          jobNumber: saved.payload?.job_number || null,
+          certType:  "bs5839_inspection_servicing",
+          visitDate: saved.payload?.date_of_service || new Date().toISOString().slice(0, 10),
+          userId:    user.id,
+        });
+        if (!("skipped" in invoiceResult)) {
+          toast.success(`Xero invoice ${invoiceResult.invoiceNumber} drafted — £${invoiceResult.total.toFixed(2)}`);
+        }
+      } catch (e) {
+        console.warn("Auto-invoice skipped:", e);
+      }
+    }
 
     // Schedule next service visit + calendar appointment
     if (saved.payload?.next_service_date && siteId && user) {
