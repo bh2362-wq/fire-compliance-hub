@@ -42,7 +42,7 @@ async function callClaude(
     },
     body: JSON.stringify({
       model:      "claude-sonnet-4-5",
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: `You are a fire alarm parts pricing extractor. Read supplier invoices, quotations, price lists or pricing emails and extract every identifiable line item.
 
 Return ONLY a valid JSON array — no other text, no markdown fences:
