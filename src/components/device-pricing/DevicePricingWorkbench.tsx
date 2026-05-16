@@ -31,17 +31,17 @@ interface EditState {
 }
 
 export function DevicePricingWorkbench({ priceListId, onBack }: DevicePricingWorkbenchProps) {
-  const [priceList,       setPriceList]       = useState(null);
-  const [items,           setItems]           = useState([]);
+  const [priceList,       setPriceList]       = useState<DevicePriceList | null>(null);
+  const [items,           setItems]           = useState<DevicePriceItem[]>([]);
   const [loading,         setLoading]         = useState(true);
-  const [selectedIds,     setSelectedIds]     = useState>(new Set());
+  const [selectedIds,     setSelectedIds]     = useState<Set<string>>(new Set());
   const [searchingAll,    setSearchingAll]    = useState(false);
-  const [searchingItem,   setSearchingItem]   = useState(null);
-  const [verifyingItem,   setVerifyingItem]   = useState(null);
-  const [priceDialogItem, setPriceDialogItem] = useState(null);
+  const [searchingItem,   setSearchingItem]   = useState<string | null>(null);
+  const [verifyingItem,   setVerifyingItem]   = useState<string | null>(null);
+  const [priceDialogItem, setPriceDialogItem] = useState<DevicePriceItem | null>(null);
   const [pushToQuoteOpen, setPushToQuoteOpen] = useState(false);
   // Per-row edit state for descriptions
-  const [edits, setEdits] = useState>({});
+  const [edits, setEdits] = useState<Record<string, EditState>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
