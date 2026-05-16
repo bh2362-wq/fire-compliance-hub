@@ -268,6 +268,30 @@ export default function BS5839CertificateForm({
       ).catch(console.error);
     }
     if (saved.id) await pushDefectsToSiteDefects(saved.id);
+
+    // Schedule next service visit + calendar appointment
+    if (saved.payload?.next_service_date && siteId && user) {
+      try {
+        const siteNameForSchedule = (saved.payload as any).premises_name || "Site";
+        const result = await scheduleNextServiceFromCert({
+          siteId,
+          customerId: customerId ?? null,
+          certRef: saved.certificate_reference || "",
+          visitType: "fire",
+          nextServiceDate: saved.payload.next_service_date,
+          siteName: siteNameForSchedule,
+          engineerId: user.id,
+          userId: user.id,
+        });
+        if (result && !result.alreadyExisted) {
+          const dateLabel = new Date(saved.payload.next_service_date)
+            .toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+          toast.success(`Next service scheduled for ${dateLabel}`);
+        }
+      } catch (e) {
+        console.error("Failed to schedule next service:", e);
+      }
+    }
   }
 
   /* ── Checklist ops ─────────────────────────────────────────────── */
