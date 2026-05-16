@@ -34,6 +34,6 @@ Deno.serve((req) => {
       error: "Chrome extension required",
       script: extractScript,
     }),
-    { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 });
