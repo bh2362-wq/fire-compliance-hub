@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.outlook-sync-pull]
 verify_jwt = false
+
+[functions.verify-device-price]
+verify_jwt = false
