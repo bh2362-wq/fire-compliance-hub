@@ -124,6 +124,12 @@ export default function DevicePricing() {
         onOpenChange={setImportOpen}
         onSuccess={(id) => { setImportOpen(false); setSelectedListId(id); fetchLists(); }}
       />
+
+      <ImportPriceListPdfDialog
+        open={importPriceListOpen}
+        onOpenChange={setImportPriceListOpen}
+        onSuccess={() => { setImportPriceListOpen(false); fetchLists(); }}
+      />
     </DashboardLayout>
   );
 }
