@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { TypedSignature } from "@/components/ui/typed-signature";
 import {
   Plus, Trash2, Save, FileDown, AlertCircle, CheckCircle2,
-  ChevronDown, Sparkles,
+  ChevronDown, Sparkles, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -83,6 +83,7 @@ export default function BS5839CertificateForm({
   const [saving, setSaving] = useState(false);
   const [linkedSiteId, setLinkedSiteId] = useState<string | null>(siteId ?? null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [prefilling, setPrefilling] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -95,30 +96,30 @@ export default function BS5839CertificateForm({
     }
 
     if (siteId && !existing) {
-      // Load open defects from site register onto the new cert
-      loadOpenDefectsForSite(siteId).then((openDefects) => {
-        if (openDefects.length > 0) {
-          setPayload((p) => ({
-            ...p,
-            defects: dedupeDefects(p.defects ?? [], openDefects),
-          }));
-        }
-      });
-
-      // Carry forward checklist answers from last cert as starting point
-      loadPreviousChecklistAnswers(siteId).then((prevChecklist) => {
-        if (prevChecklist) {
-          setPayload((p) => ({
-            ...p,
-            checklist: p.checklist?.length
-              ? p.checklist.map((item: any, i: number) => ({
-                  ...item,
-                  status: prevChecklist[i]?.status ?? item.status,
-                }))
-              : prevChecklist,
-          }));
-        }
-      });
+      setPrefilling(true);
+      Promise.allSettled([
+        loadOpenDefectsForSite(siteId).then((openDefects) => {
+          if (openDefects.length > 0) {
+            setPayload((p) => ({
+              ...p,
+              defects: dedupeDefects(p.defects ?? [], openDefects),
+            }));
+          }
+        }),
+        loadPreviousChecklistAnswers(siteId).then((prevChecklist) => {
+          if (prevChecklist) {
+            setPayload((p) => ({
+              ...p,
+              checklist: p.checklist?.length
+                ? p.checklist.map((item: any, i: number) => ({
+                    ...item,
+                    status: prevChecklist[i]?.status ?? item.status,
+                  }))
+                : prevChecklist,
+            }));
+          }
+        }),
+      ]).finally(() => setPrefilling(false));
     }
   }, [open, existing, prefill, siteId]);
 
@@ -380,6 +381,12 @@ export default function BS5839CertificateForm({
               <Badge className="bg-green-600/15 text-green-700 border-green-600/30 gap-1 text-[10px]"><CheckCircle2 className="h-3 w-3" />Valid</Badge>
             )}
             <span className="text-[10px] text-muted-foreground">{answered}/{checklist.length} answered{noCount > 0 && ` · ${noCount} NO`}</span>
+            {prefilling && (
+              <span className="flex items-center gap-1 text-[10px] text-primary">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading open defects & previous checklist…
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => persist("draft")} disabled={saving}>
