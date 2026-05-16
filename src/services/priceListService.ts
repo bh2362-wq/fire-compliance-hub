@@ -232,32 +232,71 @@ export function parsePriceListCsvFull(csvText: string): ParseResult {
 
 // ── CRUD ───────────────────────────────────────────────────────────────────────
 
-export async function getPriceList(activeOnly = true): Promise<PriceListItem[]> {
-  // PostgREST caps unbounded selects at 1000 rows, so we page through the
-  // full price list in 1000-row chunks to load all items (catalogues can be 13k+).
-  const PAGE = 1000;
-  const all: PriceListItem[] = [];
-  let from = 0;
+// In-memory cache for the full price list. Loading 13k+ rows takes several
+// seconds and several round-trips; caching avoids re-fetching on every lookup.
+const PRICE_LIST_TTL_MS = 5 * 60 * 1000; // 5 minutes
+type PriceListCacheEntry = { items: PriceListItem[]; fetchedAt: number; inflight?: Promise<PriceListItem[]> };
+const priceListCache: Record<"active" | "all", PriceListCacheEntry | undefined> = {
+  active: undefined,
+  all: undefined,
+};
 
-  while (true) {
-    let q = supabase
-      .from("price_list_items")
-      .select("*")
-      .order("manufacturer", { ascending: true })
-      .order("description", { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (activeOnly) q = q.eq("is_active", true);
+// Cache for individual lookups (findPriceListMatch). Keyed by normalised query.
+const matchCache = new Map<string, { items: PriceListItem[]; fetchedAt: number }>();
+const MATCH_TTL_MS = 5 * 60 * 1000;
+const MATCH_CACHE_MAX = 500;
 
-    const { data, error } = await q;
-    if (error) throw error;
+export function invalidatePriceListCache(): void {
+  priceListCache.active = undefined;
+  priceListCache.all = undefined;
+  matchCache.clear();
+}
 
-    const batch = (data ?? []) as unknown as PriceListItem[];
-    all.push(...batch);
-    if (batch.length < PAGE) break;
-    from += PAGE;
+export async function getPriceList(activeOnly = true, opts: { force?: boolean } = {}): Promise<PriceListItem[]> {
+  const key = activeOnly ? "active" : "all";
+  const now = Date.now();
+  const cached = priceListCache[key];
+
+  if (!opts.force && cached && now - cached.fetchedAt < PRICE_LIST_TTL_MS) {
+    return cached.items;
   }
+  // De-duplicate concurrent loads
+  if (cached?.inflight) return cached.inflight;
 
-  return all;
+  const loader = (async () => {
+    const PAGE = 1000;
+    const all: PriceListItem[] = [];
+    let from = 0;
+
+    while (true) {
+      let q = supabase
+        .from("price_list_items")
+        .select("*")
+        .order("manufacturer", { ascending: true })
+        .order("description", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (activeOnly) q = q.eq("is_active", true);
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      const batch = (data ?? []) as unknown as PriceListItem[];
+      all.push(...batch);
+      if (batch.length < PAGE) break;
+      from += PAGE;
+    }
+
+    priceListCache[key] = { items: all, fetchedAt: Date.now() };
+    return all;
+  })();
+
+  priceListCache[key] = { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? 0, inflight: loader };
+  try {
+    return await loader;
+  } catch (e) {
+    priceListCache[key] = cached; // restore previous on error
+    throw e;
+  }
 }
 
 export async function uploadPriceList(
@@ -299,6 +338,7 @@ export async function uploadPriceList(
     else created += chunk.length;
   }
 
+  invalidatePriceListCache();
   return { created, errors };
 }
 
@@ -312,11 +352,13 @@ function generateKeywords(r: ParsedPriceRow): string[] {
 export async function updatePriceListItem(id: string, updates: Partial<PriceListItem>): Promise<void> {
   const { error } = await supabase.from("price_list_items").update(updates as any).eq("id", id);
   if (error) throw error;
+  invalidatePriceListCache();
 }
 
 export async function deletePriceListItem(id: string): Promise<void> {
   const { error } = await supabase.from("price_list_items").delete().eq("id", id);
   if (error) throw error;
+  invalidatePriceListCache();
 }
 
 // ── Price list lookup ─────────────────────────────────────────────────────────
@@ -325,6 +367,11 @@ export async function deletePriceListItem(id: string): Promise<void> {
 export async function findPriceListMatch(query: string): Promise<PriceListItem[]> {
   if (!query.trim()) return [];
   const q = query.trim();
+  const cacheKey = q.toLowerCase();
+  const now = Date.now();
+
+  const cached = matchCache.get(cacheKey);
+  if (cached && now - cached.fetchedAt < MATCH_TTL_MS) return cached.items;
 
   // 1. Exact part number match
   const { data: exact } = await supabase
@@ -333,16 +380,28 @@ export async function findPriceListMatch(query: string): Promise<PriceListItem[]
     .ilike("part_number", q)
     .eq("is_active", true)
     .limit(3);
-  if (exact && exact.length > 0) return exact as unknown as PriceListItem[];
 
-  // 2. Fuzzy: part number contains OR description contains
-  const { data: fuzzy } = await supabase
-    .from("price_list_items")
-    .select("*")
-    .or(`part_number.ilike.%${q}%,description.ilike.%${q}%`)
-    .eq("is_active", true)
-    .limit(5);
-  return (fuzzy ?? []) as unknown as PriceListItem[];
+  let result: PriceListItem[];
+  if (exact && exact.length > 0) {
+    result = exact as unknown as PriceListItem[];
+  } else {
+    // 2. Fuzzy: part number contains OR description contains
+    const { data: fuzzy } = await supabase
+      .from("price_list_items")
+      .select("*")
+      .or(`part_number.ilike.%${q}%,description.ilike.%${q}%`)
+      .eq("is_active", true)
+      .limit(5);
+    result = (fuzzy ?? []) as unknown as PriceListItem[];
+  }
+
+  if (matchCache.size >= MATCH_CACHE_MAX) {
+    // Drop oldest entry (Map preserves insertion order)
+    const firstKey = matchCache.keys().next().value;
+    if (firstKey) matchCache.delete(firstKey);
+  }
+  matchCache.set(cacheKey, { items: result, fetchedAt: now });
+  return result;
 }
 
 // ── Context builder for Claude ─────────────────────────────────────────────────
