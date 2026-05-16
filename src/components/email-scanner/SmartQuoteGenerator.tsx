@@ -115,11 +115,44 @@ export function SmartQuoteGenerator({
 
   function uid() { return Math.random().toString(36).slice(2, 10); }
 
+  // Strip group / loop / address suffixes from part numbers e.g.
+  // "UBT024F-EL(68)001" -> "UBT024F-EL", "S4-711 (12)034" -> "S4-711",
+  // also trailing " - L1.23" style loop refs.
+  function stripGroupSuffix(text: string): string {
+    if (!text) return text;
+    return text
+      .replace(/\s*\(\s*\d+\s*\)\s*\d+/g, "")        // (68)001
+      .replace(/\s*\[\s*\d+\s*\]\s*\d+/g, "")        // [68]001
+      .replace(/\s*-\s*L\d+[.\-/]\d+/gi, "")          // -L1.23 / L1-23
+      .replace(/\s*loop\s*\d+\s*\/\s*\d+/gi, "")      // Loop 1 / 23
+      .trim();
+  }
+
+  // Merge lines that refer to the same item, summing quantities.
+  function mergeDuplicateLines(items: SmartQuoteLine[]): SmartQuoteLine[] {
+    const map = new Map<string, SmartQuoteLine>();
+    for (const l of items) {
+      const key = (l.part_number || l.description || "").toLowerCase().replace(/\s+/g, " ").trim();
+      if (!key) { map.set(uid(), l); continue; }
+      const existing = map.get(key);
+      if (existing) {
+        existing.quantity = Number(existing.quantity) + Number(l.quantity);
+        existing.total = (Number(existing.unit_cost) + (includeLabour ? Number(existing.labour_cost) : 0)) * existing.quantity;
+      } else {
+        map.set(key, { ...l });
+      }
+    }
+    return Array.from(map.values());
+  }
+
   async function generate() {
     setGenerating(true);
     setVerifications({});
     try {
-      const searchBlob = `${emailContent}\n${extractedScope}\n${extractedRequirements.map(r => r.description).join("\n")}`;
+      const cleanedEmail = stripGroupSuffix(emailContent);
+      const cleanedScope = stripGroupSuffix(extractedScope);
+      const cleanedReqs  = extractedRequirements.map(r => ({ ...r, description: stripGroupSuffix(r.description) }));
+      const searchBlob = `${cleanedEmail}\n${cleanedScope}\n${cleanedReqs.map(r => r.description).join("\n")}`;
       const relevantItems = filterPriceListByRelevance(priceList, searchBlob, 200);
       const priceListContext = buildPriceListContext(relevantItems, 200);
       const hasPriceList = priceList.length > 0;
