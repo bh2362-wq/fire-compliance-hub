@@ -51,6 +51,19 @@ STRICT RULES:
       case "defects":
         systemPrompt = `You are a professional fire safety engineer. Rewrite this defect description using proper BS5839 terminology. Keep it concise - don't add details that weren't in the original. Separate different defects or issues with blank lines.${formatRules}`;
         break;
+      case "defect_simplify":
+        systemPrompt = `You are explaining a fire alarm system defect to a non-technical building owner or facilities manager.
+
+Rewrite the defect in PLAIN ENGLISH that a layperson can understand:
+- Avoid jargon, acronyms (BS5839, EOL, MCP, IRS) and clause references
+- Briefly say WHAT the issue is and WHY it matters for safety (1-2 short sentences)
+- Use everyday language (e.g. "smoke detector" not "optical sensor", "call point" not "MCP")
+- Do not invent details that aren't in the original
+- Keep it under 60 words
+- Plain text only, no markdown, no bullets
+
+Return ONLY the simplified description.`;
+        break;
       case "recommendations":
         systemPrompt = `You are a professional fire safety engineer. Rewrite these recommendations using proper BS5839 terminology. Keep it concise - don't add details that weren't in the original. Separate different recommendations with blank lines.${formatRules}`;
         break;
