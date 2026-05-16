@@ -302,6 +302,26 @@ export default function BS5839CertificateForm({
       }
     }
 
+    // Auto-email cert to responsible person
+    if (pdf && saved.id) {
+      const toEmail = (saved.payload as any)?.responsible_person_contact ||
+                      (saved.payload as any)?.responsible_person_email || null;
+      if (toEmail) {
+        autoEmailCert({
+          pdfBase64:   pdf.base64,
+          fileName:    pdf.fileName,
+          certRef:     saved.certificate_reference || "",
+          formType:    "bs5839_inspection_servicing",
+          siteName:    (saved.payload as any)?.premises_name || "",
+          visitDate:   (saved.payload as any)?.date_of_service || "",
+          toEmail,
+          contactName: (saved.payload as any)?.responsible_person_name || null,
+        }).then((sent) => {
+          if (sent) toast.success(`Certificate emailed to ${toEmail}`);
+        }).catch(console.warn);
+      }
+    }
+
     // Schedule next service visit + calendar appointment
     if (saved.payload?.next_service_date && siteId && user) {
       try {
