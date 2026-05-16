@@ -97,11 +97,11 @@ function wrapInstance(inst: any) {
   inst.setFontSize  = (s: number) => { curSize = s; return origSetSize(s); };
   inst.setFont      = (f: string, ...rest: any[]) => { curFont = f; return origSetFont(f, ...rest); };
   inst.setFillColor = (...rgb: any[]) => {
-    curFill = (rgb.length >= 3 ? [rgb[0], rgb[1], rgb[2]] : [rgb[0], rgb[0], rgb[0]]) as any;
+    curFill = (Array.isArray(rgb[0]) ? rgb[0] : rgb.length >= 3 ? [rgb[0], rgb[1], rgb[2]] : [rgb[0], rgb[0], rgb[0]]) as any;
     return origSetFill(...rgb);
   };
   inst.setTextColor = (...rgb: any[]) => {
-    curText = (rgb.length >= 3 ? [rgb[0], rgb[1], rgb[2]] : [rgb[0], rgb[0], rgb[0]]) as any;
+    curText = (Array.isArray(rgb[0]) ? rgb[0] : rgb.length >= 3 ? [rgb[0], rgb[1], rgb[2]] : [rgb[0], rgb[0], rgb[0]]) as any;
     return origSetTxt(...rgb);
   };
   inst.text = (text: any, x: number, y: number, opts?: any) => {
