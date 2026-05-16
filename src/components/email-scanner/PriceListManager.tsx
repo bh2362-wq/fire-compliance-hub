@@ -5,12 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
   Upload, Download, Trash2, RefreshCw, Search,
-  AlertCircle, CheckCircle2, FileSpreadsheet, Plus, Pencil, Loader2,
+  AlertCircle, CheckCircle2, FileSpreadsheet, Plus, Pencil, Loader2, ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -49,6 +51,9 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
   const [rawCsvText, setRawCsvText] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ unit_cost: string; labour_cost: string; description: string; manufacturer: string; part_number: string }>({ unit_cost: "", labour_cost: "", description: "", manufacturer: "", part_number: "" });
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [pdfProgressText, setPdfProgressText] = useState("");
+  const [pastedPdfText, setPastedPdfText] = useState("");
 
   // Load incoming preview rows from email scanner
   const previewLoadedRef = useRef<string | null>(null);
@@ -69,6 +74,103 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
 
   const activeItems = items.filter(i => i.is_active);
 
+  const TEXT_CHUNK_SIZE = 5500;
+  const PAUSE_BETWEEN_CHUNKS_MS = 2500;
+
+  function wait(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function splitTextIntoChunks(text: string, maxChars = TEXT_CHUNK_SIZE): string[] {
+    const cleaned = text.replace(/\r/g, "").trim();
+    if (!cleaned) return [];
+
+    const chunks: string[] = [];
+    let current = "";
+    for (const line of cleaned.split("\n")) {
+      const next = current ? `${current}\n${line}` : line;
+      if (next.length > maxChars && current) {
+        chunks.push(current.trim());
+        current = line;
+      } else {
+        current = next;
+      }
+      while (current.length > maxChars) {
+        chunks.push(current.slice(0, maxChars).trim());
+        current = current.slice(maxChars);
+      }
+    }
+    if (current.trim()) chunks.push(current.trim());
+    return chunks;
+  }
+
+  function dedupeParsedRows(rows: ParsedPriceRow[]): ParsedPriceRow[] {
+    const map = new Map<string, ParsedPriceRow>();
+    rows.forEach(row => {
+      const key = `${row.part_number || ""}|${row.description || ""}`.toLowerCase().trim();
+      if (key) map.set(key, row);
+    });
+    return Array.from(map.values()).map((row, index) => ({ ...row, _rowIndex: index + 1 }));
+  }
+
+  async function extractPdfText(file: File, onPage: (page: number, total: number) => void): Promise<string> {
+    const pdfjs: any = await import("pdfjs-dist");
+    const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+    pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: buffer }).promise;
+    let extracted = "";
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      extracted += `\n\n--- Page ${pageNumber} ---\n${content.items.map((item: any) => item.str).join(" ")}`;
+      onPage(pageNumber, pdf.numPages);
+    }
+
+    return extracted;
+  }
+
+  async function extractPriceRowsFromText(text: string, sourceName: string): Promise<ParsedPriceRow[]> {
+    const chunks = splitTextIntoChunks(text);
+    if (chunks.length === 0) throw new Error("No text found to process");
+
+    const extracted: ParsedPriceRow[] = [];
+    setPdfProgressText(`Processing ${chunks.length} text section${chunks.length !== 1 ? "s" : ""}…`);
+
+    for (let i = 0; i < chunks.length; i++) {
+      setPdfProgress(25 + Math.round((i / chunks.length) * 70));
+      setPdfProgressText(`Extracting prices from section ${i + 1} of ${chunks.length}…`);
+
+      const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
+        body: {
+          emailText: chunks[i],
+          filename: sourceName,
+          supplierName: "",
+          chunkSize: TEXT_CHUNK_SIZE,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      extracted.push(...(data?.rows || []).map((r: any) => ({
+        ...r,
+        unit_cost: Number(r.unit_cost) || 0,
+        labour_cost: Number(r.labour_cost) || 0,
+        _rowIndex: extracted.length + 1,
+      })));
+
+      if (i < chunks.length - 1) {
+        setPdfProgressText(`Waiting briefly before section ${i + 2} to avoid rate limits…`);
+        await wait(PAUSE_BETWEEN_CHUNKS_MS);
+      }
+    }
+
+    setPdfProgress(100);
+    return dedupeParsedRows(extracted);
+  }
+
   function applyParseResult(result: ParseResult, sheetLabel?: string) {
     setParseResult(result);
     setColOverrides({});
@@ -87,31 +189,24 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
   }
 
   async function parsePdfFile(file: File) {
-    toast.info("Reading PDF with AI — extracting part numbers and prices…");
+    toast.info("Reading selectable PDF text, then processing it in smaller sections…");
     setUploading(true);
+    setPdfProgress(5);
+    setPdfProgressText("Reading PDF text…");
     try {
-      const buffer = await file.arrayBuffer();
-      // base64-encode in chunks to avoid call-stack overflow on large PDFs
-      const bytes = new Uint8Array(buffer);
-      let binary = "";
-      const chunk = 0x8000;
-      for (let i = 0; i < bytes.length; i += chunk) {
-        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
-      }
-      const b64 = btoa(binary);
-
-      const { data, error } = await supabase.functions.invoke("extract-pdf-prices", {
-        body: { pdfBase64: b64, filename: file.name, supplierName: "" },
+      const text = await extractPdfText(file, (page, total) => {
+        setPdfProgress(5 + Math.round((page / total) * 20));
+        setPdfProgressText(`Reading PDF text — page ${page} of ${total}…`);
       });
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
 
-      const rows: ParsedPriceRow[] = (data?.rows || []).map((r: any, i: number) => ({
-        ...r,
-        unit_cost: Number(r.unit_cost) || 0,
-        labour_cost: Number(r.labour_cost) || 0,
-        _rowIndex: i + 1,
-      }));
+      if (text.trim().length < 80) {
+        setPastedPdfText("");
+        setActiveTab("upload");
+        toast.warning("This PDF does not contain enough selectable text. Copy and paste the price-list text into the box below.");
+        return;
+      }
+
+      const rows = await extractPriceRowsFromText(text, file.name);
 
       setExcelBuffer(null);
       setExcelSheets([]);
@@ -119,7 +214,7 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
       setRawCsvText("");
 
       if (rows.length === 0) {
-        toast.warning("No priced items found in PDF — try a different file or check it contains a price list");
+        toast.warning("No priced items found in PDF — try pasting the text or check it contains part numbers and prices");
         setPreview([]);
         return;
       }
@@ -128,6 +223,38 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
       toast.error(err.message || "Failed to extract prices from PDF");
     } finally {
       setUploading(false);
+      setPdfProgress(0);
+      setPdfProgressText("");
+    }
+  }
+
+  async function parsePastedPdfText() {
+    if (pastedPdfText.trim().length < 20) {
+      toast.error("Paste the price-list text first");
+      return;
+    }
+
+    setUploading(true);
+    setPdfProgress(10);
+    try {
+      const rows = await extractPriceRowsFromText(pastedPdfText, "pasted-price-list.txt");
+      setExcelBuffer(null);
+      setExcelSheets([]);
+      setSelectedSheet("");
+      setRawCsvText("");
+
+      if (rows.length === 0) {
+        toast.warning("No priced items found — check the pasted text contains part numbers and prices");
+        setPreview([]);
+        return;
+      }
+      applyParseResult({ rows, allPricesZero: false } as ParseResult, "pasted text");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to extract prices from pasted text");
+    } finally {
+      setUploading(false);
+      setPdfProgress(0);
+      setPdfProgressText("");
     }
   }
 
@@ -426,18 +553,50 @@ export function PriceListManager({ initialPreview, onPreviewConsumed }: PriceLis
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={handleDrop}
-            onClick={() => fileRef.current?.click()}
+            onClick={() => !uploading && fileRef.current?.click()}
             className={cn(
-              "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors",
+              "border-2 border-dashed rounded-xl p-8 text-center transition-colors",
+              uploading ? "cursor-not-allowed bg-muted/30" : "cursor-pointer",
               dragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/40 hover:bg-accent/20"
             )}
           >
-            <FileSpreadsheet className="w-8 h-8 mx-auto mb-2 text-muted-foreground/60" />
+            {uploading ? <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-primary" /> : <FileSpreadsheet className="w-8 h-8 mx-auto mb-2 text-muted-foreground/60" />}
             <p className="text-sm font-medium">Drop CSV, Excel or PDF file here, or click to browse</p>
             <p className="text-xs text-muted-foreground mt-1">
               CSV / Excel (.xlsx/.xls): Required Description &amp; Unit Cost. Optional Part Number, Manufacturer, Category, Labour.
-              PDF: AI extracts part numbers and prices automatically — review &amp; edit before importing.
+              PDF: selectable text is split into smaller AI sections to reduce rate limits.
             </p>
+          </div>
+
+          {uploading && pdfProgressText && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="font-medium">{pdfProgressText}</span>
+                <span className="text-muted-foreground">{Math.round(pdfProgress)}%</span>
+              </div>
+              <Progress value={pdfProgress} className="h-2" />
+            </div>
+          )}
+
+          <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5" /> Paste PDF text instead</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Use this for large/scanned PDFs or if the upload gets rate limited.</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={parsePastedPdfText} disabled={uploading || pastedPdfText.trim().length < 20}>
+                {uploading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <ClipboardList className="h-3.5 w-3.5 mr-1.5" />}
+                Extract
+              </Button>
+            </div>
+            <Textarea
+              value={pastedPdfText}
+              onChange={e => setPastedPdfText(e.target.value)}
+              placeholder="Paste copied text from the supplier PDF, quote, invoice or price list…"
+              className="min-h-[120px] font-mono text-xs bg-background"
+              disabled={uploading}
+            />
+            <p className="text-[11px] text-muted-foreground">{pastedPdfText.trim().length.toLocaleString()} characters pasted.</p>
           </div>
 
           {/* Excel sheet selector */}
