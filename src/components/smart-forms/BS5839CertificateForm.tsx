@@ -28,6 +28,7 @@ import { DefectImportPanel } from "@/components/smart-forms/DefectImportPanel";
 import { SitePrefillPanel } from "@/components/smart-forms/SitePrefillPanel";
 import { ClientSummaryPanel } from "@/components/smart-forms/ClientSummaryPanel";
 import { PhotoAnalysisPanel } from "@/components/smart-forms/PhotoAnalysisPanel";
+import { scheduleNextServiceFromCert, loadOpenDefectsForSite, loadPreviousChecklistAnswers } from "@/services/nextServiceScheduler";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 const SERVICE_TYPES = [
