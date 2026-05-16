@@ -348,10 +348,14 @@ export async function findPriceListMatch(query: string): Promise<PriceListItem[]
 // ── Context builder for Claude ─────────────────────────────────────────────────
 // Formats the price list into a concise string for inclusion in the Claude prompt.
 
-export function buildPriceListContext(items: PriceListItem[]): string {
+export function buildPriceListContext(items: PriceListItem[], maxItems = 200): string {
   if (items.length === 0) return "No price list loaded.";
 
-  const lines = items.map(item => {
+  // Hard cap to keep the prompt under Claude's 200k token limit.
+  // Each line is ~30 tokens, so 200 items ≈ 6k tokens of context.
+  const capped = items.slice(0, maxItems);
+
+  const lines = capped.map(item => {
     const parts: string[] = [];
     if (item.part_number) parts.push(`[${item.part_number}]`);
     parts.push(item.description);
@@ -363,15 +367,63 @@ export function buildPriceListContext(items: PriceListItem[]): string {
   });
 
   const grouped: Record<string, string[]> = {};
-  items.forEach((item, i) => {
+  capped.forEach((item, i) => {
     const cat = item.category ?? "Other";
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push(lines[i]);
   });
 
-  return Object.entries(grouped)
+  const body = Object.entries(grouped)
     .map(([cat, catLines]) => `${cat.toUpperCase()}:\n${catLines.join("\n")}`)
     .join("\n\n");
+
+  const truncatedNote = items.length > maxItems
+    ? `\n\n(Showing ${maxItems} most relevant of ${items.length} catalogue items.)`
+    : "";
+
+  return body + truncatedNote;
+}
+
+/**
+ * Pre-filter a large price list down to items most relevant to a free-text
+ * search blob (e.g. email body + requirements). Used to keep prompts small
+ * when the full catalogue is 10k+ rows.
+ */
+export function filterPriceListByRelevance(
+  items: PriceListItem[],
+  searchText: string,
+  maxItems = 200
+): PriceListItem[] {
+  if (items.length <= maxItems) return items;
+
+  const tokens = Array.from(
+    new Set(
+      searchText
+        .toLowerCase()
+        .replace(/[^a-z0-9\s\-/]/g, " ")
+        .split(/\s+/)
+        .filter(t => t.length >= 3)
+    )
+  );
+  if (tokens.length === 0) return items.slice(0, maxItems);
+
+  const scored = items.map(item => {
+    const hay = [
+      item.part_number, item.description, item.short_name,
+      item.manufacturer, item.model, item.category,
+      ...(item.keywords || []),
+    ].filter(Boolean).join(" ").toLowerCase();
+
+    let score = 0;
+    for (const t of tokens) {
+      if (hay.includes(t)) score += t.length >= 5 ? 2 : 1;
+    }
+    return { item, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const matched = scored.filter(s => s.score > 0).map(s => s.item);
+  return matched.length >= maxItems ? matched.slice(0, maxItems) : matched;
 }
 
 // ── CSV download template ──────────────────────────────────────────────────────
