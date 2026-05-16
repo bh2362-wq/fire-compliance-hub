@@ -339,4 +339,16 @@ describe("BS5839 service report PDF — layout regressions", () => {
       expect(titleRight, "title overlaps cert reference").toBeLessThan(refLeft);
     });
   });
+
+  describe("signature rendering", () => {
+    it("renders plain typed signatures from edited submissions", async () => {
+      await generate(basePayload({
+        engineer_signature: "B Holden",
+        client_signature: "Giles Barton Smith",
+      }));
+
+      expect(recorder.textCalls.some(c => c.text === "B Holden" && c.font === "times")).toBe(true);
+      expect(recorder.textCalls.some(c => c.text === "Giles Barton Smith" && c.font === "times")).toBe(true);
+    });
+  });
 });
