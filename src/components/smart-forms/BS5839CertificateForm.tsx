@@ -381,6 +381,12 @@ export default function BS5839CertificateForm({
               <Badge className="bg-green-600/15 text-green-700 border-green-600/30 gap-1 text-[10px]"><CheckCircle2 className="h-3 w-3" />Valid</Badge>
             )}
             <span className="text-[10px] text-muted-foreground">{answered}/{checklist.length} answered{noCount > 0 && ` · ${noCount} NO`}</span>
+            {prefilling && (
+              <span className="flex items-center gap-1 text-[10px] text-primary">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading open defects & previous checklist…
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => persist("draft")} disabled={saving}>
