@@ -352,13 +352,13 @@ describe("BS5839 service report PDF — layout regressions", () => {
     });
   });
 
-  // Regression: BS5839-IS-2026-00018 was reported "jumbled" after edit + re-download.
+  // Regression: PPM-FA-00018 was reported "jumbled" after edit + re-download.
   // The edit flow stores checklist as Pass/Fail and signatures as plain strings.
   // This test re-generates a payload shaped like that submission and asserts the
   // three failure modes the user hit (ticks, layout, signatures) cannot regress.
-  describe("BS5839-IS-2026-00018 — edited submission regression", () => {
+  describe("PPM-FA-00018 — edited submission regression", () => {
     const editedPayload = (): BS5839Payload => basePayload({
-      certificate_reference: "BS5839-IS-2026-00018",
+      certificate_reference: "PPM-FA-00018",
       certificate_type: "Inspection & Service",
       premises_name: "Palantir Technologies UK Ltd",
       panel_manufacturer: "Advanced MxPro 5",
@@ -383,7 +383,7 @@ describe("BS5839 service report PDF — layout regressions", () => {
 
     it("regenerates without throwing and produces the correct filename", async () => {
       const result = await generate(editedPayload());
-      expect(result.fileName).toContain("BS5839-IS-2026-00018");
+      expect(result.fileName).toContain("PPM-FA-00018");
     });
 
     it("draws coloured tick boxes for every Pass / Fail / N/A row (no missing ticks)", async () => {
@@ -430,7 +430,7 @@ describe("BS5839 service report PDF — layout regressions", () => {
       });
 
       // Cert reference renders right-anchored on page 1.
-      expect(recorder.textCalls.some(c => c.page === 1 && c.text === "BS5839-IS-2026-00018")).toBe(true);
+      expect(recorder.textCalls.some(c => c.page === 1 && c.text === "PPM-FA-00018")).toBe(true);
     });
   });
 });
