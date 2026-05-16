@@ -17,7 +17,7 @@
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform",
 };
 
 const SYSTEM_PROMPT = `You are a senior fire alarm engineer with 25 years of hands-on experience across the full range of UK fire detection systems. You have deep knowledge of:
