@@ -375,7 +375,7 @@ export async function generateServiceReport(
         san(d.recommended_action || ""),
         san(d.status || "Open"),
       ]),
-      margin: { left: M, right: M, bottom: FOOTER_RES },
+      margin: { top: 58, left: M, right: M, bottom: FOOTER_RES },
       tableWidth: pw - M * 2,
       headStyles: { fillColor: DARK, textColor: WHITE, fontStyle: "bold", fontSize: 7.5,
         cellPadding: { top: 2, bottom: 2, left: 3, right: 3 } },
