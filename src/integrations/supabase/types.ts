@@ -3709,6 +3709,24 @@ export type Database = {
         }
         Relationships: []
       }
+      recycled_smart_form_cert_refs: {
+        Row: {
+          certificate_reference: string
+          form_type: string
+          recycled_at: string
+        }
+        Insert: {
+          certificate_reference: string
+          form_type: string
+          recycled_at?: string
+        }
+        Update: {
+          certificate_reference?: string
+          form_type?: string
+          recycled_at?: string
+        }
+        Relationships: []
+      }
       scanned_emails: {
         Row: {
           body_preview: string | null
