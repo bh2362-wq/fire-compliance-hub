@@ -153,6 +153,8 @@ export async function autoCreateCertInvoice(opts: {
 
   return {
     invoiceNumber: result.number,
+    invoiceId:     result.id,
+    invoiceUrl:    `https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${result.id}`,
     total:         result.total,
   };
   })();
