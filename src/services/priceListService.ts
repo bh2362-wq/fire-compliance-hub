@@ -232,32 +232,71 @@ export function parsePriceListCsvFull(csvText: string): ParseResult {
 
 // ── CRUD ───────────────────────────────────────────────────────────────────────
 
-export async function getPriceList(activeOnly = true): Promise<PriceListItem[]> {
-  // PostgREST caps unbounded selects at 1000 rows, so we page through the
-  // full price list in 1000-row chunks to load all items (catalogues can be 13k+).
-  const PAGE = 1000;
-  const all: PriceListItem[] = [];
-  let from = 0;
+// In-memory cache for the full price list. Loading 13k+ rows takes several
+// seconds and several round-trips; caching avoids re-fetching on every lookup.
+const PRICE_LIST_TTL_MS = 5 * 60 * 1000; // 5 minutes
+type PriceListCacheEntry = { items: PriceListItem[]; fetchedAt: number; inflight?: Promise<PriceListItem[]> };
+const priceListCache: Record<"active" | "all", PriceListCacheEntry | undefined> = {
+  active: undefined,
+  all: undefined,
+};
 
-  while (true) {
-    let q = supabase
-      .from("price_list_items")
-      .select("*")
-      .order("manufacturer", { ascending: true })
-      .order("description", { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (activeOnly) q = q.eq("is_active", true);
+// Cache for individual lookups (findPriceListMatch). Keyed by normalised query.
+const matchCache = new Map<string, { items: PriceListItem[]; fetchedAt: number }>();
+const MATCH_TTL_MS = 5 * 60 * 1000;
+const MATCH_CACHE_MAX = 500;
 
-    const { data, error } = await q;
-    if (error) throw error;
+export function invalidatePriceListCache(): void {
+  priceListCache.active = undefined;
+  priceListCache.all = undefined;
+  matchCache.clear();
+}
 
-    const batch = (data ?? []) as unknown as PriceListItem[];
-    all.push(...batch);
-    if (batch.length < PAGE) break;
-    from += PAGE;
+export async function getPriceList(activeOnly = true, opts: { force?: boolean } = {}): Promise<PriceListItem[]> {
+  const key = activeOnly ? "active" : "all";
+  const now = Date.now();
+  const cached = priceListCache[key];
+
+  if (!opts.force && cached && now - cached.fetchedAt < PRICE_LIST_TTL_MS) {
+    return cached.items;
   }
+  // De-duplicate concurrent loads
+  if (cached?.inflight) return cached.inflight;
 
-  return all;
+  const loader = (async () => {
+    const PAGE = 1000;
+    const all: PriceListItem[] = [];
+    let from = 0;
+
+    while (true) {
+      let q = supabase
+        .from("price_list_items")
+        .select("*")
+        .order("manufacturer", { ascending: true })
+        .order("description", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (activeOnly) q = q.eq("is_active", true);
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      const batch = (data ?? []) as unknown as PriceListItem[];
+      all.push(...batch);
+      if (batch.length < PAGE) break;
+      from += PAGE;
+    }
+
+    priceListCache[key] = { items: all, fetchedAt: Date.now() };
+    return all;
+  })();
+
+  priceListCache[key] = { items: cached?.items ?? [], fetchedAt: cached?.fetchedAt ?? 0, inflight: loader };
+  try {
+    return await loader;
+  } catch (e) {
+    priceListCache[key] = cached; // restore previous on error
+    throw e;
+  }
 }
 
 export async function uploadPriceList(
