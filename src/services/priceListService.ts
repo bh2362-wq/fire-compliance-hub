@@ -233,15 +233,31 @@ export function parsePriceListCsvFull(csvText: string): ParseResult {
 // ── CRUD ───────────────────────────────────────────────────────────────────────
 
 export async function getPriceList(activeOnly = true): Promise<PriceListItem[]> {
-  let q = supabase
-    .from("price_list_items")
-    .select("*")
-    .order("manufacturer", { ascending: true })
-    .order("description", { ascending: true });
-  if (activeOnly) q = q.eq("is_active", true);
-  const { data, error } = await q;
-  if (error) throw error;
-  return (data ?? []) as unknown as PriceListItem[];
+  // PostgREST caps unbounded selects at 1000 rows, so we page through the
+  // full price list in 1000-row chunks to load all items (catalogues can be 13k+).
+  const PAGE = 1000;
+  const all: PriceListItem[] = [];
+  let from = 0;
+
+  while (true) {
+    let q = supabase
+      .from("price_list_items")
+      .select("*")
+      .order("manufacturer", { ascending: true })
+      .order("description", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (activeOnly) q = q.eq("is_active", true);
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    const batch = (data ?? []) as unknown as PriceListItem[];
+    all.push(...batch);
+    if (batch.length < PAGE) break;
+    from += PAGE;
+  }
+
+  return all;
 }
 
 export async function uploadPriceList(
