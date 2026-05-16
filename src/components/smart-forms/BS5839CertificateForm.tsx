@@ -284,10 +284,14 @@ export default function BS5839CertificateForm({
           engineerId: user.id,
           userId: user.id,
         });
-        if (result && !result.alreadyExisted) {
+        if (result) {
           const dateLabel = new Date(saved.payload.next_service_date)
             .toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-          toast.success(`Next service scheduled for ${dateLabel}`);
+          if (result.alreadyExisted) {
+            toast.info(`Next service already scheduled for ${dateLabel} — no duplicate created.`);
+          } else {
+            toast.success(`Next service scheduled for ${dateLabel}`);
+          }
         }
       } catch (e) {
         console.error("Failed to schedule next service:", e);
