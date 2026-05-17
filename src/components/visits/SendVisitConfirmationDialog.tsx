@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Mail, Send, CheckCircle2, Clock } from "lucide-react";
+import { Loader2, Mail, Send, CheckCircle2, Clock, AlertTriangle, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Visit } from "@/hooks/useVisits";
@@ -23,6 +23,15 @@ interface SendVisitConfirmationDialogProps {
   onSuccess?: () => void;
 }
 
+interface DeliveryStatus {
+  state: "sent" | "rejected" | "error";
+  recipient?: string;
+  message?: string;
+  errorName?: string;
+  statusCode?: number;
+  at: string;
+}
+
 export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSuccess }: SendVisitConfirmationDialogProps) {
   const { toast } = useToast();
   const [sending, setSending] = useState(false);
@@ -30,6 +39,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
   const [customerName, setCustomerName] = useState("");
   const [loading, setLoading] = useState(true);
   const [sentInfo, setSentInfo] = useState<SentInfo | null>(null);
+  const [delivery, setDelivery] = useState<DeliveryStatus | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -72,10 +82,11 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
     }
 
     setSending(true);
+    setDelivery(null);
     try {
       // Generate acceptance token if not already set
       let token = null;
-      
+
       const { data: existingVisit } = await supabase
         .from("visits")
         .select("acceptance_token")
@@ -118,7 +129,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
         jobNotes = visit.notes || "";
       }
 
-      const { error } = await supabase.functions.invoke("send-notification", {
+      const { data, error } = await supabase.functions.invoke("send-notification", {
         body: {
           type: "visit_confirmation",
           customerEmail: email.trim(),
@@ -135,16 +146,44 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
 
       if (error) throw error;
 
-      // Timestamp log: record when and to whom the confirmation was sent
+      // Provider rejected the send (e.g. unverified sending domain)
+      if (data && data.success === false) {
+        const pe = data.providerError;
+        setDelivery({
+          state: "rejected",
+          recipient: email.trim(),
+          message: pe?.message || data.error || "Email provider rejected the send",
+          errorName: pe?.name,
+          statusCode: pe?.statusCode,
+          at: new Date().toISOString(),
+        });
+        toast({
+          title: "Email not sent",
+          description: pe?.message || "The email provider rejected the send. See details below.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Success path — stamp the audit log
       const { data: { user } } = await supabase.auth.getUser();
+      const nowIso = new Date().toISOString();
       await supabase
         .from("visits")
         .update({
-          confirmation_sent_at: new Date().toISOString(),
+          confirmation_sent_at: nowIso,
           confirmation_sent_to: email.trim(),
           confirmation_sent_by: user?.id ?? null,
         })
         .eq("id", visit.id);
+
+      setDelivery({ state: "sent", recipient: email.trim(), at: nowIso });
+      setSentInfo((prev) => ({
+        confirmation_sent_at: nowIso,
+        confirmation_sent_to: email.trim(),
+        client_accepted_at: prev?.client_accepted_at ?? null,
+        accepted_by_name: prev?.accepted_by_name ?? null,
+      }));
 
       toast({
         title: "Confirmation sent",
@@ -152,12 +191,17 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
       });
 
       onSuccess?.();
-      onOpenChange(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error sending confirmation:", err);
+      setDelivery({
+        state: "error",
+        recipient: email.trim(),
+        message: err?.message || "Network or function error",
+        at: new Date().toISOString(),
+      });
       toast({
         title: "Error",
-        description: "Failed to send confirmation email. Please try again.",
+        description: "Failed to send confirmation email. See details below.",
         variant: "destructive",
       });
     } finally {
@@ -205,6 +249,54 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
               </div>
             </div>
           ) : null}
+
+          {delivery && delivery.state !== "sent" && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm space-y-2">
+              <div className="flex items-start gap-2 text-destructive">
+                {delivery.errorName === "validation_error" ? (
+                  <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                )}
+                <div className="space-y-0.5">
+                  <p className="font-semibold">
+                    {delivery.state === "rejected"
+                      ? "Email provider rejected the send"
+                      : "Send failed"}
+                  </p>
+                  <p className="text-xs">
+                    Attempted {format(new Date(delivery.at), "dd MMM yyyy 'at' HH:mm:ss")}
+                    {delivery.recipient ? ` → ${delivery.recipient}` : ""}
+                    {delivery.statusCode ? ` (HTTP ${delivery.statusCode})` : ""}
+                  </p>
+                </div>
+              </div>
+              {delivery.message && (
+                <div className="rounded bg-background/60 border border-destructive/20 px-2 py-1.5 text-xs font-mono text-foreground/80 break-words">
+                  {delivery.errorName ? <span className="font-semibold">{delivery.errorName}: </span> : null}
+                  {delivery.message}
+                </div>
+              )}
+              {delivery.errorName === "validation_error" && /domain/i.test(delivery.message || "") && (
+                <p className="text-xs text-muted-foreground">
+                  Your sending domain isn't verified yet, so the provider only allows test sends to your own address. Verify your sending domain in <strong>Cloud → Emails</strong> to deliver to any recipient.
+                </p>
+              )}
+            </div>
+          )}
+
+          {delivery?.state === "sent" && (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm flex items-start gap-2 text-green-800">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">Accepted by email provider</p>
+                <p className="text-xs">
+                  Delivered to {delivery.recipient} at{" "}
+                  {format(new Date(delivery.at), "dd MMM yyyy 'at' HH:mm:ss")}
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="confirm-email">Customer Email *</Label>
