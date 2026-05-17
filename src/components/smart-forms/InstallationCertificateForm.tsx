@@ -309,6 +309,10 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
         }
       />
       <DocBody>
+        <PdfPreviewBlock
+          payload={payload}
+          generate={() => generateInstallationCertificatePDF({ ...payload, certificate_reference: payload.certificate_reference || "DRAFT-INSTALL" } as InstallationPayload, { autoSign: true })}
+        />
         <SitePrefillBlock
           formType="bs5839_installation"
           siteId={siteId}
