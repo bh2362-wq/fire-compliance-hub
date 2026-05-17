@@ -223,10 +223,7 @@ export default function DryRiserForm({ open, onOpenChange, visitId, siteId, onSa
       <DocBody>
         <PdfPreviewBlock
           payload={payload}
-          generate={async () => {
-            const { generateDryRiserPDF } = await import("@/lib/dryRiserPdfGenerator");
-            await generateDryRiserPDF(payload as any);
-          }}
+
         />
         <SitePrefillBlock
           formType={`dr_${payload.form_type}`}

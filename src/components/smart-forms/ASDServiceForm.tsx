@@ -226,10 +226,7 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
       <DocBody>
         <PdfPreviewBlock
           payload={payload}
-          generate={async () => {
-            const { generateASDCommissioningPDF } = await import("@/lib/asdCommissioningPdfGenerator");
-            await generateASDCommissioningPDF(payload as any);
-          }}
+
         />
         <SitePrefillBlock
           formType={`asd_${payload.form_type}`}

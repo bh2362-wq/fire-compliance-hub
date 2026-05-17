@@ -485,7 +485,7 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
       <DocBody>
         <PdfPreviewBlock
           payload={payload}
-          generate={() => generateModificationCertificatePDF(payload as ModificationPayload, { autoSign: true })}
+
         />
         <SitePrefillBlock
           formType="bs5839_modification"

@@ -12,8 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, FileDown, Save, Sparkles, AlertCircle, CheckCircle2, Eye, RefreshCw } from "lucide-react";
-import { generatePdfBlob } from "@/lib/pdfPreviewHelper";
+import { ChevronDown, FileDown, Save, Sparkles, AlertCircle, CheckCircle2, Eye } from "lucide-react";
 
 /* ─── Section block ────────────────────────────────────────────── */
 
@@ -521,66 +520,166 @@ export function AIAssistBlock({
   );
 }
 
-/* ─── Live PDF preview block ──────────────────────────────────── */
+/* ─── Document mockup preview block ────────────────────────────── */
 
 /**
- * Shows a collapsible inline iframe with the rendered PDF using the same
- * generator that "Complete & Download" uses. `generate` should invoke the
- * generator (which internally calls `doc.save(...)`) — we intercept the
- * save so we get a Blob URL instead of triggering a download.
- *
- * Auto-refreshes (debounced) whenever `payload` changes so the preview
- * always reflects current form data before completing.
+ * Lightweight HTML mockup of how the finished certificate/document will be
+ * laid out. NOT the real PDF — it just renders the current `payload` as a
+ * stylised A4 page so users can sanity-check structure & data before
+ * filling out & completing.
  */
-export function PdfPreviewBlock({
-  generate,
-  payload,
-  label = "Live PDF preview",
-  defaultOpen = false,
-  autoRefresh = true,
+
+function formatValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "number") return String(v);
+  if (typeof v === "string") return v;
+  return "";
+}
+
+function MockupSection({
+  number,
+  title,
+  rows,
 }: {
-  generate: () => Promise<unknown> | unknown;
-  payload?: unknown;
+  number: string;
+  title: string;
+  rows: Array<[string, string]>;
+}) {
+  if (!rows.length) return null;
+  return (
+    <div className="mb-3">
+      <div className="bg-[#3c3c3c] text-white text-[9px] font-bold uppercase tracking-wider px-2 py-1">
+        {number}   {title}
+      </div>
+      <table className="w-full text-[9px] border border-border border-t-0">
+        <tbody>
+          {rows.map(([k, v], i) => (
+            <tr key={i} className={i % 2 ? "bg-muted/30" : "bg-white"}>
+              <td className="px-2 py-1 font-semibold text-muted-foreground w-1/3 align-top border-r border-border">
+                {k}
+              </td>
+              <td className="px-2 py-1 align-top">{v || "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MockupArrayTable({
+  number,
+  title,
+  rows,
+}: {
+  number: string;
+  title: string;
+  rows: any[];
+}) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return (
+      <div className="mb-3">
+        <div className="bg-[#3c3c3c] text-white text-[9px] font-bold uppercase tracking-wider px-2 py-1">
+          {number}   {title}  (0)
+        </div>
+        <div className="border border-t-0 border-border bg-white px-2 py-2 text-[9px] text-muted-foreground">
+          No entries.
+        </div>
+      </div>
+    );
+  }
+  const cols = Array.from(
+    rows.reduce<Set<string>>((acc, r) => {
+      if (r && typeof r === "object") Object.keys(r).forEach((k) => acc.add(k));
+      return acc;
+    }, new Set())
+  ).slice(0, 6);
+  return (
+    <div className="mb-3">
+      <div className="bg-[#3c3c3c] text-white text-[9px] font-bold uppercase tracking-wider px-2 py-1">
+        {number}   {title}  ({rows.length})
+      </div>
+      <div className="overflow-x-auto border border-t-0 border-border bg-white">
+        <table className="w-full text-[9px]">
+          <thead>
+            <tr className="bg-muted/50">
+              {cols.map((c) => (
+                <th key={c} className="px-2 py-1 text-left font-semibold border-b border-border">
+                  {c.replace(/_/g, " ")}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, 8).map((r, i) => (
+              <tr key={i} className={i % 2 ? "bg-muted/20" : ""}>
+                {cols.map((c) => (
+                  <td key={c} className="px-2 py-1 align-top border-b border-border">
+                    {formatValue(r?.[c])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {rows.length > 8 && (
+              <tr>
+                <td colSpan={cols.length} className="px-2 py-1 italic text-muted-foreground">
+                  …{rows.length - 8} more rows
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function PdfPreviewBlock({
+  payload,
+  title,
+  subtitle,
+  reference,
+  label = "Document mockup preview",
+  defaultOpen = false,
+}: {
+  payload: Record<string, any>;
+  title?: string;
+  subtitle?: string;
+  reference?: string | null;
   label?: string;
   defaultOpen?: boolean;
-  autoRefresh?: boolean;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
-  const [url, setUrl] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const lastUrlRef = React.useRef<string | null>(null);
 
-  const refresh = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const blob = await generatePdfBlob(generate);
-      const next = URL.createObjectURL(blob);
-      if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current);
-      lastUrlRef.current = next;
-      setUrl(next);
-    } catch (e: any) {
-      console.error("PDF preview failed", e);
-      setError(e?.message || "Failed to render preview");
-    } finally {
-      setLoading(false);
-    }
-  }, [generate]);
-
-  // Auto-refresh when opened, and debounced on payload changes.
-  React.useEffect(() => {
-    if (!open) return;
-    if (!autoRefresh && url) return;
-    const t = setTimeout(() => { void refresh(); }, 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, autoRefresh, payload]);
-
-  // Cleanup on unmount
-  React.useEffect(() => () => {
-    if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current);
-  }, []);
+  // Group payload keys into sections: scalars vs arrays of objects.
+  const { scalarGroups, arrays } = React.useMemo(() => {
+    const scalars: Array<[string, string]> = [];
+    const arr: Array<[string, any[]]> = [];
+    const skip = new Set([
+      "id", "submission_id", "user_id", "site_id", "visit_id",
+      "created_at", "updated_at",
+    ]);
+    Object.entries(payload || {}).forEach(([k, v]) => {
+      if (skip.has(k)) return;
+      if (Array.isArray(v)) {
+        if (v.length && typeof v[0] === "object") arr.push([k, v]);
+        else scalars.push([k.replace(/_/g, " "), v.join(", ")]);
+      } else if (v && typeof v === "object") {
+        // flatten one level
+        Object.entries(v as Record<string, any>).forEach(([sk, sv]) => {
+          if (typeof sv !== "object")
+            scalars.push([`${k}.${sk}`.replace(/_/g, " "), formatValue(sv)]);
+        });
+      } else {
+        scalars.push([k.replace(/_/g, " "), formatValue(v)]);
+      }
+    });
+    // chunk scalars into groups of ~10 for visual sectioning
+    const groups: Array<Array<[string, string]>> = [];
+    for (let i = 0; i < scalars.length; i += 10) groups.push(scalars.slice(i, i + 10));
+    return { scalarGroups: groups, arrays: arr };
+  }, [payload]);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -590,35 +689,66 @@ export function PdfPreviewBlock({
             <div className="flex items-center gap-2">
               <Eye className="h-4 w-4 text-primary" />
               <span className="text-sm font-semibold">{label}</span>
-              {loading && <span className="text-[10px] text-muted-foreground">rendering…</span>}
+              <span className="text-[10px] text-muted-foreground">
+                (layout mockup — not the real PDF)
+              </span>
             </div>
             <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="border-t border-border bg-muted/20">
-            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-white">
-              <p className="text-[11px] text-muted-foreground">
-                Preview reflects current form data. Use Complete & PDF to download.
-              </p>
-              <Button size="sm" variant="outline" onClick={() => void refresh()} disabled={loading}>
-                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-            </div>
-            {error ? (
-              <div className="p-4 text-xs text-destructive">{error}</div>
-            ) : url ? (
-              <iframe
-                title="PDF preview"
-                src={url}
-                className="w-full h-[600px] bg-white"
-              />
-            ) : (
-              <div className="p-6 text-center text-xs text-muted-foreground">
-                {loading ? "Rendering preview…" : "Preview will appear here."}
+          <div className="border-t border-border bg-muted/30 p-4">
+            {/* A4-ish stage */}
+            <div className="mx-auto bg-white shadow-sm border border-border max-w-[640px] p-6">
+              {/* Mock header */}
+              <div className="flex items-start justify-between border-b-2 pb-2 mb-3" style={{ borderColor: "hsl(25 92% 54%)" }}>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-8 h-7 rounded-sm flex items-center justify-center text-white text-[8px] font-bold"
+                    style={{ backgroundColor: "hsl(25 92% 54%)" }}
+                  >
+                    LOGO
+                  </div>
+                  <div className="text-[8px] leading-tight text-muted-foreground">
+                    BHO Fire Ltd<br />Standard company header
+                  </div>
+                </div>
+                <div className="text-right text-[8px] text-muted-foreground">
+                  Page 1 of N<br />Ref: <span className="font-mono">{reference || "(auto)"}</span>
+                </div>
               </div>
-            )}
+
+              <h1 className="text-base font-bold tracking-tight">{title || "Document"}</h1>
+              {subtitle && (
+                <p className="text-[10px] font-semibold mb-3" style={{ color: "hsl(25 92% 54%)" }}>
+                  {subtitle}
+                </p>
+              )}
+
+              {scalarGroups.map((g, i) => (
+                <MockupSection
+                  key={`s${i}`}
+                  number={String(i + 1).padStart(2, "0")}
+                  title={i === 0 ? "Details" : `Details (cont.)`}
+                  rows={g}
+                />
+              ))}
+              {arrays.map(([k, v], i) => (
+                <MockupArrayTable
+                  key={`a${i}`}
+                  number={String(scalarGroups.length + i + 1).padStart(2, "0")}
+                  title={k.replace(/_/g, " ")}
+                  rows={v}
+                />
+              ))}
+
+              <div className="mt-4 pt-2 border-t text-[8px] text-center text-muted-foreground">
+                Standard company footer · generated on completion
+              </div>
+            </div>
+            <p className="text-[10px] text-center text-muted-foreground mt-3">
+              This is a structural mockup. The final downloaded PDF uses the branded template.
+            </p>
           </div>
         </CollapsibleContent>
       </div>
