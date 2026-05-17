@@ -358,7 +358,7 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
       <DocBody>
         <PdfPreviewBlock
           payload={payload}
-          generate={() => generateCommissioningCertificatePDF(payload as CommissioningPayload, { autoSign: true })}
+
         />
         <SitePrefillBlock
           formType="bs5839_commissioning"
