@@ -535,17 +535,36 @@ const handler = async (req: Request): Promise<Response> => {
       html: htmlContent,
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    console.log("Email provider response:", JSON.stringify(emailResponse));
+
+    // Resend returns { data: null, error: {...} } when the provider rejects
+    // the send (e.g. unverified domain, suppressed recipient, invalid address).
+    // We must surface this rather than treating it as success.
+    if ((emailResponse as any)?.error) {
+      const provErr = (emailResponse as any).error;
+      return new Response(
+        JSON.stringify({
+          success: false,
+          providerError: {
+            name: provErr.name || "provider_error",
+            message: provErr.message || "Email provider rejected the send",
+            statusCode: provErr.statusCode || 502,
+          },
+          recipient: customerEmail,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     return new Response(
-      JSON.stringify({ success: true, emailId: emailResponse.data?.id }),
+      JSON.stringify({ success: true, emailId: emailResponse.data?.id, recipient: customerEmail }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
     console.error("Error sending notification:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
