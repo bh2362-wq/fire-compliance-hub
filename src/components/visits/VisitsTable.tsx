@@ -1480,6 +1480,13 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         />
       )}
 
+      <LinkExistingCertDialog
+        visit={linkCertVisit}
+        open={!!linkCertVisit}
+        onOpenChange={(open) => { if (!open) setLinkCertVisit(null); }}
+        onLinked={() => { setLinkCertVisit(null); onRefresh?.(); }}
+      />
+
       {previewVisit && (
         <ReportPreviewDialog
           open={!!previewVisit}
