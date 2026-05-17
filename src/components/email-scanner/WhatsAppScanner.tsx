@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -120,7 +120,48 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
   const [lastRead, setLastRead] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "business" | "unread">("business");
   const [uploadedName, setUploadedName] = useState<string | null>(null);
+  const [extensionStatus, setExtensionStatus] = useState<"checking" | "detected" | "missing">("checking");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Ping the Chrome helper extension on mount ────────────────────────────────
+  useEffect(() => {
+    const pingId = `wa-ping-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let settled = false;
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window) return;
+      const d: any = event.data;
+      if (!d || d.requestId !== pingId) return;
+      if (d.type === "FIRELOGBOOK_PONG" || d.pong === true || d.extension === true) {
+        settled = true;
+        cleanup();
+        setExtensionStatus("detected");
+      }
+    };
+    const onCustomEvent = (event: Event) => {
+      const d: any = (event as CustomEvent).detail;
+      if (!d || d.requestId !== pingId) return;
+      settled = true;
+      cleanup();
+      setExtensionStatus("detected");
+    };
+    const cleanup = () => {
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("firelogbook:whatsapp-pong", onCustomEvent);
+      window.clearTimeout(timer);
+    };
+    window.addEventListener("message", onMessage);
+    window.addEventListener("firelogbook:whatsapp-pong", onCustomEvent);
+    const payload = { source: "fire-logbook", type: "PING_WHATSAPP_HELPER", requestId: pingId };
+    window.dispatchEvent(new CustomEvent("firelogbook:ping-whatsapp", { detail: payload }));
+    window.postMessage(payload, window.location.origin);
+    const timer = window.setTimeout(() => {
+      if (!settled) {
+        cleanup();
+        setExtensionStatus("missing");
+      }
+    }, 1500);
+    return cleanup;
+  }, []);
 
   async function handleFileUpload(file: File) {
     setLoading(true);
@@ -229,6 +270,31 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
           <p className="text-xs font-semibold flex items-center gap-1.5">
             <MessageCircle className="w-3.5 h-3.5 text-green-600" />
             WhatsApp — web.whatsapp.com
+            <span
+              title={
+                extensionStatus === "detected"
+                  ? "Chrome helper extension detected — auto-read is available"
+                  : extensionStatus === "missing"
+                  ? "Chrome helper extension not detected — use Paste or Upload export"
+                  : "Checking for Chrome helper extension…"
+              }
+              className={cn(
+                "inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border",
+                extensionStatus === "detected" && "bg-green-100 text-green-800 border-green-300/60 dark:bg-green-950/30 dark:text-green-400",
+                extensionStatus === "missing" && "bg-amber-100 text-amber-800 border-amber-300/60 dark:bg-amber-950/30 dark:text-amber-400",
+                extensionStatus === "checking" && "bg-muted text-muted-foreground border-border"
+              )}
+            >
+              <span className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                extensionStatus === "detected" && "bg-green-600",
+                extensionStatus === "missing" && "bg-amber-500",
+                extensionStatus === "checking" && "bg-muted-foreground/60 animate-pulse"
+              )} />
+              {extensionStatus === "detected" ? "Helper detected"
+                : extensionStatus === "missing" ? "Helper missing"
+                : "Checking helper…"}
+            </span>
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             {lastRead ? `Last read at ${lastRead}` : "Click Read WhatsApp to scan your open chats"}
