@@ -1995,12 +1995,18 @@ export type Database = {
           created_at: string
           device_id: string | null
           device_type: string | null
+          engineer_id: string | null
+          fail_reason: string | null
           id: string
           location: string | null
           loop: string
           matched: boolean | null
+          notes: string | null
+          photo_url: string | null
           raw_data: Json | null
+          source: string | null
           status: string
+          tested_at: string | null
           upload_id: string
           visit_id: string | null
         }
@@ -2009,12 +2015,18 @@ export type Database = {
           created_at?: string
           device_id?: string | null
           device_type?: string | null
+          engineer_id?: string | null
+          fail_reason?: string | null
           id?: string
           location?: string | null
           loop: string
           matched?: boolean | null
+          notes?: string | null
+          photo_url?: string | null
           raw_data?: Json | null
+          source?: string | null
           status: string
+          tested_at?: string | null
           upload_id: string
           visit_id?: string | null
         }
@@ -2023,12 +2035,18 @@ export type Database = {
           created_at?: string
           device_id?: string | null
           device_type?: string | null
+          engineer_id?: string | null
+          fail_reason?: string | null
           id?: string
           location?: string | null
           loop?: string
           matched?: boolean | null
+          notes?: string | null
+          photo_url?: string | null
           raw_data?: Json | null
+          source?: string | null
           status?: string
+          tested_at?: string | null
           upload_id?: string
           visit_id?: string | null
         }
@@ -2038,6 +2056,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parsed_device_tests_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -4366,6 +4391,7 @@ export type Database = {
       }
       sites: {
         Row: {
+          access_notes: string | null
           address: string | null
           city: string | null
           contact_email: string | null
@@ -4373,8 +4399,10 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           customer_id: string | null
+          gate_code: string | null
           id: string
           name: string
+          parking_notes: string | null
           portal_token: string | null
           postcode: string | null
           sharepoint_folder: string | null
@@ -4384,6 +4412,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access_notes?: string | null
           address?: string | null
           city?: string | null
           contact_email?: string | null
@@ -4391,8 +4420,10 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           customer_id?: string | null
+          gate_code?: string | null
           id?: string
           name: string
+          parking_notes?: string | null
           portal_token?: string | null
           postcode?: string | null
           sharepoint_folder?: string | null
@@ -4402,6 +4433,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access_notes?: string | null
           address?: string | null
           city?: string | null
           contact_email?: string | null
@@ -4409,8 +4441,10 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           customer_id?: string | null
+          gate_code?: string | null
           id?: string
           name?: string
+          parking_notes?: string | null
           portal_token?: string | null
           postcode?: string | null
           sharepoint_folder?: string | null
@@ -4750,16 +4784,23 @@ export type Database = {
           acceptance_token: string | null
           accepted_by_name: string | null
           appointment_time: string | null
+          arrival_lat: number | null
+          arrival_lng: number | null
+          arrived_at: string | null
           client_accepted_at: string | null
           client_po_file_url: string | null
           client_po_number: string | null
+          client_signature_url: string | null
+          client_signed_name: string | null
           confirmation_sent_at: string | null
           confirmation_sent_by: string | null
           confirmation_sent_to: string | null
           coverage_percentage: number | null
           created_at: string
+          departed_at: string | null
           devices_tested: number | null
           engineer_id: string | null
+          engineer_notes: string | null
           estimated_hours: number | null
           id: string
           issues_count: number | null
@@ -4778,16 +4819,23 @@ export type Database = {
           acceptance_token?: string | null
           accepted_by_name?: string | null
           appointment_time?: string | null
+          arrival_lat?: number | null
+          arrival_lng?: number | null
+          arrived_at?: string | null
           client_accepted_at?: string | null
           client_po_file_url?: string | null
           client_po_number?: string | null
+          client_signature_url?: string | null
+          client_signed_name?: string | null
           confirmation_sent_at?: string | null
           confirmation_sent_by?: string | null
           confirmation_sent_to?: string | null
           coverage_percentage?: number | null
           created_at?: string
+          departed_at?: string | null
           devices_tested?: number | null
           engineer_id?: string | null
+          engineer_notes?: string | null
           estimated_hours?: number | null
           id?: string
           issues_count?: number | null
@@ -4806,16 +4854,23 @@ export type Database = {
           acceptance_token?: string | null
           accepted_by_name?: string | null
           appointment_time?: string | null
+          arrival_lat?: number | null
+          arrival_lng?: number | null
+          arrived_at?: string | null
           client_accepted_at?: string | null
           client_po_file_url?: string | null
           client_po_number?: string | null
+          client_signature_url?: string | null
+          client_signed_name?: string | null
           confirmation_sent_at?: string | null
           confirmation_sent_by?: string | null
           confirmation_sent_to?: string | null
           coverage_percentage?: number | null
           created_at?: string
+          departed_at?: string | null
           devices_tested?: number | null
           engineer_id?: string | null
+          engineer_notes?: string | null
           estimated_hours?: number | null
           id?: string
           issues_count?: number | null
@@ -5121,6 +5176,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_visit_tested: { Args: { vid: string }; Returns: undefined }
     }
     Enums: {
       app_role:
