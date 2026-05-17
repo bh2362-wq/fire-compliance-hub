@@ -82,10 +82,11 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
     }
 
     setSending(true);
+    setDelivery(null);
     try {
       // Generate acceptance token if not already set
       let token = null;
-      
+
       const { data: existingVisit } = await supabase
         .from("visits")
         .select("acceptance_token")
@@ -128,7 +129,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
         jobNotes = visit.notes || "";
       }
 
-      const { error } = await supabase.functions.invoke("send-notification", {
+      const { data, error } = await supabase.functions.invoke("send-notification", {
         body: {
           type: "visit_confirmation",
           customerEmail: email.trim(),
@@ -145,16 +146,44 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
 
       if (error) throw error;
 
-      // Timestamp log: record when and to whom the confirmation was sent
+      // Provider rejected the send (e.g. unverified sending domain)
+      if (data && data.success === false) {
+        const pe = data.providerError;
+        setDelivery({
+          state: "rejected",
+          recipient: email.trim(),
+          message: pe?.message || data.error || "Email provider rejected the send",
+          errorName: pe?.name,
+          statusCode: pe?.statusCode,
+          at: new Date().toISOString(),
+        });
+        toast({
+          title: "Email not sent",
+          description: pe?.message || "The email provider rejected the send. See details below.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Success path — stamp the audit log
       const { data: { user } } = await supabase.auth.getUser();
+      const nowIso = new Date().toISOString();
       await supabase
         .from("visits")
         .update({
-          confirmation_sent_at: new Date().toISOString(),
+          confirmation_sent_at: nowIso,
           confirmation_sent_to: email.trim(),
           confirmation_sent_by: user?.id ?? null,
         })
         .eq("id", visit.id);
+
+      setDelivery({ state: "sent", recipient: email.trim(), at: nowIso });
+      setSentInfo((prev) => ({
+        confirmation_sent_at: nowIso,
+        confirmation_sent_to: email.trim(),
+        client_accepted_at: prev?.client_accepted_at ?? null,
+        accepted_by_name: prev?.accepted_by_name ?? null,
+      }));
 
       toast({
         title: "Confirmation sent",
@@ -162,12 +191,17 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
       });
 
       onSuccess?.();
-      onOpenChange(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error sending confirmation:", err);
+      setDelivery({
+        state: "error",
+        recipient: email.trim(),
+        message: err?.message || "Network or function error",
+        at: new Date().toISOString(),
+      });
       toast({
         title: "Error",
-        description: "Failed to send confirmation email. Please try again.",
+        description: "Failed to send confirmation email. See details below.",
         variant: "destructive",
       });
     } finally {
