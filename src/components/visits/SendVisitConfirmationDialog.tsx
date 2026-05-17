@@ -3,11 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Mail, Send } from "lucide-react";
+import { Loader2, Mail, Send, CheckCircle2, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Visit } from "@/hooks/useVisits";
 import { format } from "date-fns";
+
+interface SentInfo {
+  confirmation_sent_at: string | null;
+  confirmation_sent_to: string | null;
+  client_accepted_at: string | null;
+  accepted_by_name: string | null;
+}
 
 interface SendVisitConfirmationDialogProps {
   open: boolean;
@@ -22,27 +29,35 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
   const [email, setEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sentInfo, setSentInfo] = useState<SentInfo | null>(null);
 
   useEffect(() => {
     if (open) {
       loadCustomerData();
     }
-  }, [open, visit.site_id]);
+  }, [open, visit.site_id, visit.id]);
 
   const loadCustomerData = async () => {
     setLoading(true);
     try {
-      const { data: site } = await supabase
-        .from("sites")
-        .select("customer_id, address, city, postcode, customers(name, contact_email, contact_name)")
-        .eq("id", visit.site_id)
-        .maybeSingle();
+      const [{ data: site }, { data: visitRow }] = await Promise.all([
+        supabase
+          .from("sites")
+          .select("contact_name, contact_email, customer_id, customers(name, contact_email, contact_name)")
+          .eq("id", visit.site_id)
+          .maybeSingle(),
+        supabase
+          .from("visits")
+          .select("confirmation_sent_at, confirmation_sent_to, client_accepted_at, accepted_by_name")
+          .eq("id", visit.id)
+          .maybeSingle(),
+      ]);
 
-      const customer = site?.customers as any;
-      if (customer) {
-        setEmail(customer.contact_email || "");
-        setCustomerName(customer.contact_name || customer.name || "");
-      }
+      const customer = (site?.customers as any) || {};
+      // Prefer site job contact, fall back to customer contact
+      setEmail(site?.contact_email || customer.contact_email || "");
+      setCustomerName(site?.contact_name || customer.contact_name || customer.name || "");
+      setSentInfo(visitRow as SentInfo | null);
     } catch (err) {
       console.error("Error loading customer:", err);
     } finally {
@@ -120,6 +135,17 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
 
       if (error) throw error;
 
+      // Timestamp log: record when and to whom the confirmation was sent
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase
+        .from("visits")
+        .update({
+          confirmation_sent_at: new Date().toISOString(),
+          confirmation_sent_to: email.trim(),
+          confirmation_sent_by: user?.id ?? null,
+        })
+        .eq("id", visit.id);
+
       toast({
         title: "Confirmation sent",
         description: `Appointment confirmation email sent to ${email}`,
@@ -155,6 +181,30 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
             <p><strong>Date:</strong> {format(new Date(visit.visit_date + "T00:00:00"), "dd MMM yyyy")}</p>
             <p><strong>Type:</strong> {visit.visit_type?.replace(/_/g, " ") || "—"}</p>
           </div>
+
+          {sentInfo?.client_accepted_at ? (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm flex items-start gap-2 text-green-800">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">Confirmed by client</p>
+                <p className="text-xs">
+                  {sentInfo.accepted_by_name || "Customer"} on{" "}
+                  {format(new Date(sentInfo.client_accepted_at), "dd MMM yyyy 'at' HH:mm")}
+                </p>
+              </div>
+            </div>
+          ) : sentInfo?.confirmation_sent_at ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm flex items-start gap-2 text-amber-900">
+              <Clock className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">Sent — awaiting client confirmation</p>
+                <p className="text-xs">
+                  Last sent to {sentInfo.confirmation_sent_to} on{" "}
+                  {format(new Date(sentInfo.confirmation_sent_at), "dd MMM yyyy 'at' HH:mm")}
+                </p>
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="confirm-email">Customer Email *</Label>
@@ -197,7 +247,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
             ) : (
               <>
                 <Send className="mr-2 h-4 w-4" />
-                Send Confirmation
+                {sentInfo?.confirmation_sent_at ? "Resend Confirmation" : "Send Confirmation"}
               </>
             )}
           </Button>
