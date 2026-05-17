@@ -1459,58 +1459,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         });
       })()}
 
-      {activeVisits.length === 0 && invoicedVisits.length > 0 && (
-        <div className="bg-card rounded-xl border border-border p-12 text-center">
-          <Calendar className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">No active visits</h3>
-          <p className="text-muted-foreground">
-            All visits have been invoiced. Create a new visit to get started.
-          </p>
-        </div>
-      )}
-
-      {/* Recently Invoiced Section */}
-      {invoicedVisits.length > 0 && (
-        <div className="bg-card rounded-xl border border-border">
-          <div className="px-4 py-3 border-b border-border">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <FileText className="w-4 h-4 text-primary" />
-              Recently Invoiced
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/50 text-xs font-medium text-muted-foreground border-b border-border">
-                  <th className="px-2 py-1.5 text-left w-8"></th>
-                  
-                  <th className="px-2 py-1.5 text-left">Site</th>
-                  <th className="px-2 py-1.5 text-left">Type</th>
-                  <th className="px-2 py-1.5 text-left">Date</th>
-                  <th className="px-2 py-1.5 text-left">Status</th>
-                  <th className="px-2 py-1.5 text-left">Description</th>
-                  <th className="px-2 py-1.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoicedVisits.slice(0, 5).map((visit) => renderVisitRow(visit, true))}
-              </tbody>
-            </table>
-          </div>
-          {invoicedVisits.length > 5 && (
-            <div className="px-4 py-2 text-center border-t border-border">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => navigate("/dashboard/invoices")}
-              >
-                View all {invoicedVisits.length} invoiced visits
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
       {invoiceVisit && (
         <CreateInvoiceDialog
           open={!!invoiceVisit}

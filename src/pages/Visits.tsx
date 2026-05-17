@@ -4,7 +4,8 @@ import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { AISweepDialog } from "@/components/visits/AISweepDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Sparkles, Search, Filter, AlertTriangle } from "lucide-react";
+import { Plus, Sparkles, Search, Filter, AlertTriangle, Calendar } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useVisits } from "@/hooks/useVisits";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -25,9 +26,20 @@ const Visits = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const initialVisitId = searchParams.get("visitId");
 
-  const { visits, loading, refetch } = useVisits({
+  const { visits: allVisits, loading, refetch } = useVisits({
     siteId: selectedSiteId && selectedSiteId !== "all" ? selectedSiteId : undefined,
   });
+
+  // Hide scheduled visits more than 1 month in the future — they reappear a month before due date
+  const visits = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() + 1);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    return allVisits.filter((v) => {
+      if (v.status === "scheduled" && v.visit_date && v.visit_date > cutoffStr) return false;
+      return true;
+    });
+  }, [allVisits]);
 
   const handleVisitOpened = () => {
     if (initialVisitId) {
@@ -83,6 +95,12 @@ const Visits = () => {
             <p className="page-subtitle">Service visits and job management</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="hidden sm:flex items-center gap-1.5 text-xs">
+              <Link to="/dashboard/schedule">
+                <Calendar className="w-3.5 h-3.5" />
+                Calendar
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="sm"
