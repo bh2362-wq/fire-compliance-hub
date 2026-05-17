@@ -22,7 +22,7 @@ import { TypedSignature } from "@/components/ui/typed-signature";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { HintPanel } from "@/components/smart-forms/HintPanel";
 import { Plus, Trash2, Save, FileDown, CheckCircle2, Wind, AlertCircle } from "lucide-react";
-import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock, SitePrefillBlock, PhotoAnalysisBlock } from "./_DocLayout";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock, SitePrefillBlock, PhotoAnalysisBlock, PdfPreviewBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -224,6 +224,13 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
         meta={<Badge variant="outline" className="text-[10px]"><Wind className="w-3 h-3 mr-1" />BS EN 54-20</Badge>}
       />
       <DocBody>
+        <PdfPreviewBlock
+          payload={payload}
+          generate={async () => {
+            const { generateASDCommissioningPDF } = await import("@/lib/asdCommissioningPdfGenerator");
+            await generateASDCommissioningPDF(payload as any);
+          }}
+        />
         <SitePrefillBlock
           formType={`asd_${payload.form_type}`}
           siteId={siteId}

@@ -22,7 +22,7 @@ import { format } from "date-fns";
 import {
   DocBlock, DocBody, DocDialogShell, DocField, SmallField,
   StickyFooter, StickyHeader, TitleBlock, AISummarySection,
-  SitePrefillBlock, PhotoAnalysisBlock,
+  SitePrefillBlock, PhotoAnalysisBlock, PdfPreviewBlock,
   TriStateRow, type TriStatus, LegendSwatch,
 } from "./_DocLayout";
 import { ClientSummaryPanel } from "./ClientSummaryPanel";
@@ -317,6 +317,13 @@ export default function EmergencyLightingForm({ open, onOpenChange, visitId, sit
       />
 
       <DocBody>
+        <PdfPreviewBlock
+          payload={payload}
+          generate={async () => {
+            const { generateELCertificatePDF } = await import("@/lib/emergencyLightingPdfGenerator");
+            await generateELCertificatePDF(payload as any);
+          }}
+        />
         <SitePrefillBlock
           formType={`el_${payload.form_type}`}
           siteId={siteId}

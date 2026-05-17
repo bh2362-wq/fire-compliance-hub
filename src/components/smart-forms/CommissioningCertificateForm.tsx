@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { SmartSignature } from "@/components/ui/smart-signature";
 import { Save, FileDown, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
-import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock, SitePrefillBlock, PhotoAnalysisBlock } from "./_DocLayout";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock, SitePrefillBlock, PhotoAnalysisBlock, PdfPreviewBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -356,6 +356,10 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
         }
       />
       <DocBody>
+        <PdfPreviewBlock
+          payload={payload}
+          generate={() => generateCommissioningCertificatePDF(payload as CommissioningPayload, { autoSign: true })}
+        />
         <SitePrefillBlock
           formType="bs5839_commissioning"
           siteId={siteId}
