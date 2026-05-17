@@ -474,6 +474,8 @@ const VisitEditDialog = ({
           </DialogDescription>
         </DialogHeader>
 
+        <VisitRamsBanner visitId={visit.id} />
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
