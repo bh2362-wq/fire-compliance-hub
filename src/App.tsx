@@ -1,3 +1,4 @@
+import { FieldRoutes } from "@/field/FieldRoutes";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -62,9 +63,6 @@ import ManagementReview from "./pages/qms/ManagementReview";
 import RAMS from "./pages/qms/RAMS";
 import SupplierEvaluations from "./pages/qms/SupplierEvaluations";
 
-// Field Mode (engineer mobile app)
-import { FieldRoutes } from "./field/FieldRoutes";
-
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -87,62 +85,339 @@ const App = () => (
             <Route path="/portal/:token" element={<SharedSitePortal />} />
 
             {/* Protected: Core */}
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/dashboard/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
-            <Route path="/dashboard/visits" element={<ProtectedRoute><Visits /></ProtectedRoute>} />
-            <Route path="/dashboard/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-            <Route path="/dashboard/upload" element={<ProtectedRoute><UploadDemo /></ProtectedRoute>} />
-            <Route path="/dashboard/defects" element={<ProtectedRoute><Defects /></ProtectedRoute>} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/schedule"
+              element={
+                <ProtectedRoute>
+                  <Schedule />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/visits"
+              element={
+                <ProtectedRoute>
+                  <Visits />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/reports"
+              element={
+                <ProtectedRoute>
+                  <Reports />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/upload"
+              element={
+                <ProtectedRoute>
+                  <UploadDemo />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/defects"
+              element={
+                <ProtectedRoute>
+                  <Defects />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Protected: Clients */}
-            <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
-            <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
-            <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
-            <Route path="/sites/:siteId" element={<ProtectedRoute><SiteDetail /></ProtectedRoute>} />
+            <Route
+              path="/customers"
+              element={
+                <ProtectedRoute>
+                  <Customers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/customers/:id"
+              element={
+                <ProtectedRoute>
+                  <CustomerDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sites"
+              element={
+                <ProtectedRoute>
+                  <Sites />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sites/:siteId"
+              element={
+                <ProtectedRoute>
+                  <SiteDetail />
+                </ProtectedRoute>
+              }
+            />
             {/* Legacy /dashboard/sites routes kept for compatibility */}
-            <Route path="/dashboard/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
-            <Route path="/dashboard/sites/:siteId" element={<ProtectedRoute><SiteDetail /></ProtectedRoute>} />
-            <Route path="/dashboard/email-logs" element={<ProtectedRoute><EmailLogs /></ProtectedRoute>} />
+            <Route
+              path="/dashboard/sites"
+              element={
+                <ProtectedRoute>
+                  <Sites />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/sites/:siteId"
+              element={
+                <ProtectedRoute>
+                  <SiteDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/email-logs"
+              element={
+                <ProtectedRoute>
+                  <EmailLogs />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Protected: Finance */}
-            <Route path="/dashboard/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-            <Route path="/dashboard/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
-            <Route path="/dashboard/credit-control" element={<ProtectedRoute><CreditControl /></ProtectedRoute>} />
-            <Route path="/dashboard/purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
-            <Route path="/dashboard/reconciliation" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
+            <Route
+              path="/dashboard/invoices"
+              element={
+                <ProtectedRoute>
+                  <Invoices />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/quotations"
+              element={
+                <ProtectedRoute>
+                  <Quotations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/credit-control"
+              element={
+                <ProtectedRoute>
+                  <CreditControl />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/purchase-orders"
+              element={
+                <ProtectedRoute>
+                  <PurchaseOrders />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/reconciliation"
+              element={
+                <ProtectedRoute>
+                  <Reconciliation />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Protected: Tools */}
-            <Route path="/dashboard/route-planner" element={<ProtectedRoute><RoutePlanner /></ProtectedRoute>} />
-            <Route path="/dashboard/email-scanner" element={<ProtectedRoute><EmailScanner /></ProtectedRoute>} />
-            <Route path="/dashboard/device-pricing" element={<ProtectedRoute><DevicePricing /></ProtectedRoute>} />
-            <Route path="/dashboard/product-lookup" element={<ProtectedRoute><ProductLookup /></ProtectedRoute>} />
-            <Route path="/dashboard/customer-forms" element={<ProtectedRoute><CustomerForms /></ProtectedRoute>} />
-            <Route path="/dashboard/ai-assistant" element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
-            <Route path="/dashboard/smart-forms" element={<ProtectedRoute><SmartForms /></ProtectedRoute>} />
-            <Route path="/dashboard/reference" element={<ProtectedRoute><ReferenceGuides /></ProtectedRoute>} />
+            <Route
+              path="/dashboard/route-planner"
+              element={
+                <ProtectedRoute>
+                  <RoutePlanner />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/email-scanner"
+              element={
+                <ProtectedRoute>
+                  <EmailScanner />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/device-pricing"
+              element={
+                <ProtectedRoute>
+                  <DevicePricing />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/product-lookup"
+              element={
+                <ProtectedRoute>
+                  <ProductLookup />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/customer-forms"
+              element={
+                <ProtectedRoute>
+                  <CustomerForms />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/ai-assistant"
+              element={
+                <ProtectedRoute>
+                  <AIAssistant />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/smart-forms"
+              element={
+                <ProtectedRoute>
+                  <SmartForms />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/reference"
+              element={
+                <ProtectedRoute>
+                  <ReferenceGuides />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Protected: QMS */}
-            <Route path="/qms" element={<ProtectedRoute><QMSDashboard /></ProtectedRoute>} />
-            <Route path="/qms/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
-            <Route path="/qms/ncrs" element={<ProtectedRoute><NCRs /></ProtectedRoute>} />
-            <Route path="/qms/capas" element={<ProtectedRoute><CAPAs /></ProtectedRoute>} />
-            <Route path="/qms/risks" element={<ProtectedRoute><Risks /></ProtectedRoute>} />
-            <Route path="/qms/training" element={<ProtectedRoute><Training /></ProtectedRoute>} />
-            <Route path="/qms/audits" element={<ProtectedRoute><Audits /></ProtectedRoute>} />
-            <Route path="/qms/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
-            <Route path="/qms/management-review" element={<ProtectedRoute><ManagementReview /></ProtectedRoute>} />
-            <Route path="/qms/rams" element={<ProtectedRoute><RAMS /></ProtectedRoute>} />
-            <Route path="/qms/supplier-evaluations" element={<ProtectedRoute><SupplierEvaluations /></ProtectedRoute>} />
+            <Route
+              path="/qms"
+              element={
+                <ProtectedRoute>
+                  <QMSDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qms/documents"
+              element={
+                <ProtectedRoute>
+                  <Documents />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qms/ncrs"
+              element={
+                <ProtectedRoute>
+                  <NCRs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qms/capas"
+              element={
+                <ProtectedRoute>
+                  <CAPAs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qms/risks"
+              element={
+                <ProtectedRoute>
+                  <Risks />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qms/training"
+              element={
+                <ProtectedRoute>
+                  <Training />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qms/audits"
+              element={
+                <ProtectedRoute>
+                  <Audits />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qms/feedback"
+              element={
+                <ProtectedRoute>
+                  <Feedback />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qms/management-review"
+              element={
+                <ProtectedRoute>
+                  <ManagementReview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qms/rams"
+              element={
+                <ProtectedRoute>
+                  <RAMS />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qms/supplier-evaluations"
+              element={
+                <ProtectedRoute>
+                  <SupplierEvaluations />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Protected: NEW — Certificate Tracker */}
-            <Route path="/dashboard/cert-tracker" element={<ProtectedRoute><CertTracker /></ProtectedRoute>} />
-            <Route path="/dashboard/asset-maintenance" element={<ProtectedRoute><AssetMaintenance /></ProtectedRoute>} />
-
-            {/* Protected: Field Mode (engineer mobile) */}
-            <Route path="/field/*" element={<ProtectedRoute><FieldRoutes /></ProtectedRoute>} />
+            <Route
+              path="/dashboard/cert-tracker"
+              element={
+                <ProtectedRoute>
+                  <CertTracker />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/asset-maintenance"
+              element={
+                <ProtectedRoute>
+                  <AssetMaintenance />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Protected: Settings */}
-            <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route
+              path="/dashboard/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
 
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
