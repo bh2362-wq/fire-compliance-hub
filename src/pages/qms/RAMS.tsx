@@ -51,6 +51,8 @@ const statusColors: Record<string, string> = {
   draft: "bg-gray-500",
   pending_approval: "bg-yellow-500",
   approved: "bg-green-500",
+  sent: "bg-blue-500",
+  accepted: "bg-emerald-600",
   superseded: "bg-orange-500",
   archived: "bg-slate-400",
 };
