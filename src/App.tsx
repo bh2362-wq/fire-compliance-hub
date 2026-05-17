@@ -73,6 +73,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <ForceFieldRedirect />
           <Routes>
             {/* Public */}
             <Route path="/" element={<Index />} />
