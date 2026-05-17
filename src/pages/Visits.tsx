@@ -26,9 +26,20 @@ const Visits = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const initialVisitId = searchParams.get("visitId");
 
-  const { visits, loading, refetch } = useVisits({
+  const { visits: allVisits, loading, refetch } = useVisits({
     siteId: selectedSiteId && selectedSiteId !== "all" ? selectedSiteId : undefined,
   });
+
+  // Hide scheduled visits more than 1 month in the future — they reappear a month before due date
+  const visits = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() + 1);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    return allVisits.filter((v) => {
+      if (v.status === "scheduled" && v.visit_date && v.visit_date > cutoffStr) return false;
+      return true;
+    });
+  }, [allVisits]);
 
   const handleVisitOpened = () => {
     if (initialVisitId) {
