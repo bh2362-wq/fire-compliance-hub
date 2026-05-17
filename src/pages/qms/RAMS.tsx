@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Trash2, Eye, Edit, FileCheck, BookOpen, Shield, Flame, Lightbulb, Camera, AlertTriangle } from "lucide-react";
+import { Plus, MoreHorizontal, Trash2, Eye, Edit, FileCheck, BookOpen, Shield, Flame, Lightbulb, Camera, AlertTriangle, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -27,6 +27,7 @@ import {
   getRamsDocuments,
   deleteRamsTemplate,
   deleteRamsDocument,
+  unlockRamsDocument,
   RamsTemplate,
   RamsDocument,
 } from "@/services/ramsService";
@@ -50,6 +51,8 @@ const statusColors: Record<string, string> = {
   draft: "bg-gray-500",
   pending_approval: "bg-yellow-500",
   approved: "bg-green-500",
+  sent: "bg-blue-500",
+  accepted: "bg-emerald-600",
   superseded: "bg-orange-500",
   archived: "bg-slate-400",
 };
@@ -64,6 +67,8 @@ export default function RAMS() {
   const [selectedDocument, setSelectedDocument] = useState<RamsDocument | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: "template" | "document"; id: string } | null>(null);
+  const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
+  const [docToUnlock, setDocToUnlock] = useState<RamsDocument | null>(null);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery({
     queryKey: ["rams-templates"],
@@ -96,6 +101,17 @@ export default function RAMS() {
       toast.success("RAMS document deleted");
     },
     onError: () => toast.error("Failed to delete document"),
+  });
+
+  const unlockDocumentMutation = useMutation({
+    mutationFn: unlockRamsDocument,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rams-documents"] });
+      toast.success("RAMS unlocked and reverted to draft. Previous acceptance link is now invalid.");
+      setUnlockDialogOpen(false);
+      setDocToUnlock(null);
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to unlock RAMS"),
   });
 
   const handleDelete = () => {
@@ -195,6 +211,12 @@ export default function RAMS() {
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>
+                                {(doc.status === "sent" || doc.status === "accepted") && (
+                                  <DropdownMenuItem onClick={() => { setDocToUnlock(doc); setUnlockDialogOpen(true); }}>
+                                    <Unlock className="h-4 w-4 mr-2" />
+                                    Unlock & Revert to Draft
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem
                                   className="text-destructive"
                                   onClick={() => { setItemToDelete({ type: "document", id: doc.id }); setDeleteDialogOpen(true); }}
@@ -369,6 +391,26 @@ export default function RAMS() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unlock & Revert RAMS to Draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will reset <strong>{docToUnlock?.rams_number}</strong> back to draft so you can correct mistakes and reissue it. The client's acceptance, signature and previously-sent acceptance link will be cleared and invalidated. The version number is preserved — increment it manually after editing if you need a new version on record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => docToUnlock && unlockDocumentMutation.mutate(docToUnlock.id)}
+              disabled={unlockDocumentMutation.isPending}
+            >
+              {unlockDocumentMutation.isPending ? "Unlocking…" : "Unlock & Revert"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

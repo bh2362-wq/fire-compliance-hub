@@ -352,6 +352,42 @@ export async function deleteRamsDocument(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// Unlock & revert a RAMS document back to draft so it can be corrected and reissued.
+// Clears acceptance + send tracking and client signature fields. The acceptance
+// token is regenerated so any previously-shared link is invalidated.
+export async function unlockRamsDocument(id: string): Promise<RamsDocument> {
+  const newToken = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const { data, error } = await supabase
+    .from("rams_documents")
+    .update({
+      status: "draft",
+      sent_at: null,
+      sent_to: null,
+      sent_by: null,
+      accepted_at: null,
+      accepted_by_name: null,
+      acceptance_signature: null,
+      acceptance_token: newToken,
+      client_signature: null,
+      client_signed_at: null,
+      client_name: null,
+      approved_by: null,
+      approved_at: null,
+    })
+    .eq("id", id)
+    .select(`
+      *,
+      site:sites(id, name, address, customer_id, customers(name)),
+      visit:visits(id, visit_date, visit_type),
+      contract:site_service_contracts(id, service_type),
+      template:rams_templates(id, name)
+    `)
+    .single();
+
+  if (error) throw error;
+  return parseDocument(data);
+}
+
 // Version history
 export async function getRamsVersions(documentId: string): Promise<RamsVersion[]> {
   const { data, error } = await supabase

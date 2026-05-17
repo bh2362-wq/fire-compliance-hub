@@ -1080,9 +1080,14 @@ export async function generateRamsPDF(document: RamsDocument, options?: { return
       }
     }
 
-    // Date: use signed_at if present; otherwise, for auto-signed boxes (0,1) use generation date
+    // Date: use signed_at if present; otherwise, for auto-signed boxes (0,1) use generation date.
+    // For typed signatures, prefix with "Signed digitally on" to make the electronic signature
+    // attestation visible on the PDF (UK Electronic Communications Act 2000 timestamp).
+    const isTyped = sigs[i]?.startsWith("typed:");
     const dateStr = sigDates[i]
-      ? format(new Date(sigDates[i]!), "dd/MM/yyyy HH:mm")
+      ? (isTyped
+          ? `Signed digitally on ${format(new Date(sigDates[i]!), "dd/MM/yyyy HH:mm")}`
+          : format(new Date(sigDates[i]!), "dd/MM/yyyy HH:mm"))
       : (i < 2 ? `Date: ${generatedDate}` : "");
     if (dateStr) {
       msDoc.setFontSize(6.5);

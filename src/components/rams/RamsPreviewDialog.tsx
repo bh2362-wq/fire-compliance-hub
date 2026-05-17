@@ -273,6 +273,7 @@ export function RamsPreviewDialog({ open, onOpenChange, document }: RamsPreviewD
                   )}
                   {document.client_signed_at && (
                     <p className="text-xs text-muted-foreground mt-1">
+                      {document.client_signature?.startsWith("typed:") ? "Signed digitally on " : ""}
                       {format(new Date(document.client_signed_at), "dd/MM/yyyy HH:mm")}
                     </p>
                   )}
