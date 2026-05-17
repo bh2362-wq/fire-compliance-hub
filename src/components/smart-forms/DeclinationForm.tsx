@@ -153,6 +153,13 @@ export default function DeclinationForm({ open, onOpenChange, visitId, siteId, o
       />
 
       <DocBody>
+        <PdfPreviewBlock
+          payload={payload}
+          generate={async () => {
+            const { generateDeclinationPDF } = await import("@/lib/declinationPdfGenerator");
+            await generateDeclinationPDF(payload);
+          }}
+        />
         <SitePrefillBlock
           formType="declination_of_works"
           siteId={siteId}
