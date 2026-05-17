@@ -62,23 +62,25 @@ const AcceptRams = () => {
       setError("Please enter your full name");
       return;
     }
-    if (!signature) {
-      setError("Please provide your digital signature");
-      return;
-    }
     setSubmitting(true);
     setError(null);
     try {
+      const acceptedAt = new Date().toISOString();
+      // If no drawn signature, the typed name + timestamp constitutes the
+      // legally-binding digital signature (per UK Electronic Communications Act 2000).
+      const typedSignatureRecord = signature
+        ? signature
+        : `TYPED:${name.trim()}|${acceptedAt}`;
       const { error: updErr } = await supabase
         .from("rams_documents")
         .update({
           status: "accepted",
-          accepted_at: new Date().toISOString(),
+          accepted_at: acceptedAt,
           accepted_by_name: name.trim(),
-          acceptance_signature: signature,
+          acceptance_signature: typedSignatureRecord,
           client_name: name.trim(),
-          client_signature: signature,
-          client_signed_at: new Date().toISOString(),
+          client_signature: typedSignatureRecord,
+          client_signed_at: acceptedAt,
         })
         .eq("acceptance_token", token!);
       if (updErr) throw updErr;
