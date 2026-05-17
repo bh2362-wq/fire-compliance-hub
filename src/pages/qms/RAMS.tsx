@@ -103,6 +103,17 @@ export default function RAMS() {
     onError: () => toast.error("Failed to delete document"),
   });
 
+  const unlockDocumentMutation = useMutation({
+    mutationFn: unlockRamsDocument,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rams-documents"] });
+      toast.success("RAMS unlocked and reverted to draft. Previous acceptance link is now invalid.");
+      setUnlockDialogOpen(false);
+      setDocToUnlock(null);
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to unlock RAMS"),
+  });
+
   const handleDelete = () => {
     if (!itemToDelete) return;
     if (itemToDelete.type === "template") {
