@@ -182,6 +182,30 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
             <p><strong>Type:</strong> {visit.visit_type?.replace(/_/g, " ") || "—"}</p>
           </div>
 
+          {sentInfo?.client_accepted_at ? (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm flex items-start gap-2 text-green-800">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">Confirmed by client</p>
+                <p className="text-xs">
+                  {sentInfo.accepted_by_name || "Customer"} on{" "}
+                  {format(new Date(sentInfo.client_accepted_at), "dd MMM yyyy 'at' HH:mm")}
+                </p>
+              </div>
+            </div>
+          ) : sentInfo?.confirmation_sent_at ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm flex items-start gap-2 text-amber-900">
+              <Clock className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">Sent — awaiting client confirmation</p>
+                <p className="text-xs">
+                  Last sent to {sentInfo.confirmation_sent_to} on{" "}
+                  {format(new Date(sentInfo.confirmation_sent_at), "dd MMM yyyy 'at' HH:mm")}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="space-y-2">
             <Label htmlFor="confirm-email">Customer Email *</Label>
             <Input
