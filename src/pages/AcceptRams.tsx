@@ -178,8 +178,11 @@ const AcceptRams = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Digital Signature *</Label>
+              <Label>Digital Signature (optional)</Label>
               <SignaturePad value={signature} onChange={setSignature} width={380} height={140} label="Sign to accept" />
+              <p className="text-xs text-muted-foreground">
+                Drawing a signature is optional. If left blank, your typed name above together with the date and time of submission will be recorded as your legally-binding digital signature.
+              </p>
             </div>
             {error && (
               <p className="text-sm text-destructive flex items-center gap-1">
