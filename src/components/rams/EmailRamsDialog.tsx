@@ -291,6 +291,26 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
           </DialogDescription>
         </DialogHeader>
 
+        {(document.sent_at || document.accepted_at) && (
+          <div className="text-xs rounded-md border bg-muted/40 p-2 space-y-1">
+            {document.sent_at && (
+              <div>
+                <span className="font-medium">Last sent:</span>{" "}
+                {new Date(document.sent_at).toLocaleString()}
+                {document.sent_to && document.sent_to.length > 0 && (
+                  <> to {document.sent_to.join(", ")}</>
+                )}
+              </div>
+            )}
+            {document.accepted_at && (
+              <div className="text-success">
+                <span className="font-medium">Accepted</span> by {document.accepted_by_name || "client"} on{" "}
+                {new Date(document.accepted_at).toLocaleString()}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
           {templates.length > 0 && (
             <div className="space-y-2">
