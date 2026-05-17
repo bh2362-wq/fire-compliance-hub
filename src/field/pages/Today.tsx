@@ -56,6 +56,10 @@ export function Today() {
 
   return (
     <div className="p-3">
+      <div className="bg-yellow-100 text-yellow-900 text-[10px] p-2 rounded mb-2">
+        Logged in as: {currentUser?.email ?? "not logged in"}
+        · ID: {currentUser?.id?.slice(0, 8) ?? "—"}
+      </div>
       <div className="mb-3">
         <p className="text-xs uppercase tracking-wider text-zinc-500 font-medium">
           {visits?.length ?? 0} {visits?.length === 1 ? "job" : "jobs"}
