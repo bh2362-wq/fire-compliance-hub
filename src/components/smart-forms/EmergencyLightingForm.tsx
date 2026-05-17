@@ -22,6 +22,7 @@ import { format } from "date-fns";
 import {
   DocBlock, DocBody, DocDialogShell, DocField, SmallField,
   StickyFooter, StickyHeader, TitleBlock, AISummarySection,
+  SitePrefillBlock, PhotoAnalysisBlock,
   TriStateRow, type TriStatus, LegendSwatch,
 } from "./_DocLayout";
 import { ClientSummaryPanel } from "./ClientSummaryPanel";
@@ -316,6 +317,11 @@ export default function EmergencyLightingForm({ open, onOpenChange, visitId, sit
       />
 
       <DocBody>
+        <SitePrefillBlock
+          formType={`el_${payload.form_type}`}
+          siteId={siteId}
+          onPrefillApplied={(fields) => up(fields as any)}
+        />
         <TitleBlock
           title="Emergency Lighting Certificate"
           subtitle="BS 5266-1:2016 · BS EN 1838:2013 · BAFE SP203-1"
@@ -326,6 +332,12 @@ export default function EmergencyLightingForm({ open, onOpenChange, visitId, sit
         <p className="text-[11px] italic text-muted-foreground px-1">
           Inspection and testing carried out in accordance with BS 5266-1:2016 Clause 7 — Testing. Annual discharge test conducted per BS 5266-1:2016 Clause 7.3. EPM6C notation: ✓ = Satisfactory, 7 = Deviation (note required), N/A = Not applicable.
         </p>
+        <PhotoAnalysisBlock
+          submissionId={submissionId}
+          context={["Emergency lighting", payload.client_name].filter(Boolean).join(", ")}
+          existingDefects={payload.defects || []}
+          onAddDefects={(defects) => up({ defects: [ ...(payload.defects || []), ...defects ] } as any)}
+        />
 
         {/* Type + identity */}
         <DocBlock title="CERTIFICATE TYPE">
