@@ -395,6 +395,26 @@ export default function RAMS() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={unlockDialogOpen} onOpenChange={setUnlockDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unlock & Revert RAMS to Draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will reset <strong>{docToUnlock?.rams_number}</strong> back to draft so you can correct mistakes and reissue it. The client's acceptance, signature and previously-sent acceptance link will be cleared and invalidated. The version number is preserved — increment it manually after editing if you need a new version on record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => docToUnlock && unlockDocumentMutation.mutate(docToUnlock.id)}
+              disabled={unlockDocumentMutation.isPending}
+            >
+              {unlockDocumentMutation.isPending ? "Unlocking…" : "Unlock & Revert"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
