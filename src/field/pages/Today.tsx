@@ -16,6 +16,13 @@ interface VisitWithSite {
 
 export function Today() {
   const navigate = useNavigate();
+  const { data: currentUser } = useQuery({
+    queryKey: ["field-current-user"],
+    queryFn: async () => {
+      const { data } = await supabase.auth.getUser();
+      return data.user;
+    },
+  });
   const { data: visits, isLoading } = useQuery({
     queryKey: ["field-today"],
     queryFn: async () => {
