@@ -23,6 +23,15 @@ interface SendVisitConfirmationDialogProps {
   onSuccess?: () => void;
 }
 
+interface DeliveryStatus {
+  state: "sent" | "rejected" | "error";
+  recipient?: string;
+  message?: string;
+  errorName?: string;
+  statusCode?: number;
+  at: string;
+}
+
 export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSuccess }: SendVisitConfirmationDialogProps) {
   const { toast } = useToast();
   const [sending, setSending] = useState(false);
@@ -30,6 +39,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
   const [customerName, setCustomerName] = useState("");
   const [loading, setLoading] = useState(true);
   const [sentInfo, setSentInfo] = useState<SentInfo | null>(null);
+  const [delivery, setDelivery] = useState<DeliveryStatus | null>(null);
 
   useEffect(() => {
     if (open) {
