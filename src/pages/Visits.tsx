@@ -95,6 +95,12 @@ const Visits = () => {
             <p className="page-subtitle">Service visits and job management</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="hidden sm:flex items-center gap-1.5 text-xs">
+              <Link to="/dashboard/schedule">
+                <Calendar className="w-3.5 h-3.5" />
+                Calendar
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="sm"
