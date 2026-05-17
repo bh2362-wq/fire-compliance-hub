@@ -412,6 +412,86 @@ export function AISummarySection({
   );
 }
 
+/* ─── Self-contained Site Prefill block (lazy) ─────────────────── */
+
+export function SitePrefillBlock({
+  formType,
+  siteId,
+  onSiteSelected,
+  onPrefillApplied,
+}: {
+  formType: string;
+  siteId?: string | null;
+  onSiteSelected?: (siteId: string) => void;
+  onPrefillApplied: (fields: Record<string, unknown>, batteryAgeHint?: any) => void;
+}) {
+  const SitePrefillPanelLazy = React.useMemo(
+    () => React.lazy(() => import("./SitePrefillPanel").then((m) => ({ default: m.SitePrefillPanel }))),
+    []
+  );
+  return (
+    <React.Suspense fallback={<p className="text-xs text-muted-foreground px-1">Loading site prefill…</p>}>
+      <SitePrefillPanelLazy
+        formType={formType}
+        siteId={siteId}
+        onSiteSelected={onSiteSelected}
+        onPrefillApplied={onPrefillApplied}
+      />
+    </React.Suspense>
+  );
+}
+
+/* ─── Self-contained Photo Analysis block (lazy, collapsible) ───── */
+
+export function PhotoAnalysisBlock({
+  submissionId,
+  context,
+  existingDefects,
+  onAddDefects,
+  label = "Photo analysis (AI fault detection)",
+  defaultOpen = false,
+}: {
+  submissionId?: string | null;
+  context?: string;
+  existingDefects?: any[];
+  onAddDefects: (defects: any[]) => void;
+  label?: string;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  const PhotoAnalysisPanelLazy = React.useMemo(
+    () => React.lazy(() => import("./PhotoAnalysisPanel").then((m) => ({ default: m.PhotoAnalysisPanel }))),
+    []
+  );
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <div className="bg-white border border-border rounded-md overflow-hidden">
+        <CollapsibleTrigger asChild>
+          <button className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-muted/30 transition-colors">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold">{label}</span>
+            </div>
+            <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="p-4 border-t border-border">
+            <React.Suspense fallback={<p className="text-xs text-muted-foreground">Loading…</p>}>
+              <PhotoAnalysisPanelLazy
+                submissionId={submissionId}
+                context={context}
+                existingDefects={existingDefects}
+                onAddDefects={onAddDefects}
+              />
+            </React.Suspense>
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
+
 /* ─── Self-contained AI summary block (manages its own open state) ─ */
 
 export function AIAssistBlock({
