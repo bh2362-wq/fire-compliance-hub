@@ -102,7 +102,7 @@ async function fetchCertTrackerData(): Promise<SiteRow[]> {
     const faCol = FA_COLS.find(c => c.key === row.form_type);
     if (faCol && !sr.fa[faCol.key]) {
       sr.fa[faCol.key] = entry;
-      return; // handled
+      continue; // handled
     }
 
     // Discipline — match by prefix, store latest (first seen = most recent due to ORDER BY)
