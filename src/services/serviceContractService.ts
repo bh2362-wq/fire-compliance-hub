@@ -40,13 +40,25 @@ export async function getServiceContracts(siteId: string): Promise<ServiceContra
   return data || [];
 }
 
-export async function upsertServiceContract(contract: ServiceContractInsert): Promise<ServiceContract> {
+export async function upsertServiceContract(
+  contract: ServiceContractInsert,
+  id?: string
+): Promise<ServiceContract> {
+  if (id) {
+    const { data, error } = await supabase
+      .from("site_service_contracts")
+      .update(contract)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
   const { data, error } = await supabase
     .from("site_service_contracts")
     .upsert(contract, { onConflict: "site_id,service_type" })
     .select()
     .single();
-
   if (error) throw error;
   return data;
 }
