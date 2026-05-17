@@ -72,6 +72,7 @@ import { BS5839Payload } from "@/services/smartFormService";
 import { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
 import { toast as sonnerToast } from "sonner";
+import { LinkExistingCertDialog } from "./LinkExistingCertDialog";
 
 interface ASDAsset {
   id: string;
