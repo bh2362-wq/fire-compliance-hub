@@ -62,23 +62,25 @@ const AcceptRams = () => {
       setError("Please enter your full name");
       return;
     }
-    if (!signature) {
-      setError("Please provide your digital signature");
-      return;
-    }
     setSubmitting(true);
     setError(null);
     try {
+      const acceptedAt = new Date().toISOString();
+      // If no drawn signature, the typed name + timestamp constitutes the
+      // legally-binding digital signature (per UK Electronic Communications Act 2000).
+      const typedSignatureRecord = signature
+        ? signature
+        : `TYPED:${name.trim()}|${acceptedAt}`;
       const { error: updErr } = await supabase
         .from("rams_documents")
         .update({
           status: "accepted",
-          accepted_at: new Date().toISOString(),
+          accepted_at: acceptedAt,
           accepted_by_name: name.trim(),
-          acceptance_signature: signature,
+          acceptance_signature: typedSignatureRecord,
           client_name: name.trim(),
-          client_signature: signature,
-          client_signed_at: new Date().toISOString(),
+          client_signature: typedSignatureRecord,
+          client_signed_at: acceptedAt,
         })
         .eq("acceptance_token", token!);
       if (updErr) throw updErr;
@@ -176,8 +178,11 @@ const AcceptRams = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Digital Signature *</Label>
+              <Label>Digital Signature (optional)</Label>
               <SignaturePad value={signature} onChange={setSignature} width={380} height={140} label="Sign to accept" />
+              <p className="text-xs text-muted-foreground">
+                Drawing a signature is optional. If left blank, your typed name above together with the date and time of submission will be recorded as your legally-binding digital signature.
+              </p>
             </div>
             {error && (
               <p className="text-sm text-destructive flex items-center gap-1">
@@ -193,7 +198,7 @@ const AcceptRams = () => {
               )}
             </Button>
             <p className="text-xs text-muted-foreground text-center">
-              By signing above, you confirm receipt and acknowledgement of this document and its contents.
+              By submitting, you confirm receipt and acknowledgement of this document. Your typed name and the submission timestamp constitute a legally-binding electronic signature under the UK Electronic Communications Act 2000.
             </p>
           </CardContent>
         </Card>
