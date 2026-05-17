@@ -4753,6 +4753,9 @@ export type Database = {
           client_accepted_at: string | null
           client_po_file_url: string | null
           client_po_number: string | null
+          confirmation_sent_at: string | null
+          confirmation_sent_by: string | null
+          confirmation_sent_to: string | null
           coverage_percentage: number | null
           created_at: string
           devices_tested: number | null
@@ -4778,6 +4781,9 @@ export type Database = {
           client_accepted_at?: string | null
           client_po_file_url?: string | null
           client_po_number?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_sent_to?: string | null
           coverage_percentage?: number | null
           created_at?: string
           devices_tested?: number | null
@@ -4803,6 +4809,9 @@ export type Database = {
           client_accepted_at?: string | null
           client_po_file_url?: string | null
           client_po_number?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_sent_to?: string | null
           coverage_percentage?: number | null
           created_at?: string
           devices_tested?: number | null
