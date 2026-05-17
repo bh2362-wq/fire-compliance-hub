@@ -211,6 +211,12 @@ export default function RAMS() {
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>
+                                {(doc.status === "sent" || doc.status === "accepted") && (
+                                  <DropdownMenuItem onClick={() => { setDocToUnlock(doc); setUnlockDialogOpen(true); }}>
+                                    <Unlock className="h-4 w-4 mr-2" />
+                                    Unlock & Revert to Draft
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem
                                   className="text-destructive"
                                   onClick={() => { setItemToDelete({ type: "document", id: doc.id }); setDeleteDialogOpen(true); }}
