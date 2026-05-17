@@ -152,8 +152,13 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
       const unread = parsed.filter(c => c.unread && parseInt(c.unread) > 0).length;
       toast.success(`${parsed.length} chats — ${business} business contacts, ${unread} unread`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to read WhatsApp";
-      toast.error(msg);
+      if (err instanceof ExtensionMissingError) {
+        setMode("paste");
+        toast.info("Auto-read needs the Chrome helper — switched to paste mode. Copy your WhatsApp chat into the box below.");
+      } else {
+        const msg = err instanceof Error ? err.message : "Failed to read WhatsApp";
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
