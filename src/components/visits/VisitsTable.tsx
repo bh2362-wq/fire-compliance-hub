@@ -1158,6 +1158,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setLinkCertVisit(visit)}>
+                  <Link2 className="w-4 h-4 mr-2" />
+                  Link Existing Certificate & Close
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate(`/dashboard/schedule`)}>
                   <CalendarDays className="w-4 h-4 mr-2" />
                   View Schedule
