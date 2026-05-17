@@ -70,14 +70,6 @@ export async function generateModificationCertificatePDF(
 
   y = drawStandardBar(doc, pw, y, standard, engName || companyName);
 
-  drawSignatureBox(doc, pw, y,
-    { name: engName,
-      date: payload.engineer_signed_date ? format(new Date(payload.engineer_signed_date), "dd/MM/yyyy") : dateStr,
-      sig:  options?.autoSign && !payload.engineer_signature ? `typed:${engName}` : payload.engineer_signature },
-    { name: san(payload.rp_name_signed || ""),
-      date: payload.rp_signed_date ? format(new Date(payload.rp_signed_date), "dd/MM/yyyy") : "",
-      sig:  payload.rp_signature });
-
   // ── PAGE 2 ────────────────────────────────────────────────────────────────
   doc.addPage();
   y = drawPage2Header(doc, pw, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
