@@ -85,6 +85,9 @@ const App = () => (
             <Route path="/portal/:token" element={<SharedSitePortal />} />
 
             {/* Protected: Core */}
+
+            <Route path="/field/*" element={<FieldRoutes />} />
+
             <Route
               path="/dashboard"
               element={
