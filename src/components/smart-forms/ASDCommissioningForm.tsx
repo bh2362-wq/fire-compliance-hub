@@ -15,7 +15,7 @@ import {
   Plus, Trash2, Save, FileDown,
   AlertCircle, CheckCircle2, Wind, Gauge, Clock, Zap,
 } from "lucide-react";
-import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock } from "./_DocLayout";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock, SitePrefillBlock, PhotoAnalysisBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -737,12 +737,23 @@ export default function ASDCommissioningForm({ open, onOpenChange, siteId, custo
         }
       />
       <DocBody>
+        <SitePrefillBlock
+          formType="asd_commissioning"
+          siteId={siteId}
+          onPrefillApplied={(fields) => setPayload((prev) => ({ ...prev, ...(fields as any) }))}
+        />
         <TitleBlock
           title="ASD Commissioning Certificate"
           subtitle="BS EN 54-20:2006+A1:2012 · BS 5839-1"
           reference={payload.cert_reference}
           date={(payload as any).date_of_commissioning}
           onDateChange={(v) => update("date_of_commissioning" as any, v as any)}
+        />
+        <PhotoAnalysisBlock
+          submissionId={submissionId}
+          context={["ASD commissioning", (payload as any).premises_name].filter(Boolean).join(", ")}
+          existingDefects={(payload as any).ai_photo_defects || []}
+          onAddDefects={(defects) => setPayload((p) => ({ ...p, ai_photo_defects: [ ...(((p as any).ai_photo_defects) || []), ...defects ] } as any))}
         />
         {visibleSteps.map(({ label, idx }, i) => (
           <DocBlock key={label} title={`${i + 1}. ${label}`}>

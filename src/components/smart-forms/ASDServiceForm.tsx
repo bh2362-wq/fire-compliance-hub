@@ -22,7 +22,7 @@ import { TypedSignature } from "@/components/ui/typed-signature";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { HintPanel } from "@/components/smart-forms/HintPanel";
 import { Plus, Trash2, Save, FileDown, CheckCircle2, Wind, AlertCircle } from "lucide-react";
-import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock } from "./_DocLayout";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock, SitePrefillBlock, PhotoAnalysisBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -224,6 +224,11 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
         meta={<Badge variant="outline" className="text-[10px]"><Wind className="w-3 h-3 mr-1" />BS EN 54-20</Badge>}
       />
       <DocBody>
+        <SitePrefillBlock
+          formType={`asd_${payload.form_type}`}
+          siteId={siteId}
+          onPrefillApplied={(fields) => up(fields as any)}
+        />
         <TitleBlock
           title="Aspirating Smoke Detection System — Annual Service Certificate"
           subtitle="BS EN 54-20:2006+A1:2012 · FIA Code of Practice ASD Systems"
@@ -234,6 +239,12 @@ export default function ASDServiceForm({ open, onOpenChange, visitId, siteId, on
         <p className="text-[11px] italic text-muted-foreground px-1">
           Serviced in accordance with FIA Code of Practice for Aspirating Smoke Detection Systems §8 (Maintenance) and BS EN 54-20:2006+A1:2012. FIA CoP §8.3: All post-service airflow readings must be within ±20% of the commissioned baseline.
         </p>
+        <PhotoAnalysisBlock
+          submissionId={submissionId}
+          context={["ASD service", (payload as any).premises_name].filter(Boolean).join(", ")}
+          existingDefects={(payload as any).defects || []}
+          onAddDefects={(defects) => up({ defects: [ ...(((payload as any).defects) || []), ...defects ] } as any)}
+        />
         {sectionRenderers.map((Comp, i) => (
           <DocBlock key={STEPS[i]} title={`${i + 1}. ${STEPS[i]}`}>
             <Comp payload={payload} up={up} />

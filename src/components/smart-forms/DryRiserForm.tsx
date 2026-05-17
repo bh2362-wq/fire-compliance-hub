@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TypedSignature } from "@/components/ui/typed-signature";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { Plus, Trash2, Save, FileDown, CheckCircle2, Droplets } from "lucide-react";
-import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock } from "./_DocLayout";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock, SitePrefillBlock, PhotoAnalysisBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -221,6 +221,11 @@ export default function DryRiserForm({ open, onOpenChange, visitId, siteId, onSa
         meta={<Badge variant="outline" className="text-[10px]"><Droplets className="w-3 h-3 mr-1" />BS 9990:2015</Badge>}
       />
       <DocBody>
+        <SitePrefillBlock
+          formType={`dr_${payload.form_type}`}
+          siteId={siteId}
+          onPrefillApplied={(fields) => up(fields as any)}
+        />
         <TitleBlock
           title="Dry Rising Main — Annual Test Certificate"
           subtitle="BS 9990:2015"
@@ -233,6 +238,12 @@ export default function DryRiserForm({ open, onOpenChange, visitId, siteId, onSa
             ? " BS 9990:2015 Cl. 7.3.1.3: Test pressure 12 bar minimum, duration 15 minutes. Maximum allowable pressure drop: 0.5 bar."
             : " BS 9990:2015 Cl. 7.2: Visual inspection of all landing valves, blanking caps, signage and inlet access."}
         </p>
+        <PhotoAnalysisBlock
+          submissionId={submissionId}
+          context={["Dry riser", (payload as any).premises_name].filter(Boolean).join(", ")}
+          existingDefects={(payload as any).ai_photo_defects || []}
+          onAddDefects={(defects) => up({ ai_photo_defects: [ ...(((payload as any).ai_photo_defects) || []), ...defects ] } as any)}
+        />
         {STEPS.slice(0, -1).map((label, i) => (
           <DocBlock key={`${label}-${i}`} title={`${i + 1}. ${label}`}>
             {renderSection(i)}
