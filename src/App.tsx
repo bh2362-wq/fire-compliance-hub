@@ -62,6 +62,9 @@ import ManagementReview from "./pages/qms/ManagementReview";
 import RAMS from "./pages/qms/RAMS";
 import SupplierEvaluations from "./pages/qms/SupplierEvaluations";
 
+// Field Mode (engineer mobile app)
+import { FieldRoutes } from "./field/FieldRoutes";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -134,6 +137,9 @@ const App = () => (
             {/* Protected: NEW — Certificate Tracker */}
             <Route path="/dashboard/cert-tracker" element={<ProtectedRoute><CertTracker /></ProtectedRoute>} />
             <Route path="/dashboard/asset-maintenance" element={<ProtectedRoute><AssetMaintenance /></ProtectedRoute>} />
+
+            {/* Protected: Field Mode (engineer mobile) */}
+            <Route path="/field/*" element={<ProtectedRoute><FieldRoutes /></ProtectedRoute>} />
 
             {/* Protected: Settings */}
             <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
