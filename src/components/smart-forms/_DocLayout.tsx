@@ -520,3 +520,109 @@ export function AIAssistBlock({
     </AISummarySection>
   );
 }
+
+/* ─── Live PDF preview block ──────────────────────────────────── */
+
+/**
+ * Shows a collapsible inline iframe with the rendered PDF using the same
+ * generator that "Complete & Download" uses. `generate` should invoke the
+ * generator (which internally calls `doc.save(...)`) — we intercept the
+ * save so we get a Blob URL instead of triggering a download.
+ *
+ * Auto-refreshes (debounced) whenever `payload` changes so the preview
+ * always reflects current form data before completing.
+ */
+export function PdfPreviewBlock({
+  generate,
+  payload,
+  label = "Live PDF preview",
+  defaultOpen = false,
+  autoRefresh = true,
+}: {
+  generate: () => Promise<unknown> | unknown;
+  payload?: unknown;
+  label?: string;
+  defaultOpen?: boolean;
+  autoRefresh?: boolean;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  const [url, setUrl] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const lastUrlRef = React.useRef<string | null>(null);
+
+  const refresh = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const blob = await generatePdfBlob(generate);
+      const next = URL.createObjectURL(blob);
+      if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current);
+      lastUrlRef.current = next;
+      setUrl(next);
+    } catch (e: any) {
+      console.error("PDF preview failed", e);
+      setError(e?.message || "Failed to render preview");
+    } finally {
+      setLoading(false);
+    }
+  }, [generate]);
+
+  // Auto-refresh when opened, and debounced on payload changes.
+  React.useEffect(() => {
+    if (!open) return;
+    if (!autoRefresh && url) return;
+    const t = setTimeout(() => { void refresh(); }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autoRefresh, payload]);
+
+  // Cleanup on unmount
+  React.useEffect(() => () => {
+    if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current);
+  }, []);
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <div className="bg-white border border-border rounded-md overflow-hidden">
+        <CollapsibleTrigger asChild>
+          <button className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-muted/30 transition-colors">
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold">{label}</span>
+              {loading && <span className="text-[10px] text-muted-foreground">rendering…</span>}
+            </div>
+            <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="border-t border-border bg-muted/20">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-white">
+              <p className="text-[11px] text-muted-foreground">
+                Preview reflects current form data. Use Complete & PDF to download.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => void refresh()} disabled={loading}>
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+            {error ? (
+              <div className="p-4 text-xs text-destructive">{error}</div>
+            ) : url ? (
+              <iframe
+                title="PDF preview"
+                src={url}
+                className="w-full h-[600px] bg-white"
+              />
+            ) : (
+              <div className="p-6 text-center text-xs text-muted-foreground">
+                {loading ? "Rendering preview…" : "Preview will appear here."}
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
+
