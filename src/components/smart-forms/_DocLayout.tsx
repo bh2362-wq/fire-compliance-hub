@@ -755,7 +755,4 @@ export function PdfPreviewBlock({
     </Collapsible>
   );
 }
-    </Collapsible>
-  );
-}
 
