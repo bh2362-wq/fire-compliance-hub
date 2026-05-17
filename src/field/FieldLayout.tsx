@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ChevronLeft, WifiOff, Wifi, Bell } from "lucide-react";
+import { StatusBar, Style } from "@capacitor/status-bar";
+import { Capacitor } from "@capacitor/core";
 import { useOfflineQueue } from "./hooks/useOfflineQueue";
 
 interface FieldLayoutProps {
@@ -8,6 +10,13 @@ interface FieldLayoutProps {
 }
 
 export function FieldLayout({ children }: FieldLayoutProps) {
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setStyle({ style: Style.Light }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: "#C22126" }).catch(() => {});
+    }
+  }, []);
+
   const navigate = useNavigate();
   const location = useLocation();
   const [online, setOnline] = useState(navigator.onLine);
