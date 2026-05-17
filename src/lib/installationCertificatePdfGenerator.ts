@@ -173,7 +173,7 @@ export async function generateInstallationCertificatePDF(
   lines.forEach((l: string, i: number) => doc.text(l, MARGIN + 6, y + 6 + i * 5.5));
   y += declH + 6;
 
-  y = checkPage(doc, pw, y, 50, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
+  y = checkPage(doc, pw, y, 70, logo, certRef, `Fire Alarm — ${TITLE}`, standard, company);
   drawSignatureBox(doc, pw, y,
     { name: engName,
       date: payload.engineer_signed_date ? format(new Date(payload.engineer_signed_date), "dd/MM/yyyy") : dateStr,
