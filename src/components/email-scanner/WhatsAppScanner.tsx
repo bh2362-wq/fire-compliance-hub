@@ -270,6 +270,31 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
           <p className="text-xs font-semibold flex items-center gap-1.5">
             <MessageCircle className="w-3.5 h-3.5 text-green-600" />
             WhatsApp — web.whatsapp.com
+            <span
+              title={
+                extensionStatus === "detected"
+                  ? "Chrome helper extension detected — auto-read is available"
+                  : extensionStatus === "missing"
+                  ? "Chrome helper extension not detected — use Paste or Upload export"
+                  : "Checking for Chrome helper extension…"
+              }
+              className={cn(
+                "inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border",
+                extensionStatus === "detected" && "bg-green-100 text-green-800 border-green-300/60 dark:bg-green-950/30 dark:text-green-400",
+                extensionStatus === "missing" && "bg-amber-100 text-amber-800 border-amber-300/60 dark:bg-amber-950/30 dark:text-amber-400",
+                extensionStatus === "checking" && "bg-muted text-muted-foreground border-border"
+              )}
+            >
+              <span className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                extensionStatus === "detected" && "bg-green-600",
+                extensionStatus === "missing" && "bg-amber-500",
+                extensionStatus === "checking" && "bg-muted-foreground/60 animate-pulse"
+              )} />
+              {extensionStatus === "detected" ? "Helper detected"
+                : extensionStatus === "missing" ? "Helper missing"
+                : "Checking helper…"}
+            </span>
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             {lastRead ? `Last read at ${lastRead}` : "Click Read WhatsApp to scan your open chats"}
