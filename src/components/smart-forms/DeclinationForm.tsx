@@ -18,7 +18,7 @@ import { format } from "date-fns";
 import {
   DocBlock, DocBody, DocDialogShell, DocField,
   StickyFooter, StickyHeader, TitleBlock, AISummarySection,
-  SitePrefillBlock,
+  SitePrefillBlock, PdfPreviewBlock,
 } from "./_DocLayout";
 import { ClientSummaryPanel } from "./ClientSummaryPanel";
 

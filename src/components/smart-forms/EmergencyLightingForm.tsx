@@ -22,7 +22,7 @@ import { format } from "date-fns";
 import {
   DocBlock, DocBody, DocDialogShell, DocField, SmallField,
   StickyFooter, StickyHeader, TitleBlock, AISummarySection,
-  SitePrefillBlock, PhotoAnalysisBlock,
+  SitePrefillBlock, PhotoAnalysisBlock, PdfPreviewBlock,
   TriStateRow, type TriStatus, LegendSwatch,
 } from "./_DocLayout";
 import { ClientSummaryPanel } from "./ClientSummaryPanel";
