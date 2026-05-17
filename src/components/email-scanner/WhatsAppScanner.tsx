@@ -44,14 +44,21 @@ interface Props {
   onScanMessage: (content: string, from: string) => void;
 }
 
+class ExtensionMissingError extends Error {
+  constructor() {
+    super("WhatsApp helper extension not detected");
+    this.name = "ExtensionMissingError";
+  }
+}
+
 function waitForExtensionChats(script: string): Promise<any[]> {
   const requestId = `wa-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => {
       cleanup();
-      reject(new Error("Chrome extension required to read WhatsApp automatically"));
-    }, 12000);
+      reject(new ExtensionMissingError());
+    }, 4000);
 
     const extractChats = (payload: any): any[] | null => {
       if (!payload || payload.requestId !== requestId) return null;
