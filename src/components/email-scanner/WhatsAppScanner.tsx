@@ -234,14 +234,18 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
             {lastRead ? `Last read at ${lastRead}` : "Click Read WhatsApp to scan your open chats"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline" size="sm"
-            className="h-7 gap-1.5 text-xs"
-            onClick={() => setMode(mode === "auto" ? "paste" : "auto")}
-          >
-            {mode === "auto" ? "Switch to paste" : "Switch to auto"}
-          </Button>
+        <div className="flex flex-wrap gap-1.5">
+          {(["auto", "paste", "upload"] as const).map(m => (
+            <Button
+              key={m}
+              variant={mode === m ? "default" : "outline"}
+              size="sm"
+              className={cn("h-7 text-xs", mode === m && m === "auto" && "bg-green-600 hover:bg-green-700")}
+              onClick={() => setMode(m)}
+            >
+              {m === "auto" ? "Auto" : m === "paste" ? "Paste" : "Upload export"}
+            </Button>
+          ))}
           {mode === "auto" && (
             <Button
               size="sm"
@@ -256,6 +260,65 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
           )}
         </div>
       </div>
+
+      {/* Upload mode */}
+      {mode === "upload" && (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-green-200/60 bg-green-50 dark:bg-green-950/20 p-3 text-xs text-green-800 dark:text-green-400 space-y-1">
+            <p className="font-semibold">Upload mode:</p>
+            <p>In WhatsApp open the chat → menu → <strong>More → Export chat → Without media</strong>, then upload the .zip (or .txt) here.</p>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".zip,.txt"
+            className="hidden"
+            onChange={e => {
+              const f = e.target.files?.[0];
+              if (f) handleFileUpload(f);
+              e.target.value = "";
+            }}
+          />
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={e => { e.preventDefault(); }}
+            onDrop={e => {
+              e.preventDefault();
+              const f = e.dataTransfer.files?.[0];
+              if (f) handleFileUpload(f);
+            }}
+            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-accent/20 transition-colors"
+          >
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />Reading file…
+              </div>
+            ) : uploadedName ? (
+              <div className="flex items-center justify-center gap-2 text-sm">
+                <FileArchive className="w-4 h-4 text-green-600" />
+                <span className="font-medium">{uploadedName}</span>
+                <span className="text-muted-foreground">— click to replace</span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <Upload className="w-5 h-5 mx-auto text-muted-foreground" />
+                <p className="text-sm font-medium">Drop your WhatsApp export here</p>
+                <p className="text-[11px] text-muted-foreground">.zip or .txt — click to browse</p>
+              </div>
+            )}
+          </div>
+          {rawText.trim() && (
+            <div className="flex gap-2">
+              <Button onClick={handlePasteScan} className="flex-1 gap-2">
+                <Sparkles className="w-4 h-4" />Smart Quote
+              </Button>
+              <Button variant="outline" onClick={() => onScanMessage(rawText, "WhatsApp")} className="flex-1 gap-2">
+                <Scan className="w-4 h-4" />Book Visit
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* How it works banner (first time) */}
       {chats.length === 0 && mode === "auto" && (
