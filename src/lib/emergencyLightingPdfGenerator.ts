@@ -1,117 +1,126 @@
-// Emergency Lighting PDF generator stub
-// Full implementation follows the same pattern as BS5839 and ASD PDF generators
+/**
+ * Emergency Lighting Certificate PDF (BS 5266-1 / EPM6C)
+ * Uses the shared master cert template to match the service report style.
+ */
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { supabase } from "@/integrations/supabase/client";
 import type { ELPayload } from "@/services/emergencyLightingService";
+import {
+  loadLogoData, loadCompany, san,
+  drawCertHeader, drawPage2Header, drawCertTitle,
+  drawSectionHeader, drawStandardBar, drawMasterFooter,
+  kvTable, checkPage, statusFill, statusText,
+  COLORS, MARGIN,
+} from "./certPdfMasterTemplate";
+
+const STANDARD = "BS 5266-1:2016  ·  BS EN 1838:2013  ·  BAFE SP203-1";
+const TITLE = "Emergency Lighting Certificate";
 
 export async function generateELCertificatePDF(p: ELPayload): Promise<void> {
-  const { data: company } = await supabase.from("company_settings").select("*").limit(1).maybeSingle();
+  const company = await loadCompany();
+  const logo = await loadLogoData(company.report_logo_url || company.company_logo_url);
+  const companyName = san(company.company_name) || "BHO Fire Ltd";
+
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const C = { navy: [30,41,90] as [number,number,number], white: [255,255,255] as [number,number,number], border: [200,200,200] as [number,number,number], text: [20,20,20] as [number,number,number], grey: [245,245,245] as [number,number,number], green: [22,163,74] as [number,number,number], red: [185,28,28] as [number,number,number] };
-  const pw = doc.internal.pageSize.getWidth(); const ML = 14; const CW = pw - 28;
-  const companyName = company?.company_name || "BHO Fire & Security Ltd";
-  
-  // Header
-  doc.setFillColor(...C.navy); doc.rect(0,0,pw,18,"F");
-  doc.setFontSize(10); doc.setFont("helvetica","bold"); doc.setTextColor(...C.white);
-  doc.text(companyName, ML, 8);
-  doc.text("EMERGENCY LIGHTING CERTIFICATE", pw/2, 8, { align: "center" });
-  doc.setFontSize(7); doc.setFont("helvetica","normal");
-  doc.text(`${p.cert_reference} | ${p.form_type.replace(/_/g," ").toUpperCase()}`, pw/2, 12.5, { align: "center" });
-  // Standard reference (orange accent)
-  doc.setFontSize(7.5); doc.setFont("helvetica","bold"); doc.setTextColor(245,130,32);
-  doc.text("BS 5266-1:2016  ·  BS EN 1838:2013  ·  BAFE SP203-1", pw/2, 16.5, { align: "center" });
-  doc.setTextColor(...C.text);
+  const pw = doc.internal.pageSize.getWidth();
+  const certRef = san(p.cert_reference || "EL-CERT");
+  const status = san(p.overall_status || "—");
 
-  // Status
-  const statusColor = p.overall_status === "Satisfactory" ? C.green : p.overall_status === "Satisfactory with observations" ? [217,119,6] as [number,number,number] : C.red;
-  doc.setFillColor(240,253,244); doc.setDrawColor(...statusColor); doc.setLineWidth(0.5);
-  doc.roundedRect(ML, 22, CW, 9, 1, 1, "FD");
-  doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.setTextColor(...statusColor);
-  doc.text(`Status: ${p.overall_status.toUpperCase()}`, pw/2, 29, { align: "center" });
+  // ── Page 1 ──────────────────────────────────────────────────────────────
+  let y = drawCertHeader(doc, pw, logo, company);
+  y = drawCertTitle(doc, pw, y + 8, certRef, "CERTIFICATE",
+    `${TITLE} — ${p.form_type.replace(/_/g, " ").toUpperCase()}`, STANDARD);
 
-  // Meta
-  autoTable(doc, {
-    startY: 35,
-    body: [
-      [{ content:"Certificate Reference",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.cert_reference, {content:"Date",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.cert_date],
-      [{ content:"Premises",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.premises_name, {content:"Responsible Person",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.responsible_person],
-      [{ content:"Address",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, `${p.premises_address} ${p.premises_postcode}`.trim(), {content:"System Type",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.system_type],
-      [{ content:"Mode",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.system_mode, {content:"Duration Rating",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.duration_rating],
-      [{ content:"Total Luminaires",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, String(p.total_luminaires), {content:"Total Signs",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, String(p.total_exit_signs)],
-      [{ content:"Next Inspection",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.next_inspection_date, {content:"EICR Reference",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.eicr_reference || "—"],
-    ],
-    theme:"grid", styles:{ fontSize:8, cellPadding:2.5, textColor:C.text, lineColor:C.border, lineWidth:0.2 },
-    columnStyles:{ 0:{cellWidth:40}, 2:{cellWidth:30} }, margin:{left:ML,right:14,top:22},
-  });
+  // Status pill
+  doc.setFillColor(...statusFill(status));
+  doc.setDrawColor(...statusText(status)); doc.setLineWidth(0.5);
+  doc.roundedRect(MARGIN, y, pw - MARGIN * 2, 12, 2, 2, "FD");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11);
+  doc.setTextColor(...statusText(status));
+  doc.text(status.toUpperCase(), pw / 2, y + 8, { align: "center" });
+  y += 18;
 
-  let y = (doc as any).lastAutoTable.finalY + 5;
+  // 01 Premises & system
+  y = drawSectionHeader(doc, pw, y, "01   PREMISES & SYSTEM DETAILS");
+  y = kvTable(doc, pw, y, [
+    ["Premises",            p.premises_name || "—"],
+    ["Address",             `${p.premises_address || ""} ${p.premises_postcode || ""}`.trim() || "—"],
+    ["Responsible Person",  p.responsible_person || "—"],
+    ["System Type",         p.system_type || "—"],
+    ["System Mode",         p.system_mode || "—"],
+    ["Duration Rating",     p.duration_rating || "—"],
+    ["Total Luminaires",    String(p.total_luminaires ?? "—")],
+    ["Total Exit Signs",    String(p.total_exit_signs ?? "—")],
+    ["Cert Date",           p.cert_date || "—"],
+    ["Next Inspection",     p.next_inspection_date || "—"],
+    ["EICR Reference",      p.eicr_reference || "—"],
+  ]);
 
-  // Checklist summary (deviations only)
-  const deviations = p.checklist.filter(c => c.result === "7");
-  if (deviations.length > 0) {
-    doc.setFillColor(...C.navy); doc.rect(ML, y, CW, 8, "F");
-    doc.setFontSize(8.5); doc.setFont("helvetica","bold"); doc.setTextColor(...C.white);
-    doc.text("DEVIATIONS IDENTIFIED (EPM6C Annex M)", ML+3, y+5.5); y += 10;
+  // 02 Deviations
+  const deviations = (p.checklist || []).filter(c => c.result === "7");
+  y = checkPage(doc, pw, y, 20, logo, certRef, TITLE, STANDARD, company);
+  y = drawSectionHeader(doc, pw, y, `02   DEVIATIONS (EPM6C Annex M)  (${deviations.length})`);
+  if (deviations.length === 0) {
+    y = kvTable(doc, pw, y, [["", "No deviations identified."]]);
+  } else {
     autoTable(doc, {
       startY: y,
-      head: [["Clause","Description","Notes"]],
-      body: deviations.map(d => [d.clause, d.description, d.notes || "—"]),
-      theme:"grid",
-      headStyles:{ fillColor:C.navy, textColor:C.white, fontSize:7.5 },
-      styles:{ fontSize:8, cellPadding:2.5, textColor:C.text, lineColor:C.border, lineWidth:0.2 },
-      columnStyles:{ 0:{cellWidth:15}, 1:{cellWidth:CW-50} },
-      margin:{left:ML,right:14,top:22},
+      head: [["Clause", "Description", "Notes"]],
+      body: deviations.map(d => [san(d.clause), san(d.description), san(d.notes || "—")]) as never,
+      theme: "grid",
+      margin: { left: MARGIN, right: MARGIN, top: 58, bottom: 26 },
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: "bold", fontSize: 7.5 },
+      styles: { fontSize: 8, cellPadding: 3, textColor: COLORS.textSec, lineColor: COLORS.border, lineWidth: 0.15 },
+      alternateRowStyles: { fillColor: COLORS.bgLight },
+      columnStyles: { 0: { cellWidth: 18 }, 1: { cellWidth: pw - MARGIN * 2 - 18 - 50 }, 2: { cellWidth: 50 } },
+      didDrawPage: () => {
+        if (doc.getCurrentPageInfo().pageNumber > 1)
+          drawPage2Header(doc, pw, logo, certRef, TITLE, STANDARD, company);
+      },
     });
-    y = (doc as any).lastAutoTable.finalY + 5;
+    y = (doc as any).lastAutoTable.finalY + 6;
   }
 
-  // Defects
-  if (p.defects.length > 0) {
-    doc.setFillColor(...C.navy); doc.rect(ML, y, CW, 8, "F");
-    doc.setFontSize(8.5); doc.setFont("helvetica","bold"); doc.setTextColor(...C.white);
-    doc.text("DEFECTS & RECOMMENDATIONS", ML+3, y+5.5); y += 10;
+  // 03 Defects
+  const defects = p.defects || [];
+  y = checkPage(doc, pw, y, 20, logo, certRef, TITLE, STANDARD, company);
+  y = drawSectionHeader(doc, pw, y, `03   DEFECTS & RECOMMENDATIONS  (${defects.length})`);
+  if (defects.length === 0) {
+    y = kvTable(doc, pw, y, [["", "No defects recorded."]]);
+  } else {
     autoTable(doc, {
       startY: y,
-      head: [["Location","Description","Priority","Remediated"]],
-      body: p.defects.map(d => [d.location, d.description, d.priority, d.remediated ? `Yes — ${d.remediation_date}` : "No"]),
-      theme:"grid",
-      headStyles:{ fillColor:C.navy, textColor:C.white, fontSize:7.5 },
-      styles:{ fontSize:8, cellPadding:2.5, textColor:C.text, lineColor:C.border, lineWidth:0.2 },
-      margin:{left:ML,right:14,top:22},
+      head: [["Location", "Description", "Priority", "Remediated"]],
+      body: defects.map(d => [
+        san(d.location), san(d.description), san(d.priority),
+        d.remediated ? `Yes — ${d.remediation_date || ""}` : "No",
+      ]) as never,
+      theme: "grid",
+      margin: { left: MARGIN, right: MARGIN, top: 58, bottom: 26 },
+      headStyles: { fillColor: COLORS.primary, textColor: COLORS.white, fontStyle: "bold", fontSize: 7.5 },
+      styles: { fontSize: 8, cellPadding: 3, textColor: COLORS.textSec, lineColor: COLORS.border, lineWidth: 0.15 },
+      alternateRowStyles: { fillColor: COLORS.bgLight },
+      didDrawPage: () => {
+        if (doc.getCurrentPageInfo().pageNumber > 1)
+          drawPage2Header(doc, pw, logo, certRef, TITLE, STANDARD, company);
+      },
     });
-    y = (doc as any).lastAutoTable.finalY + 5;
+    y = (doc as any).lastAutoTable.finalY + 6;
   }
 
-  // Declaration
-  doc.setFillColor(...C.navy); doc.rect(ML, y, CW, 8, "F");
-  doc.setFontSize(8.5); doc.setFont("helvetica","bold"); doc.setTextColor(...C.white);
-  doc.text("DECLARATION", ML+3, y+5.5); y += 10;
-  doc.setFontSize(7.5); doc.setFont("helvetica","normal"); doc.setTextColor(80,80,80);
-  doc.text(`This certificate is issued in accordance with ${p.standard_references} and is based on the EPM6C model certificate (Annex M of BS 5266-1:2016).`, ML, y, { maxWidth: CW }); y += 8;
-  autoTable(doc, {
-    startY: y,
-    body: [
-      [{ content:"Engineer",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.engineer_name, {content:"Date",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.engineer_date],
-      [{ content:"Company",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.engineer_company || companyName, {content:"",styles:{fillColor:[230,230,240]}}, ""],
-      [{ content:"Signature",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, {content:p.engineer_signature, styles:{fontStyle:"italic",textColor:C.navy}}, {content:"",styles:{fillColor:[230,230,240]}}, ""],
-      [{ content:"Client",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.client_name, {content:"Date",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, p.client_date],
-      [{ content:"Signature",styles:{fontStyle:"bold",fillColor:[230,230,240]}}, {content:p.client_signature, styles:{fontStyle:"italic",textColor:C.navy}}, {content:"",styles:{fillColor:[230,230,240]}}, ""],
-    ],
-    theme:"grid", styles:{fontSize:8.5, cellPadding:3, textColor:C.text, lineColor:C.border, lineWidth:0.2},
-    columnStyles:{ 0:{cellWidth:30}, 2:{cellWidth:20} }, margin:{left:ML,right:14,top:22},
-  });
+  // 04 Declaration / signatures (text block)
+  y = checkPage(doc, pw, y, 50, logo, certRef, TITLE, STANDARD, company);
+  y = drawSectionHeader(doc, pw, y, "04   DECLARATION");
+  y = drawStandardBar(doc, pw, y, STANDARD, san(p.engineer_company || companyName));
+  y = kvTable(doc, pw, y, [
+    ["Engineer",  san(p.engineer_name || "—")],
+    ["Engineer Date", san(p.engineer_date || "—")],
+    ["Engineer Signature", san(p.engineer_signature || "—")],
+    ["Client",   san(p.client_name || "—")],
+    ["Client Date", san(p.client_date || "—")],
+    ["Client Signature", san(p.client_signature || "—")],
+  ]);
 
-  // Footer
-  const total = doc.getNumberOfPages();
-  for (let i = 1; i <= total; i++) {
-    doc.setPage(i);
-    doc.setDrawColor(...C.border); doc.setLineWidth(0.2); doc.line(ML, 282, pw-14, 282);
-    doc.setFontSize(6.5); doc.setFont("helvetica","normal"); doc.setTextColor(128,128,128);
-    doc.text(`BHO Fire Ltd | Company Registration No. 12235152 | FIA Member | BAFE Registered`, ML, 287, { maxWidth: CW-20 });
-    doc.text(`${p.cert_reference} | ${p.standard_references}`, ML, 290.5, { maxWidth: CW-20 });
-    doc.text(`Page ${i} of ${total}`, pw-14, 290.5, { align:"right" });
-  }
-  doc.save(`${p.cert_reference || "EL-Certificate"}.pdf`);
+  drawMasterFooter(doc, pw);
+  doc.save(`${certRef}.pdf`);
 }
