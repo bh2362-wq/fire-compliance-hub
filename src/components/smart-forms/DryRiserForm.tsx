@@ -221,6 +221,13 @@ export default function DryRiserForm({ open, onOpenChange, visitId, siteId, onSa
         meta={<Badge variant="outline" className="text-[10px]"><Droplets className="w-3 h-3 mr-1" />BS 9990:2015</Badge>}
       />
       <DocBody>
+        <PdfPreviewBlock
+          payload={payload}
+          generate={async () => {
+            const { generateDryRiserPDF } = await import("@/lib/dryRiserPdfGenerator");
+            await generateDryRiserPDF(payload as any);
+          }}
+        />
         <SitePrefillBlock
           formType={`dr_${payload.form_type}`}
           siteId={siteId}
