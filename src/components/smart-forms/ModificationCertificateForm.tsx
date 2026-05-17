@@ -500,7 +500,7 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
         </p>
         <PhotoAnalysisBlock
           submissionId={submissionId}
-          context={[payload.premises_name, payload.panel_manufacturer, "BS5839 modification"].filter(Boolean).join(", ")}
+          context={[payload.premises_name, "BS5839 modification"].filter(Boolean).join(", ")}
           existingDefects={(payload as any).ai_photo_defects || []}
           onAddDefects={(defects) => setPayload((p) => ({ ...p, ai_photo_defects: [ ...(((p as any).ai_photo_defects) || []), ...defects ] } as any))}
         />
