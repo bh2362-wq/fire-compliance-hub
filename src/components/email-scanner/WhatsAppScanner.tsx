@@ -116,9 +116,41 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
   const [loading, setLoading] = useState(false);
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [rawText, setRawText] = useState("");
-  const [mode, setMode] = useState<"auto" | "paste">("auto");
+  const [mode, setMode] = useState<"auto" | "paste" | "upload">("auto");
   const [lastRead, setLastRead] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "business" | "unread">("business");
+  const [uploadedName, setUploadedName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFileUpload(file: File) {
+    setLoading(true);
+    try {
+      let text = "";
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith(".zip")) {
+        const JSZip = (await import("jszip")).default;
+        const zip = await JSZip.loadAsync(file);
+        const txtEntry = Object.values(zip.files).find(f =>
+          !f.dir && f.name.toLowerCase().endsWith(".txt")
+        );
+        if (!txtEntry) throw new Error("No .txt chat file found inside the zip");
+        text = await txtEntry.async("string");
+      } else if (lower.endsWith(".txt")) {
+        text = await file.text();
+      } else {
+        throw new Error("Upload a WhatsApp export .zip or exported .txt file");
+      }
+      if (!text.trim()) throw new Error("The chat file is empty");
+      setRawText(text);
+      setUploadedName(file.name);
+      toast.success(`Loaded ${file.name} (${(text.length / 1024).toFixed(1)} KB)`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to read file";
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // ── Read WhatsApp via Chrome extension script bridge ─────────────────────────
   async function readWhatsApp() {
