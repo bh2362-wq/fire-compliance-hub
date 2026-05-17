@@ -114,7 +114,6 @@ export function ServiceContractDialog({
             <Select
               value={serviceType}
               onValueChange={setServiceType}
-              disabled={!!contract}
             >
               <SelectTrigger id="service-type">
                 <SelectValue placeholder="Select service type" />
