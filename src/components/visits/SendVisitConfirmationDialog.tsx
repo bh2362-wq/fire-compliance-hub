@@ -135,6 +135,17 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
 
       if (error) throw error;
 
+      // Timestamp log: record when and to whom the confirmation was sent
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase
+        .from("visits")
+        .update({
+          confirmation_sent_at: new Date().toISOString(),
+          confirmation_sent_to: email.trim(),
+          confirmation_sent_by: user?.id ?? null,
+        })
+        .eq("id", visit.id);
+
       toast({
         title: "Confirmation sent",
         description: `Appointment confirmation email sent to ${email}`,
