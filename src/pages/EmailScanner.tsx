@@ -95,10 +95,18 @@ const EmailScanner = () => {
     setShowSmartQuote(false);
     setSmartLines([]);
 
+    // Edge function rejects content > 200k chars. Keep the tail (most recent messages).
+    const MAX_CHARS = 190000;
+    let payload = emailContent.trim();
+    if (payload.length > MAX_CHARS) {
+      payload = payload.slice(-MAX_CHARS);
+      toast.info(`Conversation truncated to last ${(MAX_CHARS / 1000).toFixed(0)}k characters for AI scan`);
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke("scan-email", {
         body: {
-          emailContent: emailContent.trim(),
+          emailContent: payload,
           mode,
           pdfAttachments: pendingPdfs,
         },
