@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ChevronLeft, WifiOff, Wifi, Bell } from "lucide-react";
+import { StatusBar, Style } from "@capacitor/status-bar";
+import { Capacitor } from "@capacitor/core";
 import { useOfflineQueue } from "./hooks/useOfflineQueue";
 
 interface FieldLayoutProps {
