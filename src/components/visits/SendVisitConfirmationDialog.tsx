@@ -29,27 +29,35 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
   const [email, setEmail] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sentInfo, setSentInfo] = useState<SentInfo | null>(null);
 
   useEffect(() => {
     if (open) {
       loadCustomerData();
     }
-  }, [open, visit.site_id]);
+  }, [open, visit.site_id, visit.id]);
 
   const loadCustomerData = async () => {
     setLoading(true);
     try {
-      const { data: site } = await supabase
-        .from("sites")
-        .select("customer_id, address, city, postcode, customers(name, contact_email, contact_name)")
-        .eq("id", visit.site_id)
-        .maybeSingle();
+      const [{ data: site }, { data: visitRow }] = await Promise.all([
+        supabase
+          .from("sites")
+          .select("contact_name, contact_email, customer_id, customers(name, contact_email, contact_name)")
+          .eq("id", visit.site_id)
+          .maybeSingle(),
+        supabase
+          .from("visits")
+          .select("confirmation_sent_at, confirmation_sent_to, client_accepted_at, accepted_by_name")
+          .eq("id", visit.id)
+          .maybeSingle(),
+      ]);
 
-      const customer = site?.customers as any;
-      if (customer) {
-        setEmail(customer.contact_email || "");
-        setCustomerName(customer.contact_name || customer.name || "");
-      }
+      const customer = (site?.customers as any) || {};
+      // Prefer site job contact, fall back to customer contact
+      setEmail(site?.contact_email || customer.contact_email || "");
+      setCustomerName(site?.contact_name || customer.contact_name || customer.name || "");
+      setSentInfo(visitRow as SentInfo | null);
     } catch (err) {
       console.error("Error loading customer:", err);
     } finally {
