@@ -737,6 +737,10 @@ export default function ASDCommissioningForm({ open, onOpenChange, siteId, custo
         }
       />
       <DocBody>
+        <PdfPreviewBlock
+          payload={payload}
+          generate={() => generateASDCommissioningPDF(payload)}
+        />
         <SitePrefillBlock
           formType="asd_commissioning"
           siteId={siteId}
