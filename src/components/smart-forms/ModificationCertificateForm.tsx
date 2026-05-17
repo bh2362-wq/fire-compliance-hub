@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { SmartSignature } from "@/components/ui/smart-signature";
 import { Save, FileDown, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
-import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock } from "./_DocLayout";
+import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock, SitePrefillBlock, PhotoAnalysisBlock } from "./_DocLayout";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -483,6 +483,11 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
         }
       />
       <DocBody>
+        <SitePrefillBlock
+          formType="bs5839_modification"
+          siteId={siteId}
+          onPrefillApplied={(fields) => setPayload((prev) => ({ ...prev, ...(fields as any) }))}
+        />
         <TitleBlock
           title="Fire Alarm System — Modification Certificate"
           subtitle="BS 5839-1:2017+A2:2019 · BAFE SP203-1 FD/05"
@@ -493,6 +498,12 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
         <p className="text-[11px] italic text-muted-foreground px-1">
           Issued following modifications carried out in accordance with BS 5839-1:2017+A2:2019 Clause 24 and BAFE SP203-1 Section 5 (FD/05).
         </p>
+        <PhotoAnalysisBlock
+          submissionId={submissionId}
+          context={[payload.premises_name, payload.panel_manufacturer, "BS5839 modification"].filter(Boolean).join(", ")}
+          existingDefects={(payload as any).ai_photo_defects || []}
+          onAddDefects={(defects) => setPayload((p) => ({ ...p, ai_photo_defects: [ ...(((p as any).ai_photo_defects) || []), ...defects ] } as any))}
+        />
         {STEPS.slice(0, -1).map((label, i) => (
           <DocBlock key={label} title={`${i + 1}. ${label}`}>
             {renderStep(i)}
