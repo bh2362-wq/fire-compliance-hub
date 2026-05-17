@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import {
   DocBlock, DocBody, DocDialogShell, DocField,
   StickyFooter, StickyHeader, TitleBlock, AISummarySection,
+  SitePrefillBlock,
 } from "./_DocLayout";
 import { ClientSummaryPanel } from "./ClientSummaryPanel";
 
@@ -152,6 +153,11 @@ export default function DeclinationForm({ open, onOpenChange, visitId, siteId, o
       />
 
       <DocBody>
+        <SitePrefillBlock
+          formType="declination_of_works"
+          siteId={siteId}
+          onPrefillApplied={(fields) => up(fields as any)}
+        />
         {/* 1. Title */}
         <TitleBlock
           title="Declination of Recommended Works"
