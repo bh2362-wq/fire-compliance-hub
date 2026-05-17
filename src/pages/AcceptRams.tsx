@@ -198,7 +198,7 @@ const AcceptRams = () => {
               )}
             </Button>
             <p className="text-xs text-muted-foreground text-center">
-              By signing above, you confirm receipt and acknowledgement of this document and its contents.
+              By submitting, you confirm receipt and acknowledgement of this document. Your typed name and the submission timestamp constitute a legally-binding electronic signature under the UK Electronic Communications Act 2000.
             </p>
           </CardContent>
         </Card>
