@@ -211,6 +211,14 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
       const settings = await getCompanySettings().catch(() => null);
       const reportDate = new Date().toISOString().split("T")[0];
 
+      // Build acceptance link
+      const acceptUrl = document.acceptance_token
+        ? `${window.location.origin}/accept-rams/${document.acceptance_token}`
+        : null;
+      const bodyWithLink = acceptUrl
+        ? `${emailBody.trim()}\n\n---\nReview & acknowledge online: ${acceptUrl}`
+        : emailBody.trim();
+
       const { data, error } = await supabase.functions.invoke("send-report-email", {
         body: {
           to: recipients,
@@ -223,7 +231,7 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
           customerName: "",
           companyName: companyNameVal,
           logoUrl: settings?.report_logo_url || settings?.company_logo_url || "",
-          emailBody: emailBody.trim(),
+          emailBody: bodyWithLink,
           documentType: "Risk Assessment & Method Statement",
         },
       });
