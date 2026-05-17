@@ -120,7 +120,48 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
   const [lastRead, setLastRead] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "business" | "unread">("business");
   const [uploadedName, setUploadedName] = useState<string | null>(null);
+  const [extensionStatus, setExtensionStatus] = useState<"checking" | "detected" | "missing">("checking");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Ping the Chrome helper extension on mount ────────────────────────────────
+  useEffect(() => {
+    const pingId = `wa-ping-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let settled = false;
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window) return;
+      const d: any = event.data;
+      if (!d || d.requestId !== pingId) return;
+      if (d.type === "FIRELOGBOOK_PONG" || d.pong === true || d.extension === true) {
+        settled = true;
+        cleanup();
+        setExtensionStatus("detected");
+      }
+    };
+    const onCustomEvent = (event: Event) => {
+      const d: any = (event as CustomEvent).detail;
+      if (!d || d.requestId !== pingId) return;
+      settled = true;
+      cleanup();
+      setExtensionStatus("detected");
+    };
+    const cleanup = () => {
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("firelogbook:whatsapp-pong", onCustomEvent);
+      window.clearTimeout(timer);
+    };
+    window.addEventListener("message", onMessage);
+    window.addEventListener("firelogbook:whatsapp-pong", onCustomEvent);
+    const payload = { source: "fire-logbook", type: "PING_WHATSAPP_HELPER", requestId: pingId };
+    window.dispatchEvent(new CustomEvent("firelogbook:ping-whatsapp", { detail: payload }));
+    window.postMessage(payload, window.location.origin);
+    const timer = window.setTimeout(() => {
+      if (!settled) {
+        cleanup();
+        setExtensionStatus("missing");
+      }
+    }, 1500);
+    return cleanup;
+  }, []);
 
   async function handleFileUpload(file: File) {
     setLoading(true);
