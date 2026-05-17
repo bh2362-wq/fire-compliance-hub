@@ -69,6 +69,13 @@ export interface RamsDocument {
   client_signature: string | null;
   client_signed_at: string | null;
   client_name: string | null;
+  sent_at: string | null;
+  sent_to: string[] | null;
+  sent_by: string | null;
+  accepted_at: string | null;
+  accepted_by_name: string | null;
+  acceptance_signature: string | null;
+  acceptance_token: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

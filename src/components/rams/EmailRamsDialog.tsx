@@ -211,6 +211,14 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
       const settings = await getCompanySettings().catch(() => null);
       const reportDate = new Date().toISOString().split("T")[0];
 
+      // Build acceptance link
+      const acceptUrl = document.acceptance_token
+        ? `${window.location.origin}/accept-rams/${document.acceptance_token}`
+        : null;
+      const bodyWithLink = acceptUrl
+        ? `${emailBody.trim()}\n\n---\nReview & acknowledge online: ${acceptUrl}`
+        : emailBody.trim();
+
       const { data, error } = await supabase.functions.invoke("send-report-email", {
         body: {
           to: recipients,
@@ -223,7 +231,7 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
           customerName: "",
           companyName: companyNameVal,
           logoUrl: settings?.report_logo_url || settings?.company_logo_url || "",
-          emailBody: emailBody.trim(),
+          emailBody: bodyWithLink,
           documentType: "Risk Assessment & Method Statement",
         },
       });
@@ -248,6 +256,16 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
       }
 
       if (summary.sent > 0) {
+        // Stamp RAMS as sent
+        await supabase
+          .from("rams_documents")
+          .update({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+            sent_to: recipients,
+            sent_by: user?.id || null,
+          })
+          .eq("id", document.id);
         toast.success(`RAMS sent to ${summary.sent} recipient${summary.sent > 1 ? "s" : ""}`);
       }
       if (summary.failed > 0) {
@@ -280,6 +298,26 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
             Send {document.rams_number} as a PDF attachment
           </DialogDescription>
         </DialogHeader>
+
+        {(document.sent_at || document.accepted_at) && (
+          <div className="text-xs rounded-md border bg-muted/40 p-2 space-y-1">
+            {document.sent_at && (
+              <div>
+                <span className="font-medium">Last sent:</span>{" "}
+                {new Date(document.sent_at).toLocaleString()}
+                {document.sent_to && document.sent_to.length > 0 && (
+                  <> to {document.sent_to.join(", ")}</>
+                )}
+              </div>
+            )}
+            {document.accepted_at && (
+              <div className="text-success">
+                <span className="font-medium">Accepted</span> by {document.accepted_by_name || "client"} on{" "}
+                {new Date(document.accepted_at).toLocaleString()}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
           {templates.length > 0 && (

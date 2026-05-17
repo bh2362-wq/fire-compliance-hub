@@ -3545,6 +3545,10 @@ export type Database = {
       }
       rams_documents: {
         Row: {
+          acceptance_signature: string | null
+          acceptance_token: string | null
+          accepted_at: string | null
+          accepted_by_name: string | null
           activity_key: string | null
           approved_at: string | null
           approved_by: string | null
@@ -3568,6 +3572,9 @@ export type Database = {
           reviewer_name: string | null
           reviewer_signature: string | null
           reviewer_signed_at: string | null
+          sent_at: string | null
+          sent_by: string | null
+          sent_to: string[] | null
           site_access_notes: string | null
           site_id: string | null
           site_specific_hazards: string | null
@@ -3579,6 +3586,10 @@ export type Database = {
           visit_id: string | null
         }
         Insert: {
+          acceptance_signature?: string | null
+          acceptance_token?: string | null
+          accepted_at?: string | null
+          accepted_by_name?: string | null
           activity_key?: string | null
           approved_at?: string | null
           approved_by?: string | null
@@ -3602,6 +3613,9 @@ export type Database = {
           reviewer_name?: string | null
           reviewer_signature?: string | null
           reviewer_signed_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          sent_to?: string[] | null
           site_access_notes?: string | null
           site_id?: string | null
           site_specific_hazards?: string | null
@@ -3613,6 +3627,10 @@ export type Database = {
           visit_id?: string | null
         }
         Update: {
+          acceptance_signature?: string | null
+          acceptance_token?: string | null
+          accepted_at?: string | null
+          accepted_by_name?: string | null
           activity_key?: string | null
           approved_at?: string | null
           approved_by?: string | null
@@ -3636,6 +3654,9 @@ export type Database = {
           reviewer_name?: string | null
           reviewer_signature?: string | null
           reviewer_signed_at?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          sent_to?: string[] | null
           site_access_notes?: string | null
           site_id?: string | null
           site_specific_hazards?: string | null
