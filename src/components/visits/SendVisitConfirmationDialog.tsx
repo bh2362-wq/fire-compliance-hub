@@ -247,7 +247,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
             ) : (
               <>
                 <Send className="mr-2 h-4 w-4" />
-                Send Confirmation
+                {sentInfo?.confirmation_sent_at ? "Resend Confirmation" : "Send Confirmation"}
               </>
             )}
           </Button>
