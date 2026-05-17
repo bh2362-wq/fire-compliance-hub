@@ -27,6 +27,7 @@ import {
   getRamsDocuments,
   deleteRamsTemplate,
   deleteRamsDocument,
+  unlockRamsDocument,
   RamsTemplate,
   RamsDocument,
 } from "@/services/ramsService";
