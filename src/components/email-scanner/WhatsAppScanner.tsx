@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   MessageCircle, Loader2, RefreshCw, Scan, AlertCircle,
-  CheckCircle2, User, Sparkles, ArrowRight,
+  CheckCircle2, User, Sparkles, ArrowRight, Upload, FileArchive,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
