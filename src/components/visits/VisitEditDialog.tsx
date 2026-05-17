@@ -44,6 +44,7 @@ import { Visit } from "@/hooks/useVisits";
 import { sendAppointmentUpdatedNotification } from "@/services/notificationService";
 import { SERVICE_TYPES } from "@/services/serviceContractService";
 import SubcontractorSheetsSection from "@/components/visits/SubcontractorSheetsSection";
+import { VisitRamsBanner } from "@/components/visits/VisitRamsBanner";
 import { generateSubcontractorReport } from "@/lib/subcontractorReportPdfGenerator";
 import { toast as sonnerToast } from "sonner";
 
