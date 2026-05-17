@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, FileDown, Save, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ChevronDown, FileDown, Save, Sparkles, AlertCircle, CheckCircle2, Eye, RefreshCw } from "lucide-react";
+import { generatePdfBlob } from "@/lib/pdfPreviewHelper";
 
 /* ─── Section block ────────────────────────────────────────────── */
 
