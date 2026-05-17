@@ -66,11 +66,14 @@ const AcceptRams = () => {
     setError(null);
     try {
       const acceptedAt = new Date().toISOString();
-      // If no drawn signature, the typed name + timestamp constitutes the
-      // legally-binding digital signature (per UK Electronic Communications Act 2000).
+      // If no drawn signature, the typed name constitutes the legally-binding
+      // digital signature (per UK Electronic Communications Act 2000). The
+      // `typed:` prefix tells the PDF generator to render the name as a
+      // cursive script signature in the actual signature box; the timestamp
+      // is recorded separately in client_signed_at / accepted_at.
       const typedSignatureRecord = signature
         ? signature
-        : `TYPED:${name.trim()}|${acceptedAt}`;
+        : `typed:${name.trim()}`;
       const { error: updErr } = await supabase
         .from("rams_documents")
         .update({
