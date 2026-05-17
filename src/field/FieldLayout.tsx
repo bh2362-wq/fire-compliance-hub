@@ -10,6 +10,13 @@ interface FieldLayoutProps {
 }
 
 export function FieldLayout({ children }: FieldLayoutProps) {
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setStyle({ style: Style.Light }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: "#C22126" }).catch(() => {});
+    }
+  }, []);
+
   const navigate = useNavigate();
   const location = useLocation();
   const [online, setOnline] = useState(navigator.onLine);
