@@ -33,6 +33,7 @@ import PurchaseOrders from "./pages/PurchaseOrders";
 import SharedReport from "./pages/SharedReport";
 import AcceptQuote from "./pages/AcceptQuote";
 import AcceptVisit from "./pages/AcceptVisit";
+import AcceptRams from "./pages/AcceptRams";
 import SharedSitePortal from "./pages/SharedSitePortal";
 import AssetMaintenance from "./pages/AssetMaintenance";
 import EmailScanner from "./pages/EmailScanner";
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/shared-report/:token" element={<SharedReport />} />
             <Route path="/accept-quote/:token" element={<AcceptQuote />} />
             <Route path="/accept-visit/:token" element={<AcceptVisit />} />
+            <Route path="/accept-rams/:token" element={<AcceptRams />} />
             <Route path="/portal/:token" element={<SharedSitePortal />} />
 
             {/* Protected: Core */}
