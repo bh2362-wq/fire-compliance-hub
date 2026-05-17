@@ -458,6 +458,15 @@ export default function BS5839CertificateForm({
         {/* Document scroll area */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-5xl mx-auto p-5 md:p-6 space-y-5">
+            <PdfPreviewBlock
+              payload={payload}
+              generate={() =>
+                generateBS5839CertificatePDF(payload, {
+                  autoSign: true,
+                  engineerFallbackName: payload.engineer_declaration_name || payload.engineer_name,
+                })
+              }
+            />
             <SitePrefillPanel
               formType="bs5839_inspection_servicing"
               siteId={linkedSiteId || siteId}
