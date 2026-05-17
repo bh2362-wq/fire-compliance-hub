@@ -67,6 +67,8 @@ export default function RAMS() {
   const [selectedDocument, setSelectedDocument] = useState<RamsDocument | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: "template" | "document"; id: string } | null>(null);
+  const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
+  const [docToUnlock, setDocToUnlock] = useState<RamsDocument | null>(null);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery({
     queryKey: ["rams-templates"],
