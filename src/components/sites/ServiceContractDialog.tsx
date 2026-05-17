@@ -86,7 +86,7 @@ export function ServiceContractDialog({
         frequency: frequency || "3m",
       };
 
-      const savedContract = await upsertServiceContract(data);
+      const savedContract = await upsertServiceContract(data, contract?.id);
       toast.success(contract ? "Contract updated" : "Contract added");
       onOpenChange(false);
       onSaved(savedContract, !contract);
