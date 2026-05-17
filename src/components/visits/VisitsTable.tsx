@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown, Sparkles, ShieldCheck, Zap, Wind, Droplets } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown, Sparkles, ShieldCheck, Zap, Wind, Droplets, Link2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -72,6 +72,7 @@ import { BS5839Payload } from "@/services/smartFormService";
 import { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
 import { toast as sonnerToast } from "sonner";
+import { LinkExistingCertDialog } from "./LinkExistingCertDialog";
 
 interface ASDAsset {
   id: string;
@@ -218,6 +219,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   } | null>(null);
 
   const [reassignVisit, setReassignVisit] = useState<Visit | null>(null);
+  const [linkCertVisit, setLinkCertVisit] = useState<Visit | null>(null);
   const [smartFormVisit, setSmartFormVisit] = useState<Visit | null>(null);
   const [smartFormPrefill, setSmartFormPrefill] = useState<Partial<BS5839Payload> | null>(null);
   const [installCertVisit, setInstallCertVisit] = useState<Visit | null>(null);
@@ -1156,6 +1158,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setLinkCertVisit(visit)}>
+                  <Link2 className="w-4 h-4 mr-2" />
+                  Link Existing Certificate & Close
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate(`/dashboard/schedule`)}>
                   <CalendarDays className="w-4 h-4 mr-2" />
                   View Schedule
@@ -1473,6 +1479,13 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           defaultContactId={invoiceContactId}
         />
       )}
+
+      <LinkExistingCertDialog
+        visit={linkCertVisit}
+        open={!!linkCertVisit}
+        onOpenChange={(open) => { if (!open) setLinkCertVisit(null); }}
+        onLinked={() => { setLinkCertVisit(null); onRefresh?.(); }}
+      />
 
       {previewVisit && (
         <ReportPreviewDialog
