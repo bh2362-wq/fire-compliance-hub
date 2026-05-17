@@ -248,6 +248,16 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
       }
 
       if (summary.sent > 0) {
+        // Stamp RAMS as sent
+        await supabase
+          .from("rams_documents")
+          .update({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+            sent_to: recipients,
+            sent_by: user?.id || null,
+          })
+          .eq("id", document.id);
         toast.success(`RAMS sent to ${summary.sent} recipient${summary.sent > 1 ? "s" : ""}`);
       }
       if (summary.failed > 0) {
