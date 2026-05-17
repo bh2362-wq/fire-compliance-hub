@@ -250,6 +250,54 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
             </div>
           ) : null}
 
+          {delivery && delivery.state !== "sent" && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm space-y-2">
+              <div className="flex items-start gap-2 text-destructive">
+                {delivery.errorName === "validation_error" ? (
+                  <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                )}
+                <div className="space-y-0.5">
+                  <p className="font-semibold">
+                    {delivery.state === "rejected"
+                      ? "Email provider rejected the send"
+                      : "Send failed"}
+                  </p>
+                  <p className="text-xs">
+                    Attempted {format(new Date(delivery.at), "dd MMM yyyy 'at' HH:mm:ss")}
+                    {delivery.recipient ? ` → ${delivery.recipient}` : ""}
+                    {delivery.statusCode ? ` (HTTP ${delivery.statusCode})` : ""}
+                  </p>
+                </div>
+              </div>
+              {delivery.message && (
+                <div className="rounded bg-background/60 border border-destructive/20 px-2 py-1.5 text-xs font-mono text-foreground/80 break-words">
+                  {delivery.errorName ? <span className="font-semibold">{delivery.errorName}: </span> : null}
+                  {delivery.message}
+                </div>
+              )}
+              {delivery.errorName === "validation_error" && /domain/i.test(delivery.message || "") && (
+                <p className="text-xs text-muted-foreground">
+                  Your sending domain isn't verified yet, so the provider only allows test sends to your own address. Verify your sending domain in <strong>Cloud → Emails</strong> to deliver to any recipient.
+                </p>
+              )}
+            </div>
+          )}
+
+          {delivery?.state === "sent" && (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm flex items-start gap-2 text-green-800">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">Accepted by email provider</p>
+                <p className="text-xs">
+                  Delivered to {delivery.recipient} at{" "}
+                  {format(new Date(delivery.at), "dd MMM yyyy 'at' HH:mm:ss")}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="confirm-email">Customer Email *</Label>
             <Input
