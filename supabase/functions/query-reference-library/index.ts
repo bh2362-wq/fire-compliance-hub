@@ -47,11 +47,10 @@ Deno.serve(async (req) => {
     const embedding: number[] = embedJson.data[0].embedding;
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
-    const { data, error } = await admin.schema("reference_library").rpc("query_by_embedding", {
-      p_embedding: embedding as unknown as string,
-      p_doc_types: doc_types,
-      p_limit: limit,
-      p_min_similarity: min_similarity,
+    const { data, error } = await admin.rpc("ref_lib_query_by_embedding", {
+      query_embedding: embedding as unknown as string,
+      match_count: limit,
+      filter_doc_type: Array.isArray(doc_types) && doc_types.length === 1 ? doc_types[0] : null,
     });
     if (error) throw new Error(`rpc failed: ${error.message}`);
 
