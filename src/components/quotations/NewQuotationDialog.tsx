@@ -382,9 +382,38 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
 
           {/* Line Items */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <Label className="text-base font-semibold">Line Items</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1 border rounded-md px-2 py-1 bg-muted/40">
+                  <Label className="text-xs whitespace-nowrap">Bulk Markup %</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={bulkMarkup}
+                    onChange={(e) => setBulkMarkup(e.target.value)}
+                    className="h-7 w-16"
+                    placeholder="0"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-7"
+                    onClick={() => {
+                      const pct = parseFloat(bulkMarkup) || 0;
+                      const updated = lineItems.map((i) => ({
+                        ...i,
+                        markup_percent: pct,
+                        total_price: i.quantity * i.unit_price * (1 + pct / 100) + (i.labour_cost || 0),
+                      }));
+                      setLineItems(updated);
+                    }}
+                  >
+                    Apply
+                  </Button>
+                </div>
                 <AIExpandButton
                   lineItems={lineItems}
                   onAccept={(expandedItems, generatedSummary) => {
