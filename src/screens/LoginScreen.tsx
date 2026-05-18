@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, FormEvent } from 'react';
 import { Flame, Mail, Lock, Eye, EyeOff, Fingerprint, Loader2, AlertCircle } from 'lucide-react';
 import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor } from '@capacitor/core';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
 /**
@@ -33,6 +35,25 @@ export default function LoginScreen() {
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   const emailRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Redirect signed-in users away from /auth
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        const from = (location.state as any)?.from?.pathname || '/dashboard';
+        navigate(from, { replace: true });
+      }
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const from = (location.state as any)?.from?.pathname || '/dashboard';
+        navigate(from, { replace: true });
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [navigate, location]);
 
   // Auto-prompt biometric on mount if the user has previously enabled it
   useEffect(() => {

@@ -12,7 +12,7 @@ import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 
 // Pages
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+import LoginScreen from "@/screens/LoginScreen";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
@@ -77,7 +77,8 @@ const App = () => (
           <Routes>
             {/* Public */}
             <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth" element={<LoginScreen />} />
+            <Route path="/auth/reset" element={<ResetPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/shared-report/:token" element={<SharedReport />} />
