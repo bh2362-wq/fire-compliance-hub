@@ -2,7 +2,7 @@
 // We extract here (in the browser) because the Edge Function CPU budget is
 // too small for pdfjs to parse multi-hundred-page standards.
 import * as pdfjsLib from "pdfjs-dist";
-// @ts-expect-error - worker URL import handled by Vite
+// @ts-ignore - Vite ?url import returns a string at runtime
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc as string;
