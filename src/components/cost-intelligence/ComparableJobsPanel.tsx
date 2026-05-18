@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useComparableJobs } from '@/hooks/useComparableJobs';
 import { useMarketContext } from '@/hooks/useMarketContext';
 import type { MarketContext } from '@/types/cost-intelligence';
+import { AIAssessmentSection } from './AIAssessmentSection';
 import {
   BUILDING_TYPE_LABELS,
   SYSTEM_TYPE_LABELS,
@@ -16,9 +17,12 @@ import {
 interface ComparableJobsPanelProps {
   scope: QuoteScope | null;
   currentQuoteTotal?: number;
+  quoteId?: string;
+  visitId?: string;
   onSelectJob?: (jobId: string) => void;
   className?: string;
 }
+
 
 const gbp = new Intl.NumberFormat('en-GB', {
   style: 'currency',
