@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
   const validAnon = token && (token === ANON_KEY || token === PUBLISHABLE_KEY);
   const validService = token && token === SERVICE_KEY;
   if (!validAnon && !validService) {
-    console.log(`[auth-debug-full] anon=${ANON_KEY} svc=${SERVICE_KEY}`);
+    console.warn(`[contracts-finder-ingest] unauthorized invocation`);
     return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
