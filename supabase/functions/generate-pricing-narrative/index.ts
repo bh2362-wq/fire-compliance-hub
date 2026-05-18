@@ -175,7 +175,10 @@ Deno.serve(async (req) => {
   }));
 
   const userPrompt =
-`Analyse this quote scope against the data below.
+`VALIDATION CHECK: Before producing your final output, review every job reference and number in your narrative and risk_flags. For each one, identify which entry in the comparables array it comes from. If you cannot identify a source, remove the citation or restate the claim without it.
+
+Analyse this quote scope against the data below.
+
 
 QUOTE SCOPE:
 ${JSON.stringify(scope, null, 2)}
