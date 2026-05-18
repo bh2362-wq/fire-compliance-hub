@@ -446,7 +446,12 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
           {/* Customer & Site */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Customer</Label>
+              <div className="flex items-center justify-between">
+                <Label>Customer</Label>
+                <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setShowAddCustomer(true)}>
+                  <UserPlus className="mr-1 h-3 w-3" /> New
+                </Button>
+              </div>
               <Select value={customerId} onValueChange={(v) => { setCustomerId(v); setSiteId(""); }}>
                 <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
                 <SelectContent>
@@ -457,9 +462,14 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Site *</Label>
+              <div className="flex items-center justify-between">
+                <Label>Site *</Label>
+                <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setShowAddSite(true)} disabled={!customerId}>
+                  <Building2 className="mr-1 h-3 w-3" /> New
+                </Button>
+              </div>
               <Select value={siteId} onValueChange={setSiteId}>
-                <SelectTrigger><SelectValue placeholder="Select site..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={customerId ? "Select site..." : "Pick customer first"} /></SelectTrigger>
                 <SelectContent>
                   {filteredSites.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
