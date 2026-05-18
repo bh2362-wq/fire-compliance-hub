@@ -293,15 +293,20 @@ Produce your assessment as JSON per the schema. Reason carefully about the win p
     if (!validRefs.has(ref)) fabricatedRefs.add(ref);
   }
 
-  // 2) Outcome misattribution check — scan window of ~80 chars around each ref mention
+  // 2) Outcome misattribution check
+  // Per-ref window: from the ref itself up to the next ref (or +120 chars), bounded so
+  // outcome words belonging to a neighbouring ref don't contaminate this one.
   const outcomeMisattributions: string[] = [];
-  for (const m of fullText.matchAll(JOB_REF_RE)) {
+  const refMatches = [...fullText.matchAll(JOB_REF_RE)];
+  for (let i = 0; i < refMatches.length; i++) {
+    const m = refMatches[i];
     const ref = m[0];
     const actual = validRefs.get(ref);
-    if (!actual) continue; // fabricated refs handled above
-    const start = Math.max(0, (m.index ?? 0) - 80);
-    const end = Math.min(fullText.length, (m.index ?? 0) + ref.length + 80);
-    const window = fullText.slice(start, end);
+    if (!actual) continue;
+    const refStart = m.index ?? 0;
+    const refEnd = refStart + ref.length;
+    const nextStart = i + 1 < refMatches.length ? (refMatches[i + 1].index ?? fullText.length) : fullText.length;
+    const window = fullText.slice(refEnd, Math.min(nextStart, refEnd + 120));
     const om = window.match(OUTCOME_RE);
     if (!om) continue;
     const word = om[0].toLowerCase();
@@ -312,6 +317,7 @@ Produce your assessment as JSON per the schema. Reason carefully about the win p
       outcomeMisattributions.push(`${ref}: claimed=${claimed}, actual=${actual}`);
     }
   }
+
 
   const fabricatedRefsArr = [...fabricatedRefs];
   const hallucinationDetected = fabricatedRefsArr.length > 0 || outcomeMisattributions.length > 0;
