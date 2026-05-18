@@ -13,7 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown, Sparkles, ShieldCheck, Zap, Wind, Droplets, Link2 } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown, Sparkles, ShieldCheck, Zap, Wind, Droplets, Link2, Tag } from "lucide-react";
+import { ClassifyJobDialog } from "@/components/cost-intelligence/ClassifyJobDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -219,6 +220,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   } | null>(null);
 
   const [reassignVisit, setReassignVisit] = useState<Visit | null>(null);
+  const [classifyVisit, setClassifyVisit] = useState<Visit | null>(null);
   const [linkCertVisit, setLinkCertVisit] = useState<Visit | null>(null);
   const [smartFormVisit, setSmartFormVisit] = useState<Visit | null>(null);
   const [smartFormPrefill, setSmartFormPrefill] = useState<Partial<BS5839Payload> | null>(null);
@@ -1047,6 +1049,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   <Package className="w-4 h-4 mr-2" />
                   Job Requirements
                  </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setClassifyVisit(visit)}>
+                  <Tag className="w-4 h-4 mr-2" />
+                  Classify
+                </DropdownMenuItem>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <Sparkles className="w-4 h-4 mr-2" />
@@ -1768,6 +1774,14 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           currentSiteId={reassignVisit.site_id}
           currentSiteName={reassignVisit.site?.name || "Unknown Site"}
           onSuccess={onRefresh}
+        />
+      )}
+      {classifyVisit && (
+        <ClassifyJobDialog
+          open={!!classifyVisit}
+          onOpenChange={(open) => !open && setClassifyVisit(null)}
+          jobId={classifyVisit.id}
+          jobLabel={classifyVisit.job_number || classifyVisit.site?.name || undefined}
         />
       )}
       <MergeSitesDialog

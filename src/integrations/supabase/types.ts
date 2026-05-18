@@ -3361,24 +3361,32 @@ export type Database = {
         Row: {
           acceptance_token: string | null
           accepted_by_name: string | null
+          bs5839_category: string | null
+          building_type: string | null
           client_acceptance_signature: string | null
           client_accepted_at: string | null
           client_po_number: string | null
           created_at: string
           created_by: string
           customer_id: string | null
+          device_count: number | null
+          gia_sqm: number | null
           id: string
+          job_category: string | null
           locked_at: string | null
           locked_by: string | null
+          loop_count: number | null
           notes: string | null
           po_number: string | null
           quotation_number: string
+          region: string | null
           report_id: string | null
           sharepoint_folder: string | null
           sharepoint_url: string | null
           site_id: string
           status: string
           summary: string | null
+          system_type: string | null
           terms: string | null
           title: string | null
           total_amount: number | null
@@ -3390,24 +3398,32 @@ export type Database = {
         Insert: {
           acceptance_token?: string | null
           accepted_by_name?: string | null
+          bs5839_category?: string | null
+          building_type?: string | null
           client_acceptance_signature?: string | null
           client_accepted_at?: string | null
           client_po_number?: string | null
           created_at?: string
           created_by: string
           customer_id?: string | null
+          device_count?: number | null
+          gia_sqm?: number | null
           id?: string
+          job_category?: string | null
           locked_at?: string | null
           locked_by?: string | null
+          loop_count?: number | null
           notes?: string | null
           po_number?: string | null
           quotation_number: string
+          region?: string | null
           report_id?: string | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
           site_id: string
           status?: string
           summary?: string | null
+          system_type?: string | null
           terms?: string | null
           title?: string | null
           total_amount?: number | null
@@ -3419,24 +3435,32 @@ export type Database = {
         Update: {
           acceptance_token?: string | null
           accepted_by_name?: string | null
+          bs5839_category?: string | null
+          building_type?: string | null
           client_acceptance_signature?: string | null
           client_accepted_at?: string | null
           client_po_number?: string | null
           created_at?: string
           created_by?: string
           customer_id?: string | null
+          device_count?: number | null
+          gia_sqm?: number | null
           id?: string
+          job_category?: string | null
           locked_at?: string | null
           locked_by?: string | null
+          loop_count?: number | null
           notes?: string | null
           po_number?: string | null
           quotation_number?: string
+          region?: string | null
           report_id?: string | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
           site_id?: string
           status?: string
           summary?: string | null
+          system_type?: string | null
           terms?: string | null
           title?: string | null
           total_amount?: number | null

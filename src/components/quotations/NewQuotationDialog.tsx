@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
 import { getCompanySettings } from "@/services/companySettingsService";
 import {
@@ -27,6 +27,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { searchSupplierProducts, SupplierProduct } from "@/services/supplierProductService";
+import { ScopeFields } from "@/components/cost-intelligence/ClassifyJobDialog";
+import { ComparableJobsPanel } from "@/components/cost-intelligence/ComparableJobsPanel";
+import {
+  type SystemType, type BuildingType, type JobCategory,
+  type Region, type Bs5839Category, type QuoteScope,
+} from "@/types/cost-intelligence";
 
 interface LineItem {
   description: string;
@@ -63,6 +69,17 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
   ]);
   const [saving, setSaving] = useState(false);
   const [bulkMarkup, setBulkMarkup] = useState("");
+
+  // Scope / classification fields (cost intelligence)
+  const [systemType, setSystemType] = useState<SystemType | "">("");
+  const [buildingType, setBuildingType] = useState<BuildingType | "">("");
+  const [jobCategory, setJobCategory] = useState<JobCategory | "">("");
+  const [region, setRegion] = useState<Region | "">("");
+  const [bs5839, setBs5839] = useState<Bs5839Category | "">("");
+  const [deviceCount, setDeviceCount] = useState<string>("");
+  const [loopCount, setLoopCount] = useState<string>("");
+  const [giaSqm, setGiaSqm] = useState<string>("");
+
 
   // Autocomplete state per line item
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
@@ -205,6 +222,14 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
           title: title || "New Quotation",
           summary,
           total_amount: subtotal,
+          system_type: systemType || null,
+          building_type: buildingType || null,
+          job_category: jobCategory || null,
+          region: region || null,
+          bs5839_category: bs5839 || null,
+          device_count: deviceCount ? parseInt(deviceCount) : null,
+          loop_count: loopCount ? parseInt(loopCount) : null,
+          gia_sqm: giaSqm ? parseFloat(giaSqm) : null,
           vat_rate: vatRate,
           valid_until: new Date(Date.now() + validDays * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
           terms: terms || null,
@@ -321,7 +346,27 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
     setTerms("");
     setNotes("");
     setLineItems([{ description: "", quantity: 1, unit_price: 0, markup_percent: 0, labour_cost: 0, total_price: 0 }]);
+    setSystemType(""); setBuildingType(""); setJobCategory("");
+    setRegion(""); setBs5839(""); setDeviceCount(""); setLoopCount(""); setGiaSqm("");
   };
+
+  const scope: QuoteScope | null = useMemo(() => {
+    if (!systemType || !buildingType) return null;
+    return {
+      systemType, buildingType,
+      jobCategory: jobCategory || undefined,
+      region: region || undefined,
+      bs5839Category: bs5839 || undefined,
+      deviceCount: deviceCount ? parseInt(deviceCount) : undefined,
+      loopCount: loopCount ? parseInt(loopCount) : undefined,
+      giaSqm: giaSqm ? parseFloat(giaSqm) : undefined,
+    };
+  }, [systemType, buildingType, jobCategory, region, bs5839, deviceCount, loopCount, giaSqm]);
+
+  const openHistoricalJob = useCallback((jobId: string) => {
+    window.open(`/dashboard/visits?highlight=${jobId}`, "_blank", "noopener,noreferrer");
+  }, []);
+
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
@@ -331,7 +376,26 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
       </ResponsiveDialogHeader>
 
       <ResponsiveDialogBody>
-        <div className="space-y-6 pb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-4">
+          <div className="lg:col-span-8 space-y-6 min-w-0">
+            {/* Scope & Classification */}
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base font-semibold">Scope & classification</Label>
+                <span className="text-xs text-muted-foreground">Powers cost intelligence →</span>
+              </div>
+              <ScopeFields
+                systemType={systemType} setSystemType={setSystemType}
+                buildingType={buildingType} setBuildingType={setBuildingType}
+                jobCategory={jobCategory} setJobCategory={setJobCategory}
+                region={region} setRegion={setRegion}
+                bs5839={bs5839} setBs5839={setBs5839}
+                deviceCount={deviceCount} setDeviceCount={setDeviceCount}
+                loopCount={loopCount} setLoopCount={setLoopCount}
+                giaSqm={giaSqm} setGiaSqm={setGiaSqm}
+              />
+            </div>
+
           {/* Customer & Site */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -555,8 +619,19 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (not shown on PDF)..." className="min-h-[60px]" />
             </div>
           </div>
+          </div>
+          <aside className="lg:col-span-4 order-first lg:order-last">
+            <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+              <ComparableJobsPanel
+                scope={scope}
+                currentQuoteTotal={subtotal}
+                onSelectJob={openHistoricalJob}
+              />
+            </div>
+          </aside>
         </div>
       </ResponsiveDialogBody>
+
 
       <ResponsiveDialogFooter>
         <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
