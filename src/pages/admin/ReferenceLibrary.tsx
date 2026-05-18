@@ -382,7 +382,7 @@ export default function ReferenceLibrary() {
               </TableHeader>
               <TableBody>
                 {docs.length === 0 && !loading && (
-                  <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">No documents yet.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={isAdmin ? 9 : 8} className="text-center text-sm text-muted-foreground py-8">No documents yet.</TableCell></TableRow>
                 )}
                 {docs.map((d) => (
                   <Fragment key={d.id}>
@@ -395,21 +395,23 @@ export default function ReferenceLibrary() {
                       <TableCell className="text-right text-xs">{d.chunk_count}</TableCell>
                       <TableCell><StatusPill s={d.ingest_status} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">{d.ingested_at ? formatDistanceToNow(new Date(d.ingested_at), { addSuffix: true }) : "—"}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button size="sm" variant="ghost" disabled={reingestId === d.id || d.ingest_status === "processing"} onClick={() => handleReingest(d.id)}>
-                            {reingestId === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setPendingDelete(d)}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Button size="sm" variant="ghost" disabled={reingestId === d.id || d.ingest_status === "processing"} onClick={() => handleReingest(d.id)}>
+                              {reingestId === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setPendingDelete(d)}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                     {expanded[d.id] && (
                       <TableRow key={d.id + "-exp"}>
                         <TableCell />
-                        <TableCell colSpan={8} className="bg-muted/40">
+                        <TableCell colSpan={isAdmin ? 8 : 7} className="bg-muted/40">
                           <div className="space-y-3 py-2 text-xs">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                               <div><span className="text-muted-foreground">Publisher:</span> {d.publisher ?? "—"}</div>
