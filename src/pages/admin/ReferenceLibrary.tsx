@@ -64,7 +64,12 @@ interface ChunkPreview {
   page_number: number | null;
 }
 
-const refLib = () => (supabase as any).schema("reference_library");
+const REF_DOCS = "ref_lib_documents" as const;
+const REF_CHUNKS = "ref_lib_chunks" as const;
+const refLib = () => ({
+  from: (tbl: "documents" | "chunks") =>
+    (supabase as any).from(tbl === "documents" ? REF_DOCS : REF_CHUNKS),
+});
 
 const ACCEPT = ".pdf,.docx,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const MAX_BYTES = 100 * 1024 * 1024;
