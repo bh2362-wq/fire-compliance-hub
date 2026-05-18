@@ -64,6 +64,7 @@ import ManagementReview from "./pages/qms/ManagementReview";
 import RAMS from "./pages/qms/RAMS";
 import SupplierEvaluations from "./pages/qms/SupplierEvaluations";
 import MarketDataAdmin from "./pages/admin/MarketData";
+import ReferenceLibrary from "./pages/admin/ReferenceLibrary";
 
 const queryClient = new QueryClient();
 
@@ -105,6 +106,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <MarketDataAdmin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/admin/reference-library"
+              element={
+                <ProtectedRoute>
+                  <ReferenceLibrary />
                 </ProtectedRoute>
               }
             />
