@@ -278,7 +278,8 @@ export default function ReferenceLibrary() {
           </CardContent></Card>
         </div>
 
-        {/* Upload */}
+        {/* Upload — admin only */}
+        {isAdmin && (
         <Card>
           <CardHeader><CardTitle className="text-base">Upload document</CardTitle></CardHeader>
           <CardContent className="space-y-4">
