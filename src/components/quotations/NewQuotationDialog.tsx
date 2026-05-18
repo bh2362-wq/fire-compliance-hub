@@ -416,6 +416,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
 
 
   return (
+    <>
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle>New Quotation</ResponsiveDialogTitle>
