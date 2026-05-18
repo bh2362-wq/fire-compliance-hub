@@ -697,5 +697,102 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
         </Button>
       </ResponsiveDialogFooter>
     </ResponsiveDialog>
+
+    {/* Quick-add customer */}
+    <Dialog open={showAddCustomer} onOpenChange={setShowAddCustomer}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add new customer</DialogTitle>
+          <DialogDescription>Create a customer on the fly. You can fill in more details later from the Customers page.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Customer name *</Label>
+            <Input value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} placeholder="Company / customer name" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Contact name</Label>
+              <Input value={newCustomer.contact_name} onChange={(e) => setNewCustomer({ ...newCustomer, contact_name: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Contact phone</Label>
+              <Input value={newCustomer.contact_phone} onChange={(e) => setNewCustomer({ ...newCustomer, contact_phone: e.target.value })} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Contact email</Label>
+            <Input type="email" value={newCustomer.contact_email} onChange={(e) => setNewCustomer({ ...newCustomer, contact_email: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Address</Label>
+            <Input value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>City</Label>
+              <Input value={newCustomer.city} onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Postcode</Label>
+              <Input value={newCustomer.postcode} onChange={(e) => setNewCustomer({ ...newCustomer, postcode: e.target.value })} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowAddCustomer(false)}>Cancel</Button>
+          <Button onClick={handleCreateCustomer} disabled={savingCustomer}>
+            {savingCustomer ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</> : "Add customer"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Quick-add site */}
+    <Dialog open={showAddSite} onOpenChange={setShowAddSite}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add new site</DialogTitle>
+          <DialogDescription>Create a site under the selected customer. More details can be added later.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Site name *</Label>
+            <Input value={newSite.name} onChange={(e) => setNewSite({ ...newSite, name: e.target.value })} placeholder="e.g. Head Office, Warehouse 2" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Address</Label>
+            <Input value={newSite.address} onChange={(e) => setNewSite({ ...newSite, address: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>City</Label>
+              <Input value={newSite.city} onChange={(e) => setNewSite({ ...newSite, city: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Postcode</Label>
+              <Input value={newSite.postcode} onChange={(e) => setNewSite({ ...newSite, postcode: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Site contact</Label>
+              <Input value={newSite.contact_name} onChange={(e) => setNewSite({ ...newSite, contact_name: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Contact phone</Label>
+              <Input value={newSite.contact_phone} onChange={(e) => setNewSite({ ...newSite, contact_phone: e.target.value })} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowAddSite(false)}>Cancel</Button>
+          <Button onClick={handleCreateSite} disabled={savingSite}>
+            {savingSite ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</> : "Add site"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
