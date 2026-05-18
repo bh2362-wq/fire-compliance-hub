@@ -692,6 +692,12 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   };
 
   const totalAmount = lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+  const totalCost = lineItems.reduce(
+    (sum, item) => sum + item.quantity * item.unit_price + (item.labour_cost || 0),
+    0
+  );
+  const profitAmount = totalAmount - totalCost;
+  const profitMargin = totalAmount > 0 ? (profitAmount / totalAmount) * 100 : 0;
   const vatAmount = totalAmount * (vatRate / 100);
   const grandTotal = totalAmount + vatAmount;
   const isLocked = !!quotation?.locked_at && quotation?.status !== "recalled";
