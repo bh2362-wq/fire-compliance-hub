@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
 
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
+  console.log(`[auth-debug] token_len=${token.length} anon_len=${ANON_KEY.length} pub_len=${PUBLISHABLE_KEY.length} svc_len=${SERVICE_KEY.length} token_tail=${token.slice(-12)} anon_tail=${ANON_KEY.slice(-12)} pub_tail=${PUBLISHABLE_KEY.slice(-12)}`);
   const validAnon = token && (token === ANON_KEY || token === PUBLISHABLE_KEY);
   const validService = token && token === SERVICE_KEY;
   if (!validAnon && !validService) return jsonResp({ error: "unauthorized" }, 401);
