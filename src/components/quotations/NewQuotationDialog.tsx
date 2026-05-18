@@ -376,7 +376,26 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
       </ResponsiveDialogHeader>
 
       <ResponsiveDialogBody>
-        <div className="space-y-6 pb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-4">
+          <div className="lg:col-span-8 space-y-6 min-w-0">
+            {/* Scope & Classification */}
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base font-semibold">Scope & classification</Label>
+                <span className="text-xs text-muted-foreground">Powers cost intelligence →</span>
+              </div>
+              <ScopeFields
+                systemType={systemType} setSystemType={setSystemType}
+                buildingType={buildingType} setBuildingType={setBuildingType}
+                jobCategory={jobCategory} setJobCategory={setJobCategory}
+                region={region} setRegion={setRegion}
+                bs5839={bs5839} setBs5839={setBs5839}
+                deviceCount={deviceCount} setDeviceCount={setDeviceCount}
+                loopCount={loopCount} setLoopCount={setLoopCount}
+                giaSqm={giaSqm} setGiaSqm={setGiaSqm}
+              />
+            </div>
+
           {/* Customer & Site */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
