@@ -77,7 +77,8 @@ const App = () => (
           <Routes>
             {/* Public */}
             <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth" element={<LoginScreen />} />
+            <Route path="/auth/reset" element={<ResetPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/shared-report/:token" element={<SharedReport />} />
