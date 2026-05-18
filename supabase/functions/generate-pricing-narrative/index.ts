@@ -17,6 +17,8 @@ CRITICAL RULES:
 6. Be direct and operational. The reader is an experienced estimator, not a board member. No fluff, no hedging, no marketing language.
 7. Output MUST be valid JSON matching the schema. No prose outside JSON. No markdown code fences.
 8. NUMBER INTEGRITY: Every numeric claim (£X, Y%, N of M, etc.) must derive from a value in the data provided. Do not interpolate, average, or compute new statistics unless you show the source values being aggregated. If you write 'X jobs averaged Y%', the X jobs must be enumerable from the comparables and the average must be computable from their actual margin values. If the data doesn't support the specific number you want to claim, choose a different claim or omit it.
+9. FIELD-LEVEL ACCURACY (CRITICAL): When you cite ANY specific attribute of a comparable job — outcome (won/lost), margin %, quoted total, device count, client, region, anything — that attribute must match the comparable's actual data verbatim. Do not infer outcomes from price patterns ('this looks expensive so probably lost'). Do not assume two losses if one is loss and one is win. Read the bid_outcome field literally for each cited job. If you want to make a claim about a job's outcome or margin, copy the value directly from that row. Misattributing a won job as lost (or vice versa) is treated as severely as fabricating a reference.
+
 
 
 OUTPUT SCHEMA (exact keys, no extras):
@@ -175,7 +177,12 @@ Deno.serve(async (req) => {
   }));
 
   const userPrompt =
-`VALIDATION CHECK: Before producing your final output, review every job reference and number in your narrative and risk_flags. For each one, identify which entry in the comparables array it comes from. If you cannot identify a source, remove the citation or restate the claim without it.
+`VALIDATION CHECK: Before producing your final output, for every job reference and every attribute claim about a cited job:
+1. Identify which entry in the comparables array supports it
+2. Verify the attribute value matches that entry verbatim (outcome, margin, value, device count)
+3. If you cannot verify an attribute, do not state it
+This applies in particular to bid_outcome values — never characterise a 'won' job as 'lost' or vice versa.
+
 
 Analyse this quote scope against the data below.
 
@@ -263,6 +270,77 @@ Produce your assessment as JSON per the schema. Reason carefully about the win p
     return jsonResp({ success: false, error: "invalid_model_output", detail: rawText.slice(0, 400) }, 502);
   }
 
+  // ============================================================
+  // HALLUCINATION VALIDATION LAYER
+  // ============================================================
+  const JOB_REF_RE = /JOB-\d{4,6}/g;
+  const OUTCOME_RE = /\b(won|lost|win|loss|winning|losing|secured|awarded)\b/i;
+
+  const validRefs = new Map<string, string | null>(); // ref -> bid_outcome
+  for (const c of compactComparables) {
+    if (c.job_reference) validRefs.set(String(c.job_reference), c.bid_outcome ?? null);
+  }
+
+  const flagText = riskFlags.map((f: any) => String(f?.flag ?? "")).join("\n");
+  const fullText = `${narrative}\n${flagText}`;
+
+  // 1) Reference fabrication check
+  const fabricatedRefs = new Set<string>();
+  const referencedRefs = new Set<string>();
+  for (const m of fullText.matchAll(JOB_REF_RE)) {
+    const ref = m[0];
+    referencedRefs.add(ref);
+    if (!validRefs.has(ref)) fabricatedRefs.add(ref);
+  }
+
+  // 2) Outcome misattribution check
+  // Per-ref window: from the ref itself up to the next ref (or +120 chars), bounded so
+  // outcome words belonging to a neighbouring ref don't contaminate this one.
+  const outcomeMisattributions: string[] = [];
+  const refMatches = [...fullText.matchAll(JOB_REF_RE)];
+  for (let i = 0; i < refMatches.length; i++) {
+    const m = refMatches[i];
+    const ref = m[0];
+    const actual = validRefs.get(ref);
+    if (!actual) continue;
+    const refStart = m.index ?? 0;
+    const refEnd = refStart + ref.length;
+    const nextStart = i + 1 < refMatches.length ? (refMatches[i + 1].index ?? fullText.length) : fullText.length;
+    const window = fullText.slice(refEnd, Math.min(nextStart, refEnd + 120));
+    const om = window.match(OUTCOME_RE);
+    if (!om) continue;
+    const word = om[0].toLowerCase();
+    const claimed = /^(won|win|winning|secured|awarded)$/.test(word) ? "won"
+                  : /^(lost|loss|losing)$/.test(word) ? "lost"
+                  : null;
+    if (claimed && actual && claimed !== String(actual).toLowerCase()) {
+      outcomeMisattributions.push(`${ref}: claimed=${claimed}, actual=${actual}`);
+    }
+  }
+
+
+  const fabricatedRefsArr = [...fabricatedRefs];
+  const hallucinationDetected = fabricatedRefsArr.length > 0 || outcomeMisattributions.length > 0;
+
+  let finalRiskFlags = riskFlags;
+  if (hallucinationDetected) {
+    const issues: string[] = [];
+    if (fabricatedRefsArr.length > 0) issues.push(`${fabricatedRefsArr.length} fabricated reference(s)`);
+    if (outcomeMisattributions.length > 0) issues.push(`${outcomeMisattributions.length} misattributed outcome(s)`);
+    finalRiskFlags = [
+      {
+        severity: "high",
+        category: "scope",
+        flag: `AI assessment hallucination detected — ${issues.join(", ")}. Review carefully before relying on this output.`,
+      },
+      ...riskFlags,
+    ];
+    console.warn("[generate-pricing-narrative] hallucination", {
+      fabricated: fabricatedRefsArr,
+      misattributions: outcomeMisattributions,
+    });
+  }
+
   // Insert recommendation row
   const { data: inserted, error: insertErr } = await supabase
     .from("pricing_recommendations")
@@ -278,9 +356,12 @@ Produce your assessment as JSON per the schema. Reason carefully about the win p
       recommended_margin_pct: suggestedMargin,
       confidence_score: confidence,
       win_probability_pct: winProb,
-      risk_flags: riskFlags,
+      risk_flags: finalRiskFlags,
       narrative,
       model_version: MODEL_VERSION,
+      hallucination_detected: hallucinationDetected,
+      fabricated_references: fabricatedRefsArr,
+      outcome_misattributions: outcomeMisattributions,
     })
     .select("id")
     .single();
@@ -291,20 +372,24 @@ Produce your assessment as JSON per the schema. Reason carefully about the win p
   }
 
   const dur = Date.now() - t0;
-  console.log(`[generate-pricing-narrative] done id=${inserted.id} comparables=${comparables.length} market=${marketSample} ms=${dur}`);
+  console.log(`[generate-pricing-narrative] done id=${inserted.id} comparables=${comparables.length} market=${marketSample} ms=${dur} hallucination=${hallucinationDetected}`);
 
   return jsonResp({
     success: true,
     recommendation_id: inserted.id,
     narrative,
-    risk_flags: riskFlags,
+    risk_flags: finalRiskFlags,
     win_probability_pct: winProb,
     suggested_margin_pct: suggestedMargin,
     confidence_score: confidence,
+    hallucination_detected: hallucinationDetected,
+    fabricated_references: fabricatedRefsArr,
+    outcome_misattributions: outcomeMisattributions,
     based_on: {
       comparable_count: comparables.length,
       market_context_count: marketSample,
       lookback_years: lookbackYears,
     },
   });
+
 });
