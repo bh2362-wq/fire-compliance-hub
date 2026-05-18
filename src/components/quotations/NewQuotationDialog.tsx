@@ -346,7 +346,27 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
     setTerms("");
     setNotes("");
     setLineItems([{ description: "", quantity: 1, unit_price: 0, markup_percent: 0, labour_cost: 0, total_price: 0 }]);
+    setSystemType(""); setBuildingType(""); setJobCategory("");
+    setRegion(""); setBs5839(""); setDeviceCount(""); setLoopCount(""); setGiaSqm("");
   };
+
+  const scope: QuoteScope | null = useMemo(() => {
+    if (!systemType || !buildingType) return null;
+    return {
+      systemType, buildingType,
+      jobCategory: jobCategory || undefined,
+      region: region || undefined,
+      bs5839Category: bs5839 || undefined,
+      deviceCount: deviceCount ? parseInt(deviceCount) : undefined,
+      loopCount: loopCount ? parseInt(loopCount) : undefined,
+      giaSqm: giaSqm ? parseFloat(giaSqm) : undefined,
+    };
+  }, [systemType, buildingType, jobCategory, region, bs5839, deviceCount, loopCount, giaSqm]);
+
+  const openHistoricalJob = useCallback((jobId: string) => {
+    window.open(`/dashboard/visits?highlight=${jobId}`, "_blank", "noopener,noreferrer");
+  }, []);
+
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
