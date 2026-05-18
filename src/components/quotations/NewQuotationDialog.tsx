@@ -62,6 +62,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
     { description: "", quantity: 1, unit_price: 0, markup_percent: 0, labour_cost: 0, total_price: 0 },
   ]);
   const [saving, setSaving] = useState(false);
+  const [bulkMarkup, setBulkMarkup] = useState("");
 
   // Autocomplete state per line item
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
