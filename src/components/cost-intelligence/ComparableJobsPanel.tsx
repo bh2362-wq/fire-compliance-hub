@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useComparableJobs } from '@/hooks/useComparableJobs';
 import { useMarketContext } from '@/hooks/useMarketContext';
 import type { MarketContext } from '@/types/cost-intelligence';
+import { AIAssessmentSection } from './AIAssessmentSection';
 import {
   BUILDING_TYPE_LABELS,
   SYSTEM_TYPE_LABELS,
@@ -16,9 +17,12 @@ import {
 interface ComparableJobsPanelProps {
   scope: QuoteScope | null;
   currentQuoteTotal?: number;
+  quoteId?: string;
+  visitId?: string;
   onSelectJob?: (jobId: string) => void;
   className?: string;
 }
+
 
 const gbp = new Intl.NumberFormat('en-GB', {
   style: 'currency',
@@ -37,6 +41,8 @@ const pct = (n: number | null | undefined, digits = 1) =>
 export function ComparableJobsPanel({
   scope,
   currentQuoteTotal,
+  quoteId,
+  visitId,
   onSelectJob,
   className,
 }: ComparableJobsPanelProps) {
@@ -69,6 +75,15 @@ export function ComparableJobsPanel({
         <MarketContextSection context={market} />
       )}
 
+      {hasScope && (
+        <AIAssessmentSection
+          scope={scope}
+          currentQuoteTotal={currentQuoteTotal}
+          quoteId={quoteId}
+          visitId={visitId}
+        />
+      )}
+
       {hasScope && !error && jobs.length > 0 && (
         <ComparablesList jobs={jobs} onSelectJob={onSelectJob} />
       )}
@@ -77,6 +92,7 @@ export function ComparableJobsPanel({
     </aside>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Header                                                              */
