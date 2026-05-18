@@ -15,6 +15,36 @@ const FIRE_CPV = "31625000,31625100,31625200,45312100,50413200,50711000";
 
 // ------- classifiers -------
 
+// ------- relevance gate -------
+
+const FIRE_KEYWORDS = /\b(fire alarm|fire detection|fire system|smoke detect|fire safety system|aspirating|asd\b|voice alarm|voice evacuation|fire panel|l1\b|l2\b|l3\b|l4\b|l5\b|bs ?5839|gent vigilon|gent compact|notifier|kentec|advanced mx|hochiki|apollo)\b/i;
+const EXCLUSION_KEYWORDS = /\b(it support|software licence|software license|fortinet|cyber|hardware refresh|laptop|server|cloud hosting|tree|landscap|grounds maint|catering|cleaning|histopath|laborator|locum|recruit|legal services|consultancy services|training course|stationery|furniture)\b/i;
+
+function isRelevant(title: string, description: string): boolean {
+  const s = `${title ?? ""} ${description ?? ""}`;
+  if (EXCLUSION_KEYWORDS.test(s)) return false;
+  return FIRE_KEYWORDS.test(s);
+}
+
+// ------- html entity decode -------
+
+const HTML_ENTITIES: Record<string, string> = {
+  "&amp;": "&",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&apos;": "'",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&nbsp;": " ",
+};
+
+function decodeEntities(s: string | null | undefined): string {
+  if (!s) return "";
+  return String(s).replace(/&(?:amp|quot|#39|apos|lt|gt|nbsp);/g, (m) => HTML_ENTITIES[m] ?? m);
+}
+
+// ------- classifiers -------
+
 function classifyBuildingType(buyer: string, title: string, description: string): string | null {
   const s = `${buyer ?? ""} ${title ?? ""} ${description ?? ""}`.toLowerCase();
   const rules: [RegExp, string][] = [
@@ -39,18 +69,19 @@ function classifyBuildingType(buyer: string, title: string, description: string)
 }
 
 function classifySystemType(title: string, description: string): string | null {
-  const s = `${title ?? ""} ${description ?? ""}`.toLowerCase();
+  const s = `${title ?? ""} ${description ?? ""}`;
   const rules: [RegExp, string][] = [
-    [/\b(gent|vigilon|s.quad|s-quad)\b/, "gent_vigilon"],
-    [/\b(voice alarm|voice evac|\bvace?\b|public address)\b/, "voice_alarm"],
-    [/\b(aspirat|vesda|stratos|\basd\b)\b/, "aspirating"],
-    [/\b(wireless fire|radio fire)\b/, "wireless"],
-    [/\b(addressable|analogue addressable|loop based)\b/, "addressable_other"],
-    [/\b(conventional)\b/, "conventional"],
+    [/\b(gent\b|vigilon|s.quad|s-quad|gent compact)/i, "gent_vigilon"],
+    [/\b(voice alarm|voice evac|\bvace?\b|public address.{0,20}fire)/i, "voice_alarm"],
+    [/\b(aspirat|vesda|stratos|\basd\b)/i, "aspirating"],
+    [/\b(wireless fire|radio fire|hyfire|ekho)/i, "wireless"],
+    [/\b(addressable|analogue.addressable|loop.based|l1\b|l2\b|l3\b)/i, "addressable_other"],
+    [/\b(conventional|two.wire)/i, "conventional"],
   ];
   for (const [re, val] of rules) if (re.test(s)) return val;
   return null;
 }
+
 
 function parseCpv(raw: unknown): string[] {
   if (!raw) return [];
@@ -186,13 +217,27 @@ Deno.serve(async (req) => {
         skipped++;
         continue;
       }
-      const title: string = item.title ?? "";
-      const description: string = item.description ?? "";
-      const buyer: string = item.organisationName ?? "";
+      const title: string = decodeEntities(item.title);
+      const description: string = decodeEntities(item.description);
+      const buyer: string = decodeEntities(item.organisationName);
+      const supplier: string = decodeEntities(item.awardedSupplier);
       const postcode: string | null = item.postcode ?? null;
 
+      // Relevance gate
+      if (!isRelevant(title, description)) {
+        skipped++;
+        console.log(`[contracts-finder-ingest] skip (relevance) "${title.slice(0, 80)}"`);
+        continue;
+      }
+
       const building_type = classifyBuildingType(buyer, title, description);
-      const system_type = classifySystemType(title, description);
+      let system_type = classifySystemType(title, description);
+      let system_confidence = system_type ? 70 : 30;
+      // Passed relevance gate => is fire work; default to addressable_other
+      if (!system_type) {
+        system_type = "addressable_other";
+        system_confidence = 30;
+      }
 
       // postcode → region via RPC
       let region: string | null = null;
@@ -219,9 +264,9 @@ Deno.serve(async (req) => {
         effective_from,
         effective_to: null,
         sample_size: 1,
-        confidence_pct: building_type ? 70 : 30,
+        confidence_pct: Math.min(system_confidence, building_type ? 70 : 30),
         buyer_organisation: buyer || null,
-        awarded_supplier: item.awardedSupplier ?? null,
+        awarded_supplier: supplier || null,
         cpv_codes: parseCpv(item.cpvCodes),
         postcode,
         title: title || null,
@@ -229,6 +274,7 @@ Deno.serve(async (req) => {
         notes: "Auto-ingested from Contracts Finder",
       });
     }
+
 
     // Upsert in batches of 100
     for (let i = 0; i < rows.length; i += 100) {
