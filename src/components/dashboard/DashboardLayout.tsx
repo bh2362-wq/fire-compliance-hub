@@ -239,6 +239,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     "/dashboard/smart-forms", "/dashboard/ai-assistant", "/dashboard/reference",
   ].some((p) => location.pathname.startsWith(p));
   const isQmsRoute = location.pathname.startsWith("/qms");
+  const isAdminRoute = location.pathname.startsWith("/dashboard/admin");
   const isCertRoute = ["/dashboard/cert-tracker", "/dashboard/smart-forms", "/dashboard/reference"].some((p) =>
     location.pathname.startsWith(p)
   );
