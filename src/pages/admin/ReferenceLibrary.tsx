@@ -74,6 +74,18 @@ const refLib = () => ({
 const ACCEPT = ".pdf,.docx,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const MAX_BYTES = 100 * 1024 * 1024;
 
+function sanitiseFilename(name: string): string {
+  const lastDot = name.lastIndexOf(".");
+  const base = lastDot > 0 ? name.substring(0, lastDot) : name;
+  const ext = lastDot > 0 ? name.substring(lastDot) : "";
+  const cleanBase = base
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .substring(0, 100);
+  return cleanBase + ext.toLowerCase();
+}
+
 function StatusPill({ s }: { s: RefDoc["ingest_status"] }) {
   if (s === "pending") return <Badge variant="secondary" className="gap-1"><Clock className="h-3 w-3" />Pending</Badge>;
   if (s === "processing") return <Badge className="gap-1 bg-blue-500 hover:bg-blue-500"><Loader2 className="h-3 w-3 animate-spin" />Processing</Badge>;
