@@ -619,8 +619,19 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (not shown on PDF)..." className="min-h-[60px]" />
             </div>
           </div>
+          </div>
+          <aside className="lg:col-span-4 order-first lg:order-last">
+            <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+              <ComparableJobsPanel
+                scope={scope}
+                currentQuoteTotal={subtotal}
+                onSelectJob={openHistoricalJob}
+              />
+            </div>
+          </aside>
         </div>
       </ResponsiveDialogBody>
+
 
       <ResponsiveDialogFooter>
         <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
