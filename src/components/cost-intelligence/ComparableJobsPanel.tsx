@@ -41,6 +41,7 @@ export function ComparableJobsPanel({
   className,
 }: ComparableJobsPanelProps) {
   const { jobs, stats, loading, error } = useComparableJobs(scope);
+  const { context: market } = useMarketContext(scope);
 
   const hasScope = !!(scope && scope.systemType && scope.buildingType);
 
