@@ -377,7 +377,7 @@ export default function ReferenceLibrary() {
                   <TableHead className="text-right">Chunks</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Ingested</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
