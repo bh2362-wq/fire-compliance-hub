@@ -110,6 +110,14 @@ const App = () => (
               }
             />
             <Route
+              path="/dashboard/admin/reference-library"
+              element={
+                <ProtectedRoute>
+                  <ReferenceLibrary />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/dashboard/schedule"
               element={
                 <ProtectedRoute>
