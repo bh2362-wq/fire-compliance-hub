@@ -3897,6 +3897,125 @@ export type Database = {
         }
         Relationships: []
       }
+      ref_lib_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          content_preview: string | null
+          created_at: string | null
+          document_id: string
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          page_number: number | null
+          section_title: string | null
+          token_count: number | null
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          content_preview?: string | null
+          created_at?: string | null
+          document_id: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          page_number?: number | null
+          section_title?: string | null
+          token_count?: number | null
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          content_preview?: string | null
+          created_at?: string | null
+          document_id?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          page_number?: number | null
+          section_title?: string | null
+          token_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "ref_lib_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ref_lib_documents: {
+        Row: {
+          chunk_count: number | null
+          created_at: string | null
+          doc_type: string
+          edition: string | null
+          effective_date: string | null
+          id: string
+          ingest_error: string | null
+          ingest_status: string | null
+          ingested_at: string | null
+          metadata: Json | null
+          page_count: number | null
+          publisher: string | null
+          source_filename: string | null
+          source_storage_path: string | null
+          standard_reference: string | null
+          title: string
+          total_tokens: number | null
+          updated_at: string | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          chunk_count?: number | null
+          created_at?: string | null
+          doc_type: string
+          edition?: string | null
+          effective_date?: string | null
+          id?: string
+          ingest_error?: string | null
+          ingest_status?: string | null
+          ingested_at?: string | null
+          metadata?: Json | null
+          page_count?: number | null
+          publisher?: string | null
+          source_filename?: string | null
+          source_storage_path?: string | null
+          standard_reference?: string | null
+          title: string
+          total_tokens?: number | null
+          updated_at?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          chunk_count?: number | null
+          created_at?: string | null
+          doc_type?: string
+          edition?: string | null
+          effective_date?: string | null
+          id?: string
+          ingest_error?: string | null
+          ingest_status?: string | null
+          ingested_at?: string | null
+          metadata?: Json | null
+          page_count?: number | null
+          publisher?: string | null
+          source_filename?: string | null
+          source_storage_path?: string | null
+          standard_reference?: string | null
+          title?: string
+          total_tokens?: number | null
+          updated_at?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       scanned_emails: {
         Row: {
           body_preview: string | null
@@ -5230,6 +5349,24 @@ export type Database = {
         Returns: boolean
       }
       increment_visit_tested: { Args: { vid: string }; Returns: undefined }
+      ref_lib_query_by_embedding: {
+        Args: {
+          filter_doc_type?: string
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          doc_type: string
+          document_id: string
+          document_title: string
+          page_number: number
+          section_title: string
+          similarity: number
+          standard_reference: string
+        }[]
+      }
     }
     Enums: {
       app_role:
