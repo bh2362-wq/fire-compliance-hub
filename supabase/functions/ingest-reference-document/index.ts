@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     if (docErr || !doc) throw new Error(`document not found: ${docErr?.message}`);
     if (!doc.source_storage_path) throw new Error("source_storage_path is empty");
 
-    await admin.schema("reference_library").from("documents")
+    await admin.from("ref_lib_documents")
       .update({ ingest_status: "processing", ingest_error: null })
       .eq("id", document_id);
 
@@ -198,12 +198,12 @@ Deno.serve(async (req) => {
     const INSERT_BATCH = 200;
     for (let i = 0; i < rows.length; i += INSERT_BATCH) {
       const slice = rows.slice(i, i + INSERT_BATCH);
-      const { error: insErr } = await admin.schema("reference_library").from("chunks").insert(slice as any);
+      const { error: insErr } = await admin.from("ref_lib_chunks").insert(slice as any);
       if (insErr) throw new Error(`chunk insert failed: ${insErr.message}`);
     }
 
     const totalTokens = chunks.reduce((s, c) => s + c.token_count, 0);
-    await admin.schema("reference_library").from("documents").update({
+    await admin.from("ref_lib_documents").update({
       ingest_status: "completed",
       ingested_at: new Date().toISOString(),
       chunk_count: chunks.length,
@@ -221,7 +221,7 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     console.error("ingest-reference-document error:", err);
     if (document_id) {
-      await admin.schema("reference_library").from("documents").update({
+      await admin.from("ref_lib_documents").update({
         ingest_status: "failed",
         ingest_error: String(err?.message || err).slice(0, 1000),
       }).eq("id", document_id);
