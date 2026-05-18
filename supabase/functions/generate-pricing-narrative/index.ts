@@ -60,13 +60,21 @@ Deno.serve(async (req) => {
 
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
-  // Accept new short keys, legacy JWT publishable keys (role=anon for this project), or service role
-  const isProjectAnonJwt = token.startsWith("eyJ") && token.includes("anon") === false
-    ? (() => { try { const p = JSON.parse(atob(token.split(".")[1])); return p.role === "anon" && p.ref === "qtsboanwhzskkdvkfcdt"; } catch { return false; } })()
-    : token.startsWith("eyJ");
-  const validAnon = token && (token === ANON_KEY || token === PUBLISHABLE_KEY || PUBLISHABLE_KEYS.includes(token) || isProjectAnonJwt);
-  const validService = token && token === SERVICE_KEY;
-  if (!validAnon && !validService) return jsonResp({ error: "unauthorized" }, 401);
+  if (!token) return jsonResp({ error: "unauthorized" }, 401);
+
+  // Accept service role, publishable/anon keys, or a valid user JWT
+  let authorized = token === SERVICE_KEY || token === ANON_KEY || token === PUBLISHABLE_KEY || PUBLISHABLE_KEYS.includes(token);
+  if (!authorized && token.startsWith("eyJ")) {
+    try {
+      const authClient = createClient(SUPABASE_URL, ANON_KEY || PUBLISHABLE_KEY || token, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { persistSession: false },
+      });
+      const { data, error } = await authClient.auth.getClaims(token);
+      authorized = !error && !!data?.claims?.sub;
+    } catch (_e) { /* fall through */ }
+  }
+  if (!authorized) return jsonResp({ error: "unauthorized" }, 401);
 
   if (!ANTHROPIC_API_KEY) return jsonResp({ error: "missing_anthropic_key" }, 500);
 
