@@ -270,6 +270,71 @@ Produce your assessment as JSON per the schema. Reason carefully about the win p
     return jsonResp({ success: false, error: "invalid_model_output", detail: rawText.slice(0, 400) }, 502);
   }
 
+  // ============================================================
+  // HALLUCINATION VALIDATION LAYER
+  // ============================================================
+  const JOB_REF_RE = /JOB-\d{4,6}/g;
+  const OUTCOME_RE = /\b(won|lost|win|loss|winning|losing|secured|awarded)\b/i;
+
+  const validRefs = new Map<string, string | null>(); // ref -> bid_outcome
+  for (const c of compactComparables) {
+    if (c.job_reference) validRefs.set(String(c.job_reference), c.bid_outcome ?? null);
+  }
+
+  const flagText = riskFlags.map((f: any) => String(f?.flag ?? "")).join("\n");
+  const fullText = `${narrative}\n${flagText}`;
+
+  // 1) Reference fabrication check
+  const fabricatedRefs = new Set<string>();
+  const referencedRefs = new Set<string>();
+  for (const m of fullText.matchAll(JOB_REF_RE)) {
+    const ref = m[0];
+    referencedRefs.add(ref);
+    if (!validRefs.has(ref)) fabricatedRefs.add(ref);
+  }
+
+  // 2) Outcome misattribution check — scan window of ~80 chars around each ref mention
+  const outcomeMisattributions: string[] = [];
+  for (const m of fullText.matchAll(JOB_REF_RE)) {
+    const ref = m[0];
+    const actual = validRefs.get(ref);
+    if (!actual) continue; // fabricated refs handled above
+    const start = Math.max(0, (m.index ?? 0) - 80);
+    const end = Math.min(fullText.length, (m.index ?? 0) + ref.length + 80);
+    const window = fullText.slice(start, end);
+    const om = window.match(OUTCOME_RE);
+    if (!om) continue;
+    const word = om[0].toLowerCase();
+    const claimed = /^(won|win|winning|secured|awarded)$/.test(word) ? "won"
+                  : /^(lost|loss|losing)$/.test(word) ? "lost"
+                  : null;
+    if (claimed && actual && claimed !== String(actual).toLowerCase()) {
+      outcomeMisattributions.push(`${ref}: claimed=${claimed}, actual=${actual}`);
+    }
+  }
+
+  const fabricatedRefsArr = [...fabricatedRefs];
+  const hallucinationDetected = fabricatedRefsArr.length > 0 || outcomeMisattributions.length > 0;
+
+  let finalRiskFlags = riskFlags;
+  if (hallucinationDetected) {
+    const issues: string[] = [];
+    if (fabricatedRefsArr.length > 0) issues.push(`${fabricatedRefsArr.length} fabricated reference(s)`);
+    if (outcomeMisattributions.length > 0) issues.push(`${outcomeMisattributions.length} misattributed outcome(s)`);
+    finalRiskFlags = [
+      {
+        severity: "high",
+        category: "scope",
+        flag: `AI assessment hallucination detected — ${issues.join(", ")}. Review carefully before relying on this output.`,
+      },
+      ...riskFlags,
+    ];
+    console.warn("[generate-pricing-narrative] hallucination", {
+      fabricated: fabricatedRefsArr,
+      misattributions: outcomeMisattributions,
+    });
+  }
+
   // Insert recommendation row
   const { data: inserted, error: insertErr } = await supabase
     .from("pricing_recommendations")
@@ -285,9 +350,12 @@ Produce your assessment as JSON per the schema. Reason carefully about the win p
       recommended_margin_pct: suggestedMargin,
       confidence_score: confidence,
       win_probability_pct: winProb,
-      risk_flags: riskFlags,
+      risk_flags: finalRiskFlags,
       narrative,
       model_version: MODEL_VERSION,
+      hallucination_detected: hallucinationDetected,
+      fabricated_references: fabricatedRefsArr,
+      outcome_misattributions: outcomeMisattributions,
     })
     .select("id")
     .single();
@@ -298,20 +366,24 @@ Produce your assessment as JSON per the schema. Reason carefully about the win p
   }
 
   const dur = Date.now() - t0;
-  console.log(`[generate-pricing-narrative] done id=${inserted.id} comparables=${comparables.length} market=${marketSample} ms=${dur}`);
+  console.log(`[generate-pricing-narrative] done id=${inserted.id} comparables=${comparables.length} market=${marketSample} ms=${dur} hallucination=${hallucinationDetected}`);
 
   return jsonResp({
     success: true,
     recommendation_id: inserted.id,
     narrative,
-    risk_flags: riskFlags,
+    risk_flags: finalRiskFlags,
     win_probability_pct: winProb,
     suggested_margin_pct: suggestedMargin,
     confidence_score: confidence,
+    hallucination_detected: hallucinationDetected,
+    fabricated_references: fabricatedRefsArr,
+    outcome_misattributions: outcomeMisattributions,
     based_on: {
       comparable_count: comparables.length,
       market_context_count: marketSample,
       lookback_years: lookbackYears,
     },
   });
+
 });
