@@ -112,6 +112,8 @@ export default function ReferenceLibrary() {
   const [effectiveDate, setEffectiveDate] = useState("");
   const [uploadStage, setUploadStage] = useState<string | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [resettingStuck, setResettingStuck] = useState(false);
 
   // expand / actions
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
