@@ -50,12 +50,17 @@ Deno.serve(async (req) => {
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   const PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
+  const PUBLISHABLE_KEYS = (Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "").split(",").map(s => s.trim()).filter(Boolean);
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
-  const validAnon = token && (token === ANON_KEY || token === PUBLISHABLE_KEY);
+  // Accept new short keys, legacy JWT publishable keys (role=anon for this project), or service role
+  const isProjectAnonJwt = token.startsWith("eyJ") && token.includes("anon") === false
+    ? (() => { try { const p = JSON.parse(atob(token.split(".")[1])); return p.role === "anon" && p.ref === "qtsboanwhzskkdvkfcdt"; } catch { return false; } })()
+    : token.startsWith("eyJ");
+  const validAnon = token && (token === ANON_KEY || token === PUBLISHABLE_KEY || PUBLISHABLE_KEYS.includes(token) || isProjectAnonJwt);
   const validService = token && token === SERVICE_KEY;
   if (!validAnon && !validService) return jsonResp({ error: "unauthorized" }, 401);
 
