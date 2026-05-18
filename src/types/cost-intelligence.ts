@@ -194,3 +194,66 @@ export interface IngestRun {
   error_message: string | null;
   run_metadata: Record<string, unknown> | null;
 }
+
+/* ------------------------------------------------------------------ */
+/* AI pricing assessment (generate-pricing-narrative edge function)    */
+/* ------------------------------------------------------------------ */
+
+export type RiskFlagSeverity = 'high' | 'medium' | 'low';
+
+export type RiskFlagCategory =
+  | 'labour'
+  | 'materials'
+  | 'access'
+  | 'programme'
+  | 'competitive'
+  | 'scope'
+  | 'margin'
+  | 'data_quality';
+
+export interface RiskFlag {
+  severity: RiskFlagSeverity;
+  category: RiskFlagCategory;
+  flag: string;
+}
+
+export interface PricingAssessment {
+  recommendation_id: string;
+  narrative: string;
+  risk_flags: RiskFlag[];
+  win_probability_pct: number | null;
+  suggested_margin_pct: number | null;
+  confidence_score: number;
+  caveats?: string[];
+  hallucination_detected?: boolean;
+  fabricated_references?: string[];
+  outcome_misattributions?: string[];
+  based_on: {
+    comparable_count: number;
+    market_context_count: number;
+    lookback_years: number;
+  };
+  generated_at?: string;
+  model_version?: string;
+}
+
+export interface PricingAssessmentInsufficientData {
+  recommendation_id: null;
+  narrative: null;
+  reason: 'insufficient_data';
+  flags: [];
+  win_probability: null;
+  suggested_margin: null;
+  confidence: 0;
+}
+
+export type PricingAssessmentResult =
+  | PricingAssessment
+  | PricingAssessmentInsufficientData;
+
+export function isPricingAssessment(
+  r: PricingAssessmentResult,
+): r is PricingAssessment {
+  return r.recommendation_id !== null;
+}
+
