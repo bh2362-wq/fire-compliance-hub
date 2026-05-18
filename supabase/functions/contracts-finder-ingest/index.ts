@@ -9,7 +9,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const CF_ENDPOINT = "https://www.contractsfinder.service.gov.uk/Published/Notices/Search";
+// Contracts Finder API v2 (the legacy /Published/Notices/Search path returns 404)
+const CF_ENDPOINT = "https://www.contractsfinder.service.gov.uk/api/rest/2/search_notices/json";
 const FIRE_CPV = "31625000,31625100,31625200,45312100,50413200,50711000";
 
 // ------- classifiers -------
@@ -139,9 +140,9 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         searchCriteria: {
           types: ["Contract"],
-          statuses: ["Awarded", "Closed"],
+          statuses: ["Awarded"],
           awardedFrom: new Date(window_from).toISOString(),
-          awardedTo: new Date(window_to).toISOString(),
+          awardedTo: new Date(window_to + "T23:59:59Z").toISOString(),
           cpvCodes: FIRE_CPV,
           valueFrom: 5000,
           valueTo: 10_000_000,
@@ -167,7 +168,8 @@ Deno.serve(async (req) => {
     let notices: any[] = [];
     if (cfRes.ok) {
       const payload = await cfRes.json();
-      notices = Array.isArray(payload?.noticesData) ? payload.noticesData : [];
+      // v2 returns { hitCount, noticeList: [{ score, item: {...} }] }
+      notices = Array.isArray(payload?.noticeList) ? payload.noticeList : [];
     }
     fetched = notices.length;
 
