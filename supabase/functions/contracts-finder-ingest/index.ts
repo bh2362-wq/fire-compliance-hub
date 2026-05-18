@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
   const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   const PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const WINDOW_DAYS = Number(Deno.env.get("INGEST_WINDOW_DAYS") ?? "7");
+  const WINDOW_DAYS = Number(Deno.env.get("INGEST_WINDOW_DAYS") ?? "30");
 
   // Auth: accept anon/publishable (cron) or service role (manual)
   const auth = req.headers.get("authorization") ?? "";
