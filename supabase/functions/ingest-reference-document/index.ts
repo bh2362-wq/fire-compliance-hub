@@ -82,7 +82,7 @@ function chunkPage(pageText: string, pageNumber: number, startIndex: number): Ch
 
 async function extractPdf(buffer: ArrayBuffer): Promise<{ pages: string[] }> {
   // pdf-parse returns flat text; we approximate pages by form-feed (\f) splits when present
-  const pdfParse = (await import("https://esm.sh/pdf-parse@1.1.1")).default as any;
+  const pdfParse = (await import("https://esm.sh/pdf-parse@1.1.1/lib/pdf-parse.js")).default as any;
   const result = await pdfParse(new Uint8Array(buffer));
   const text: string = result.text || "";
   const pages = text.includes("\f") ? text.split("\f") : [text];
