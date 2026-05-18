@@ -64,17 +64,22 @@ Deno.serve(async (req) => {
 
   // Accept service role, publishable/anon keys, or a valid user JWT
   let authorized = token === SERVICE_KEY || token === ANON_KEY || token === PUBLISHABLE_KEY || PUBLISHABLE_KEYS.includes(token);
+  let authError: string | null = null;
   if (!authorized && token.startsWith("eyJ")) {
     try {
-      const authClient = createClient(SUPABASE_URL, ANON_KEY || PUBLISHABLE_KEY || token, {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-        auth: { persistSession: false },
-      });
-      const { data, error } = await authClient.auth.getClaims(token);
-      authorized = !error && !!data?.claims?.sub;
-    } catch (_e) { /* fall through */ }
+      const verifyKey = ANON_KEY || PUBLISHABLE_KEY || PUBLISHABLE_KEYS[0] || SERVICE_KEY;
+      const authClient = createClient(SUPABASE_URL, verifyKey, { auth: { persistSession: false } });
+      const { data, error } = await authClient.auth.getUser(token);
+      if (error) authError = error.message;
+      authorized = !error && !!data?.user?.id;
+    } catch (e) {
+      authError = e instanceof Error ? e.message : String(e);
+    }
   }
-  if (!authorized) return jsonResp({ error: "unauthorized" }, 401);
+  if (!authorized) {
+    console.error("[generate-pricing-narrative] unauthorized", { hasToken: !!token, tokenPrefix: token.slice(0, 8), authError });
+    return jsonResp({ error: "unauthorized", detail: authError }, 401);
+  }
 
   if (!ANTHROPIC_API_KEY) return jsonResp({ error: "missing_anthropic_key" }, 500);
 
