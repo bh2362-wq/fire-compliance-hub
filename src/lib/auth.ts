@@ -86,7 +86,7 @@ export function useAuth() {
     const redirectTo =
       typeof window !== 'undefined'
         ? `${window.location.origin}/auth/reset`
-        : 'https://app.bhofire.com/auth/reset';
+        : 'https://crm.bhofire.com/auth/reset';
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
   }, []);
