@@ -355,6 +355,7 @@ export default function ReferenceLibrary() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Documents */}
         <Card>
