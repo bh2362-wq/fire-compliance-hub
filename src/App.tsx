@@ -12,7 +12,7 @@ import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 
 // Pages
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+import LoginScreen from "@/screens/LoginScreen";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
