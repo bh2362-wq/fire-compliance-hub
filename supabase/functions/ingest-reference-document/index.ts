@@ -142,8 +142,7 @@ Deno.serve(async (req) => {
     if (!document_id) throw new Error("document_id is required");
 
     const { data: doc, error: docErr } = await admin
-      .schema("reference_library")
-      .from("documents")
+      .from("ref_lib_documents")
       .select("*")
       .eq("id", document_id)
       .single();
