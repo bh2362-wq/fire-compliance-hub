@@ -1049,6 +1049,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   <Package className="w-4 h-4 mr-2" />
                   Job Requirements
                  </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setClassifyVisit(visit)}>
+                  <Tag className="w-4 h-4 mr-2" />
+                  Classify
+                </DropdownMenuItem>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <Sparkles className="w-4 h-4 mr-2" />
