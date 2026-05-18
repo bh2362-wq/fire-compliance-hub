@@ -98,6 +98,11 @@ const qmsNav = [
   { name: "Suppliers",       href: "/qms/supplier-evaluations",    icon: Package },
 ];
 
+const adminNav = [
+  { name: "Reference Library", href: "/dashboard/admin/reference-library", icon: BookOpen },
+  { name: "Market Data",       href: "/dashboard/admin/market-data",       icon: TrendingUp },
+];
+
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 const NavItem = ({
   item,
