@@ -356,6 +356,17 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           isMobile={isMobile}
         />
 
+        {/* Admin */}
+        <SectionLabel label="Admin" collapsed={collapsed} isMobile={isMobile} />
+        <CollapsibleNav
+          label="Admin"
+          icon={Shield}
+          items={adminNav}
+          isActive={isAdminRoute}
+          collapsed={collapsed}
+          isMobile={isMobile}
+        />
+
         {/* Settings */}
         <NavLink
           to="/dashboard/settings"
