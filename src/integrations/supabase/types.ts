@@ -3361,6 +3361,7 @@ export type Database = {
         Row: {
           acceptance_token: string | null
           accepted_by_name: string | null
+          assumptions: Json | null
           bs5839_category: string | null
           building_type: string | null
           client_acceptance_signature: string | null
@@ -3370,22 +3371,36 @@ export type Database = {
           created_by: string
           customer_id: string | null
           device_count: number | null
+          device_counts_detail: Json | null
+          exclusions: Json | null
+          existing_system_description: string | null
+          generated_files: Json | null
           gia_sqm: number | null
           id: string
+          introduction: string | null
           job_category: string | null
+          latest_docx_path: string | null
+          latest_pdf_path: string | null
           locked_at: string | null
           locked_by: string | null
           loop_count: number | null
           notes: string | null
+          occupancy_type: string | null
           po_number: string | null
           quotation_number: string
           region: string | null
           report_id: string | null
+          scope: Json | null
           sharepoint_folder: string | null
           sharepoint_url: string | null
           site_id: string
+          site_visit_date: string | null
           status: string
+          storeys: number | null
           summary: string | null
+          system_features: Json | null
+          system_manufacturer: string | null
+          system_panel: string | null
           system_type: string | null
           terms: string | null
           title: string | null
@@ -3394,10 +3409,12 @@ export type Database = {
           valid_until: string | null
           vat_rate: number | null
           visit_id: string | null
+          works_type: string | null
         }
         Insert: {
           acceptance_token?: string | null
           accepted_by_name?: string | null
+          assumptions?: Json | null
           bs5839_category?: string | null
           building_type?: string | null
           client_acceptance_signature?: string | null
@@ -3407,22 +3424,36 @@ export type Database = {
           created_by: string
           customer_id?: string | null
           device_count?: number | null
+          device_counts_detail?: Json | null
+          exclusions?: Json | null
+          existing_system_description?: string | null
+          generated_files?: Json | null
           gia_sqm?: number | null
           id?: string
+          introduction?: string | null
           job_category?: string | null
+          latest_docx_path?: string | null
+          latest_pdf_path?: string | null
           locked_at?: string | null
           locked_by?: string | null
           loop_count?: number | null
           notes?: string | null
+          occupancy_type?: string | null
           po_number?: string | null
           quotation_number: string
           region?: string | null
           report_id?: string | null
+          scope?: Json | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
           site_id: string
+          site_visit_date?: string | null
           status?: string
+          storeys?: number | null
           summary?: string | null
+          system_features?: Json | null
+          system_manufacturer?: string | null
+          system_panel?: string | null
           system_type?: string | null
           terms?: string | null
           title?: string | null
@@ -3431,10 +3462,12 @@ export type Database = {
           valid_until?: string | null
           vat_rate?: number | null
           visit_id?: string | null
+          works_type?: string | null
         }
         Update: {
           acceptance_token?: string | null
           accepted_by_name?: string | null
+          assumptions?: Json | null
           bs5839_category?: string | null
           building_type?: string | null
           client_acceptance_signature?: string | null
@@ -3444,22 +3477,36 @@ export type Database = {
           created_by?: string
           customer_id?: string | null
           device_count?: number | null
+          device_counts_detail?: Json | null
+          exclusions?: Json | null
+          existing_system_description?: string | null
+          generated_files?: Json | null
           gia_sqm?: number | null
           id?: string
+          introduction?: string | null
           job_category?: string | null
+          latest_docx_path?: string | null
+          latest_pdf_path?: string | null
           locked_at?: string | null
           locked_by?: string | null
           loop_count?: number | null
           notes?: string | null
+          occupancy_type?: string | null
           po_number?: string | null
           quotation_number?: string
           region?: string | null
           report_id?: string | null
+          scope?: Json | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
           site_id?: string
+          site_visit_date?: string | null
           status?: string
+          storeys?: number | null
           summary?: string | null
+          system_features?: Json | null
+          system_manufacturer?: string | null
+          system_panel?: string | null
           system_type?: string | null
           terms?: string | null
           title?: string | null
@@ -3468,6 +3515,7 @@ export type Database = {
           valid_until?: string | null
           vat_rate?: number | null
           visit_id?: string | null
+          works_type?: string | null
         }
         Relationships: [
           {
@@ -4187,7 +4235,7 @@ export type Database = {
           inputs: Json
           model: string | null
           output: Json
-          quote_id: string | null
+          quotation_id: string | null
           tokens_input: number | null
           tokens_output: number | null
         }
@@ -4199,7 +4247,7 @@ export type Database = {
           inputs: Json
           model?: string | null
           output: Json
-          quote_id?: string | null
+          quotation_id?: string | null
           tokens_input?: number | null
           tokens_output?: number | null
         }
@@ -4211,16 +4259,16 @@ export type Database = {
           inputs?: Json
           model?: string | null
           output?: Json
-          quote_id?: string | null
+          quotation_id?: string | null
           tokens_input?: number | null
           tokens_output?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "scope_generations_quote_id_fkey"
-            columns: ["quote_id"]
+            foreignKeyName: "scope_generations_quotation_id_fkey"
+            columns: ["quotation_id"]
             isOneToOne: false
-            referencedRelation: "quotes"
+            referencedRelation: "quotations"
             referencedColumns: ["id"]
           },
         ]
