@@ -17,8 +17,8 @@ const FIRE_CPV = "31625000,31625100,31625200,45312100,50413200,50711000";
 
 // ------- relevance gate -------
 
-const FIRE_KEYWORDS = /\b(fire alarm|fire detection|fire system|smoke detect|fire safety system|aspirating|asd\b|voice alarm|voice evacuation|fire panel|l1\b|l2\b|l3\b|l4\b|l5\b|bs ?5839|gent vigilon|gent compact|notifier|kentec|advanced mx|hochiki|apollo)\b/i;
-const EXCLUSION_KEYWORDS = /\b(it support|software licence|software license|fortinet|cyber|hardware refresh|laptop|server|cloud hosting|tree|landscap|grounds maint|catering|cleaning|histopath|laborator|locum|recruit|legal services|consultancy services|training course|stationery|furniture)\b/i;
+const FIRE_KEYWORDS = /\b(fire alarm|fire detection|fire system|smoke detect|fire safety|fire risk|fire compartment|fire door|fire panel|fire stop|sprinkler|wet riser|dry riser|emergency light|emergency lighting|aspirating|\basd\b|voice alarm|voice evacuation|bs ?5839(?: ?l[1-5])?|bs ?5266|gent vigilon|gent compact|notifier|kentec|advanced mx|hochiki|apollo)\b/i;
+const EXCLUSION_KEYWORDS = /\b(it support|software licence|software license|fortinet|cyber|hardware refresh|laptop|server|cloud hosting|\btree\b|landscap|grounds maint|catering|cleaning|histopath|laborator|locum|recruit|legal services|consultancy services|training course|stationery|furniture|vehicle|transport|taxi|coach|fleet|legionella|ent equipment|zeiss|ophthalm|nurse|midwife)\b/i;
 
 function isRelevant(title: string, description: string): boolean {
   const s = `${title ?? ""} ${description ?? ""}`;
