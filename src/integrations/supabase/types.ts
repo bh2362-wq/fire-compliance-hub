@@ -4539,7 +4539,36 @@ export type Database = {
           updated_at?: string
           visit_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "smart_form_submissions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_form_submissions_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "smart_form_submissions_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_form_submissions_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subcontractors: {
         Row: {
