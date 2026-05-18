@@ -181,32 +181,63 @@ export default function ReferenceLibrary() {
 
   const resetForm = () => {
     setFile(null); setTitle(""); setStdRef(""); setEdition(""); setPublisher(""); setEffectiveDate("");
-    setDocType("standard"); setUploadStage(null);
+    setDocType("standard"); setUploadStage(null); setUploadProgress(0);
   };
 
-  const runIngest = async (document_id: string) => {
-    const { data, error } = await supabase.functions.invoke("ingest-reference-document", { body: { document_id } });
+  const runIngest = async (document_id: string, pages: string[], totalPages: number) => {
+    const { data, error } = await supabase.functions.invoke("ingest-reference-document", {
+      body: { document_id, pages, total_pages: totalPages },
+    });
     if (error) throw new Error(error.message);
     if (data && data.success === false) throw new Error(data.error || "Ingest failed");
     return data as { chunk_count: number; total_tokens: number; duration_ms: number };
   };
 
+  const extractInBrowser = async (f: File): Promise<ExtractedPdf> => {
+    const name = f.name.toLowerCase();
+    if (name.endsWith(".pdf")) {
+      return extractPdfInBrowser(f, (p, t) => {
+        // 25% → 60% during extraction
+        const pct = 25 + Math.round((p / t) * 35);
+        setUploadProgress(pct);
+        setUploadStage(`Extracting text… page ${p} of ${t}`);
+      });
+    }
+    if (name.endsWith(".txt")) return extractTxtInBrowser(f);
+    if (name.endsWith(".docx")) {
+      throw new Error("DOCX uploads are temporarily unsupported — convert to PDF or TXT first.");
+    }
+    throw new Error(`Unsupported file type: ${f.name}`);
+  };
+
   const performUpload = async (existingDocId?: string) => {
     if (!file) { toast.error("Choose a file"); return; }
     setUploadBusy(true);
+    setUploadProgress(0);
     let createdId: string | null = existingDocId ?? null;
     let storagePath: string | null = null;
     try {
-      setUploadStage(existingDocId ? "Re-uploading…" : "Uploading…");
+      // Phase 1 — upload archival copy to Storage (0–25%)
+      setUploadStage("Uploading PDF to storage…");
+      setUploadProgress(5);
       const folder = crypto.randomUUID();
       const safeName = sanitiseFilename(file.name);
       storagePath = `${folder}/${safeName}`;
       const { error: upErr } = await supabase.storage.from("reference-library")
         .upload(storagePath, file, { contentType: file.type || "application/octet-stream", upsert: false });
       if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+      setUploadProgress(25);
 
+      // Phase 2 — extract text in the browser (25–60%)
+      setUploadStage("Extracting text…");
+      const extracted = await extractInBrowser(file);
+      if (!extracted.pages.length || extracted.pages.every((p) => !p.trim())) {
+        throw new Error("No extractable text found in this file");
+      }
+      setUploadProgress(60);
+
+      // Insert/update the document row
       if (existingDocId) {
-        // Reuse the existing row — clear chunks, update metadata, mark pending
         await refLib().from("chunks").delete().eq("document_id", existingDocId);
         const { error: updErr } = await refLib().from("documents").update({
           title: title.trim(),
@@ -217,6 +248,7 @@ export default function ReferenceLibrary() {
           effective_date: effectiveDate || null,
           source_filename: file.name,
           source_storage_path: storagePath,
+          page_count: extracted.totalPages,
           ingest_status: "pending",
           ingest_error: null,
           chunk_count: 0,
@@ -233,6 +265,7 @@ export default function ReferenceLibrary() {
           effective_date: effectiveDate || null,
           source_filename: file.name,
           source_storage_path: storagePath,
+          page_count: extracted.totalPages,
           uploaded_by: user?.id ?? null,
           ingest_status: "pending",
         }).select("id").single();
@@ -240,17 +273,29 @@ export default function ReferenceLibrary() {
         createdId = doc.id as string;
       }
 
-      setUploadStage("Extracting text & generating embeddings…");
+      // Phase 3 — embeddings (60–95%)
+      setUploadStage(`Generating embeddings for ${extracted.pages.length} pages…`);
+      setUploadProgress(70);
       await fetchDocs();
-      const result = await runIngest(createdId!);
+      const result = await runIngest(createdId!, extracted.pages, extracted.totalPages);
+
+      // Phase 4 — done (95–100%)
+      setUploadProgress(100);
       setUploadStage(`Complete: ${result.chunk_count} chunks, ${result.total_tokens.toLocaleString()} tokens`);
       toast.success(`Ingested: ${result.chunk_count} chunks`);
       await fetchDocs();
-      setTimeout(resetForm, 1500);
+      setTimeout(resetForm, 1800);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Ingest failed");
       setUploadStage(`Error: ${err.message || "failed"}`);
+      // Mark row as failed if we created one
+      if (createdId) {
+        await refLib().from("documents").update({
+          ingest_status: "failed",
+          ingest_error: String(err?.message || err).slice(0, 1000),
+        }).eq("id", createdId);
+      }
       await fetchDocs();
     } finally {
       setUploadBusy(false);
@@ -271,16 +316,13 @@ export default function ReferenceLibrary() {
 
     if (existing) {
       if (existing.ingest_status === "failed") {
-        // Silently reuse the failed row
         await performUpload(existing.id);
         return;
       }
       if (existing.ingest_status === "completed") {
-        // Ask the user before overwriting
         setOverwriteTarget({ id: existing.id, title: existing.title });
         return;
       }
-      // pending / processing
       toast.error("A document with this filename is already being processed");
       return;
     }
@@ -291,18 +333,50 @@ export default function ReferenceLibrary() {
   const handleReingest = async (id: string) => {
     setReingestId(id);
     try {
-      await refLib().from("documents").update({ ingest_status: "pending", ingest_error: null }).eq("id", id);
-      // also clear old chunks so re-ingest doesn't double up
+      // Fetch the doc to re-download its source file from Storage
+      const { data: doc, error: docErr } = await refLib().from("documents")
+        .select("source_storage_path, source_filename").eq("id", id).single();
+      if (docErr || !doc?.source_storage_path) throw new Error("Source file not found in storage");
+
+      const { data: blob, error: dlErr } = await supabase.storage
+        .from("reference-library").download(doc.source_storage_path);
+      if (dlErr || !blob) throw new Error(`Download failed: ${dlErr?.message}`);
+      const f = new File([blob], doc.source_filename || "document.pdf", { type: blob.type || "application/pdf" });
+      const extracted = await extractInBrowser(f);
+
+      await refLib().from("documents").update({
+        ingest_status: "pending", ingest_error: null,
+        page_count: extracted.totalPages, chunk_count: 0, total_tokens: 0,
+      }).eq("id", id);
       await refLib().from("chunks").delete().eq("document_id", id);
       await fetchDocs();
-      const r = await runIngest(id);
+      const r = await runIngest(id, extracted.pages, extracted.totalPages);
       toast.success(`Re-ingested: ${r.chunk_count} chunks`);
       await fetchDocs();
     } catch (e: any) {
       toast.error(e.message || "Re-ingest failed");
+      await refLib().from("documents").update({
+        ingest_status: "failed",
+        ingest_error: String(e?.message || e).slice(0, 1000),
+      }).eq("id", id);
       await fetchDocs();
     } finally {
       setReingestId(null);
+    }
+  };
+
+  const handleResetStuck = async () => {
+    setResettingStuck(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("reset_stuck_ref_lib_ingests");
+      if (error) throw new Error(error.message);
+      const count = Number(data ?? 0);
+      toast.success(count > 0 ? `Reset ${count} stuck ingest${count === 1 ? "" : "s"}` : "No stuck ingests");
+      await fetchDocs();
+    } catch (e: any) {
+      toast.error(e.message || "Reset failed");
+    } finally {
+      setResettingStuck(false);
     }
   };
 
