@@ -774,8 +774,19 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
             <Input value={newSite.name} onChange={(e) => setNewSite({ ...newSite, name: e.target.value })} placeholder="e.g. Head Office, Warehouse 2" />
           </div>
           <div className="space-y-1.5">
-            <Label>Address</Label>
-            <Input value={newSite.address} onChange={(e) => setNewSite({ ...newSite, address: e.target.value })} />
+            <Label>Address (AI lookup)</Label>
+            <AddressAutocomplete
+              value={newSite.address}
+              onChange={(v) => setNewSite((prev) => ({ ...prev, address: v }))}
+              onAddressSelect={(d) => setNewSite((prev) => ({
+                ...prev,
+                address: d.address,
+                city: d.city || prev.city,
+                postcode: d.postcode || prev.postcode,
+                name: prev.name || d.businessName || prev.name,
+              }))}
+              placeholder="Start typing site address or building name…"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
