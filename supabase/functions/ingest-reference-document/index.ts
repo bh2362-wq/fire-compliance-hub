@@ -1,6 +1,8 @@
 // Reference Library ingest function
-// Downloads a file from Supabase Storage, extracts text, chunks it,
+// Receives pre-extracted page text from the browser, chunks per-page,
 // embeds with OpenAI text-embedding-3-small, and inserts chunks.
+// PDF parsing is intentionally NOT done here — the browser extracts text
+// with pdfjs-dist to avoid the edge runtime's CPU time limit on large PDFs.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -20,7 +22,7 @@ const TARGET_TOKENS = 650;
 const OVERLAP_TOKENS = 100;
 const TARGET_CHARS = TARGET_TOKENS * CHARS_PER_TOKEN;
 const OVERLAP_CHARS = OVERLAP_TOKENS * CHARS_PER_TOKEN;
-const BATCH_SIZE = 100;
+const EMBED_BATCH_SIZE = 50;
 
 interface Chunk {
   index: number;
@@ -44,7 +46,7 @@ function detectSection(text: string): string | null {
 
 function chunkPage(pageText: string, pageNumber: number, startIndex: number): Chunk[] {
   const chunks: Chunk[] = [];
-  const text = pageText.trim();
+  const text = (pageText || "").trim();
   if (!text) return chunks;
 
   let cursor = 0;
@@ -52,7 +54,6 @@ function chunkPage(pageText: string, pageNumber: number, startIndex: number): Ch
   while (cursor < text.length) {
     let end = Math.min(cursor + TARGET_CHARS, text.length);
     if (end < text.length) {
-      // Prefer paragraph, then sentence, then word boundary
       const slice = text.slice(cursor, end);
       const paraBreak = slice.lastIndexOf("\n\n");
       const sentBreak = Math.max(slice.lastIndexOf(". "), slice.lastIndexOf("? "), slice.lastIndexOf("! "));
@@ -78,21 +79,6 @@ function chunkPage(pageText: string, pageNumber: number, startIndex: number): Ch
     cursor = Math.max(end - OVERLAP_CHARS, cursor + 1);
   }
   return chunks;
-}
-
-async function extractPdf(buffer: ArrayBuffer): Promise<{ pages: string[]; totalPages: number }> {
-  // Pass the raw Uint8Array directly to extractText — skipping getDocumentProxy
-  // avoids the "No PDFJS.workerSrc specified" error in the edge runtime.
-  const { extractText } = await import("https://esm.sh/unpdf@0.11.0");
-  const result = await extractText(new Uint8Array(buffer), { mergePages: false });
-  const pages = Array.isArray(result.text) ? (result.text as string[]) : [String(result.text || "")];
-  return { pages, totalPages: result.totalPages };
-}
-
-async function extractDocx(buffer: ArrayBuffer): Promise<{ pages: string[] }> {
-  const mammoth = await import("https://esm.sh/mammoth@1.6.0");
-  const result = await mammoth.extractRawText({ arrayBuffer: buffer });
-  return { pages: [result.value || ""] };
 }
 
 async function embedBatch(inputs: string[], retries = 3): Promise<number[][]> {
@@ -122,15 +108,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const started = Date.now();
 
-  // Dual-auth: require an authenticated user
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
   const authClient = createClient(SUPABASE_URL, VERIFY_KEY, { auth: { persistSession: false } });
   const { data: userData, error: userErr } = await authClient.auth.getUser(token);
   if (userErr || !userData?.user) {
-    return new Response(JSON.stringify({ error: "unauthorized", detail: userErr?.message }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "unauthorized", detail: userErr?.message }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
@@ -139,61 +128,58 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     document_id = body?.document_id;
-    if (!document_id) throw new Error("document_id is required");
+    const pages: unknown = body?.pages;
+    const total_pages: number | undefined = body?.total_pages;
+
+    if (!document_id) {
+      return new Response(JSON.stringify({ success: false, error: "document_id is required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!Array.isArray(pages) || pages.length === 0) {
+      return new Response(JSON.stringify({ success: false, error: "pages array is required and must be non-empty" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const pageTexts = (pages as unknown[]).map((p) => String(p ?? ""));
 
     const { data: doc, error: docErr } = await admin
       .from("ref_lib_documents")
-      .select("*")
+      .select("id")
       .eq("id", document_id)
       .single();
     if (docErr || !doc) throw new Error(`document not found: ${docErr?.message}`);
-    if (!doc.source_storage_path) throw new Error("source_storage_path is empty");
 
     await admin.from("ref_lib_documents")
       .update({ ingest_status: "processing", ingest_error: null })
       .eq("id", document_id);
 
-    // Download
-    const { data: file, error: dlErr } = await admin.storage.from("reference-library").download(doc.source_storage_path);
-    if (dlErr || !file) throw new Error(`download failed: ${dlErr?.message}`);
-    const buffer = await file.arrayBuffer();
-    const name = (doc.source_filename || doc.source_storage_path).toLowerCase();
-
-    // Extract
-    let extracted: { pages: string[]; totalPages?: number };
-    if (name.endsWith(".pdf")) extracted = await extractPdf(buffer);
-    else if (name.endsWith(".docx")) extracted = await extractDocx(buffer);
-    else if (name.endsWith(".txt")) extracted = { pages: [new TextDecoder().decode(buffer)] };
-    else throw new Error(`unsupported file type: ${name}`);
-
-    // Chunk
+    // Chunk per-page so page_number is preserved
     const chunks: Chunk[] = [];
-    extracted.pages.forEach((pageText, i) => {
+    pageTexts.forEach((pageText, i) => {
       chunks.push(...chunkPage(pageText, i + 1, chunks.length));
     });
-    if (chunks.length === 0) throw new Error("no extractable text");
+    if (chunks.length === 0) throw new Error("no extractable text in supplied pages");
 
-    // Embed in batches
+    // Embed in batches of 50
     const embeddings: number[][] = [];
-    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-      const batch = chunks.slice(i, i + BATCH_SIZE).map((c) => c.content);
+    for (let i = 0; i < chunks.length; i += EMBED_BATCH_SIZE) {
+      const batch = chunks.slice(i, i + EMBED_BATCH_SIZE).map((c) => c.content);
       const vecs = await embedBatch(batch);
       embeddings.push(...vecs);
     }
 
-    // Insert chunks (batched insert)
     const rows = chunks.map((c, i) => ({
       document_id,
       chunk_index: c.index,
       content: c.content,
       content_preview: c.content.slice(0, 200),
-      embedding: embeddings[i] as unknown as string, // pgvector accepts JSON array
+      embedding: embeddings[i] as unknown as string,
       token_count: c.token_count,
       page_number: c.page_number,
       section_title: c.section_title,
     }));
 
-    // Insert in slices to avoid payload limits
     const INSERT_BATCH = 200;
     for (let i = 0; i < rows.length; i += INSERT_BATCH) {
       const slice = rows.slice(i, i + INSERT_BATCH);
@@ -207,7 +193,7 @@ Deno.serve(async (req) => {
       ingested_at: new Date().toISOString(),
       chunk_count: chunks.length,
       total_tokens: totalTokens,
-      page_count: extracted.totalPages ?? extracted.pages.length,
+      page_count: total_pages ?? pageTexts.length,
     }).eq("id", document_id);
 
     return new Response(JSON.stringify({

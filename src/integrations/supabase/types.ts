@@ -5367,6 +5367,7 @@ export type Database = {
           standard_reference: string
         }[]
       }
+      reset_stuck_ref_lib_ingests: { Args: never; Returns: number }
     }
     Enums: {
       app_role:
