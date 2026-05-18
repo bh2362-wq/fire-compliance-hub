@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.verify-device-price]
 verify_jwt = false
+
+[functions.contracts-finder-ingest]
+verify_jwt = false

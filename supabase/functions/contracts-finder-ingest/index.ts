@@ -67,19 +67,26 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const PUBLISHABLE_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const WINDOW_DAYS = Number(Deno.env.get("INGEST_WINDOW_DAYS") ?? "7");
 
-  // Auth: require bearer == service role key
+  // Auth: accept anon/publishable (cron) or service role (manual)
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
-  if (!token || token !== SERVICE_KEY) {
+  const validAnon = token && (token === ANON_KEY || token === PUBLISHABLE_KEY);
+  const validService = token && token === SERVICE_KEY;
+  if (!validAnon && !validService) {
+    console.warn(`[contracts-finder-ingest] unauthorized invocation`);
     return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+  const invokedBy = validService ? "manual" : "cron";
 
+  // Always use service role for DB writes (bypass RLS)
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -91,7 +98,7 @@ Deno.serve(async (req) => {
   const window_from = toIsoDate(fromD);
   const window_to = toIsoDate(today);
 
-  console.log(`[contracts-finder-ingest] starting window=${window_from}..${window_to}`);
+  console.log(`[contracts-finder-ingest] starting invokedBy=${invokedBy} window=${window_from}..${window_to}`);
 
   // Start ingest run
   const { data: runRow, error: runErr } = await ci
@@ -101,6 +108,7 @@ Deno.serve(async (req) => {
       status: "running",
       window_from,
       window_to,
+      run_metadata: { invoked_by: invokedBy },
     })
     .select("id")
     .single();
