@@ -1,9 +1,10 @@
 // Browser-side PDF text extraction for the Reference Library ingest pipeline.
 // We extract here (in the browser) because the Edge Function CPU budget is
 // too small for pdfjs to parse multi-hundred-page standards.
-import * as pdfjsLib from "pdfjs-dist";
+// Using the legacy build for broader compatibility (Safari, older browsers).
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 // @ts-ignore - Vite ?url import returns a string at runtime
-import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import workerSrc from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc as string;
 
@@ -17,6 +18,7 @@ export async function extractPdfInBrowser(
   onProgress?: (pageNumber: number, total: number) => void,
 ): Promise<ExtractedPdf> {
   const arrayBuffer = await file.arrayBuffer();
+  const fileSize = (file as File).size ?? arrayBuffer.byteLength;
   const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
   const totalPages = pdf.numPages;
   const pages: string[] = [];
@@ -30,6 +32,21 @@ export async function extractPdfInBrowser(
       .trim();
     pages.push(pageText);
     onProgress?.(i, totalPages);
+  }
+  const totalChars = pages.reduce((n, p) => n + p.length, 0);
+  console.log(`[refLib] extracted ${pages.length} pages, ${totalChars} chars (file ${fileSize} bytes)`);
+
+  // Hard-fail when extraction obviously failed (worker bootstrap broken,
+  // scanned/image-only PDF, encrypted, etc.) instead of letting empty data
+  // through to the embeddings pipeline.
+  if (totalPages === 0) {
+    throw new Error("PDF extraction returned 0 pages — worker likely failed to load");
+  }
+  if (fileSize > 100 * 1024 && totalChars < 500) {
+    throw new Error(
+      `PDF extraction yielded only ${totalChars} characters from a ${Math.round(fileSize / 1024)}KB file — ` +
+        `likely a scanned/image-only PDF or worker failure. OCR is not supported in-browser.`,
+    );
   }
   return { pages, totalPages };
 }
