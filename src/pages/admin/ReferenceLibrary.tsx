@@ -553,6 +553,30 @@ export default function ReferenceLibrary() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!overwriteTarget} onOpenChange={(o) => !o && setOverwriteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace existing document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A completed document with this filename already exists ("{overwriteTarget?.title}").
+              Re-ingesting will overwrite its chunks and embeddings with the new upload. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const id = overwriteTarget?.id;
+                setOverwriteTarget(null);
+                if (id) performUpload(id);
+              }}
+            >
+              Overwrite
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
