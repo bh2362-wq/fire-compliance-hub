@@ -101,6 +101,7 @@ const qmsNav = [
 const adminNav = [
   { name: "Reference Library", href: "/dashboard/admin/reference-library", icon: BookOpen },
   { name: "Market Data",       href: "/dashboard/admin/market-data",       icon: TrendingUp },
+  { name: "Quote Settings",    href: "/dashboard/admin/quote-settings",    icon: Settings },
 ];
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
