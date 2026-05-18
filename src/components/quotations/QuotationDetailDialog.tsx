@@ -118,6 +118,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [bulkMarkup, setBulkMarkup] = useState("");
 
   // Editable fields
   const [quotationNumber, setQuotationNumber] = useState("");
@@ -786,6 +787,39 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                         </Button>
                       )}
                       {!isLocked && (
+                        <div className="flex items-center gap-1 border rounded-md px-2 py-1 bg-muted/40">
+                          <Label className="text-xs whitespace-nowrap">Bulk Markup %</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={bulkMarkup}
+                            onChange={(e) => setBulkMarkup(e.target.value)}
+                            className="h-7 w-16"
+                            placeholder="0"
+                          />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-7"
+                            onClick={() => {
+                              const pct = parseFloat(bulkMarkup) || 0;
+                              const updated = lineItems.map((i) => ({
+                                ...i,
+                                markup_percent: pct,
+                                total_price:
+                                  i.quantity * i.unit_price * (1 + pct / 100) + (i.labour_cost || 0),
+                              }));
+                              setLineItems(updated);
+                              setHasChanges(true);
+                            }}
+                          >
+                            Apply
+                          </Button>
+                        </div>
+                      )}
+                      {!isLocked && (
                         <Button size="sm" onClick={() => handleAddItem()} className="gap-1">
                           <Plus className="w-3.5 h-3.5" />
                           Add Item
@@ -822,7 +856,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                   placeholder="Description of work..."
                                   disabled={isLocked}
                                 />
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                                   <div>
                                     <Label className="text-xs">Item / Part</Label>
                                     <Input
@@ -844,7 +878,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                     />
                                   </div>
                                   <div>
-                                    <Label className="text-xs">Unit Price £</Label>
+                                    <Label className="text-xs">Unit Cost £</Label>
                                     <Input
                                       type="number"
                                       min={0}
@@ -865,6 +899,15 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                       onChange={(e) => handleItemChange(index, "markup_percent", parseFloat(e.target.value) || 0)}
                                       disabled={isLocked}
                                       className="h-8"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Sell Price £</Label>
+                                    <Input
+                                      type="number"
+                                      readOnly
+                                      value={(item.unit_price * (1 + (item.markup_percent || 0) / 100)).toFixed(2)}
+                                      className="h-8 bg-muted"
                                     />
                                   </div>
                                   <div>
