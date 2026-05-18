@@ -84,9 +84,6 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
   const invokedBy = validService ? "manual" : "cron";
 
   // Always use service role for DB writes (bypass RLS)
