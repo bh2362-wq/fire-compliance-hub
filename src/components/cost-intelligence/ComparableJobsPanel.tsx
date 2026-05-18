@@ -464,6 +464,115 @@ function Footer({ lookbackYears }: { lookbackYears: number }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Market context (external)                                           */
+/* ------------------------------------------------------------------ */
+
+function MarketContextSection({ context }: { context: MarketContext }) {
+  const [showInfo, setShowInfo] = useState(false);
+  const fmt = (n: number | null) => (n == null ? '—' : gbp.format(n));
+
+  return (
+    <section className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900/50 dark:bg-blue-950/20">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">
+              UK market context
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowInfo((v) => !v)}
+              onMouseEnter={() => setShowInfo(true)}
+              onMouseLeave={() => setShowInfo(false)}
+              className="grid h-3.5 w-3.5 place-items-center rounded-full border border-blue-300 text-[9px] font-bold text-blue-600 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300"
+              aria-label="About market context"
+            >
+              i
+            </button>
+          </div>
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            Public sector awards · last 24 months
+          </div>
+        </div>
+      </div>
+
+      {showInfo && (
+        <div className="mb-2 rounded border border-blue-200 bg-white p-2 text-[11px] leading-snug text-zinc-700 dark:border-blue-900/50 dark:bg-zinc-900 dark:text-zinc-300">
+          Public sector contract awards for fire alarm work, classified by CPV code and buyer
+          profile. Useful for gov/MoD/NHS tender benchmarking. Not directly comparable to private
+          sector pricing — main contractor margins typically apply.
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-2">
+        <MarketStat label="P25" value={fmt(context.p25_value)} />
+        <MarketStat label="Median" value={fmt(context.median_value)} emphasis />
+        <MarketStat label="P75" value={fmt(context.p75_value)} />
+      </div>
+
+      <div className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-400">
+        Based on <span className="font-semibold tabular-nums">{context.sample_size}</span> awarded
+        contract{context.sample_size === 1 ? '' : 's'} ·{' '}
+        <span className="tabular-nums">{context.recent_count_12mo}</span> in last 12 months
+      </div>
+
+      {context.top_buyers?.length > 0 && (
+        <div className="mt-2 border-t border-blue-200/60 pt-2 dark:border-blue-900/40">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            Active buyers in this segment
+          </div>
+          <ul className="mt-1 space-y-0.5">
+            {context.top_buyers.slice(0, 3).map((b) => (
+              <li
+                key={b.name}
+                className="flex items-center justify-between text-[11px] text-zinc-700 dark:text-zinc-300"
+              >
+                <span className="truncate pr-2">{b.name}</span>
+                <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-500">
+                  {b.count} award{b.count === 1 ? '' : 's'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="mt-2 text-[10px] text-zinc-400 dark:text-zinc-600">
+        Source: UK Contracts Finder · OGL v3.0
+      </div>
+    </section>
+  );
+}
+
+function MarketStat({
+  label,
+  value,
+  emphasis,
+}: {
+  label: string;
+  value: string;
+  emphasis?: boolean;
+}) {
+  return (
+    <div className="rounded border border-blue-200/60 bg-white p-2 dark:border-blue-900/40 dark:bg-zinc-900">
+      <div className="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        {label}
+      </div>
+      <div
+        className={[
+          'tabular-nums',
+          emphasis
+            ? 'text-sm font-semibold text-blue-700 dark:text-blue-300'
+            : 'text-xs font-medium text-zinc-800 dark:text-zinc-200',
+        ].join(' ')}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Inline flame icon                                                   */
 /* ------------------------------------------------------------------ */
 
