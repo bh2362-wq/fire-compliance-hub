@@ -14,9 +14,6 @@ function readGraphConfig() {
     ].filter(Boolean).join(", ");
     throw new Error(`Microsoft Graph environment variables missing: ${missing}`);
   }
-  if (!tenantId || !clientId || !clientSecret || !conversionUser) {
-    throw new Error("Microsoft Graph environment variables missing");
-  }
   return { tenantId, clientId, clientSecret, conversionUser };
 }
 
