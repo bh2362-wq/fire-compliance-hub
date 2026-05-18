@@ -106,20 +106,18 @@ export default function ReferenceLibrary() {
     if (!user) { setIsAdmin(false); return; }
     (async () => {
       try {
-        const { data: rpcData, error: rpcErr } = await supabase.rpc("has_finance_role", { _user_id: user.id });
-        if (!rpcErr && rpcData != null) {
-          setIsAdmin(Boolean(rpcData));
-          return;
-        }
-        // Fallback: query user_roles directly (covers schema-cache hiccups)
-        const { data: rows } = await supabase
+        // Primary: query user_roles directly using RLS "Users can view own roles"
+        const { data: rows, error } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", user.id)
-          .in("role", ["owner", "admin"]);
-        setIsAdmin((rows?.length ?? 0) > 0);
+          .eq("user_id", user.id);
+        if (error) console.warn("[ReferenceLibrary] user_roles query error:", error);
+        const roles = (rows ?? []).map((r: any) => r.role);
+        const admin = roles.includes("owner") || roles.includes("admin");
+        console.log("[ReferenceLibrary] user", user.email, "roles:", roles, "isAdmin:", admin);
+        setIsAdmin(admin);
       } catch (e) {
-        console.error("ReferenceLibrary admin check failed:", e);
+        console.error("[ReferenceLibrary] admin check failed:", e);
         setIsAdmin(false);
       }
     })();
