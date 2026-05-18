@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, FormEvent } from 'react';
 import { Flame, Mail, Lock, Eye, EyeOff, Fingerprint, Loader2, AlertCircle } from 'lucide-react';
 import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor } from '@capacitor/core';
-import { useAuth } from './lib/auth';
+import { useAuth } from '@/lib/auth';
 
 /**
  * FireLogbook Login Screen
