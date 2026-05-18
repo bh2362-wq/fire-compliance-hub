@@ -177,7 +177,12 @@ Deno.serve(async (req) => {
   }));
 
   const userPrompt =
-`VALIDATION CHECK: Before producing your final output, review every job reference and number in your narrative and risk_flags. For each one, identify which entry in the comparables array it comes from. If you cannot identify a source, remove the citation or restate the claim without it.
+`VALIDATION CHECK: Before producing your final output, for every job reference and every attribute claim about a cited job:
+1. Identify which entry in the comparables array supports it
+2. Verify the attribute value matches that entry verbatim (outcome, margin, value, device count)
+3. If you cannot verify an attribute, do not state it
+This applies in particular to bid_outcome values — never characterise a 'won' job as 'lost' or vice versa.
+
 
 Analyse this quote scope against the data below.
 
