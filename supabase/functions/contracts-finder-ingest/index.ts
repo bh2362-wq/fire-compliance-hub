@@ -9,7 +9,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const CF_ENDPOINT = "https://www.contractsfinder.service.gov.uk/Published/Notices/Search";
+// Contracts Finder API v2 (the legacy /Published/Notices/Search path returns 404)
+const CF_ENDPOINT = "https://www.contractsfinder.service.gov.uk/api/rest/2/search_notices/json";
 const FIRE_CPV = "31625000,31625100,31625200,45312100,50413200,50711000";
 
 // ------- classifiers -------
