@@ -543,8 +543,9 @@ export default function ReferenceLibrary() {
                 </Button>
               )}
               <Button variant="ghost" size="sm" onClick={fetchDocs} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
-            </Button>
+                <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
