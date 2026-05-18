@@ -383,8 +383,8 @@ export default function ReferenceLibrary() {
                   <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">No documents yet.</TableCell></TableRow>
                 )}
                 {docs.map((d) => (
-                  <>
-                    <TableRow key={d.id} className="cursor-pointer" onClick={() => toggleExpand(d)}>
+                  <Fragment key={d.id}>
+                    <TableRow className="cursor-pointer" onClick={() => toggleExpand(d)}>
                       <TableCell>{expanded[d.id] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</TableCell>
                       <TableCell className="font-medium">{d.title}</TableCell>
                       <TableCell><span className="text-xs">{DOC_TYPES.find((t) => t.value === d.doc_type)?.label ?? d.doc_type}</span></TableCell>
