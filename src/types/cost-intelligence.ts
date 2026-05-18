@@ -170,3 +170,27 @@ export interface ComparablesResult {
   jobs: ComparableJob[];
   stats: ComparableJobsStats | null;
 }
+
+export interface MarketContext {
+  sample_size: number;
+  median_value: number | null;
+  p25_value: number | null;
+  p75_value: number | null;
+  recent_count_12mo: number;
+  top_buyers: Array<{ name: string; count: number; median_value: number }>;
+}
+
+export interface IngestRun {
+  id: string;
+  source: string;
+  started_at: string;
+  finished_at: string | null;
+  status: 'running' | 'success' | 'partial' | 'failed' | null;
+  records_fetched: number | null;
+  records_upserted: number | null;
+  records_skipped: number | null;
+  window_from: string | null;
+  window_to: string | null;
+  error_message: string | null;
+  run_metadata: Record<string, unknown> | null;
+}
