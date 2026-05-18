@@ -219,6 +219,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   } | null>(null);
 
   const [reassignVisit, setReassignVisit] = useState<Visit | null>(null);
+  const [classifyVisit, setClassifyVisit] = useState<Visit | null>(null);
   const [linkCertVisit, setLinkCertVisit] = useState<Visit | null>(null);
   const [smartFormVisit, setSmartFormVisit] = useState<Visit | null>(null);
   const [smartFormPrefill, setSmartFormPrefill] = useState<Partial<BS5839Payload> | null>(null);
