@@ -118,16 +118,16 @@ export default function ReferenceLibrary() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { if (allowed) fetchDocs(); }, [allowed, fetchDocs]);
+  useEffect(() => { if (user) fetchDocs(); }, [user, fetchDocs]);
 
-  // poll while anything is processing/pending
+  // poll while anything is processing/pending (admin only)
   useEffect(() => {
-    if (!allowed) return;
+    if (!isAdmin) return;
     const active = docs.some((d) => d.ingest_status === "processing" || d.ingest_status === "pending");
     if (!active) return;
     const t = setInterval(fetchDocs, 4000);
     return () => clearInterval(t);
-  }, [allowed, docs, fetchDocs]);
+  }, [isAdmin, docs, fetchDocs]);
 
   const stats = useMemo(() => {
     const total = docs.length;
