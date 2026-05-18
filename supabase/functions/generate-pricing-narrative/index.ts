@@ -56,7 +56,11 @@ Deno.serve(async (req) => {
 
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
-  const validAnon = token && (token === ANON_KEY || token === PUBLISHABLE_KEY || PUBLISHABLE_KEYS.includes(token));
+  // Accept new short keys, legacy JWT publishable keys (role=anon for this project), or service role
+  const isProjectAnonJwt = token.startsWith("eyJ") && token.includes("anon") === false
+    ? (() => { try { const p = JSON.parse(atob(token.split(".")[1])); return p.role === "anon" && p.ref === "qtsboanwhzskkdvkfcdt"; } catch { return false; } })()
+    : token.startsWith("eyJ");
+  const validAnon = token && (token === ANON_KEY || token === PUBLISHABLE_KEY || PUBLISHABLE_KEYS.includes(token) || isProjectAnonJwt);
   const validService = token && token === SERVICE_KEY;
   if (!validAnon && !validService) return jsonResp({ error: "unauthorized" }, 401);
 
