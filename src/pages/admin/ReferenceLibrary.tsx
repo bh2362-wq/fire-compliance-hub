@@ -502,9 +502,22 @@ export default function ReferenceLibrary() {
               </div>
             </div>
 
+            {(uploadBusy || uploadProgress > 0) && (
+              <div className="space-y-1.5">
+                <Progress value={uploadProgress} />
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    {uploadBusy && <Loader2 className="h-3 w-3 animate-spin" />}
+                    {uploadStage ?? ""}
+                  </span>
+                  <span>{uploadProgress}%</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between gap-3">
               <div className="text-xs text-muted-foreground min-h-[1.25rem]">
-                {uploadStage && (uploadBusy ? <span className="flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" />{uploadStage}</span> : uploadStage)}
+                {!uploadBusy && uploadStage && uploadProgress === 0 ? uploadStage : null}
               </div>
               <div className="flex gap-2">
                 <Button variant="ghost" onClick={resetForm} disabled={uploadBusy}>Reset</Button>
@@ -522,7 +535,14 @@ export default function ReferenceLibrary() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Documents</CardTitle>
-            <Button variant="ghost" size="sm" onClick={fetchDocs} disabled={loading}>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <Button variant="ghost" size="sm" onClick={handleResetStuck} disabled={resettingStuck}>
+                  {resettingStuck ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <AlertTriangle className="h-4 w-4 mr-1.5" />}
+                  Reset stuck ingests
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={fetchDocs} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
             </Button>
           </CardHeader>
