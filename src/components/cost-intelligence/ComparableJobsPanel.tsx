@@ -65,6 +65,10 @@ export function ComparableJobsPanel({
         <RecommendationBand stats={stats} currentQuoteTotal={currentQuoteTotal} />
       )}
 
+      {hasScope && market && market.sample_size > 0 && (
+        <MarketContextSection context={market} />
+      )}
+
       {hasScope && !error && jobs.length > 0 && (
         <ComparablesList jobs={jobs} onSelectJob={onSelectJob} />
       )}
