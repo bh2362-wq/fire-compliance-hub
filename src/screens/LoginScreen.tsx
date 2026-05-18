@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, FormEvent } from 'react';
 import { Flame, Mail, Lock, Eye, EyeOff, Fingerprint, Loader2, AlertCircle } from 'lucide-react';
 import { Keyboard } from '@capacitor/keyboard';
 import { Capacitor } from '@capacitor/core';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 
 /**
