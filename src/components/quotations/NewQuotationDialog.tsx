@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
 import { getCompanySettings } from "@/services/companySettingsService";
 import {
@@ -27,6 +27,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { searchSupplierProducts, SupplierProduct } from "@/services/supplierProductService";
+import { ScopeFields } from "@/components/cost-intelligence/ClassifyJobDialog";
+import { ComparableJobsPanel } from "@/components/cost-intelligence/ComparableJobsPanel";
+import {
+  type SystemType, type BuildingType, type JobCategory,
+  type Region, type Bs5839Category, type QuoteScope,
+} from "@/types/cost-intelligence";
 
 interface LineItem {
   description: string;
