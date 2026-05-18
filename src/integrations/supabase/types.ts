@@ -3500,6 +3500,114 @@ export type Database = {
           },
         ]
       }
+      quotes: {
+        Row: {
+          assumptions: Json | null
+          building_type: string | null
+          client_company: string | null
+          client_contact: string | null
+          created_at: string | null
+          created_by: string | null
+          device_counts: Json | null
+          exclusions: Json | null
+          existing_system_description: string | null
+          generated_files: Json | null
+          id: string
+          introduction: string | null
+          issued_date: string | null
+          items: Json | null
+          latest_docx_path: string | null
+          latest_pdf_path: string | null
+          occupancy_type: string | null
+          project_title: string
+          ref: string
+          scope: Json | null
+          site_address: string | null
+          site_visit_date: string | null
+          status: string
+          storeys: number | null
+          system_category: string | null
+          system_features: Json | null
+          system_loops: number | null
+          system_manufacturer: string | null
+          system_panel: string | null
+          updated_at: string | null
+          valid_until: string | null
+          vat_rate: number | null
+          works_type: string | null
+        }
+        Insert: {
+          assumptions?: Json | null
+          building_type?: string | null
+          client_company?: string | null
+          client_contact?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          device_counts?: Json | null
+          exclusions?: Json | null
+          existing_system_description?: string | null
+          generated_files?: Json | null
+          id?: string
+          introduction?: string | null
+          issued_date?: string | null
+          items?: Json | null
+          latest_docx_path?: string | null
+          latest_pdf_path?: string | null
+          occupancy_type?: string | null
+          project_title: string
+          ref: string
+          scope?: Json | null
+          site_address?: string | null
+          site_visit_date?: string | null
+          status?: string
+          storeys?: number | null
+          system_category?: string | null
+          system_features?: Json | null
+          system_loops?: number | null
+          system_manufacturer?: string | null
+          system_panel?: string | null
+          updated_at?: string | null
+          valid_until?: string | null
+          vat_rate?: number | null
+          works_type?: string | null
+        }
+        Update: {
+          assumptions?: Json | null
+          building_type?: string | null
+          client_company?: string | null
+          client_contact?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          device_counts?: Json | null
+          exclusions?: Json | null
+          existing_system_description?: string | null
+          generated_files?: Json | null
+          id?: string
+          introduction?: string | null
+          issued_date?: string | null
+          items?: Json | null
+          latest_docx_path?: string | null
+          latest_pdf_path?: string | null
+          occupancy_type?: string | null
+          project_title?: string
+          ref?: string
+          scope?: Json | null
+          site_address?: string | null
+          site_visit_date?: string | null
+          status?: string
+          storeys?: number | null
+          system_category?: string | null
+          system_features?: Json | null
+          system_loops?: number | null
+          system_manufacturer?: string | null
+          system_panel?: string | null
+          updated_at?: string | null
+          valid_until?: string | null
+          vat_rate?: number | null
+          works_type?: string | null
+        }
+        Relationships: []
+      }
       rams_acknowledgements: {
         Row: {
           acknowledged_at: string
@@ -4069,6 +4177,53 @@ export type Database = {
           to_recipients?: Json | null
         }
         Relationships: []
+      }
+      scope_generations: {
+        Row: {
+          accepted: boolean | null
+          generated_at: string | null
+          generated_by: string | null
+          id: string
+          inputs: Json
+          model: string | null
+          output: Json
+          quote_id: string | null
+          tokens_input: number | null
+          tokens_output: number | null
+        }
+        Insert: {
+          accepted?: boolean | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          inputs: Json
+          model?: string | null
+          output: Json
+          quote_id?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+        }
+        Update: {
+          accepted?: boolean | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          inputs?: Json
+          model?: string | null
+          output?: Json
+          quote_id?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scope_generations_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       service_reports: {
         Row: {
