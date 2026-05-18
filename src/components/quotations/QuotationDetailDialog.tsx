@@ -787,6 +787,39 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                         </Button>
                       )}
                       {!isLocked && (
+                        <div className="flex items-center gap-1 border rounded-md px-2 py-1 bg-muted/40">
+                          <Label className="text-xs whitespace-nowrap">Bulk Markup %</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={bulkMarkup}
+                            onChange={(e) => setBulkMarkup(e.target.value)}
+                            className="h-7 w-16"
+                            placeholder="0"
+                          />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-7"
+                            onClick={() => {
+                              const pct = parseFloat(bulkMarkup) || 0;
+                              const updated = lineItems.map((i) => ({
+                                ...i,
+                                markup_percent: pct,
+                                total_price:
+                                  i.quantity * i.unit_price * (1 + pct / 100) + (i.labour_cost || 0),
+                              }));
+                              setLineItems(updated);
+                              setHasChanges(true);
+                            }}
+                          >
+                            Apply
+                          </Button>
+                        </div>
+                      )}
+                      {!isLocked && (
                         <Button size="sm" onClick={() => handleAddItem()} className="gap-1">
                           <Plus className="w-3.5 h-3.5" />
                           Add Item
