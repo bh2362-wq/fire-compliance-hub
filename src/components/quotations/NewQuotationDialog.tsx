@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2, Loader2, Database, UserPlus, Building2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { AIExpandButton } from "./AIExpandButton";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -726,8 +727,19 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
             <Input type="email" value={newCustomer.contact_email} onChange={(e) => setNewCustomer({ ...newCustomer, contact_email: e.target.value })} />
           </div>
           <div className="space-y-1.5">
-            <Label>Address</Label>
-            <Input value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} />
+            <Label>Address (AI lookup)</Label>
+            <AddressAutocomplete
+              value={newCustomer.address}
+              onChange={(v) => setNewCustomer((prev) => ({ ...prev, address: v }))}
+              onAddressSelect={(d) => setNewCustomer((prev) => ({
+                ...prev,
+                address: d.address,
+                city: d.city || prev.city,
+                postcode: d.postcode || prev.postcode,
+                name: prev.name || d.businessName || prev.name,
+              }))}
+              placeholder="Start typing address or business name…"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -762,8 +774,19 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
             <Input value={newSite.name} onChange={(e) => setNewSite({ ...newSite, name: e.target.value })} placeholder="e.g. Head Office, Warehouse 2" />
           </div>
           <div className="space-y-1.5">
-            <Label>Address</Label>
-            <Input value={newSite.address} onChange={(e) => setNewSite({ ...newSite, address: e.target.value })} />
+            <Label>Address (AI lookup)</Label>
+            <AddressAutocomplete
+              value={newSite.address}
+              onChange={(v) => setNewSite((prev) => ({ ...prev, address: v }))}
+              onAddressSelect={(d) => setNewSite((prev) => ({
+                ...prev,
+                address: d.address,
+                city: d.city || prev.city,
+                postcode: d.postcode || prev.postcode,
+                name: prev.name || d.businessName || prev.name,
+              }))}
+              placeholder="Start typing site address or building name…"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
