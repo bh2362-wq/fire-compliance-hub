@@ -98,6 +98,11 @@ const qmsNav = [
   { name: "Suppliers",       href: "/qms/supplier-evaluations",    icon: Package },
 ];
 
+const adminNav = [
+  { name: "Reference Library", href: "/dashboard/admin/reference-library", icon: BookOpen },
+  { name: "Market Data",       href: "/dashboard/admin/market-data",       icon: TrendingUp },
+];
+
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 const NavItem = ({
   item,
@@ -234,6 +239,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     "/dashboard/smart-forms", "/dashboard/ai-assistant", "/dashboard/reference",
   ].some((p) => location.pathname.startsWith(p));
   const isQmsRoute = location.pathname.startsWith("/qms");
+  const isAdminRoute = location.pathname.startsWith("/dashboard/admin");
   const isCertRoute = ["/dashboard/cert-tracker", "/dashboard/smart-forms", "/dashboard/reference"].some((p) =>
     location.pathname.startsWith(p)
   );
@@ -346,6 +352,17 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           icon={Zap}
           items={toolsNav}
           isActive={isToolsRoute}
+          collapsed={collapsed}
+          isMobile={isMobile}
+        />
+
+        {/* Admin */}
+        <SectionLabel label="Admin" collapsed={collapsed} isMobile={isMobile} />
+        <CollapsibleNav
+          label="Admin"
+          icon={Shield}
+          items={adminNav}
+          isActive={isAdminRoute}
           collapsed={collapsed}
           isMobile={isMobile}
         />

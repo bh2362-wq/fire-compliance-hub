@@ -78,7 +78,7 @@ function StatusPill({ s }: { s: RefDoc["ingest_status"] }) {
 
 export default function ReferenceLibrary() {
   const { user, loading: authLoading } = useAuth();
-  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [docs, setDocs] = useState<RefDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -100,13 +100,13 @@ export default function ReferenceLibrary() {
   const [pendingDelete, setPendingDelete] = useState<RefDoc | null>(null);
   const [reingestId, setReingestId] = useState<string | null>(null);
 
-  // gate to finance/admin role (same pattern as MarketData)
+  // Any signed-in user can READ; only finance/admin role can WRITE.
   useEffect(() => {
     if (authLoading) return;
-    if (!user) { setAllowed(false); return; }
+    if (!user) { setIsAdmin(false); return; }
     (async () => {
       const { data } = await supabase.rpc("has_finance_role", { _user_id: user.id });
-      setAllowed(Boolean(data));
+      setIsAdmin(Boolean(data));
     })();
   }, [user, authLoading]);
 
@@ -118,16 +118,16 @@ export default function ReferenceLibrary() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { if (allowed) fetchDocs(); }, [allowed, fetchDocs]);
+  useEffect(() => { if (user) fetchDocs(); }, [user, fetchDocs]);
 
-  // poll while anything is processing/pending
+  // poll while anything is processing/pending (admin only)
   useEffect(() => {
-    if (!allowed) return;
+    if (!isAdmin) return;
     const active = docs.some((d) => d.ingest_status === "processing" || d.ingest_status === "pending");
     if (!active) return;
     const t = setInterval(fetchDocs, 4000);
     return () => clearInterval(t);
-  }, [allowed, docs, fetchDocs]);
+  }, [isAdmin, docs, fetchDocs]);
 
   const stats = useMemo(() => {
     const total = docs.length;
@@ -246,11 +246,11 @@ export default function ReferenceLibrary() {
     }
   };
 
-  if (authLoading || allowed === null) {
+  if (authLoading || isAdmin === null) {
     return <DashboardLayout><div className="p-6 text-sm text-muted-foreground">Loading…</div></DashboardLayout>;
   }
   if (!user) return <Navigate to="/auth" replace />;
-  if (!allowed) return <DashboardLayout><div className="p-6 text-sm">Admin access required.</div></DashboardLayout>;
+  // Any signed-in user can view (read-only); admin actions hidden below.
 
   return (
     <DashboardLayout>
@@ -278,7 +278,8 @@ export default function ReferenceLibrary() {
           </CardContent></Card>
         </div>
 
-        {/* Upload */}
+        {/* Upload — admin only */}
+        {isAdmin && (
         <Card>
           <CardHeader><CardTitle className="text-base">Upload document</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -354,6 +355,7 @@ export default function ReferenceLibrary() {
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Documents */}
         <Card>
@@ -375,12 +377,12 @@ export default function ReferenceLibrary() {
                   <TableHead className="text-right">Chunks</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Ingested</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {docs.length === 0 && !loading && (
-                  <TableRow><TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">No documents yet.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={isAdmin ? 9 : 8} className="text-center text-sm text-muted-foreground py-8">No documents yet.</TableCell></TableRow>
                 )}
                 {docs.map((d) => (
                   <Fragment key={d.id}>
@@ -393,21 +395,23 @@ export default function ReferenceLibrary() {
                       <TableCell className="text-right text-xs">{d.chunk_count}</TableCell>
                       <TableCell><StatusPill s={d.ingest_status} /></TableCell>
                       <TableCell className="text-xs text-muted-foreground">{d.ingested_at ? formatDistanceToNow(new Date(d.ingested_at), { addSuffix: true }) : "—"}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button size="sm" variant="ghost" disabled={reingestId === d.id || d.ingest_status === "processing"} onClick={() => handleReingest(d.id)}>
-                            {reingestId === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setPendingDelete(d)}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Button size="sm" variant="ghost" disabled={reingestId === d.id || d.ingest_status === "processing"} onClick={() => handleReingest(d.id)}>
+                              {reingestId === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setPendingDelete(d)}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                     {expanded[d.id] && (
                       <TableRow key={d.id + "-exp"}>
                         <TableCell />
-                        <TableCell colSpan={8} className="bg-muted/40">
+                        <TableCell colSpan={isAdmin ? 8 : 7} className="bg-muted/40">
                           <div className="space-y-3 py-2 text-xs">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                               <div><span className="text-muted-foreground">Publisher:</span> {d.publisher ?? "—"}</div>
