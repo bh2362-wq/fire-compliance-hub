@@ -101,6 +101,14 @@ const App = () => (
               }
             />
             <Route
+              path="/dashboard/admin/market-data"
+              element={
+                <ProtectedRoute>
+                  <MarketDataAdmin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/dashboard/schedule"
               element={
                 <ProtectedRoute>
