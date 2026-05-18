@@ -116,6 +116,7 @@ export default function ReferenceLibrary() {
   const [chunkPreviews, setChunkPreviews] = useState<Record<string, ChunkPreview[]>>({});
   const [pendingDelete, setPendingDelete] = useState<RefDoc | null>(null);
   const [reingestId, setReingestId] = useState<string | null>(null);
+  const [overwriteTarget, setOverwriteTarget] = useState<{ id: string; title: string } | null>(null);
 
   // Any signed-in user can READ; only owner/admin role can WRITE.
   useEffect(() => {
@@ -186,14 +187,13 @@ export default function ReferenceLibrary() {
     return data as { chunk_count: number; total_tokens: number; duration_ms: number };
   };
 
-  const handleUpload = async () => {
+  const performUpload = async (existingDocId?: string) => {
     if (!file) { toast.error("Choose a file"); return; }
-    if (!title.trim()) { toast.error("Title is required"); return; }
     setUploadBusy(true);
-    let createdId: string | null = null;
+    let createdId: string | null = existingDocId ?? null;
     let storagePath: string | null = null;
     try {
-      setUploadStage("Uploading…");
+      setUploadStage(existingDocId ? "Re-uploading…" : "Uploading…");
       const folder = crypto.randomUUID();
       const safeName = sanitiseFilename(file.name);
       storagePath = `${folder}/${safeName}`;
@@ -201,24 +201,44 @@ export default function ReferenceLibrary() {
         .upload(storagePath, file, { contentType: file.type || "application/octet-stream", upsert: false });
       if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
 
-      const { data: doc, error: insErr } = await refLib().from("documents").insert({
-        title: title.trim(),
-        doc_type: docType,
-        standard_reference: stdRef.trim() || null,
-        edition: edition.trim() || null,
-        publisher: publisher.trim() || null,
-        effective_date: effectiveDate || null,
-        source_filename: file.name,
-        source_storage_path: storagePath,
-        uploaded_by: user?.id ?? null,
-        ingest_status: "pending",
-      }).select("id").single();
-      if (insErr || !doc) throw new Error(`Create document row failed: ${insErr?.message}`);
-      createdId = doc.id as string;
+      if (existingDocId) {
+        // Reuse the existing row — clear chunks, update metadata, mark pending
+        await refLib().from("chunks").delete().eq("document_id", existingDocId);
+        const { error: updErr } = await refLib().from("documents").update({
+          title: title.trim(),
+          doc_type: docType,
+          standard_reference: stdRef.trim() || null,
+          edition: edition.trim() || null,
+          publisher: publisher.trim() || null,
+          effective_date: effectiveDate || null,
+          source_filename: file.name,
+          source_storage_path: storagePath,
+          ingest_status: "pending",
+          ingest_error: null,
+          chunk_count: 0,
+          total_tokens: 0,
+        }).eq("id", existingDocId);
+        if (updErr) throw new Error(`Update document row failed: ${updErr.message}`);
+      } else {
+        const { data: doc, error: insErr } = await refLib().from("documents").insert({
+          title: title.trim(),
+          doc_type: docType,
+          standard_reference: stdRef.trim() || null,
+          edition: edition.trim() || null,
+          publisher: publisher.trim() || null,
+          effective_date: effectiveDate || null,
+          source_filename: file.name,
+          source_storage_path: storagePath,
+          uploaded_by: user?.id ?? null,
+          ingest_status: "pending",
+        }).select("id").single();
+        if (insErr || !doc) throw new Error(`Create document row failed: ${insErr?.message}`);
+        createdId = doc.id as string;
+      }
 
       setUploadStage("Extracting text & generating embeddings…");
       await fetchDocs();
-      const result = await runIngest(createdId);
+      const result = await runIngest(createdId!);
       setUploadStage(`Complete: ${result.chunk_count} chunks, ${result.total_tokens.toLocaleString()} tokens`);
       toast.success(`Ingested: ${result.chunk_count} chunks`);
       await fetchDocs();
@@ -231,6 +251,37 @@ export default function ReferenceLibrary() {
     } finally {
       setUploadBusy(false);
     }
+  };
+
+  const handleUpload = async () => {
+    if (!file) { toast.error("Choose a file"); return; }
+    if (!title.trim()) { toast.error("Title is required"); return; }
+
+    // Check for an existing row with the same source_filename
+    const { data: existingRows } = await refLib().from("documents")
+      .select("id, ingest_status, title")
+      .eq("source_filename", file.name)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const existing = (existingRows ?? [])[0] as { id: string; ingest_status: RefDoc["ingest_status"]; title: string } | undefined;
+
+    if (existing) {
+      if (existing.ingest_status === "failed") {
+        // Silently reuse the failed row
+        await performUpload(existing.id);
+        return;
+      }
+      if (existing.ingest_status === "completed") {
+        // Ask the user before overwriting
+        setOverwriteTarget({ id: existing.id, title: existing.title });
+        return;
+      }
+      // pending / processing
+      toast.error("A document with this filename is already being processed");
+      return;
+    }
+
+    await performUpload();
   };
 
   const handleReingest = async (id: string) => {
