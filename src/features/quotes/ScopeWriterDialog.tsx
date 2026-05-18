@@ -109,8 +109,10 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     try {
       const r = await gen.mutateAsync(buildInput());
       setResult({ introduction: r.introduction, scope: r.scope, generation_id: r.generation_id });
-    } catch (e: any) {
-      toast.error(e?.message ?? "Generation failed");
+    } catch (e) {
+      const { extractEdgeError } = await import("@/lib/edgeError");
+      const detail = await extractEdgeError(e, "Generation failed");
+      toast.error("AI scope generation failed", { description: detail, duration: 10000 });
     }
   };
 
