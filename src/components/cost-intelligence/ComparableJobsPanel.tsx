@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { useComparableJobs } from '@/hooks/useComparableJobs';
+import { useMarketContext } from '@/hooks/useMarketContext';
+import type { MarketContext } from '@/types/cost-intelligence';
 import {
   BUILDING_TYPE_LABELS,
   SYSTEM_TYPE_LABELS,
