@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2, Loader2, Database, UserPlus, Building2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { AIExpandButton } from "./AIExpandButton";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
