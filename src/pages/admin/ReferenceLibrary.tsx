@@ -183,7 +183,8 @@ export default function ReferenceLibrary() {
     try {
       setUploadStage("Uploading…");
       const folder = crypto.randomUUID();
-      storagePath = `${folder}/${file.name}`;
+      const safeName = sanitiseFilename(file.name);
+      storagePath = `${folder}/${safeName}`;
       const { error: upErr } = await supabase.storage.from("reference-library")
         .upload(storagePath, file, { contentType: file.type || "application/octet-stream", upsert: false });
       if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
