@@ -820,7 +820,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   // Sort confirmed visits to the top, then by date
   const statusPriority: Record<string, number> = { confirmed: 0, scheduled: 1, in_progress: 2, pending_review: 3 };
   const activeVisits = visits
-    .filter(v => !invoiceMap[v.id] && v.status !== 'invoiced' && v.status !== 'cancelled')
+    .filter(v => v.status !== 'invoiced' && v.status !== 'cancelled' && !(invoiceMap[v.id] && v.status !== 'completed'))
     .sort((a, b) => {
       const pa = statusPriority[a.status || ''] ?? 99;
       const pb = statusPriority[b.status || ''] ?? 99;
