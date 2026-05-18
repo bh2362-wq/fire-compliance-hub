@@ -856,7 +856,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                   placeholder="Description of work..."
                                   disabled={isLocked}
                                 />
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                                   <div>
                                     <Label className="text-xs">Item / Part</Label>
                                     <Input
@@ -878,7 +878,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                     />
                                   </div>
                                   <div>
-                                    <Label className="text-xs">Unit Price £</Label>
+                                    <Label className="text-xs">Unit Cost £</Label>
                                     <Input
                                       type="number"
                                       min={0}
@@ -899,6 +899,15 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                       onChange={(e) => handleItemChange(index, "markup_percent", parseFloat(e.target.value) || 0)}
                                       disabled={isLocked}
                                       className="h-8"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Sell Price £</Label>
+                                    <Input
+                                      type="number"
+                                      readOnly
+                                      value={(item.unit_price * (1 + (item.markup_percent || 0) / 100)).toFixed(2)}
+                                      className="h-8 bg-muted"
                                     />
                                   </div>
                                   <div>
