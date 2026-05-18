@@ -246,11 +246,11 @@ export default function ReferenceLibrary() {
     }
   };
 
-  if (authLoading || allowed === null) {
+  if (authLoading || isAdmin === null) {
     return <DashboardLayout><div className="p-6 text-sm text-muted-foreground">Loading…</div></DashboardLayout>;
   }
   if (!user) return <Navigate to="/auth" replace />;
-  if (!allowed) return <DashboardLayout><div className="p-6 text-sm">Admin access required.</div></DashboardLayout>;
+  // Any signed-in user can view (read-only); admin actions hidden below.
 
   return (
     <DashboardLayout>
