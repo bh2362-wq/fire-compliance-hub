@@ -20,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Loader2, Database } from "lucide-react";
+import { Plus, Trash2, Loader2, Database, UserPlus, Building2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AIExpandButton } from "./AIExpandButton";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,6 +70,52 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
   ]);
   const [saving, setSaving] = useState(false);
   const [bulkMarkup, setBulkMarkup] = useState("");
+
+  // Quick-add customer/site
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [showAddSite, setShowAddSite] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: "", contact_name: "", contact_email: "", contact_phone: "", address: "", city: "", postcode: "" });
+  const [newSite, setNewSite] = useState({ name: "", address: "", city: "", postcode: "", contact_name: "", contact_phone: "" });
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [savingSite, setSavingSite] = useState(false);
+
+  const handleCreateCustomer = async () => {
+    if (!newCustomer.name.trim()) { toast.error("Customer name required"); return; }
+    setSavingCustomer(true);
+    try {
+      const { data, error } = await supabase.from("customers").insert({ ...newCustomer, status: "active" }).select("id, name").single();
+      if (error) throw error;
+      setCustomers((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setCustomerId(data.id);
+      setSiteId("");
+      setShowAddCustomer(false);
+      setNewCustomer({ name: "", contact_name: "", contact_email: "", contact_phone: "", address: "", city: "", postcode: "" });
+      toast.success(`Customer "${data.name}" added`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create customer");
+    } finally {
+      setSavingCustomer(false);
+    }
+  };
+
+  const handleCreateSite = async () => {
+    if (!newSite.name.trim()) { toast.error("Site name required"); return; }
+    if (!customerId) { toast.error("Select or create a customer first"); return; }
+    setSavingSite(true);
+    try {
+      const { data, error } = await supabase.from("sites").insert({ ...newSite, customer_id: customerId, status: "active" }).select("id, name, customer_id").single();
+      if (error) throw error;
+      setSites((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setSiteId(data.id);
+      setShowAddSite(false);
+      setNewSite({ name: "", address: "", city: "", postcode: "", contact_name: "", contact_phone: "" });
+      toast.success(`Site "${data.name}" added`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create site");
+    } finally {
+      setSavingSite(false);
+    }
+  };
 
   // Scope / classification fields (cost intelligence)
   const [systemType, setSystemType] = useState<SystemType | "">("");
@@ -369,6 +416,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
 
 
   return (
+    <>
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
       <ResponsiveDialogHeader>
         <ResponsiveDialogTitle>New Quotation</ResponsiveDialogTitle>
@@ -399,7 +447,12 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
           {/* Customer & Site */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Customer</Label>
+              <div className="flex items-center justify-between">
+                <Label>Customer</Label>
+                <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setShowAddCustomer(true)}>
+                  <UserPlus className="mr-1 h-3 w-3" /> New
+                </Button>
+              </div>
               <Select value={customerId} onValueChange={(v) => { setCustomerId(v); setSiteId(""); }}>
                 <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
                 <SelectContent>
@@ -410,9 +463,14 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Site *</Label>
+              <div className="flex items-center justify-between">
+                <Label>Site *</Label>
+                <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setShowAddSite(true)} disabled={!customerId}>
+                  <Building2 className="mr-1 h-3 w-3" /> New
+                </Button>
+              </div>
               <Select value={siteId} onValueChange={setSiteId}>
-                <SelectTrigger><SelectValue placeholder="Select site..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={customerId ? "Select site..." : "Pick customer first"} /></SelectTrigger>
                 <SelectContent>
                   {filteredSites.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
@@ -640,5 +698,102 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
         </Button>
       </ResponsiveDialogFooter>
     </ResponsiveDialog>
+
+    {/* Quick-add customer */}
+    <Dialog open={showAddCustomer} onOpenChange={setShowAddCustomer}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add new customer</DialogTitle>
+          <DialogDescription>Create a customer on the fly. You can fill in more details later from the Customers page.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Customer name *</Label>
+            <Input value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} placeholder="Company / customer name" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Contact name</Label>
+              <Input value={newCustomer.contact_name} onChange={(e) => setNewCustomer({ ...newCustomer, contact_name: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Contact phone</Label>
+              <Input value={newCustomer.contact_phone} onChange={(e) => setNewCustomer({ ...newCustomer, contact_phone: e.target.value })} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Contact email</Label>
+            <Input type="email" value={newCustomer.contact_email} onChange={(e) => setNewCustomer({ ...newCustomer, contact_email: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Address</Label>
+            <Input value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>City</Label>
+              <Input value={newCustomer.city} onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Postcode</Label>
+              <Input value={newCustomer.postcode} onChange={(e) => setNewCustomer({ ...newCustomer, postcode: e.target.value })} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowAddCustomer(false)}>Cancel</Button>
+          <Button onClick={handleCreateCustomer} disabled={savingCustomer}>
+            {savingCustomer ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</> : "Add customer"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Quick-add site */}
+    <Dialog open={showAddSite} onOpenChange={setShowAddSite}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add new site</DialogTitle>
+          <DialogDescription>Create a site under the selected customer. More details can be added later.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Site name *</Label>
+            <Input value={newSite.name} onChange={(e) => setNewSite({ ...newSite, name: e.target.value })} placeholder="e.g. Head Office, Warehouse 2" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Address</Label>
+            <Input value={newSite.address} onChange={(e) => setNewSite({ ...newSite, address: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>City</Label>
+              <Input value={newSite.city} onChange={(e) => setNewSite({ ...newSite, city: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Postcode</Label>
+              <Input value={newSite.postcode} onChange={(e) => setNewSite({ ...newSite, postcode: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Site contact</Label>
+              <Input value={newSite.contact_name} onChange={(e) => setNewSite({ ...newSite, contact_name: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Contact phone</Label>
+              <Input value={newSite.contact_phone} onChange={(e) => setNewSite({ ...newSite, contact_phone: e.target.value })} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowAddSite(false)}>Cancel</Button>
+          <Button onClick={handleCreateSite} disabled={savingSite}>
+            {savingSite ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving…</> : "Add site"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
