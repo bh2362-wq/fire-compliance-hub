@@ -9,6 +9,7 @@ import {
   downloadSignedUrl,
 } from "@/features/quotes/useQuoteGeneration";
 import { ScopeWriterDialog } from "./ScopeWriterDialog";
+import { extractEdgeError } from "@/lib/edgeError";
 
 export function QuoteActions({ quotationId }: { quotationId: string }) {
   const { data: q, refetch } = useQuotationFull(quotationId);
