@@ -70,6 +70,17 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
   const [saving, setSaving] = useState(false);
   const [bulkMarkup, setBulkMarkup] = useState("");
 
+  // Scope / classification fields (cost intelligence)
+  const [systemType, setSystemType] = useState<SystemType | "">("");
+  const [buildingType, setBuildingType] = useState<BuildingType | "">("");
+  const [jobCategory, setJobCategory] = useState<JobCategory | "">("");
+  const [region, setRegion] = useState<Region | "">("");
+  const [bs5839, setBs5839] = useState<Bs5839Category | "">("");
+  const [deviceCount, setDeviceCount] = useState<string>("");
+  const [loopCount, setLoopCount] = useState<string>("");
+  const [giaSqm, setGiaSqm] = useState<string>("");
+
+
   // Autocomplete state per line item
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<SupplierProduct[]>([]);
