@@ -444,7 +444,7 @@ export default function ReferenceLibrary() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
