@@ -41,6 +41,7 @@ import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quo
 import { getCompanySettings } from "@/services/companySettingsService";
 import { EmailQuotationDialog } from "./EmailQuotationDialog";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
+import { QuoteActions } from "@/features/quotes/QuoteActions";
 
 interface LineItem {
   id: string;
@@ -1076,10 +1077,13 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             )}
           </div>
 
-          <DialogFooter className="px-6 py-3 border-t shrink-0 sm:justify-between">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
+          <DialogFooter className="px-6 py-3 border-t shrink-0 sm:justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+              <QuoteActions quotationId={quotationId} />
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
