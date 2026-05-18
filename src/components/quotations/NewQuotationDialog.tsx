@@ -727,8 +727,19 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
             <Input type="email" value={newCustomer.contact_email} onChange={(e) => setNewCustomer({ ...newCustomer, contact_email: e.target.value })} />
           </div>
           <div className="space-y-1.5">
-            <Label>Address</Label>
-            <Input value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} />
+            <Label>Address (AI lookup)</Label>
+            <AddressAutocomplete
+              value={newCustomer.address}
+              onChange={(v) => setNewCustomer((prev) => ({ ...prev, address: v }))}
+              onAddressSelect={(d) => setNewCustomer((prev) => ({
+                ...prev,
+                address: d.address,
+                city: d.city || prev.city,
+                postcode: d.postcode || prev.postcode,
+                name: prev.name || d.businessName || prev.name,
+              }))}
+              placeholder="Start typing address or business name…"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
