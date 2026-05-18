@@ -78,7 +78,7 @@ function StatusPill({ s }: { s: RefDoc["ingest_status"] }) {
 
 export default function ReferenceLibrary() {
   const { user, loading: authLoading } = useAuth();
-  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [docs, setDocs] = useState<RefDoc[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -100,13 +100,13 @@ export default function ReferenceLibrary() {
   const [pendingDelete, setPendingDelete] = useState<RefDoc | null>(null);
   const [reingestId, setReingestId] = useState<string | null>(null);
 
-  // gate to finance/admin role (same pattern as MarketData)
+  // Any signed-in user can READ; only finance/admin role can WRITE.
   useEffect(() => {
     if (authLoading) return;
-    if (!user) { setAllowed(false); return; }
+    if (!user) { setIsAdmin(false); return; }
     (async () => {
       const { data } = await supabase.rpc("has_finance_role", { _user_id: user.id });
-      setAllowed(Boolean(data));
+      setIsAdmin(Boolean(data));
     })();
   }, [user, authLoading]);
 
