@@ -118,6 +118,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [bulkMarkup, setBulkMarkup] = useState("");
 
   // Editable fields
   const [quotationNumber, setQuotationNumber] = useState("");
