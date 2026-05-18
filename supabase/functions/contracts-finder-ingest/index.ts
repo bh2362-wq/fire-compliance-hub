@@ -78,8 +78,12 @@ Deno.serve(async (req) => {
   const validAnon = token && (token === ANON_KEY || token === PUBLISHABLE_KEY);
   const validService = token && token === SERVICE_KEY;
   if (!validAnon && !validService) {
+    console.log(`[auth-debug] token_pfx=${token.slice(0, 16)} anon_pfx=${ANON_KEY.slice(0, 16)} pub_pfx=${PUBLISHABLE_KEY.slice(0, 16)} svc_pfx=${SERVICE_KEY.slice(0, 16)}`);
     return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
       status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
