@@ -200,7 +200,7 @@ async function renderPdfToImages(url: string, scale = 1.6): Promise<string[]> {
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
 
-    await page.render({ canvas, canvasContext: context, viewport }).promise;
+    await page.render({ canvasContext: context, viewport } as any).promise;
     pages.push(canvas.toDataURL("image/jpeg", 0.92));
   }
 
