@@ -692,6 +692,12 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   };
 
   const totalAmount = lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+  const totalCost = lineItems.reduce(
+    (sum, item) => sum + item.quantity * item.unit_price + (item.labour_cost || 0),
+    0
+  );
+  const profitAmount = totalAmount - totalCost;
+  const profitMargin = totalAmount > 0 ? (profitAmount / totalAmount) * 100 : 0;
   const vatAmount = totalAmount * (vatRate / 100);
   const grandTotal = totalAmount + vatAmount;
   const isLocked = !!quotation?.locked_at && quotation?.status !== "recalled";
@@ -950,8 +956,18 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
 
                   <Card>
                     <CardContent className="p-4">
-                      <div className="ml-auto w-64 space-y-1.5">
-                        <div className="flex justify-between text-sm">
+                      <div className="ml-auto w-72 space-y-1.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Cost (internal)</span>
+                          <span className="text-muted-foreground">£{totalCost.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-emerald-600 dark:text-emerald-400">Profit (internal)</span>
+                          <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                            £{profitAmount.toFixed(2)} ({profitMargin.toFixed(1)}%)
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm pt-1.5 border-t">
                           <span className="text-muted-foreground">Subtotal</span>
                           <span>£{totalAmount.toFixed(2)}</span>
                         </div>
