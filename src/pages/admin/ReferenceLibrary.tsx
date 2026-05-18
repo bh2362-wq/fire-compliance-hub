@@ -100,15 +100,31 @@ export default function ReferenceLibrary() {
   const [pendingDelete, setPendingDelete] = useState<RefDoc | null>(null);
   const [reingestId, setReingestId] = useState<string | null>(null);
 
-  // Any signed-in user can READ; only finance/admin role can WRITE.
+  // Any signed-in user can READ; only owner/admin role can WRITE.
   useEffect(() => {
     if (authLoading) return;
     if (!user) { setIsAdmin(false); return; }
     (async () => {
-      const { data } = await supabase.rpc("has_finance_role", { _user_id: user.id });
-      setIsAdmin(Boolean(data));
+      try {
+        const { data: rpcData, error: rpcErr } = await supabase.rpc("has_finance_role", { _user_id: user.id });
+        if (!rpcErr && rpcData != null) {
+          setIsAdmin(Boolean(rpcData));
+          return;
+        }
+        // Fallback: query user_roles directly (covers schema-cache hiccups)
+        const { data: rows } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .in("role", ["owner", "admin"]);
+        setIsAdmin((rows?.length ?? 0) > 0);
+      } catch (e) {
+        console.error("ReferenceLibrary admin check failed:", e);
+        setIsAdmin(false);
+      }
     })();
   }, [user, authLoading]);
+
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
