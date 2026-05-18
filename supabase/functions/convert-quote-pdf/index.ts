@@ -1,12 +1,18 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 function readGraphConfig() {
-  const tenantId = Deno.env.get("GRAPH_TENANT_ID");
-  const clientId = Deno.env.get("GRAPH_CLIENT_ID");
-  const clientSecret = Deno.env.get("GRAPH_CLIENT_SECRET");
+  const tenantId = Deno.env.get("GRAPH_TENANT_ID") ?? Deno.env.get("MICROSOFT_TENANT_ID");
+  const clientId = Deno.env.get("GRAPH_CLIENT_ID") ?? Deno.env.get("MICROSOFT_CLIENT_ID");
+  const clientSecret = Deno.env.get("GRAPH_CLIENT_SECRET") ?? Deno.env.get("MICROSOFT_CLIENT_SECRET");
   const conversionUser = Deno.env.get("GRAPH_CONVERSION_USER");
   if (!tenantId || !clientId || !clientSecret || !conversionUser) {
-    throw new Error("Microsoft Graph environment variables missing");
+    const missing = [
+      !tenantId && "GRAPH_TENANT_ID (or MICROSOFT_TENANT_ID)",
+      !clientId && "GRAPH_CLIENT_ID (or MICROSOFT_CLIENT_ID)",
+      !clientSecret && "GRAPH_CLIENT_SECRET (or MICROSOFT_CLIENT_SECRET)",
+      !conversionUser && "GRAPH_CONVERSION_USER",
+    ].filter(Boolean).join(", ");
+    throw new Error(`Microsoft Graph environment variables missing: ${missing}`);
   }
   return { tenantId, clientId, clientSecret, conversionUser };
 }
