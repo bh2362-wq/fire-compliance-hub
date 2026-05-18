@@ -1,7 +1,7 @@
-import Auth from './Auth';
+import LoginScreen from '@/screens/LoginScreen';
 
 const Index = () => {
-  return <Auth />;
+  return <LoginScreen />;
 };
 
 export default Index;
