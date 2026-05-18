@@ -71,6 +71,52 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
   const [saving, setSaving] = useState(false);
   const [bulkMarkup, setBulkMarkup] = useState("");
 
+  // Quick-add customer/site
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [showAddSite, setShowAddSite] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: "", contact_name: "", contact_email: "", contact_phone: "", address: "", city: "", postcode: "" });
+  const [newSite, setNewSite] = useState({ name: "", address: "", city: "", postcode: "", contact_name: "", contact_phone: "" });
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [savingSite, setSavingSite] = useState(false);
+
+  const handleCreateCustomer = async () => {
+    if (!newCustomer.name.trim()) { toast.error("Customer name required"); return; }
+    setSavingCustomer(true);
+    try {
+      const { data, error } = await supabase.from("customers").insert({ ...newCustomer, status: "active" }).select("id, name").single();
+      if (error) throw error;
+      setCustomers((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setCustomerId(data.id);
+      setSiteId("");
+      setShowAddCustomer(false);
+      setNewCustomer({ name: "", contact_name: "", contact_email: "", contact_phone: "", address: "", city: "", postcode: "" });
+      toast.success(`Customer "${data.name}" added`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create customer");
+    } finally {
+      setSavingCustomer(false);
+    }
+  };
+
+  const handleCreateSite = async () => {
+    if (!newSite.name.trim()) { toast.error("Site name required"); return; }
+    if (!customerId) { toast.error("Select or create a customer first"); return; }
+    setSavingSite(true);
+    try {
+      const { data, error } = await supabase.from("sites").insert({ ...newSite, customer_id: customerId, status: "active" }).select("id, name, customer_id").single();
+      if (error) throw error;
+      setSites((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setSiteId(data.id);
+      setShowAddSite(false);
+      setNewSite({ name: "", address: "", city: "", postcode: "", contact_name: "", contact_phone: "" });
+      toast.success(`Site "${data.name}" added`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create site");
+    } finally {
+      setSavingSite(false);
+    }
+  };
+
   // Scope / classification fields (cost intelligence)
   const [systemType, setSystemType] = useState<SystemType | "">("");
   const [buildingType, setBuildingType] = useState<BuildingType | "">("");
