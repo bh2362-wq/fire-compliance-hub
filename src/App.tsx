@@ -119,6 +119,14 @@ const App = () => (
               }
             />
             <Route
+              path="/dashboard/admin/quote-settings"
+              element={
+                <ProtectedRoute>
+                  <QuoteSettings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/dashboard/schedule"
               element={
                 <ProtectedRoute>
