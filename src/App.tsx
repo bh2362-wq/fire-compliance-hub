@@ -65,6 +65,7 @@ import RAMS from "./pages/qms/RAMS";
 import SupplierEvaluations from "./pages/qms/SupplierEvaluations";
 import MarketDataAdmin from "./pages/admin/MarketData";
 import ReferenceLibrary from "./pages/admin/ReferenceLibrary";
+import QuoteSettings from "./pages/admin/QuoteSettings";
 
 const queryClient = new QueryClient();
 
@@ -114,6 +115,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ReferenceLibrary />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/admin/quote-settings"
+              element={
+                <ProtectedRoute>
+                  <QuoteSettings />
                 </ProtectedRoute>
               }
             />

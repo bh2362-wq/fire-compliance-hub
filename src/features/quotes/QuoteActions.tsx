@@ -9,6 +9,7 @@ import {
   downloadSignedUrl,
 } from "@/features/quotes/useQuoteGeneration";
 import { ScopeWriterDialog } from "./ScopeWriterDialog";
+import { extractEdgeError } from "@/lib/edgeError";
 
 export function QuoteActions({ quotationId }: { quotationId: string }) {
   const { data: q, refetch } = useQuotationFull(quotationId);
@@ -24,8 +25,9 @@ export function QuoteActions({ quotationId }: { quotationId: string }) {
       await downloadSignedUrl(r.signed_url, `${q.quotation_number}.docx`);
       toast.success("Word document downloaded");
       refetch();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Word export failed");
+    } catch (e) {
+      const detail = await extractEdgeError(e, "Word export failed");
+      toast.error("Word generation failed", { description: detail, duration: 10000 });
     }
   };
 
@@ -42,8 +44,9 @@ export function QuoteActions({ quotationId }: { quotationId: string }) {
       await downloadSignedUrl(r.signed_url, `${q.quotation_number}.pdf`);
       toast.success("PDF downloaded");
       refetch();
-    } catch (e: any) {
-      toast.error(e?.message ?? "PDF generation failed");
+    } catch (e) {
+      const detail = await extractEdgeError(e, "PDF generation failed");
+      toast.error("PDF generation failed", { description: detail, duration: 10000 });
     } finally {
       setPdfBusy(false);
     }
