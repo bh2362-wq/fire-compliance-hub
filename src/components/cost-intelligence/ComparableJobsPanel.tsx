@@ -41,6 +41,8 @@ const pct = (n: number | null | undefined, digits = 1) =>
 export function ComparableJobsPanel({
   scope,
   currentQuoteTotal,
+  quoteId,
+  visitId,
   onSelectJob,
   className,
 }: ComparableJobsPanelProps) {
@@ -73,6 +75,15 @@ export function ComparableJobsPanel({
         <MarketContextSection context={market} />
       )}
 
+      {hasScope && (
+        <AIAssessmentSection
+          scope={scope}
+          currentQuoteTotal={currentQuoteTotal}
+          quoteId={quoteId}
+          visitId={visitId}
+        />
+      )}
+
       {hasScope && !error && jobs.length > 0 && (
         <ComparablesList jobs={jobs} onSelectJob={onSelectJob} />
       )}
@@ -81,6 +92,7 @@ export function ComparableJobsPanel({
     </aside>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Header                                                              */
