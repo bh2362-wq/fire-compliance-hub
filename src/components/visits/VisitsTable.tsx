@@ -1776,6 +1776,14 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           onSuccess={onRefresh}
         />
       )}
+      {classifyVisit && (
+        <ClassifyJobDialog
+          open={!!classifyVisit}
+          onOpenChange={(open) => !open && setClassifyVisit(null)}
+          jobId={classifyVisit.id}
+          jobLabel={classifyVisit.job_number || classifyVisit.site?.name || undefined}
+        />
+      )}
       <MergeSitesDialog
         open={mergeSitesOpen}
         onOpenChange={setMergeSitesOpen}
