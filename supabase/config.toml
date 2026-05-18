@@ -143,3 +143,9 @@ verify_jwt = false
 
 [functions.generate-pricing-narrative]
 verify_jwt = false
+
+[functions.ingest-reference-document]
+verify_jwt = false
+
+[functions.query-reference-library]
+verify_jwt = false
