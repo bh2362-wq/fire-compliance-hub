@@ -80,13 +80,13 @@ function chunkPage(pageText: string, pageNumber: number, startIndex: number): Ch
   return chunks;
 }
 
-async function extractPdf(buffer: ArrayBuffer): Promise<{ pages: string[] }> {
-  // unpdf is Deno-friendly and returns per-page text directly
-  const { extractText, getDocumentProxy } = await import("https://esm.sh/unpdf@0.11.0");
-  const pdf = await getDocumentProxy(new Uint8Array(buffer));
-  const { text } = await extractText(pdf, { mergePages: false });
-  const pages = Array.isArray(text) ? (text as string[]) : [String(text || "")];
-  return { pages };
+async function extractPdf(buffer: ArrayBuffer): Promise<{ pages: string[]; totalPages: number }> {
+  // Pass the raw Uint8Array directly to extractText — skipping getDocumentProxy
+  // avoids the "No PDFJS.workerSrc specified" error in the edge runtime.
+  const { extractText } = await import("https://esm.sh/unpdf@0.11.0");
+  const result = await extractText(new Uint8Array(buffer), { mergePages: false });
+  const pages = Array.isArray(result.text) ? (result.text as string[]) : [String(result.text || "")];
+  return { pages, totalPages: result.totalPages };
 }
 
 async function extractDocx(buffer: ArrayBuffer): Promise<{ pages: string[] }> {
@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
     const name = (doc.source_filename || doc.source_storage_path).toLowerCase();
 
     // Extract
-    let extracted: { pages: string[] };
+    let extracted: { pages: string[]; totalPages?: number };
     if (name.endsWith(".pdf")) extracted = await extractPdf(buffer);
     else if (name.endsWith(".docx")) extracted = await extractDocx(buffer);
     else if (name.endsWith(".txt")) extracted = { pages: [new TextDecoder().decode(buffer)] };
@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
       ingested_at: new Date().toISOString(),
       chunk_count: chunks.length,
       total_tokens: totalTokens,
-      page_count: extracted.pages.length,
+      page_count: extracted.totalPages ?? extracted.pages.length,
     }).eq("id", document_id);
 
     return new Response(JSON.stringify({
