@@ -83,10 +83,11 @@ export function useAuth() {
   /* --------------------------- password reset --------------------------- */
 
   const sendPasswordReset = useCallback(async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // Universal link back into the app — must match Associated Domains entitlement
-      redirectTo: 'https://app.bhofire.com/auth/reset',
-    });
+    const redirectTo =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}/auth/reset`
+        : 'https://app.bhofire.com/auth/reset';
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
   }, []);
 
