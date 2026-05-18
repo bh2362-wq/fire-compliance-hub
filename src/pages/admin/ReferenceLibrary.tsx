@@ -4,7 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import {
   Upload, FileText, Loader2, CheckCircle2, AlertCircle, Clock,
-  RefreshCw, Trash2, ChevronDown, ChevronRight,
+  RefreshCw, Trash2, ChevronDown, ChevronRight, AlertTriangle,
 } from "lucide-react";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -21,6 +22,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { extractPdfInBrowser, extractTxtInBrowser, ExtractedPdf } from "@/lib/refLibPdfExtract";
 
 type DocType =
   | "standard" | "fia_guidance" | "manufacturer_doc" | "past_quote"
