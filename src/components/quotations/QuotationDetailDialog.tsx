@@ -165,6 +165,25 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [unlocking, setUnlocking] = useState(false);
   const [bulkMarkup, setBulkMarkup] = useState("");
 
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = lineItems.findIndex((i) => i.id === active.id);
+    const newIndex = lineItems.findIndex((i) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(lineItems, oldIndex, newIndex).map((it, idx) => ({
+      ...it,
+      sort_order: idx,
+    }));
+    setLineItems(reordered);
+    setHasChanges(true);
+  };
+
   // Editable fields
   const [quotationNumber, setQuotationNumber] = useState("");
   const [title, setTitle] = useState("");
