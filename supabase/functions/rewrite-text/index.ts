@@ -327,11 +327,26 @@ ${groundingActuallyUsed
   : "- Do NOT cite any specific clause numbers or standards in the title."}
 - UK English spelling.`;
         break;
-      case "quotation_summary":
+      case "quotation_summary": {
+        const strictCitationBlock = `CITATION RULES — ABSOLUTE:
+
+You will be given source material from BS 5839-1:2025. You may ONLY cite clauses, sections, annexes, or sub-clauses whose exact reference (e.g. 'Clause 43.2.1' or 'Annex G') appears verbatim in the source material text provided below.
+
+You may NOT:
+- Invent sub-clauses by adding decimal points (e.g. you may not cite Clause 43.3.21 unless that exact string appears in the source)
+- Extrapolate from a cited clause (e.g. if Clause 43 is in source, do not cite Clause 43.2 unless it is also in source)
+- Pattern-match the standard's numbering style to produce plausible-looking references
+- Cite clauses from your training knowledge of BS 5839 that aren't in the provided source
+
+If you want to make a claim that needs a specific sub-clause reference and that reference isn't in the source material:
+- Either cite the parent clause that IS in source (e.g. cite Clause 43 generally instead of Clause 43.3.21)
+- Or omit the citation entirely and phrase the claim without it
+
+Inventing a citation that looks real but isn't will mislead the client and damage BHO's professional reputation. When in doubt, cite less, not more.`;
         systemPrompt = groundingActuallyUsed
           ? `You are a quote description editor for BHO Fire & Security, a UK fire alarm specialist working to BS 5839-1:2025 with Honeywell Gent expertise.
 
-GROUNDING DIRECTIVE: Only cite clauses, standards or section numbers that appear verbatim in the REFERENCE LIBRARY EXCERPTS below. Where the excerpts contain a specific clause matching this scope, cite it. Never invent clause numbers.
+${strictCitationBlock}
 
 STRUCTURE — output a structured description with these sections in this order:
 1. **Scope of Works** — bullet list of what we will do
@@ -343,7 +358,7 @@ FORMATTING:
 - Use **bold** (double asterisks) for section headers
 - Use "- " for bullet points
 - British English spelling throughout (organisation, recognised, colour, centre)
-- Reference BS 5839-1:2025 with specific clauses where source material supports it
+- Reference BS 5839-1:2025 only with clauses present verbatim in source material
 - Include manufacturer references (Gent Vigilon, Hochiki, Advanced, Kentec, Notifier) where context supports
 - Conservative tone — no marketing fluff, no superlatives
 - 200-400 words total
@@ -374,6 +389,7 @@ ${context || "No line items provided"}
 
 Return ONLY the formatted summary text.`;
         break;
+      }
       case "po_line_items":
         systemPrompt = `You are a professional procurement specialist. Improve the grammar, spelling and clarity of these numbered purchase order line item descriptions. Keep the same numbering format (1. 2. 3. etc). Make descriptions clear, professional and suitable for a formal purchase order. Each description should be well-formatted - if a description contains multiple details (e.g. part number, specification, quantity notes), space them clearly across up to 2 lines using a newline within the numbered item. Do NOT add information that wasn't in the original. Use UK English spelling.${formatRules}`;
         break;
