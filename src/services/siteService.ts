@@ -32,6 +32,8 @@ export interface DeviceImport {
   device_type: string;
   location?: string;
   zone?: string;
+  raw_import_data?: Record<string, string>;
+  imported_source_columns?: string[];
 }
 
 export async function getSites(): Promise<{ sites: Site[]; error: Error | null }> {
@@ -204,11 +206,13 @@ export async function importDevices(
         device_type: d.device_type,
         location: d.location || null,
         zone: d.zone || null,
+        raw_import_data: d.raw_import_data || {},
+        imported_source_columns: d.imported_source_columns || [],
         status: "active",
       }));
 
       const { data, error } = await supabase
-        .from("devices")
+        .from("devices" as any)
         .upsert(batch, { onConflict: "site_id,loop,address", ignoreDuplicates: true })
         .select();
 
@@ -246,6 +250,27 @@ const COLUMN_ALIASES: Record<keyof ColumnMapping, string[]> = {
   location: ["location", "loc", "device location", "description", "desc", "area description", "room", "place", "fitted location"],
   zone: ["zone", "zone no", "zone number", "zone description", "area", "zone area"],
 };
+
+export function parseDelimitedDeviceContent(content: string): { rows: Record<string, unknown>[]; columns: string[]; errors: string[] } {
+  const errors: string[] = [];
+  const lines = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter((l) => l.trim());
+
+  if (lines.length < 2) {
+    return { rows: [], columns: [], errors: ["File must contain headers and at least one data row"] };
+  }
+
+  const delimiter = detectDelimiter(content);
+  const columns = parseCSVLine(lines[0], delimiter).map((h, index) => h || `Column ${index + 1}`);
+  const rows = lines.slice(1).map((line) => {
+    const values = parseCSVLine(line, delimiter);
+    return columns.reduce<Record<string, unknown>>((row, column, index) => {
+      row[column] = values[index] || "";
+      return row;
+    }, {});
+  }).filter((row) => Object.values(row).some((value) => String(value ?? "").trim()));
+
+  return { rows, columns, errors };
+}
 
 function normalizeHeader(h: string): string {
   return h.toLowerCase().trim().replace(/[\s._\-/\\#]+/g, " ").replace(/\s+/g, " ").trim();
@@ -448,6 +473,10 @@ export interface BulkReplaceMap {
   zone?: BulkReplace;
 }
 
+export interface ParseDeviceRowsOptions {
+  selectedColumns?: string[];
+}
+
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -461,7 +490,8 @@ export function parseDeviceRowsWithMapping(
   rows: Record<string, unknown>[],
   mapping: ColumnMapping,
   manualValues: ManualValues = {},
-  bulkReplaces: BulkReplaceMap = {}
+  bulkReplaces: BulkReplaceMap = {},
+  options: ParseDeviceRowsOptions = {}
 ): { devices: DeviceImport[]; errors: string[] } {
   const errors: string[] = [];
   const devices: DeviceImport[] = [];
@@ -480,6 +510,9 @@ export function parseDeviceRowsWithMapping(
     errors.push("Required columns (loop, address, type) must be mapped or manually provided");
     return { devices, errors };
   }
+
+  const mappedColumns = [mapping.loop, mapping.address, mapping.type, mapping.location, mapping.zone].filter(Boolean) as string[];
+  const sourceColumns = Array.from(new Set([...(options.selectedColumns || []), ...mappedColumns]));
 
   rows.forEach((row, i) => {
     // Use manual value if column not mapped, otherwise use column value
@@ -524,12 +557,19 @@ export function parseDeviceRowsWithMapping(
       }
     }
 
+    const raw_import_data = sourceColumns.reduce<Record<string, string>>((acc, column) => {
+      acc[column] = String(row[column] ?? "").trim();
+      return acc;
+    }, {});
+
     devices.push({
       loop,
       address,
       device_type,
       location,
       zone,
+      raw_import_data,
+      imported_source_columns: sourceColumns,
     });
   });
 

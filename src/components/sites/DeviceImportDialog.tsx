@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,12 +18,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Settings2, FileText, ClipboardPaste } from "lucide-react";
 import { 
   Site, 
-  parseDeviceCSV, 
-  parseDeviceRows, 
   parseDeviceRowsWithMapping,
+  parseDelimitedDeviceContent,
   detectColumnMapping,
   importDevices, 
   DeviceImport,
@@ -113,18 +113,29 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
   const [currentMapping, setCurrentMapping] = useState<ColumnMapping | null>(null);
   const [currentManualValues, setCurrentManualValues] = useState<ManualValues>({});
   const [currentBulkReplaces, setCurrentBulkReplaces] = useState<BulkReplaceMap>({});
+  const [selectedSourceColumns, setSelectedSourceColumns] = useState<string[]>([]);
   const [isPdfFile, setIsPdfFile] = useState(false);
   const [importMode, setImportMode] = useState<"file" | "paste">("file");
   const [pastedText, setPastedText] = useState("");
   const { toast } = useToast();
 
+  const mappedColumnSet = useMemo(() => new Set(
+    currentMapping
+      ? [currentMapping.loop, currentMapping.address, currentMapping.type, currentMapping.location, currentMapping.zone].filter(Boolean) as string[]
+      : []
+  ), [currentMapping]);
+  const previewColumns = useMemo(() => selectedSourceColumns.slice(0, 8), [selectedSourceColumns]);
+
   const parseWithMapping = useCallback((
     rows: Record<string, unknown>[], 
     mapping: ColumnMapping, 
     manualValues: ManualValues = {},
-    bulkReplaces: BulkReplaceMap = {}
+    bulkReplaces: BulkReplaceMap = {},
+    selectedColumns: string[] = selectedSourceColumns
   ) => {
-    const { devices, errors } = parseDeviceRowsWithMapping(rows, mapping, manualValues, bulkReplaces);
+    const { devices, errors } = parseDeviceRowsWithMapping(rows, mapping, manualValues, bulkReplaces, {
+      selectedColumns,
+    });
     setParsedDevices(devices);
     setParseErrors(errors);
     setCurrentMapping(mapping);
@@ -138,7 +149,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [selectedSourceColumns, toast]);
 
   const parseSheet = useCallback((wb: XLSX.WorkBook, sheetName: string) => {
     const sheet = wb.Sheets[sheetName];
@@ -153,6 +164,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setRawRows(rows);
     const columns = Object.keys(rows[0]);
     setAvailableColumns(columns);
+    setSelectedSourceColumns(columns);
 
     // Try to detect column mapping
     const { mapping, complete } = detectColumnMapping(columns);
@@ -160,25 +172,15 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
 
     if (complete) {
       // All required columns found - parse immediately
-      const { devices, errors } = parseDeviceRows(rows);
-      setParsedDevices(devices);
-      setParseErrors(errors);
-      setCurrentMapping(mapping as ColumnMapping);
+      parseWithMapping(rows, mapping as ColumnMapping, {}, {}, columns);
 
-      if (devices.length === 0 && errors.length > 0) {
-        toast({
-          title: "Parse failed",
-          description: errors[0],
-          variant: "destructive",
-        });
-      }
     } else {
       // Missing required columns - show mapping dialog
       setParsedDevices([]);
       setParseErrors([]);
       setShowMappingDialog(true);
     }
-  }, [toast]);
+  }, [parseWithMapping]);
 
   const handleSheetChange = useCallback((sheetName: string) => {
     setSelectedSheet(sheetName);
@@ -204,6 +206,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setCurrentMapping(null);
     setCurrentManualValues({});
     setCurrentBulkReplaces({});
+    setSelectedSourceColumns([]);
     setIsPdfFile(false);
 
     try {
@@ -269,41 +272,28 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       } else {
         // Handle CSV files
         const content = await file.text();
-        const { devices, errors } = parseDeviceCSV(content);
-        
-        if (devices.length === 0 && errors.some(e => e.includes("must contain"))) {
-          // CSV missing columns - convert to rows format for mapping
-          const lines = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(l => l.trim());
-          if (lines.length >= 1) {
-            const headers = lines[0].split(",").map(h => h.trim());
-            const rows: Record<string, unknown>[] = [];
-            
-            for (let i = 1; i < lines.length; i++) {
-              const values = lines[i].split(",").map(v => v.trim().replace(/^["']|["']$/g, ""));
-              const row: Record<string, unknown> = {};
-              headers.forEach((h, idx) => {
-                row[h] = values[idx] || "";
-              });
-              rows.push(row);
-            }
-            
-            setRawRows(rows);
-            setAvailableColumns(headers);
-            const { mapping } = detectColumnMapping(headers);
-            setSuggestedMapping(mapping);
-            setShowMappingDialog(true);
-          }
-        } else {
-          setParsedDevices(devices);
-          setParseErrors(errors);
-        }
+        const { rows, columns, errors } = parseDelimitedDeviceContent(content);
 
-        if (devices.length === 0 && errors.length > 0 && !errors.some(e => e.includes("must contain"))) {
+        setRawRows(rows);
+        setAvailableColumns(columns);
+        setSelectedSourceColumns(columns);
+
+        const { mapping, complete } = detectColumnMapping(columns);
+        setSuggestedMapping(mapping);
+
+        if (errors.length > 0) {
+          setParseErrors(errors);
           toast({
             title: "Parse failed",
             description: errors[0],
             variant: "destructive",
           });
+        } else if (complete) {
+          parseWithMapping(rows, mapping as ColumnMapping, {}, {}, columns);
+        } else {
+          setParsedDevices([]);
+          setParseErrors([]);
+          setShowMappingDialog(true);
         }
       }
     } catch (error) {
@@ -329,12 +319,27 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     }
   };
 
+  const applySelectedColumns = useCallback((columns: string[]) => {
+    setSelectedSourceColumns(columns);
+    if (currentMapping && rawRows.length > 0) {
+      parseWithMapping(rawRows, currentMapping, currentManualValues, currentBulkReplaces, columns);
+    }
+  }, [currentBulkReplaces, currentManualValues, currentMapping, parseWithMapping, rawRows]);
+
+  const toggleSourceColumn = useCallback((column: string, checked: boolean) => {
+    const nextColumns = checked
+      ? Array.from(new Set([...selectedSourceColumns, column]))
+      : selectedSourceColumns.filter((selected) => selected !== column);
+    applySelectedColumns(nextColumns);
+  }, [applySelectedColumns, selectedSourceColumns]);
+
   const parsePastedData = useCallback((text: string) => {
     if (!text.trim()) {
       setParsedDevices([]);
       setParseErrors([]);
       setRawRows([]);
       setAvailableColumns([]);
+      setSelectedSourceColumns([]);
       return;
     }
 
@@ -360,6 +365,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
         setParseErrors([]);
         setRawRows([]); // Clear to prevent mapping dialog
         setAvailableColumns([]); // Clear to prevent mapping dialog
+        setSelectedSourceColumns([]);
         setShowMappingDialog(false); // Ensure mapping dialog is closed
         toast({
           title: "Data parsed",
@@ -370,34 +376,17 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       }
 
       // Not Gent format - try CSV/spreadsheet format
-      const firstLine = lines[0];
-      const hasTab = firstLine.includes("\t");
-      const delimiter = hasTab ? "\t" : ",";
-
-      // Parse headers from first line
-      const headers = firstLine.split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, ""));
-      
-      // Parse data rows
-      const rows: Record<string, unknown>[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(delimiter).map(v => v.trim().replace(/^["']|["']$/g, ""));
-        if (values.some(v => v)) { // Skip empty rows
-          const row: Record<string, unknown> = {};
-          headers.forEach((h, idx) => {
-            row[h] = values[idx] || "";
-          });
-          rows.push(row);
-        }
-      }
+      const { rows, columns: headers, errors } = parseDelimitedDeviceContent(text);
 
       if (rows.length === 0) {
-        setParseErrors(["No data rows found. Make sure to include a header row or use Gent panel format."]);
+        setParseErrors(errors.length > 0 ? errors : ["No data rows found. Make sure to include a header row or use Gent panel format."]);
         setLoading(false);
         return;
       }
 
       setRawRows(rows);
       setAvailableColumns(headers);
+      setSelectedSourceColumns(headers);
 
       // Try to detect column mapping
       const { mapping, complete } = detectColumnMapping(headers);
@@ -405,15 +394,12 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
 
       if (complete) {
         // All required columns found - parse immediately
-        const { devices, errors } = parseDeviceRows(rows);
-        setParsedDevices(devices);
-        setParseErrors(errors);
-        setCurrentMapping(mapping as ColumnMapping);
+        parseWithMapping(rows, mapping as ColumnMapping, {}, {}, headers);
 
-        if (devices.length > 0) {
+        if (rows.length > 0) {
           toast({
             title: "Data parsed",
-            description: `${devices.length} devices ready to import`,
+            description: `${rows.length} rows parsed; review columns before import`,
           });
         }
       } else {
@@ -428,7 +414,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     }
 
     setLoading(false);
-  }, [toast]);
+  }, [parseWithMapping, toast]);
 
   const handlePasteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPastedText(e.target.value);
@@ -474,6 +460,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       setCurrentMapping(null);
       setCurrentManualValues({});
       setCurrentBulkReplaces({});
+      setSelectedSourceColumns([]);
       setIsPdfFile(false);
     }
   };
@@ -491,6 +478,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setCurrentMapping(null);
     setCurrentManualValues({});
     setCurrentBulkReplaces({});
+    setSelectedSourceColumns([]);
     setIsPdfFile(false);
     setImportMode("file");
     setPastedText("");
@@ -508,6 +496,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setRawRows([]);
     setAvailableColumns([]);
     setCurrentMapping(null);
+    setSelectedSourceColumns([]);
     setPastedText("");
     setIsPdfFile(false);
   };
@@ -515,7 +504,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[900px]">
           <DialogHeader>
             <DialogTitle>Import Device Inventory</DialogTitle>
             <DialogDescription>
@@ -662,16 +651,66 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
 
           {/* Column Mapping Button - only for CSV/Excel/Paste, not PDF */}
           {availableColumns.length > 0 && !isPdfFile && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleOpenMappingDialog}
-              className="w-full"
-            >
-              <Settings2 className="w-4 h-4 mr-2" />
-              {currentMapping ? "Reconfigure Column Mapping" : "Configure Column Mapping"}
-            </Button>
+            <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <Label className="text-sm font-medium">Columns to upload</Label>
+                  <p className="text-xs text-muted-foreground">Mapped columns are required; tick any extra source data to keep with each device.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={handleOpenMappingDialog}>
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  {currentMapping ? "Mapping" : "Map"}
+                </Button>
+              </div>
+              <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-background">
+                <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                  {[0, 1].map((group) => (
+                    <div key={group} className="divide-y divide-border">
+                      {availableColumns
+                        .filter((_, index) => index % 2 === group)
+                        .map((column) => {
+                          const isMapped = mappedColumnSet.has(column);
+                          const checked = selectedSourceColumns.includes(column) || isMapped;
+                          return (
+                            <label key={column} className="flex min-h-9 items-center gap-2 px-3 py-2 text-sm">
+                              <Checkbox
+                                checked={checked}
+                                disabled={isMapped}
+                                onCheckedChange={(value) => toggleSourceColumn(column, value === true)}
+                              />
+                              <span className="min-w-0 flex-1 truncate text-foreground">{column}</span>
+                              {isMapped && <span className="text-xs text-muted-foreground">mapped</span>}
+                            </label>
+                          );
+                        })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {rawRows.length > 0 && previewColumns.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Previewing {previewColumns.length} of {selectedSourceColumns.length} selected columns from {rawRows.length} rows
+                  </p>
+                  <div className="max-h-48 overflow-auto rounded-md border border-border bg-background">
+                    <table className="w-full min-w-max text-xs">
+                      <thead className="sticky top-0 bg-muted">
+                        <tr>
+                          {previewColumns.map((column) => <th key={column} className="px-2 py-1 text-left font-medium text-foreground">{column}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rawRows.slice(0, 5).map((row, index) => (
+                          <tr key={index} className="border-t border-border">
+                            {previewColumns.map((column) => <td key={column} className="max-w-40 truncate px-2 py-1 text-muted-foreground">{String(row[column] ?? "")}</td>)}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Parse Results */}

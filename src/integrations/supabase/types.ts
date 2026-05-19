@@ -1482,10 +1482,12 @@ export type Database = {
           created_at: string
           device_type: string
           id: string
+          imported_source_columns: string[] | null
           installed_at: string | null
           last_tested_at: string | null
           location: string | null
           loop: string
+          raw_import_data: Json | null
           site_id: string
           status: string | null
           updated_at: string
@@ -1496,10 +1498,12 @@ export type Database = {
           created_at?: string
           device_type: string
           id?: string
+          imported_source_columns?: string[] | null
           installed_at?: string | null
           last_tested_at?: string | null
           location?: string | null
           loop: string
+          raw_import_data?: Json | null
           site_id: string
           status?: string | null
           updated_at?: string
@@ -1510,10 +1514,12 @@ export type Database = {
           created_at?: string
           device_type?: string
           id?: string
+          imported_source_columns?: string[] | null
           installed_at?: string | null
           last_tested_at?: string | null
           location?: string | null
           loop?: string
+          raw_import_data?: Json | null
           site_id?: string
           status?: string | null
           updated_at?: string

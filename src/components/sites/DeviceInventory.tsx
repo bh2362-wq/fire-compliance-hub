@@ -62,6 +62,8 @@ interface Device {
   zone: string | null;
   status: string | null;
   last_tested_at: string | null;
+  raw_import_data?: Record<string, unknown> | null;
+  imported_source_columns?: string[] | null;
 }
 
 interface DeviceInventoryProps {
@@ -110,14 +112,20 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
     return { loops, zones, types, statuses };
   }, [devices]);
 
+  const importColumns = useMemo(() => {
+    const core = new Set(["loop", "address", "type", "device type", "location", "zone"]);
+    return Array.from(new Set(devices.flatMap((device) => device.imported_source_columns || Object.keys(device.raw_import_data || {}))))
+      .filter((column) => !core.has(column.toLowerCase()));
+  }, [devices]);
+
   const activeFilterCount = [filters.loop, filters.zone, filters.status].filter(Boolean).length + (filters.deviceTypes.length > 0 ? 1 : 0);
 
   useEffect(() => {
     const fetchDevices = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("devices")
-        .select("id, loop, address, device_type, location, zone, status, last_tested_at")
+        .select("id, loop, address, device_type, location, zone, status, last_tested_at, raw_import_data, imported_source_columns")
         .eq("site_id", siteId)
         .order("loop", { ascending: true })
         .order("address", { ascending: true });
@@ -177,10 +185,12 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
       return;
     }
 
-    const headers = ["Loop", "Address", "Type", "Location", "Zone", "Status", "Last Tested"];
+    const headers = ["Loop", "Address", "Type", "Location", "Zone", ...importColumns, "Status", "Last Tested"];
     const rows = filteredDevices.map((device) => [
       device.loop, device.address, device.device_type, device.location || "",
-      device.zone || "", device.status || "",
+      device.zone || "",
+      ...importColumns.map((column) => String(device.raw_import_data?.[column] ?? "")),
+      device.status || "",
       device.last_tested_at ? new Date(device.last_tested_at).toLocaleDateString() : "",
     ]);
 
@@ -329,6 +339,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
         </div>
       ) : (
         <>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -337,6 +348,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
                 <TableHead>Type</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Zone</TableHead>
+                {importColumns.map((column) => <TableHead key={column}>{column}</TableHead>)}
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -349,6 +361,11 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
                   <TableCell>{device.device_type}</TableCell>
                   <TableCell className="text-muted-foreground">{device.location || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{device.zone || "—"}</TableCell>
+                  {importColumns.map((column) => (
+                    <TableCell key={column} className="max-w-40 truncate text-muted-foreground">
+                      {String(device.raw_import_data?.[column] ?? "") || "—"}
+                    </TableCell>
+                  ))}
                   <TableCell>
                     <Badge variant={device.status === "active" ? "default" : "secondary"}>{device.status || "unknown"}</Badge>
                   </TableCell>
@@ -360,6 +377,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
               ))}
             </TableBody>
           </Table>
+          </div>
           {totalPages > 1 && (
             <div className="p-4 border-t border-border flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</p>
