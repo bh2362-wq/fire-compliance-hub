@@ -62,6 +62,8 @@ interface Device {
   zone: string | null;
   status: string | null;
   last_tested_at: string | null;
+  raw_import_data?: Record<string, unknown> | null;
+  imported_source_columns?: string[] | null;
 }
 
 interface DeviceInventoryProps {
@@ -110,14 +112,21 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
     return { loops, zones, types, statuses };
   }, [devices]);
 
+  const importColumns = useMemo(() => {
+    const core = new Set(["loop", "address", "type", "device type", "location", "zone"]);
+    return Array.from(new Set(devices.flatMap((device) => device.imported_source_columns || Object.keys(device.raw_import_data || {}))))
+      .filter((column) => !core.has(column.toLowerCase()))
+      .slice(0, 12);
+  }, [devices]);
+
   const activeFilterCount = [filters.loop, filters.zone, filters.status].filter(Boolean).length + (filters.deviceTypes.length > 0 ? 1 : 0);
 
   useEffect(() => {
     const fetchDevices = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("devices")
-        .select("id, loop, address, device_type, location, zone, status, last_tested_at")
+        .select("id, loop, address, device_type, location, zone, status, last_tested_at, raw_import_data, imported_source_columns")
         .eq("site_id", siteId)
         .order("loop", { ascending: true })
         .order("address", { ascending: true });
