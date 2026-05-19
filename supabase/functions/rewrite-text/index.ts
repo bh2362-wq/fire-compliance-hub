@@ -296,7 +296,7 @@ serve(async (req) => {
       let query = "";
       let defaultLimit = 5;
       let defaultMinSim: number | undefined = undefined;
-      const ctx = (context ?? "").toString();
+      const ctx = formatContextAsText(context);
       switch (type) {
         case "quotation_title":
           query = `${text} ${ctx}`.trim();
