@@ -22,11 +22,41 @@ interface Props {
 
 const WORKS_TYPES = [
   { value: "new_install", label: "New install" },
-  { value: "upgrade", label: "Upgrade" },
-  { value: "takeover", label: "Takeover" },
-  { value: "remedial", label: "Remedial" },
+  { value: "system_upgrade", label: "System upgrade" },
+  { value: "system_takeover", label: "System takeover" },
+  { value: "extension", label: "Extension" },
+  { value: "reactive_remedial", label: "Reactive remedial" },
+  { value: "planned_maintenance", label: "Planned maintenance (PPM)" },
+  { value: "cause_and_effect", label: "Cause and effect testing" },
+  { value: "commissioning_only", label: "Commissioning" },
+  { value: "acceptance_testing", label: "Acceptance testing" },
+  { value: "verification", label: "Verification" },
   { value: "design_only", label: "Design only" },
+  { value: "certification", label: "Certification" },
 ];
+
+// Infer works type from quotation title + line item descriptions.
+// Returns null when no keyword matches — caller must force user to choose.
+function inferWorksType(title: string | null | undefined, lineItemDescriptions: string[]): string | null {
+  const haystack = [title ?? "", ...lineItemDescriptions].join(" ").toLowerCase();
+  // Order matters — more specific matches first.
+  const rules: Array<[RegExp, string]> = [
+    [/\bcause\s*(?:and|&|\+)?\s*effect|\bc\s*&\s*e\b|\bc\/e\b/, "cause_and_effect"],
+    [/\bacceptance\b/, "acceptance_testing"],
+    [/\bcommission/, "commissioning_only"],
+    [/\bverification\b|\bverify(ing)?\b/, "verification"],
+    [/\bcertif(y|ication|icate)\b/, "certification"],
+    [/\b(ppm|planned\s*maintenance|service\s*visit|servicing|annual\s*service|biannual|quarterly)\b/, "planned_maintenance"],
+    [/\b(remedial|repair|fault|defect\s*rectif)/, "reactive_remedial"],
+    [/\b(take[\s-]?over)\b/, "system_takeover"],
+    [/\bupgrade\b|\breplacement\s*panel\b/, "system_upgrade"],
+    [/\bextension\b|\bextend\s+the\s+system\b|\badditional\s+devices?\b/, "extension"],
+    [/\bdesign\s*only\b/, "design_only"],
+    [/\b(new\s*install|new\s*system|full\s*installation|fresh\s*install)\b/, "new_install"],
+  ];
+  for (const [re, val] of rules) if (re.test(haystack)) return val;
+  return null;
+}
 const CATEGORIES = ["L1", "L2", "L3", "L4", "L5", "M", "P1", "P2"] as const;
 const OCCUPANCIES = [
   { value: "sleeping", label: "Sleeping" },
@@ -40,7 +70,8 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
   const gen = useGenerateScope();
   const [intelApplied, setIntelApplied] = useState(false);
 
-  const [worksType, setWorksType] = useState("new_install");
+  const [worksType, setWorksType] = useState("");
+  const [worksTypeInferred, setWorksTypeInferred] = useState<string | null>(null);
   const [category, setCategory] = useState<string>("L2");
   const [manufacturer, setManufacturer] = useState("");
   const [panelType, setPanelType] = useState("");
@@ -64,7 +95,16 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
 
   useEffect(() => {
     if (!q) return;
-    setWorksType(q.works_type ?? "new_install");
+    // Smart works-type prefill:
+    //   1. quotation.works_type wins (engineer's prior choice on this quote).
+    //   2. Else quotation.job_category (already classified at quote creation).
+    //   3. Else infer from quote title + line item descriptions.
+    //   4. Else leave blank — force user to choose.
+    const lineDescs = ((q as any).quotation_line_items ?? []).map((li: any) => li.description ?? "");
+    const inferred = inferWorksType(q.title, lineDescs);
+    const wt = q.works_type || (q as any).job_category || inferred || "";
+    setWorksType(wt);
+    setWorksTypeInferred(!q.works_type && !(q as any).job_category ? inferred : null);
     setCategory(q.bs5839_category ?? "L2");
     setManufacturer(q.system_manufacturer ?? "");
     setPanelType(q.system_panel ?? "");
@@ -123,6 +163,12 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     existing_system_description: existingDesc || undefined,
     project_name: q?.title ?? undefined,
     quotation_id: quotationId,
+    line_items: ((q as any)?.quotation_line_items ?? []).map((li: any) => ({
+      description: li.description,
+      quantity: li.quantity ?? 1,
+      unit_price: li.unit_price ?? 0,
+      total: (li.quantity ?? 1) * (li.unit_price ?? 0),
+    })),
     site_context: siteIntel ? {
       site_name: siteIntel.site.name,
       address: siteIntel.site.address,
@@ -210,9 +256,18 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
           <div className="grid gap-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Works type</Label>
-                <Select value={worksType} onValueChange={setWorksType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label>
+                  Works type
+                  {worksTypeInferred && (
+                    <span className="ml-2 text-[10px] font-medium uppercase tracking-wide text-primary/80">
+                      inferred from line items
+                    </span>
+                  )}
+                </Label>
+                <Select value={worksType} onValueChange={(v) => { setWorksType(v); setWorksTypeInferred(null); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select works type…" />
+                  </SelectTrigger>
                   <SelectContent>{WORKS_TYPES.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>

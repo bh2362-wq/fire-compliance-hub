@@ -1,7 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+type WorksType =
+  | "new_install" | "system_upgrade" | "system_takeover" | "extension"
+  | "reactive_remedial" | "planned_maintenance" | "cause_and_effect"
+  | "commissioning_only" | "acceptance_testing" | "verification"
+  | "design_only" | "certification"
+  // legacy aliases kept for backwards compatibility with old saved values
+  | "upgrade" | "takeover" | "remedial";
+
 interface ScopeWriterInput {
-  works_type: "new_install" | "upgrade" | "takeover" | "remedial" | "design_only";
+  works_type: WorksType;
   system: { category: "L1"|"L2"|"L3"|"L4"|"L5"|"M"|"P1"|"P2"; manufacturer?: string; panel_type?: string; loops?: number };
   building: { type: string; storeys?: number; occupancy: "sleeping"|"non_sleeping"|"mixed"; has_kitchens?: boolean; has_plant?: boolean; has_lifts?: boolean };
   devices?: { detectors_smoke?: number; detectors_heat?: number; mcps?: number; sounders?: number; vads?: number; interfaces?: number };
@@ -10,9 +18,45 @@ interface ScopeWriterInput {
   existing_system_description?: string;
   project_name?: string;
   quotation_id?: string;
+  line_items?: Array<{ description: string; quantity?: number; unit_price?: number; total?: number }>;
 }
 
-interface ScopeOutput { introduction: string; scope: string[]; }
+function normaliseWorksType(wt: WorksType): Exclude<WorksType, "upgrade" | "takeover" | "remedial"> {
+  if (wt === "upgrade") return "system_upgrade";
+  if (wt === "takeover") return "system_takeover";
+  if (wt === "remedial") return "reactive_remedial";
+  return wt;
+}
+
+// Per-works-type prompt template. Each describes the scope structure, applicable
+// clauses, and the deliverables an experienced engineer would produce for that
+// job type. The AI is then asked to write to the matching template.
+const WORKS_TYPE_GUIDANCE: Record<Exclude<WorksType, "upgrade" | "takeover" | "remedial">, string> = {
+  new_install: `WORKS TYPE: NEW INSTALL
+Produce four scope paragraphs covering (1) panel & architecture, (2) detection strategy with Clause 21.2/20.2 references, (3) audibility per Clause 16.2 and EN 54-23 VADs, (4) commissioning/handover per Clause 39 with full BS 5839-1:2025 certificate and 12-month defects-liability period.`,
+  system_upgrade: `WORKS TYPE: SYSTEM UPGRADE
+Reference the existing system. Cover (1) removal/replacement strategy and compatibility, (2) new panel and migrated/replaced devices, (3) any extension of detection coverage with Clause references, (4) re-commissioning and Modification Certificate per Clause 44 and Annex G.`,
+  system_takeover: `WORKS TYPE: SYSTEM TAKEOVER (MAINTENANCE CONTRACT TRANSFER)
+Cover (1) initial inspection and condition survey, (2) verification of zone plans, cause-and-effect schedule and as-fitted documentation, (3) any remedial works identified during takeover, (4) issue of an Acceptance Certificate per BS 5839-1:2025 and commencement of routine servicing.`,
+  extension: `WORKS TYPE: EXTENSION / MODIFICATION
+Reference Section 7 (Extensions and modifications). Cover (1) impact assessment on existing system architecture and battery capacity, (2) installation of additional devices and any reconfiguration, (3) partial commissioning of new equipment per Clause 39, (4) update of zone plans, cause-and-effect and logbook; issue of Modification Certificate per Clause 44.`,
+  reactive_remedial: `WORKS TYPE: REACTIVE REMEDIAL WORKS
+Cover (1) site investigation of the reported defect, (2) rectification works (component replacement, wiring repair, configuration change), (3) re-testing of affected zones and output groups, (4) update of the system logbook (Annex G) and issue of a service report. Do not describe new installation or full commissioning.`,
+  planned_maintenance: `WORKS TYPE: PLANNED MAINTENANCE (PPM / SERVICING)
+Reference Clause 43. Cover (1) inspection of panel, batteries, indications and printer; (2) functional testing of detectors and manual call points to the routine specified in Clause 43.3 with the agreed servicing frequency (typically 6-monthly per 43.2.1); (3) ARC signalling verification; (4) issue of a Service Certificate (Annex G) and update of the logbook. Do not describe a new installation.`,
+  cause_and_effect: `WORKS TYPE: CAUSE AND EFFECT TESTING
+This is a focused functional test of the programmed cause-and-effect logic — NOT a new installation. Cover (1) review of the documented C&E matrix and any site-specific software configuration; (2) systematic activation of each input (manual call points, detectors, interfaces) to verify the corresponding output groups (sounders, VADs, plant shutdowns, ancillary interfaces) operate as designed; (3) verification of ARC signal transmission with the receiving centre notified before and after testing; (4) issue of a Cause and Effect Test Report, update of the logbook and the cause-and-effect schedule. Reference Clause 43 routine testing and any verified clauses from the source material. Keep the scope proportionate — typical value £800–£2,000.`,
+  commissioning_only: `WORKS TYPE: COMMISSIONING ONLY
+The system has been installed by others. Cover (1) review of as-installed documentation and zone plans; (2) commissioning sequence per Clause 39 — visual inspection, insulation tests, functional testing of every detector, MCP, sounder and interface; (3) cause-and-effect verification; (4) issue of a BS 5839-1:2025 Commissioning Certificate per Annex G and handover of completion documentation.`,
+  acceptance_testing: `WORKS TYPE: ACCEPTANCE TESTING
+Verification of installed system against the design specification on behalf of the client. Cover (1) review of design documentation and Commissioning Certificate; (2) witness testing of a representative sample of devices and cause-and-effect operations; (3) verification of zone plans, signage and accessibility of equipment; (4) issue of an Acceptance Certificate per BS 5839-1:2025 and recording of any outstanding items.`,
+  verification: `WORKS TYPE: INDEPENDENT VERIFICATION
+Independent third-party verification of system compliance. Cover (1) documentation review (design, commissioning, modification certificates); (2) physical verification of installation against the design and BS 5839-1:2025; (3) sample functional testing; (4) issue of a verification report listing compliance status and any non-conformities.`,
+  design_only: `WORKS TYPE: DESIGN ONLY
+No installation works. Cover (1) site survey and design brief capture; (2) production of a BS 5839-1:2025 compliant design — zone plans, device schedules, cabling routes, cause-and-effect matrix; (3) issue of a Design Certificate per Clause 44 and Annex G; (4) handover pack for the installing contractor. Do not describe installation, commissioning or testing.`,
+  certification: `WORKS TYPE: CERTIFICATION (RE-ISSUE / DOCUMENTATION)
+Production of formal certification for an existing system where original paperwork is missing or outdated. Cover (1) site audit and verification of installed equipment; (2) functional sample testing where required; (3) production of the certificate (Commissioning, Modification or Acceptance as appropriate) per Annex G; (4) issue to the responsible person with logbook update.`,
+};
 
 const SYSTEM_PROMPT = `You are a senior UK fire alarm estimator at BHO Fire Ltd, writing the introduction and scope of works sections for a formal client quotation. You specialise in BS 5839-1:2025 compliant systems for commercial, hospitality, healthcare and public-sector buildings.
 
@@ -70,7 +114,18 @@ async function callAI(input: ScopeWriterInput) {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
-  const userMessage = `Write the introduction and scope of works for this fire alarm quotation.\n\nINPUT (JSON):\n${JSON.stringify(input, null, 2)}\n\nReturn minified, valid JSON only. Do not include markdown fences or commentary.`;
+  const wt = normaliseWorksType(input.works_type);
+  const guidance = WORKS_TYPE_GUIDANCE[wt] ?? "";
+  const lineItemsBlock = input.line_items?.length
+    ? `\n\nLINE ITEMS (the SOURCE OF TRUTH for scope — match prose to these, not to context fields):\n` +
+      input.line_items.map((li, i) => `${i + 1}. ${li.description}${li.total != null ? ` — £${li.total}` : ""}`).join("\n")
+    : "";
+  const userMessage =
+    `Write the introduction and scope of works for this fire alarm quotation.\n\n` +
+    `${guidance}\n${lineItemsBlock}\n\n` +
+    `INPUT (JSON):\n${JSON.stringify({ ...input, works_type: wt }, null, 2)}\n\n` +
+    `Return minified, valid JSON only. Do not include markdown fences or commentary.`;
+
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
