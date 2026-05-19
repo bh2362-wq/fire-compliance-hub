@@ -172,7 +172,8 @@ function stripHallucinations(
   out = out
     // "the standard.1f)" / "the standard .2" / "the standard f," → "the standard"
     .replace(/\b(the standard)\s*\.[A-Za-z0-9]{1,4}\b/g, "$1")
-    .replace(/\b(the standard)\s+[A-Za-z]{1,2}\b(?=[\s.,;:)])/g, "$1")
+    // Single-letter orphans only (avoid eating common 2-letter words like "to","of","in")
+    .replace(/\b(the standard)\s+[A-Za-z]\b(?=[\s.,;:)])/g, "$1")
     // Orphaned "Figure"/"Table"/"Annex" left dangling with no identifier following
     .replace(/\b(Figure|Table|Annex)\s+(?=[.,;:)\s])/g, "the standard ")
     // Stranded ".N" or " Nx" right after a removal site (within 3 chars of "standard")
