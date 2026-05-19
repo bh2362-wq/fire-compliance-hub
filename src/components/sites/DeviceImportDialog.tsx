@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,12 +18,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Settings2, FileText, ClipboardPaste } from "lucide-react";
 import { 
   Site, 
-  parseDeviceCSV, 
   parseDeviceRows, 
   parseDeviceRowsWithMapping,
+  parseDelimitedDeviceContent,
   detectColumnMapping,
   importDevices, 
   DeviceImport,
@@ -113,6 +114,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
   const [currentMapping, setCurrentMapping] = useState<ColumnMapping | null>(null);
   const [currentManualValues, setCurrentManualValues] = useState<ManualValues>({});
   const [currentBulkReplaces, setCurrentBulkReplaces] = useState<BulkReplaceMap>({});
+  const [selectedSourceColumns, setSelectedSourceColumns] = useState<string[]>([]);
   const [isPdfFile, setIsPdfFile] = useState(false);
   const [importMode, setImportMode] = useState<"file" | "paste">("file");
   const [pastedText, setPastedText] = useState("");
