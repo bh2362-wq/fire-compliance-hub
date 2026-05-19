@@ -82,6 +82,26 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     setExistingDesc(q.existing_system_description ?? "");
   }, [q]);
 
+  // Layer in harvested site intelligence — only fills blank fields, never overwrites.
+  useEffect(() => {
+    if (!siteIntel || intelApplied) return;
+    let touched = 0;
+    if (!manufacturer && siteIntel.panel?.manufacturer) { setManufacturer(siteIntel.panel.manufacturer); touched++; }
+    if (!panelType    && siteIntel.panel?.model)        { setPanelType(siteIntel.panel.model);          touched++; }
+    if (!loops        && siteIntel.panel?.loops_count)  { setLoops(String(siteIntel.panel.loops_count)); touched++; }
+    if (!buildingType && siteIntel.building?.type)      { setBuildingType(siteIntel.building.type);     touched++; }
+    if (siteIntel.building?.occupancy && occupancy === "non_sleeping") { setOccupancy(siteIntel.building.occupancy); touched++; }
+    if (!storeys      && siteIntel.building?.storeys)   { setStoreys(String(siteIntel.building.storeys)); touched++; }
+    if (siteIntel.contract?.category && category === "L2") { setCategory(siteIntel.contract.category); touched++; }
+    if (!arcSignal    && siteIntel.features.arc_signal)    { setArcSignal(true);    touched++; }
+    if (!voiceAlarm   && siteIntel.features.voice_alarm)   { setVoiceAlarm(true);   touched++; }
+    if (!wireless     && siteIntel.features.wireless)      { setWireless(true);     touched++; }
+    if (!bmsInterface && siteIntel.features.bms_interface) { setBmsInterface(true); touched++; }
+    if (!liftRecall   && siteIntel.features.lift_recall)   { setLiftRecall(true);   touched++; }
+    if (touched > 0) setIntelApplied(true);
+  }, [siteIntel, intelApplied, manufacturer, panelType, loops, buildingType, occupancy, storeys, category, arcSignal, voiceAlarm, wireless, bmsInterface, liftRecall]);
+
+
   const buildInput = () => ({
     works_type: worksType,
     system: {
