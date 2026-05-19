@@ -70,7 +70,8 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
   const gen = useGenerateScope();
   const [intelApplied, setIntelApplied] = useState(false);
 
-  const [worksType, setWorksType] = useState("new_install");
+  const [worksType, setWorksType] = useState("");
+  const [worksTypeInferred, setWorksTypeInferred] = useState<string | null>(null);
   const [category, setCategory] = useState<string>("L2");
   const [manufacturer, setManufacturer] = useState("");
   const [panelType, setPanelType] = useState("");
