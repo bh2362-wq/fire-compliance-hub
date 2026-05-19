@@ -66,39 +66,46 @@ CONSTRAINTS
 - If a Category contradicts the building type (e.g. Category M for sleeping accommodation), still write to the Category specified — the estimator decided the category.
 - Do not include pricing, programme, or commercial terms — those are separate sections of the quotation.`;
 
-async function callClaude(input: ScopeWriterInput) {
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+async function callAI(input: ScopeWriterInput) {
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
   const userMessage = `Write the introduction and scope of works for this fire alarm quotation.\n\nINPUT (JSON):\n${JSON.stringify(input, null, 2)}\n\nReturn only the JSON object as specified.`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-opus-4-6",
+      model: "google/gemini-2.5-pro",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ],
+      response_format: { type: "json_object" },
       max_tokens: 1500,
       temperature: 0.3,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
     }),
   });
 
-  if (!response.ok) throw new Error(`Anthropic API error ${response.status}: ${await response.text()}`);
+  if (!response.ok) {
+    if (response.status === 429) throw new Error("AI rate limit exceeded. Please try again in a moment.");
+    if (response.status === 402) throw new Error("AI credits exhausted. Please add credits to continue.");
+    throw new Error(`AI gateway error ${response.status}: ${(await response.text()).slice(0, 500)}`);
+  }
 
   const data = await response.json();
-  const textBlock = data.content?.find((b: { type: string }) => b.type === "text");
-  if (!textBlock) throw new Error("No text content in Claude response");
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) throw new Error("No text content in AI response");
 
-  const raw = (textBlock.text as string).trim().replace(/^```json\s*|\s*```$/g, "");
+  const raw = String(content).trim().replace(/^```json\s*|\s*```$/g, "");
   let parsed: ScopeOutput;
   try { parsed = JSON.parse(raw); }
-  catch { throw new Error(`Failed to parse Claude output as JSON. Raw: ${raw.slice(0, 200)}…`); }
+  catch { throw new Error(`Failed to parse AI output as JSON. Raw: ${raw.slice(0, 200)}…`); }
 
-  if (typeof parsed.introduction !== "string" || !Array.isArray(parsed.scope)) throw new Error("Claude output missing required fields");
+  if (typeof parsed.introduction !== "string" || !Array.isArray(parsed.scope)) throw new Error("AI output missing required fields");
   if (parsed.scope.length < 3 || parsed.scope.length > 5) throw new Error(`Expected 3-5 scope paragraphs, got ${parsed.scope.length}`);
 
-  return { output: parsed, usage: { input_tokens: data.usage?.input_tokens ?? 0, output_tokens: data.usage?.output_tokens ?? 0, model: data.model ?? "claude-opus-4-6" } };
+  return { output: parsed, usage: { input_tokens: data.usage?.prompt_tokens ?? 0, output_tokens: data.usage?.completion_tokens ?? 0, model: data.model ?? "google/gemini-2.5-pro" } };
 }
 
 const corsHeaders = {
@@ -120,7 +127,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing Authorization header");
 
-    const { output, usage } = await callClaude(input);
+    const { output, usage } = await callAI(input);
 
     let generationId: string | null = null;
     try {
