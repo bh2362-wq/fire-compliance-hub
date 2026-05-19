@@ -2,7 +2,6 @@
 // https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { jwtVerify, createLocalJWKSet } from "https://esm.sh/jose@5.9.6";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
