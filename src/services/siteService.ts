@@ -251,6 +251,27 @@ const COLUMN_ALIASES: Record<keyof ColumnMapping, string[]> = {
   zone: ["zone", "zone no", "zone number", "zone description", "area", "zone area"],
 };
 
+export function parseDelimitedDeviceContent(content: string): { rows: Record<string, unknown>[]; columns: string[]; errors: string[] } {
+  const errors: string[] = [];
+  const lines = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter((l) => l.trim());
+
+  if (lines.length < 2) {
+    return { rows: [], columns: [], errors: ["File must contain headers and at least one data row"] };
+  }
+
+  const delimiter = detectDelimiter(content);
+  const columns = parseCSVLine(lines[0], delimiter).map((h, index) => h || `Column ${index + 1}`);
+  const rows = lines.slice(1).map((line) => {
+    const values = parseCSVLine(line, delimiter);
+    return columns.reduce<Record<string, unknown>>((row, column, index) => {
+      row[column] = values[index] || "";
+      return row;
+    }, {});
+  }).filter((row) => Object.values(row).some((value) => String(value ?? "").trim()));
+
+  return { rows, columns, errors };
+}
+
 function normalizeHeader(h: string): string {
   return h.toLowerCase().trim().replace(/[\s._\-/\\#]+/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -450,6 +471,10 @@ export interface BulkReplaceMap {
   type?: BulkReplace;
   location?: BulkReplace;
   zone?: BulkReplace;
+}
+
+export interface ParseDeviceRowsOptions {
+  selectedColumns?: string[];
 }
 
 function escapeRegExp(string: string): string {
