@@ -635,7 +635,22 @@ ${(() => { const t = formatContextAsText(context); return t ? `\nADDITIONAL CONT
     // Re-apply title trim after strip pass so any trailing punctuation left behind
     // by orphan cleanup (e.g. "Title per the standard.") is tidied.
     if (type === "quotation_title") {
-      rewrittenText = rewrittenText.replace(/^["'`]+|["'`]+$/g, "").replace(/[.;:,\s]+$/g, "").trim();
+      // Replace any lingering vague "the standard" with the concrete standard ref.
+      rewrittenText = rewrittenText
+        .replace(/\bper\s+the standard\b/gi, "BS 5839-1:2025")
+        .replace(/\bthe standard\b/gi, "BS 5839-1:2025")
+        // Collapse accidental duplicate standard refs ("BS 5839-1:2025 BS 5839-1:2025")
+        .replace(/\b(BS\s?5839-1:2025)(\s+\1)+/gi, "$1")
+        // Tidy stranded connectives in front of the standard (", per BS …" → ", BS …")
+        .replace(/,\s*per\s+(BS\s?5839)/gi, ", $1")
+        .replace(/\s{2,}/g, " ")
+        .replace(/^["'`]+|["'`]+$/g, "")
+        .replace(/[.;:,\s]+$/g, "")
+        .trim();
+      // Guarantee the standard reference is present in the final title.
+      if (!/BS\s?5839/i.test(rewrittenText)) {
+        rewrittenText = `${rewrittenText}, BS 5839-1:2025`;
+      }
     }
 
 
