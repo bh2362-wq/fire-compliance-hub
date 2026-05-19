@@ -365,7 +365,7 @@ ${context ? `\nADDITIONAL CONTEXT:\n${context}` : ""}`;
           { role: "system", content: systemPrompt },
           { role: "user", content: text },
         ],
-        max_tokens: type === "quotation_summary" ? 800 : type === "quotation_title" ? 60 : 350,
+        max_tokens: type === "quotation_summary" ? 900 : type === "quotation_bs5839_expand" ? 1500 : type === "quotation_title" ? 60 : 350,
       }),
     });
 
