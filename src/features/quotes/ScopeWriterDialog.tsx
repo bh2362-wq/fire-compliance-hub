@@ -95,7 +95,16 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
 
   useEffect(() => {
     if (!q) return;
-    setWorksType(q.works_type ?? "new_install");
+    // Smart works-type prefill:
+    //   1. quotation.works_type wins (engineer's prior choice on this quote).
+    //   2. Else quotation.job_category (already classified at quote creation).
+    //   3. Else infer from quote title + line item descriptions.
+    //   4. Else leave blank — force user to choose.
+    const lineDescs = ((q as any).quotation_line_items ?? []).map((li: any) => li.description ?? "");
+    const inferred = inferWorksType(q.title, lineDescs);
+    const wt = q.works_type || (q as any).job_category || inferred || "";
+    setWorksType(wt);
+    setWorksTypeInferred(!q.works_type && !(q as any).job_category ? inferred : null);
     setCategory(q.bs5839_category ?? "L2");
     setManufacturer(q.system_manufacturer ?? "");
     setPanelType(q.system_panel ?? "");
