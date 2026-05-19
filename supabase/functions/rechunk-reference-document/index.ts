@@ -63,23 +63,26 @@ function primaryClauseId(text: string): string | null {
   return h ? h.id : null;
 }
 
-// Strip recurring page-header / footer chrome that interrupts clause text.
-const chromeLineRes: RegExp[] = [
-  /^\s*BRITISH STANDARD\b.*$/gim,
-  /^\s*©\s*THE BRITISH STANDARDS INSTITUTION\b.*$/gim,
-  /^\s*BS\s?5839[\u2010\u2011\u2012\u2013\u2014-]?1:?2025\b.*$/gim,
-  /^\s*Tel:\s*\+44.*$/gim,
-  /^\s*www\.[a-z0-9.\-]+\.[a-z]{2,}\b.*$/gim,
-  /^\s*Guide to the changes in BS 5839-1:2025.*$/gim,
-  /^\s*\d+\s+of\s+\d+\s*$/gim,
-  /^\s*Page\s+\d+\s*$/gim,
+// PDF extraction joins page text into single lines, so anchor-based
+// "strip-to-EOL" rules wipe too much. Instead remove chrome phrases as
+// substrings and let the surrounding text close up.
+const chromePhraseRes: RegExp[] = [
+  /BSI Standards Publication\s+BSI Standards Publication\s*/gi,
+  /BSI Standards Publication\s*/gi,
+  /BRITISH STANDARD\s+/g,
+  /©\s*THE BRITISH STANDARDS INSTITUTION\s*2025\s*[–-]\s*ALL RIGHTS RESERVED\s*/gi,
+  /©\s*The British Standards Institution\s*2025[^.\n]{0,80}?reserved\.?\s*/gi,
+  /BS\s?5839[\u2010\u2011\u2012\u2013\u2014\-]?1\s*:?\s*2025\s+(?=[IVX]+\s|[A-Z][a-z])/g,
+  /Tel:\s*\+44\s*\(0\)\d[\d\s]*/g,
+  /www\.[a-z0-9.\-]+\.[a-z]{2,}\b/gi,
+  /Guide to the changes in BS 5839-1:2025\s+Version\s+\d+\s+•\s+[A-Za-z]+\s+\d{4}\s+•\s+/gi,
+  /\b\d+\s+of\s+\d+\b/g,
 ];
 
 function stripChrome(text: string): string {
   let out = text;
-  for (const re of chromeLineRes) out = out.replace(re, "");
-  // Collapse 3+ blank lines down to 2
-  out = out.replace(/\n{3,}/g, "\n\n");
+  for (const re of chromePhraseRes) out = out.replace(re, " ");
+  out = out.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n");
   return out;
 }
 
