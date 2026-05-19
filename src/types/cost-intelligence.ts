@@ -57,6 +57,8 @@ export const JOB_CATEGORY_LABELS: Record<JobCategory, string> = {
   design_only: 'Design only',
   commissioning_only: 'Commissioning only',
   cause_and_effect: 'Cause & effect',
+  acceptance_testing: 'Acceptance testing',
+  verification: 'Verification',
   certification: 'Certification',
 };
 
