@@ -490,7 +490,8 @@ export function parseDeviceRowsWithMapping(
   rows: Record<string, unknown>[],
   mapping: ColumnMapping,
   manualValues: ManualValues = {},
-  bulkReplaces: BulkReplaceMap = {}
+  bulkReplaces: BulkReplaceMap = {},
+  options: ParseDeviceRowsOptions = {}
 ): { devices: DeviceImport[]; errors: string[] } {
   const errors: string[] = [];
   const devices: DeviceImport[] = [];
@@ -509,6 +510,9 @@ export function parseDeviceRowsWithMapping(
     errors.push("Required columns (loop, address, type) must be mapped or manually provided");
     return { devices, errors };
   }
+
+  const mappedColumns = [mapping.loop, mapping.address, mapping.type, mapping.location, mapping.zone].filter(Boolean) as string[];
+  const sourceColumns = Array.from(new Set([...(options.selectedColumns || []), ...mappedColumns]));
 
   rows.forEach((row, i) => {
     // Use manual value if column not mapped, otherwise use column value
@@ -553,12 +557,19 @@ export function parseDeviceRowsWithMapping(
       }
     }
 
+    const raw_import_data = sourceColumns.reduce<Record<string, string>>((acc, column) => {
+      acc[column] = String(row[column] ?? "").trim();
+      return acc;
+    }, {});
+
     devices.push({
       loop,
       address,
       device_type,
       location,
       zone,
+      raw_import_data,
+      imported_source_columns: sourceColumns,
     });
   });
 
