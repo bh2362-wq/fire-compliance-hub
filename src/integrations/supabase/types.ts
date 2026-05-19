@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_assists: {
+        Row: {
+          assist_type: string
+          created_at: string
+          custom_instructions: string | null
+          error_message: string | null
+          grounding: Json | null
+          hallucinated_clauses: Json | null
+          id: string
+          input_text: string | null
+          latency_ms: number | null
+          model: string | null
+          output_text: string | null
+          status: string
+          use_reference_library: boolean
+          user_id: string | null
+        }
+        Insert: {
+          assist_type: string
+          created_at?: string
+          custom_instructions?: string | null
+          error_message?: string | null
+          grounding?: Json | null
+          hallucinated_clauses?: Json | null
+          id?: string
+          input_text?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          output_text?: string | null
+          status?: string
+          use_reference_library?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          assist_type?: string
+          created_at?: string
+          custom_instructions?: string | null
+          error_message?: string | null
+          grounding?: Json | null
+          hallucinated_clauses?: Json | null
+          id?: string
+          input_text?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          output_text?: string | null
+          status?: string
+          use_reference_library?: boolean
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           appointment_date: string
