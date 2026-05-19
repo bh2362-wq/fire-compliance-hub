@@ -448,6 +448,38 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={purgeOpen} onOpenChange={(o) => { if (!o) { setPurgeOpen(false); setPurgeConfirm(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Purge entire device inventory?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes all <strong>{devices.length}</strong> devices for this site so you can start a fresh import. This cannot be undone. Service history and reports that reference these devices will lose their device links.
+              <br /><br />
+              Type <strong>PURGE</strong> below to confirm.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={purgeConfirm}
+            onChange={(e) => setPurgeConfirm(e.target.value)}
+            placeholder="Type PURGE to confirm"
+            autoFocus
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={purging}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handlePurgeAll(); }}
+              disabled={purging || purgeConfirm.trim().toUpperCase() !== "PURGE"}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {purging ? <Loader2 className="w-4 h-4 animate-spin" /> : "Purge All Devices"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
