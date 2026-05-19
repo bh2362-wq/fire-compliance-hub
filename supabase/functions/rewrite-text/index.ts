@@ -484,9 +484,25 @@ ${context ? `\nADDITIONAL CONTEXT:\n${context}` : ""}`;
     }
 
     // Validate hallucinated clauses against retrieved chunks (only when grounding was used)
-    const { hallucinated_clauses, verified_clauses } = groundingActuallyUsed
+    const validation = groundingActuallyUsed
       ? validateGrounding(rewrittenText, grounding)
-      : { hallucinated_clauses: [], verified_clauses: [] };
+      : { hallucinated_clauses: [] as string[], verified_clauses: [] as string[], corpus: "" };
+    let { hallucinated_clauses, verified_clauses } = validation;
+    const textBeforeStrip = rewrittenText;
+    let post_processed = false;
+    let post_process_replacements: Array<{ from: string; to: string }> = [];
+    if (groundingActuallyUsed && hallucinated_clauses.length > 0) {
+      const stripped = stripHallucinations(rewrittenText, hallucinated_clauses, validation.corpus);
+      if (stripped.changed) {
+        rewrittenText = stripped.text;
+        post_processed = true;
+        post_process_replacements = stripped.replacements;
+        // Re-validate so the response reflects what actually shipped
+        const revalidate = validateGrounding(rewrittenText, grounding);
+        hallucinated_clauses = revalidate.hallucinated_clauses;
+        verified_clauses = revalidate.verified_clauses;
+      }
+    }
 
     const grounding_used = {
       enabled: !!useReferenceLibrary,
