@@ -264,7 +264,7 @@ STRICT RULES:
 - No markdown.
 - Do NOT invent standards, clause numbers or scope detail that wasn't in the input.
 ${groundingActuallyUsed
-  ? "- You MAY reference a British Standard ONLY if it appears verbatim in the reference excerpts below.\n- Prefer standards naming over generic phrasing where supported by the excerpts."
+  ? "- When the reference excerpts below contain a specific clause reference that matches this scope, CITE IT in the title (e.g. 'Clause 25.2'). Only fall back to a general standard reference (e.g. 'BS 5839-1:2025') when no specific clause is clearly supported.\n- Never cite a clause or standard that is not present verbatim in the excerpts."
   : "- Do NOT cite any specific clause numbers or standards in the title."}
 - UK English spelling.`;
         break;
