@@ -5,15 +5,43 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Mail, Loader2, RefreshCw, Scan, Search,
-  Paperclip, AlertCircle, ChevronLeft, ChevronRight, Inbox,
+  Paperclip, AlertCircle, ChevronLeft, ChevronRight, Inbox, Sparkles, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import {
   listInbox, getMessage, searchEmails, listAttachments, getAttachment,
   type OutlookMessage,
 } from "@/services/outlookEmailService";
+
+interface AiCitationEmail {
+  id: string;
+  subject: string;
+  from: string;
+  fromName: string;
+  date: string;
+  preview: string;
+  hasAttachments: boolean;
+}
+interface AiCitationQuote {
+  id: string;
+  quotation_number: string;
+  title: string | null;
+  total_amount: number;
+  status: string;
+  site_name?: string;
+  customer_name?: string;
+  created_at: string;
+}
+interface AiQueryResult {
+  answer: string;
+  keywords: string[];
+  emails: AiCitationEmail[];
+  quotations: AiCitationQuote[];
+}
+
 
 // ── Known client senders ──────────────────────────────────────────────────────
 const CLIENT_DOMAINS = [
