@@ -295,7 +295,7 @@ Deno.serve(async (req) => {
       let fullText = "";
       const pageMap: Array<{ start: number; end: number; page: number }> = [];
       for (const pg of pages) {
-        const pageText = reassemblePage(byPage.get(pg)!);
+        const pageText = stripChrome(reassemblePage(byPage.get(pg)!));
         const start = fullText.length;
         fullText += (fullText ? "\n\n" : "") + pageText;
         pageMap.push({ start, end: fullText.length, page: pg });
