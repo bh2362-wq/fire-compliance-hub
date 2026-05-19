@@ -99,10 +99,10 @@ function normalise(s: string): string {
 function validateGrounding(
   output: string,
   chunks: GroundingChunk[],
-): { hallucinated_clauses: string[]; verified_clauses: string[] } {
+): { hallucinated_clauses: string[]; verified_clauses: string[]; corpus: string } {
   const mentions = extractClauseMentions(output);
-  if (mentions.length === 0) return { hallucinated_clauses: [], verified_clauses: [] };
   const corpus = normalise(chunks.map((c) => `${c.standard_reference ?? ""} ${c.content}`).join("\n"));
+  if (mentions.length === 0) return { hallucinated_clauses: [], verified_clauses: [], corpus };
   const hallucinated: string[] = [];
   const verified: string[] = [];
   for (const m of mentions) {
@@ -110,7 +110,62 @@ function validateGrounding(
     if (corpus.includes(n)) verified.push(m);
     else hallucinated.push(m);
   }
-  return { hallucinated_clauses: hallucinated, verified_clauses: verified };
+  return { hallucinated_clauses: hallucinated, verified_clauses: verified, corpus };
+}
+
+// Walk up a clause hierarchy ("Clause 43.3.21" -> "Clause 43.3" -> "Clause 43")
+// and return the most specific parent that appears in the grounding corpus.
+function findVerifiedParent(mention: string, corpus: string): string | null {
+  const m = mention.match(/^(Clause|Section)\s+(\d+(?:\.\d+)*)([a-z])?$/i);
+  if (!m) return null;
+  const kind = m[1];
+  const parts = m[2].split(".");
+  while (parts.length > 1) {
+    parts.pop();
+    const candidate = `${kind} ${parts.join(".")}`;
+    if (corpus.includes(normalise(candidate))) return candidate;
+  }
+  return null;
+}
+
+// Post-process: replace hallucinated clause refs with verified parents,
+// or strip them and clean up surrounding prose.
+function stripHallucinations(
+  text: string,
+  hallucinated: string[],
+  corpus: string,
+): { text: string; changed: boolean; replacements: Array<{ from: string; to: string }> } {
+  if (hallucinated.length === 0) return { text, changed: false, replacements: [] };
+  let out = text;
+  const replacements: Array<{ from: string; to: string }> = [];
+  // Process longest first so "Clause 43.3.21" doesn't get partially matched by "Clause 43"
+  const ordered = [...hallucinated].sort((a, b) => b.length - a.length);
+  for (const mention of ordered) {
+    const parent = findVerifiedParent(mention, corpus);
+    const escaped = mention.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (parent) {
+      const re = new RegExp(`\\b${escaped}\\b`, "gi");
+      const before = out;
+      out = out.replace(re, parent);
+      if (out !== before) replacements.push({ from: mention, to: parent });
+    } else {
+      // Remove citation + small connective prose around it.
+      // Patterns: "per Clause X", "in accordance with Clause X", "(Clause X)",
+      // "as required by Clause X", ", Clause X,", "Clause X"
+      const patterns: Array<{ re: RegExp; sub: string }> = [
+        { re: new RegExp(`\\s*\\(\\s*${escaped}\\s*\\)`, "gi"), sub: "" },
+        { re: new RegExp(`\\s*,\\s*${escaped}\\s*,`, "gi"), sub: "," },
+        { re: new RegExp(`\\s+(?:per|under|in accordance with|as required by|as defined in|in line with|to)\\s+${escaped}\\b`, "gi"), sub: " per the standard" },
+        { re: new RegExp(`\\b${escaped}\\b`, "gi"), sub: "the standard" },
+      ];
+      const before = out;
+      for (const p of patterns) out = out.replace(p.re, p.sub);
+      // Tidy double spaces / stranded punctuation
+      out = out.replace(/\s{2,}/g, " ").replace(/\s+([.,;:])/g, "$1").replace(/\(\s*\)/g, "");
+      if (out !== before) replacements.push({ from: mention, to: "(removed)" });
+    }
+  }
+  return { text: out, changed: replacements.length > 0, replacements };
 }
 
 async function logAssist(row: Record<string, unknown>): Promise<void> {
@@ -168,6 +223,7 @@ serve(async (req) => {
       // Type-aware query construction: focused queries retrieve better chunks
       let query = "";
       let defaultLimit = 5;
+      let defaultMinSim: number | undefined = undefined;
       const ctx = (context ?? "").toString();
       switch (type) {
         case "quotation_title":
@@ -176,17 +232,20 @@ serve(async (req) => {
           break;
         case "quotation_summary":
           query = `${text}\n${ctx}\n${text.slice(0, 200)}`.trim();
-          defaultLimit = 6;
+          defaultLimit = 10;
+          defaultMinSim = 0.25;
           break;
         case "quotation_bs5839_expand":
           query = `${text}\n${ctx}`.trim();
-          defaultLimit = 8;
+          defaultLimit = 12;
+          defaultMinSim = 0.25;
           break;
         default:
           query = `${text}\n${ctx}`.trim();
       }
       const opts = { ...(referenceLibraryOptions ?? {}) };
       if (opts.limit == null) opts.limit = defaultLimit;
+      if (opts.minSimilarity == null && defaultMinSim != null) opts.minSimilarity = defaultMinSim;
       const r = await retrieveGrounding(query, opts);
       grounding = r.chunks;
       groundingError = r.error;
@@ -268,11 +327,26 @@ ${groundingActuallyUsed
   : "- Do NOT cite any specific clause numbers or standards in the title."}
 - UK English spelling.`;
         break;
-      case "quotation_summary":
+      case "quotation_summary": {
+        const strictCitationBlock = `CITATION RULES — ABSOLUTE:
+
+You will be given source material from BS 5839-1:2025. You may ONLY cite clauses, sections, annexes, or sub-clauses whose exact reference (e.g. 'Clause 43.2.1' or 'Annex G') appears verbatim in the source material text provided below.
+
+You may NOT:
+- Invent sub-clauses by adding decimal points (e.g. you may not cite Clause 43.3.21 unless that exact string appears in the source)
+- Extrapolate from a cited clause (e.g. if Clause 43 is in source, do not cite Clause 43.2 unless it is also in source)
+- Pattern-match the standard's numbering style to produce plausible-looking references
+- Cite clauses from your training knowledge of BS 5839 that aren't in the provided source
+
+If you want to make a claim that needs a specific sub-clause reference and that reference isn't in the source material:
+- Either cite the parent clause that IS in source (e.g. cite Clause 43 generally instead of Clause 43.3.21)
+- Or omit the citation entirely and phrase the claim without it
+
+Inventing a citation that looks real but isn't will mislead the client and damage BHO's professional reputation. When in doubt, cite less, not more.`;
         systemPrompt = groundingActuallyUsed
           ? `You are a quote description editor for BHO Fire & Security, a UK fire alarm specialist working to BS 5839-1:2025 with Honeywell Gent expertise.
 
-GROUNDING DIRECTIVE: Only cite clauses, standards or section numbers that appear verbatim in the REFERENCE LIBRARY EXCERPTS below. Where the excerpts contain a specific clause matching this scope, cite it. Never invent clause numbers.
+${strictCitationBlock}
 
 STRUCTURE — output a structured description with these sections in this order:
 1. **Scope of Works** — bullet list of what we will do
@@ -284,7 +358,7 @@ FORMATTING:
 - Use **bold** (double asterisks) for section headers
 - Use "- " for bullet points
 - British English spelling throughout (organisation, recognised, colour, centre)
-- Reference BS 5839-1:2025 with specific clauses where source material supports it
+- Reference BS 5839-1:2025 only with clauses present verbatim in source material
 - Include manufacturer references (Gent Vigilon, Hochiki, Advanced, Kentec, Notifier) where context supports
 - Conservative tone — no marketing fluff, no superlatives
 - 200-400 words total
@@ -315,6 +389,7 @@ ${context || "No line items provided"}
 
 Return ONLY the formatted summary text.`;
         break;
+      }
       case "po_line_items":
         systemPrompt = `You are a professional procurement specialist. Improve the grammar, spelling and clarity of these numbered purchase order line item descriptions. Keep the same numbering format (1. 2. 3. etc). Make descriptions clear, professional and suitable for a formal purchase order. Each description should be well-formatted - if a description contains multiple details (e.g. part number, specification, quantity notes), space them clearly across up to 2 lines using a newline within the numbered item. Do NOT add information that wasn't in the original. Use UK English spelling.${formatRules}`;
         break;
@@ -322,7 +397,21 @@ Return ONLY the formatted summary text.`;
         systemPrompt = `You are a BS 5839-1:2025 scope writer for BHO Fire & Security. You expand brief scope notes into technically precise scope statements suitable for inclusion in fire alarm quotes.
 
 ${groundingActuallyUsed
-  ? "GROUNDING DIRECTIVE: For each item, cite the specific BS 5839-1:2025 clause(s) from the REFERENCE LIBRARY EXCERPTS below that govern the work. Never invent clause numbers — only cite clauses that appear verbatim in the excerpts. If no specific clause is supported, fall back to a general standard reference (e.g. 'BS 5839-1:2025') without inventing a clause number."
+  ? `CITATION RULES — ABSOLUTE:
+
+You will be given source material from BS 5839-1:2025. You may ONLY cite clauses, sections, annexes, or sub-clauses whose exact reference (e.g. 'Clause 43.2.1' or 'Annex G') appears verbatim in the source material text provided below.
+
+You may NOT:
+- Invent sub-clauses by adding decimal points (e.g. you may not cite Clause 43.3.21 unless that exact string appears in the source)
+- Extrapolate from a cited clause (e.g. if Clause 43 is in source, do not cite Clause 43.2 unless it is also in source)
+- Pattern-match the standard's numbering style to produce plausible-looking references
+- Cite clauses from your training knowledge of BS 5839 that aren't in the provided source
+
+If you want to make a claim that needs a specific sub-clause reference and that reference isn't in the source material:
+- Either cite the parent clause that IS in source (e.g. cite Clause 43 generally instead of Clause 43.3.21)
+- Or omit the citation entirely and phrase the claim without it
+
+Inventing a citation that looks real but isn't will mislead the client and damage BHO's professional reputation. When in doubt, cite less, not more.`
   : "Reference BS 5839-1:2025 generally; do not cite specific clause numbers unless certain."}
 
 For each item produce an expanded description that:
@@ -395,9 +484,25 @@ ${context ? `\nADDITIONAL CONTEXT:\n${context}` : ""}`;
     }
 
     // Validate hallucinated clauses against retrieved chunks (only when grounding was used)
-    const { hallucinated_clauses, verified_clauses } = groundingActuallyUsed
+    const validation = groundingActuallyUsed
       ? validateGrounding(rewrittenText, grounding)
-      : { hallucinated_clauses: [], verified_clauses: [] };
+      : { hallucinated_clauses: [] as string[], verified_clauses: [] as string[], corpus: "" };
+    let { hallucinated_clauses, verified_clauses } = validation;
+    const textBeforeStrip = rewrittenText;
+    let post_processed = false;
+    let post_process_replacements: Array<{ from: string; to: string }> = [];
+    if (groundingActuallyUsed && hallucinated_clauses.length > 0) {
+      const stripped = stripHallucinations(rewrittenText, hallucinated_clauses, validation.corpus);
+      if (stripped.changed) {
+        rewrittenText = stripped.text;
+        post_processed = true;
+        post_process_replacements = stripped.replacements;
+        // Re-validate so the response reflects what actually shipped
+        const revalidate = validateGrounding(rewrittenText, grounding);
+        hallucinated_clauses = revalidate.hallucinated_clauses;
+        verified_clauses = revalidate.verified_clauses;
+      }
+    }
 
     const grounding_used = {
       enabled: !!useReferenceLibrary,
@@ -518,6 +623,9 @@ ${rewrittenText}`;
         suggestedSummary,
         grounding_used,
         hallucinated_clauses,
+        post_processed,
+        post_process_replacements,
+        text_before_post_process: post_processed ? textBeforeStrip : null,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
