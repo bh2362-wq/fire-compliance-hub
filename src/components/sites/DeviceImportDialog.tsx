@@ -459,6 +459,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       setCurrentMapping(null);
       setCurrentManualValues({});
       setCurrentBulkReplaces({});
+      setSelectedSourceColumns([]);
       setIsPdfFile(false);
     }
   };
@@ -476,6 +477,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setCurrentMapping(null);
     setCurrentManualValues({});
     setCurrentBulkReplaces({});
+    setSelectedSourceColumns([]);
     setIsPdfFile(false);
     setImportMode("file");
     setPastedText("");
@@ -493,6 +495,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setRawRows([]);
     setAvailableColumns([]);
     setCurrentMapping(null);
+    setSelectedSourceColumns([]);
     setPastedText("");
     setIsPdfFile(false);
   };
