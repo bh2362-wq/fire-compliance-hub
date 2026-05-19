@@ -250,9 +250,18 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
           <div className="grid gap-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Works type</Label>
-                <Select value={worksType} onValueChange={setWorksType}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label>
+                  Works type
+                  {worksTypeInferred && (
+                    <span className="ml-2 text-[10px] font-medium uppercase tracking-wide text-primary/80">
+                      inferred from line items
+                    </span>
+                  )}
+                </Label>
+                <Select value={worksType} onValueChange={(v) => { setWorksType(v); setWorksTypeInferred(null); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select works type…" />
+                  </SelectTrigger>
                   <SelectContent>{WORKS_TYPES.map(w => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
