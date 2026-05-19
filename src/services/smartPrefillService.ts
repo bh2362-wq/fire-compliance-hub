@@ -181,6 +181,21 @@ export async function buildSmartPrefill(
     if (staticFields.includes("approx_number_of_devices"))fields.approx_number_of_devices = siteData.total_devices || "";
   }
 
+  // Layer in site_assets baseline (lower-mid priority — physical inventory)
+  if (panelAsset) {
+    if (staticFields.includes("panel_manufacturer") && panelAsset.manufacturer)
+      fields.panel_manufacturer = panelAsset.manufacturer;
+    if (staticFields.includes("panel_model") && panelAsset.model)
+      fields.panel_model = panelAsset.model;
+    if (staticFields.includes("manufacturer") && panelAsset.manufacturer)
+      fields.manufacturer = panelAsset.manufacturer;
+    if (staticFields.includes("model") && panelAsset.model)
+      fields.model = panelAsset.model;
+  }
+  if (assetDeviceCount > 0 && staticFields.includes("approx_number_of_devices") && !fields.approx_number_of_devices) {
+    fields.approx_number_of_devices = assetDeviceCount;
+  }
+
   // Layer in service report data (medium priority — reflects actual on-site findings)
   if (latestReport) {
     if (staticFields.includes("engineer_name") && latestReport.engineer_name)
