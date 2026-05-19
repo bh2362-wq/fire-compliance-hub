@@ -186,10 +186,12 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
       return;
     }
 
-    const headers = ["Loop", "Address", "Type", "Location", "Zone", "Status", "Last Tested"];
+    const headers = ["Loop", "Address", "Type", "Location", "Zone", ...importColumns, "Status", "Last Tested"];
     const rows = filteredDevices.map((device) => [
       device.loop, device.address, device.device_type, device.location || "",
-      device.zone || "", device.status || "",
+      device.zone || "",
+      ...importColumns.map((column) => String(device.raw_import_data?.[column] ?? "")),
+      device.status || "",
       device.last_tested_at ? new Date(device.last_tested_at).toLocaleDateString() : "",
     ]);
 
