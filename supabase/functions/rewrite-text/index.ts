@@ -615,6 +615,13 @@ ${(() => { const t = formatContextAsText(context); return t ? `\nADDITIONAL CONT
       }
     }
 
+    // Re-apply title trim after strip pass so any trailing punctuation left behind
+    // by orphan cleanup (e.g. "Title per the standard.") is tidied.
+    if (type === "quotation_title") {
+      rewrittenText = rewrittenText.replace(/^["'`]+|["'`]+$/g, "").replace(/[.;:,\s]+$/g, "").trim();
+    }
+
+
     const grounding_used = {
       enabled: !!useReferenceLibrary,
       applied: groundingActuallyUsed,
