@@ -205,6 +205,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setCurrentMapping(null);
     setCurrentManualValues({});
     setCurrentBulkReplaces({});
+    setSelectedSourceColumns([]);
     setIsPdfFile(false);
 
     try {
@@ -337,6 +338,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       setParseErrors([]);
       setRawRows([]);
       setAvailableColumns([]);
+      setSelectedSourceColumns([]);
       return;
     }
 
@@ -362,6 +364,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
         setParseErrors([]);
         setRawRows([]); // Clear to prevent mapping dialog
         setAvailableColumns([]); // Clear to prevent mapping dialog
+        setSelectedSourceColumns([]);
         setShowMappingDialog(false); // Ensure mapping dialog is closed
         toast({
           title: "Data parsed",
