@@ -1021,7 +1021,16 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
 
                 <TabsContent value="details" className="space-y-3 mt-4">
                   <div>
-                    <Label>Quote Title</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Quote Title</Label>
+                      {!isLocked && (
+                        <ImproveTitleButton
+                          title={title}
+                          context={lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean).join("\n")}
+                          onAccept={(t) => { setTitle(t); setHasChanges(true); }}
+                        />
+                      )}
+                    </div>
                     <Input value={title} onChange={(e) => { setTitle(e.target.value); setHasChanges(true); }} disabled={isLocked} />
                   </div>
                   <div>
