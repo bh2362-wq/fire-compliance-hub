@@ -69,7 +69,7 @@
  
  For each issue found, provide:
  1. A clear description of the issue
- 2. The relevant regulation reference (e.g., "BS 5839-1:2017 Clause 25.2")
+ 2. The relevant regulation reference (e.g., "BS 5839-1:2025 Clause 25.2")
  3. Priority level: "critical" (immediate safety risk), "high" (compliance breach), "medium" (recommended improvement), or "low" (advisory)
  4. Source section from the report where this was identified
  
