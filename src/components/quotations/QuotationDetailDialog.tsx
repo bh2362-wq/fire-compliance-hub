@@ -126,6 +126,31 @@ const DEFAULT_TERMS = `1. This quotation is valid for 30 days from the date of i
 5. Access to all areas requiring work must be provided.
 6. Any additional work identified during the visit will be quoted separately.`;
 
+function SortableItemRow({
+  id,
+  disabled,
+  children,
+}: {
+  id: string;
+  disabled?: boolean;
+  children: (handle: { attributes: any; listeners: any; isDragging: boolean }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 10 : "auto",
+    position: "relative",
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ attributes, listeners, isDragging })}
+    </div>
+  );
+}
+
+
 export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdate }: QuotationDetailDialogProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
