@@ -28,18 +28,59 @@ const TARGET_CHARS_MAX = TARGET_TOKENS_MAX * CHARS_PER_TOKEN;
 const HARD_MAX_CHARS = HARD_MAX_TOKENS * CHARS_PER_TOKEN;
 const EMBED_BATCH = 50;
 
-// Matches "Clause 43", "Clause 43.2.1", "Section 12", "Annex G", "Annex G.1"
-const clauseHeadingRe =
-  /(?:^|\n)\s*(Clause|Section|Annex|Part)\s+([0-9]+(?:\.[0-9]+)*[a-z]?|[A-Z](?:\.[0-9]+)*)\b[^\n]{0,200}/g;
+// BS standards typically render clause headings as bare numbers ("15.1.5 All fire alarm sounders...")
+// while FIA guides and similar use "Clause 15.1.5". Detect both.
+// Bare numeric form: digits.dots optionally with trailing letter, followed by at least one space
+// and a capital letter / uppercase word starting the heading text.
+const clauseHeadingRe = new RegExp(
+  String.raw`(?:^|\n)\s*` +
+    `(?:` +
+      `(?:Clause|Section|Annex|Part)\\s+([0-9]+(?:\\.[0-9]+)*[a-z]?|[A-Z](?:\\.[0-9]+)*)` +
+      `|` +
+      `([0-9]+(?:\\.[0-9]+){0,4}[a-z]?)(?=\\s+[A-Z][A-Za-z])` +
+      `|` +
+      `(Annex\\s+[A-Z](?:\\.[0-9]+)*)` +
+    `)` +
+    `\\b[^\\n]{0,200}`,
+  "g",
+);
+
+function parseHeading(headingText: string): { kind: string; id: string } | null {
+  const m1 = headingText.match(/^\s*(Clause|Section|Annex|Part)\s+([0-9]+(?:\.[0-9]+)*[a-z]?|[A-Z](?:\.[0-9]+)*)/);
+  if (m1) return { kind: m1[1], id: m1[2] };
+  const m2 = headingText.match(/^\s*([0-9]+(?:\.[0-9]+){0,4}[a-z]?)(?=\s+[A-Z])/);
+  if (m2) return { kind: "Clause", id: m2[1] };
+  return null;
+}
 
 function leadingClauseRef(text: string): string | null {
-  const m = text.match(/^\s*(Clause|Section|Annex|Part)\s+([0-9]+(?:\.[0-9]+)*[a-z]?|[A-Z](?:\.[0-9]+)*)/);
-  return m ? `${m[1]} ${m[2]}` : null;
+  const h = parseHeading(text);
+  return h ? `${h.kind} ${h.id}` : null;
 }
 
 function primaryClauseId(text: string): string | null {
-  const m = text.match(/^\s*(Clause|Section|Annex|Part)\s+([0-9]+(?:\.[0-9]+)*[a-z]?|[A-Z](?:\.[0-9]+)*)/);
-  return m ? m[2] : null;
+  const h = parseHeading(text);
+  return h ? h.id : null;
+}
+
+// Strip recurring page-header / footer chrome that interrupts clause text.
+const chromeLineRes: RegExp[] = [
+  /^\s*BRITISH STANDARD\b.*$/gim,
+  /^\s*©\s*THE BRITISH STANDARDS INSTITUTION\b.*$/gim,
+  /^\s*BS\s?5839[\u2010\u2011\u2012\u2013\u2014-]?1:?2025\b.*$/gim,
+  /^\s*Tel:\s*\+44.*$/gim,
+  /^\s*www\.[a-z0-9.\-]+\.[a-z]{2,}\b.*$/gim,
+  /^\s*Guide to the changes in BS 5839-1:2025.*$/gim,
+  /^\s*\d+\s+of\s+\d+\s*$/gim,
+  /^\s*Page\s+\d+\s*$/gim,
+];
+
+function stripChrome(text: string): string {
+  let out = text;
+  for (const re of chromeLineRes) out = out.replace(re, "");
+  // Collapse 3+ blank lines down to 2
+  out = out.replace(/\n{3,}/g, "\n\n");
+  return out;
 }
 
 // Reassemble per-page text from overlapping chunks within the same page_number.
