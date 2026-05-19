@@ -22,11 +22,41 @@ interface Props {
 
 const WORKS_TYPES = [
   { value: "new_install", label: "New install" },
-  { value: "upgrade", label: "Upgrade" },
-  { value: "takeover", label: "Takeover" },
-  { value: "remedial", label: "Remedial" },
+  { value: "system_upgrade", label: "System upgrade" },
+  { value: "system_takeover", label: "System takeover" },
+  { value: "extension", label: "Extension" },
+  { value: "reactive_remedial", label: "Reactive remedial" },
+  { value: "planned_maintenance", label: "Planned maintenance (PPM)" },
+  { value: "cause_and_effect", label: "Cause and effect testing" },
+  { value: "commissioning_only", label: "Commissioning" },
+  { value: "acceptance_testing", label: "Acceptance testing" },
+  { value: "verification", label: "Verification" },
   { value: "design_only", label: "Design only" },
+  { value: "certification", label: "Certification" },
 ];
+
+// Infer works type from quotation title + line item descriptions.
+// Returns null when no keyword matches — caller must force user to choose.
+function inferWorksType(title: string | null | undefined, lineItemDescriptions: string[]): string | null {
+  const haystack = [title ?? "", ...lineItemDescriptions].join(" ").toLowerCase();
+  // Order matters — more specific matches first.
+  const rules: Array<[RegExp, string]> = [
+    [/\bcause\s*(?:and|&|\+)?\s*effect|\bc\s*&\s*e\b|\bc\/e\b/, "cause_and_effect"],
+    [/\bacceptance\b/, "acceptance_testing"],
+    [/\bcommission/, "commissioning_only"],
+    [/\bverification\b|\bverify(ing)?\b/, "verification"],
+    [/\bcertif(y|ication|icate)\b/, "certification"],
+    [/\b(ppm|planned\s*maintenance|service\s*visit|servicing|annual\s*service|biannual|quarterly)\b/, "planned_maintenance"],
+    [/\b(remedial|repair|fault|defect\s*rectif)/, "reactive_remedial"],
+    [/\b(take[\s-]?over)\b/, "system_takeover"],
+    [/\bupgrade\b|\breplacement\s*panel\b/, "system_upgrade"],
+    [/\bextension\b|\bextend\s+the\s+system\b|\badditional\s+devices?\b/, "extension"],
+    [/\bdesign\s*only\b/, "design_only"],
+    [/\b(new\s*install|new\s*system|full\s*installation|fresh\s*install)\b/, "new_install"],
+  ];
+  for (const [re, val] of rules) if (re.test(haystack)) return val;
+  return null;
+}
 const CATEGORIES = ["L1", "L2", "L3", "L4", "L5", "M", "P1", "P2"] as const;
 const OCCUPANCIES = [
   { value: "sleeping", label: "Sleeping" },
