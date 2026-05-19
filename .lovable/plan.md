@@ -1,81 +1,79 @@
-## Goal
+# Audit: AI / Prefill Surfaces
 
-Rewrite all 8 remaining smart forms into the same single-page document-style layout used by `BS5839CertificateForm`, and expand each form's fields to match its underlying paper sheet (using the existing PDF generators as the source of truth for the canonical field set).
+The system already has a partial prefill capability (`smartPrefillService` for Smart Forms, `quotationToQuoteInput` for DOCX). But the **AI-generation surfaces** below either ask the engineer to retype everything, or pull from the quotation row only — they never harvest the site file.
 
-## Forms in scope
+## AI / form surfaces that should be auto-prefilled from site data
 
-1. ASDCommissioningForm — `asdCommissioningPdfGenerator.ts`
-2. ASDServiceForm — `asdChecklistService.ts` / `commissioningCertificatePdfGenerator.ts`
-3. CommissioningCertificateForm — `commissioningCertificatePdfGenerator.ts`
-4. DeclinationForm — `declinationPdfGenerator.ts` (currently a 5-step wizard)
-5. DryRiserForm — `dryRiserPdfGenerator.ts`
-6. EmergencyLightingForm — `emergencyLightingPdfGenerator.ts`
-7. InstallationCertificateForm — `installationCertificatePdfGenerator.ts`
-8. ModificationCertificateForm — `modificationCertificatePdfGenerator.ts`
+| # | Surface | Where | Currently prefilled from | Gap |
+|---|---|---|---|---|
+| 1 | **AI Scope Writer (BS 5839)** | `ScopeWriterDialog.tsx` → `generate-bs5839-scope` | Quotation row fields only | No site_assets, no prior cert, no contract category |
+| 2 | **AI RAMS** | `RamsJobSelectorDialog` → `generate-rams-ai` | Just visit_type + notes | No panel make, no access notes, no asset count |
+| 3 | **AI Defect Quote** | `AIDefectQuoteDialog` → `generate-defect-quote` | Defect text only | No system context |
+| 4 | **AI Pricing Narrative** | `usePricingNarrative` → `generate-pricing-narrative` | Job text | No site asset baseline |
+| 5 | **Quotation DOCX export** | `useGenerateQuoteDocx` | Quotation row | Could enrich with system spec block |
+| 6 | **Smart Form prefill** | `smartPrefillService` | Last cert + service report + site | **Does NOT read `site_assets`** — biggest miss |
+| 7 | **Job Sheets (visit notes / RAMS engineer briefing)** | `RamsEngineerBriefing` | Visit row | No asset summary, no access notes, no battery age |
 
-## Shared layout pattern (from BS5839)
+## Single source of truth: `getSiteIntelligence(siteId)`
 
-Every rewritten form will use this skeleton inside a `Dialog`:
+A new service `src/services/siteIntelligenceService.ts` will return one normalised object that every surface above can layer in:
 
 ```text
-+-----------------------------------------------------------+
-| Sticky header                                             |
-|   Title  | Cert ref + status badge | Save Draft | Complete & PDF
-+-----------------------------------------------------------+
-| Scrollable document body                                  |
-|   1. Title block                                          |
-|   2. Site / Customer grid                                 |
-|   3. System / Installation details bar                    |
-|   4. Sectioned content (checklist / tests / readings)     |
-|   5. Work carried out                                     |
-|   6. Defects register (DefectImportPanel where relevant)  |
-|   7. Signatures (engineer + client, SmartSignature)       |
-|   8. Client Summary (AI) panel                            |
-+-----------------------------------------------------------+
-| Sticky footer                                             |
-|   Company text | Close | Complete & Download PDF          |
-+-----------------------------------------------------------+
+SiteIntelligence {
+  site:        { name, address, postcode, contact_*, access_notes, parking_notes, gate_code }
+  contract:    { category, frequency, service_type, included_visits } | null    // from site_service_contracts (fire_alarm)
+  panel:       { manufacturer, model, loops_count, zones_count, location, age_years } | null  // from site_assets where asset_type='fire_panel'
+  devices:     { total, by_type, manufacturers[] }                              // aggregated from site_assets + sites.total_devices
+  battery:     { fitted_year, age_years, suggested_replace_year } | null        // from site_assets notes / latest cert
+  features:    { arc_signal, voice_alarm, wireless, bms_interface, lift_recall } // inferred from latest cert payload + asset notes
+  building:    { type, occupancy, storeys } | null                              // from latest cert payload
+  latest_cert: { reference, date, form_type, has_defects }                      // for "last serviced" line
+  latest_defects: string[]                                                      // top 3 open from defects table
+  tagging:     { protocol, scheme }                                             // from site_assets.notes JSON
+}
 ```
 
-- Same status pill colour rules used in BS5839 (YES green / NO red / N/A grey, with `invert` flag for items where YES = defect).
-- Reuse `SitePrefillPanel`, `HintPanel`, `ClientSummaryPanel`, `DefectImportPanel`, `SmartSignature`, `ComplianceChecker` where applicable.
-- All save/persist/PDF/SharePoint/autoRegister/pushDefects logic preserved exactly as-is per form.
+Single round-trip: one Postgres call per source (`sites`, `site_assets`, `site_service_contracts`, `smart_form_submissions`, `defects`) in parallel, then merged client-side. Cached per-session via React Query (`["site-intel", siteId]`).
 
-## Field expansion approach (per form)
+## Phased rollout
 
-For each form I will:
+**Phase 1 — Foundation (this PR)**
+1. Create `src/services/siteIntelligenceService.ts` returning the shape above.
+2. Create `src/hooks/useSiteIntelligence.ts` (React Query wrapper, 5 min stale).
+3. Extend `smartPrefillService` to also layer `site_assets` data (panel, devices, ARC) under the existing precedence rules — fixes the biggest current gap.
 
-1. Read the matching `*PdfGenerator.ts` and any related service to enumerate every field the paper sheet renders.
-2. Diff against the form's current payload type and add missing fields to the payload + UI.
-3. Group fields into the document sections above.
+**Phase 2 — Scope Writer**
+4. In `ScopeWriterDialog`, on open, fetch `useSiteIntelligence(q.site_id)` and prefill any blank field (manufacturer, panel, loops, building type, ARC, voice alarm, etc.). Show a small "Prefilled from site file" pill, like the existing `SitePrefillPanel` pattern. Never overwrite a non-empty quotation field.
+5. Forward the same payload into the `generate-bs5839-scope` request body under a new `site_context` key so the AI also sees device counts, last service date, and known defects.
 
-Specific paper-sheet sections per form (high level):
+**Phase 3 — RAMS + other AI generators**
+6. `RamsJobSelectorDialog` / `generate-rams-ai`: pass site intelligence (panel make, access notes, asset list) so generated method statements and site-specific hazards are accurate from the first run.
+7. `AIDefectQuoteDialog` / `generate-defect-quote`: include panel + device baseline so quoted parts match the actual system.
+8. `usePricingNarrative`: include device counts for normalisation.
 
-- **DeclinationForm**: collapse the 5-step wizard into one document. Sections: Premises, Works declined + standard ref + risk, Auto-fill statement, BHO + client signatures, preview.
-- **InstallationCertificateForm / CommissioningCertificateForm / ModificationCertificateForm**: BS 5839 cert structure — installer details, system extent, design/install/commissioning/acceptance signatories, variations, declarations, deviations, test results.
-- **ASDCommissioningForm / ASDServiceForm**: aspirating smoke detector — pipework/sampling-point map, hole sizes, transport time, sensitivity test, alarm thresholds, fault thresholds, cumulative test results, 4-stage commissioning checklist.
-- **EmergencyLightingForm**: BS 5266 — luminaire schedule, monthly/6-monthly/annual test grid, duration test (1hr or 3hr), battery condition, defects.
-- **DryRiserForm**: annual dry-riser test sheet — outlet pressure readings per floor, wet test, visual inspection, valves, drain test.
+**Phase 4 — Job sheets & briefings**
+9. `RamsEngineerBriefing` and visit detail views show a compact "Site at a glance" panel sourced from `useSiteIntelligence` (panel, loops, devices, ARC, last service, gate code, parking).
+10. Quotation DOCX: optionally append a "System overview" paragraph derived from the same payload.
 
-## Execution order
+## Technical notes (for the dev)
 
-1. Audit pass: read all 8 PDF generators + current forms in parallel batches to gather field lists.
-2. Rewrite forms in 4 batches of 2 (parallel writes per batch) to keep diffs reviewable:
-   - Batch A: Declination, EmergencyLighting
-   - Batch B: DryRiser, ASDService
-   - Batch C: ASDCommissioning, Installation
-   - Batch D: Commissioning, Modification
-3. After each batch: TS check via build signal, fix any compile errors before next batch.
-4. No DB schema changes — all new fields live inside the existing `payload` JSONB on `smart_form_submissions`.
+- All reads are pure-SELECT against existing tables — **no schema migration required**.
+- Battery age = `EXTRACT(YEAR FROM age(now(), (site_assets.notes::jsonb->>'battery_fitted_date')::date))` when present, else inferred from latest cert. Falls back to `null`.
+- Tagging protocol lives in `site_assets.notes` JSON (per Asset Tags memory) — parse defensively.
+- Features (`arc_signal`, `voice_alarm`, etc.) are merged with precedence: latest cert payload > asset notes > false.
+- Every consumer treats the result as **suggestions only** — engineer can still overwrite any field before generation. Empty / null fields silently skip prefill, never write "Unknown".
+- Add a new memory `mem://features/ai/site-intelligence-prefill` documenting the service shape and precedence rules once Phase 1 lands.
 
-## Out of scope
+## Out of scope (per your answer — site_assets only for now)
 
-- No changes to `smartFormService.ts` checklist data (already done in prior turn).
-- No changes to PDF generators themselves unless a newly added field has nowhere to render (in which case I'll append a minimal section to that generator).
-- No changes to routing, navigation, or the design system.
+- Pulling from quotation history, service contracts categorisation beyond `category`, defect history beyond "top 3 open", or external sources (SharePoint photos, Companies House). Easy to add later by extending the single service.
 
-## Risks / notes
+## Deliverable for Phase 1 (next reply if you approve)
 
-- Some PDF generators may already render fields the form never collected — those will become new inputs (good).
-- Some forms may expose fields the paper sheet doesn't actually have — those stay as-is to avoid scope creep.
-- This is a large multi-file change (8 full rewrites). Expect ~8 long file writes plus targeted edits.
+Files I will create / edit:
+- **new** `src/services/siteIntelligenceService.ts`
+- **new** `src/hooks/useSiteIntelligence.ts`
+- **edit** `src/services/smartPrefillService.ts` — layer in `site_assets` data
+- **edit** `src/features/quotes/ScopeWriterDialog.tsx` — call the hook, prefill blanks, show pill
+
+Estimated ~250 LoC, no DB changes, no edge function changes for Phase 1.
