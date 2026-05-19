@@ -327,6 +327,12 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
               Add
             </Button>
           )}
+          {devices.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setPurgeOpen(true)} className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30">
+              <Trash2 className="w-4 h-4 mr-1" />
+              Purge All
+            </Button>
+          )}
         </div>
       </div>
 
