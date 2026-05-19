@@ -241,15 +241,28 @@ function drawLineItems(doc: jsPDF, pw: number, m: number, y: number, data: Quota
   return (doc as any).lastAutoTable.finalY;
 }
 
+// Accepts decimal (0.20) or whole-number percent (20). Guards against silent
+// misinterpretation by refusing to render anything outside plausible UK range.
+function normalizeVatFraction(raw: number | null | undefined, ref?: string): number {
+  const r = raw == null ? 20 : Number(raw);
+  if (!Number.isFinite(r)) throw new Error(`VAT rate invalid on ${ref ?? "quote"}: ${raw}`);
+  const fraction = r > 1 ? r / 100 : r;
+  if (fraction < 0 || fraction > 0.5) {
+    throw new Error(`VAT rate out of plausible range on ${ref ?? "quote"} — raw=${raw}, fraction=${fraction}.`);
+  }
+  return fraction;
+}
+
 function drawTotals(doc: jsPDF, pw: number, m: number, y: number, data: QuotationData): number {
   y = guard(doc, y, 28); y += 5;
-  const vr = data.vat_rate ?? 20;
-  const sub = data.total_amount, vat = sub * (vr / 100), tot = sub + vat;
+  const vatFraction = normalizeVatFraction(data.vat_rate, (data as any).reference);
+  const vatPercentLabel = Math.round(vatFraction * 100);
+  const sub = data.total_amount, vat = sub * vatFraction, tot = sub + vat;
   const tx = pw - m - 75;
   doc.setFontSize(8.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...C.muted);
   doc.text("Subtotal", tx, y);
   doc.setTextColor(...C.body); doc.text(gbp(sub), pw - m, y, { align: "right" }); y += 5.5;
-  doc.setTextColor(...C.muted); doc.text(`VAT (${vr}%)`, tx, y);
+  doc.setTextColor(...C.muted); doc.text(`VAT (${vatPercentLabel}%)`, tx, y);
   doc.setTextColor(...C.body); doc.text(gbp(vat), pw - m, y, { align: "right" }); y += 4;
   doc.setDrawColor(...C.border); doc.setLineWidth(0.4); doc.line(tx, y, pw - m, y); y += 5;
   doc.setFontSize(9.5); doc.setFont("helvetica", "bold"); doc.setTextColor(...C.black);

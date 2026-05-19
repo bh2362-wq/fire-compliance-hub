@@ -85,7 +85,10 @@ export function quotationToQuoteInput(q: QuotationFull) {
       .map((li) => ({ desc: li.description, qty: li.quantity ?? 1, unit: li.unit_price ?? 0 })),
     assumptions: q.assumptions ?? [],
     exclusions: q.exclusions ?? [],
-    vat_rate: q.vat_rate ?? 0.20,
+    // VAT is stored as whole-number percent (e.g. 20) per DB convention.
+    // Pass through as-is — the docx/pdf renderers normalise to a fraction
+    // and guard against out-of-range values.
+    vat_rate: q.vat_rate ?? 20,
     quotation_id: q.id,
   };
 }

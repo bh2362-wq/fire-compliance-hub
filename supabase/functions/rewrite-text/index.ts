@@ -221,6 +221,16 @@ function stripHallucinations(
     .replace(/\b(the standard)\s+[A-Za-z](?=[\s.,;:]|$)/g, "$1")
     // Stranded "(Clause N.N x)" / "Clause N.N x," — strip the orphan sub-letter
     .replace(/\b(Clause|Section|Annex|Figure|Table)\s+\d+(?:\.\d+)*\s+[a-z](?=[\s.,;:)]|\)|$)/gi, "$1")
+    // --- Orphan "Clause" survivors (number stripped, word + connective survived) ---
+    // "per Clause)" / "per Clause )" / "per Clause." — connective + bare Clause + punctuation
+    .replace(/\b(in accordance with|per|under|see|as required by|as defined in|in line with|to)\s+Clause\s*[)\.,;:]/gi, "")
+    // Bare "Clause )" / "Clause)" / "Clause," left over after a number strip
+    .replace(/\bClause\s*[)\.,;:]/gi, "")
+    // "per the standard )" / "per the standard ." — connective + standard + dangling punct
+    .replace(/\b(in accordance with|per|under|see|as required by|as defined in|in line with|to)?\s*the standard\s*[)\.,;:](?!\s*[A-Za-z])/gi, (m) => {
+      // Strip the trailing dangling close-paren/comma/etc but keep a clean period when it's a sentence end.
+      return m.match(/\.$/) ? "" : "";
+    })
     // Orphaned "Figure"/"Table"/"Annex" left dangling with no identifier following
     .replace(/\b(Figure|Table|Annex)\s+(?=[.,;:)\s])/g, "the standard ")
     // Stranded ".N" or " Nx" right after a removal site
@@ -236,7 +246,9 @@ function stripHallucinations(
     // Double spaces and empty parens
     .replace(/\s{2,}/g, " ")
     .replace(/\(\s*\)/g, "")
-    .replace(/\s+([.,;:!?])/g, "$1");
+    .replace(/\s+([.,;:!?])/g, "$1")
+    // Tidy a trailing connective with nothing after it (e.g. "...testing per.")
+    .replace(/\s+(in accordance with|per|under|see|as required by|as defined in|in line with|to)\s*([.,;:]|$)/gi, "$2");
 
   // Belt-and-braces final sanity pass: scan for any orphan single letter (NOT "a"/"A"/"I")
   // that sits after a known anchor phrase or at end of string after stripping.
