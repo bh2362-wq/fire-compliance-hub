@@ -5567,6 +5567,15 @@ export type Database = {
     }
     Functions: {
       auto_capa_from_overdue_reviews: { Args: never; Returns: undefined }
+      check_works_type_alignment: {
+        Args: { p_typescript_values: string[] }
+        Returns: {
+          constraint_name: string
+          missing_in_db: string[]
+          missing_in_typescript: string[]
+          status: string
+        }[]
+      }
       get_next_po_number: { Args: never; Returns: string }
       get_next_qms_number: { Args: { prefix: string }; Returns: string }
       get_next_quotation_number: { Args: never; Returns: string }
