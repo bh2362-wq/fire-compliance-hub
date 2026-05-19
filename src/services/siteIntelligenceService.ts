@@ -248,7 +248,7 @@ export async function getSiteIntelligence(siteId: string): Promise<SiteIntellige
 
   // ── Tagging (search panel notes first, then any asset) ───────────────────────
   let tagging = { protocol: null as string | null, scheme: null as string | null };
-  for (const a of [panelAsset, ...assets].filter(Boolean) as AssetRow[]) {
+  for (const a of [primaryPanel, ...assets].filter(Boolean) as AssetRow[]) {
     const meta = safeParseJson(a.notes);
     if (meta?.tagging_protocol || meta?.tagging_scheme) {
       tagging = {
