@@ -165,6 +165,34 @@ function stripHallucinations(
       if (out !== before) replacements.push({ from: mention, to: "(removed)" });
     }
   }
+  // Final orphan-fragment cleanup pass — catches debris left behind when a
+  // citation like "Annex G.1" was matched by extractor as "Annex G" leaving ".1"
+  // or model wrote "Figure G.1" and we stripped "G.1" leaving "Figure".
+  const before2 = out;
+  out = out
+    // "the standard.1f)" / "the standard .2" / "the standard f," → "the standard"
+    .replace(/\b(the standard)\s*\.[A-Za-z0-9]{1,4}\b/g, "$1")
+    .replace(/\b(the standard)\s+[A-Za-z]{1,2}\b(?=[\s.,;:)])/g, "$1")
+    // Orphaned "Figure"/"Table"/"Annex" left dangling with no identifier following
+    .replace(/\b(Figure|Table|Annex)\s+(?=[.,;:)\s])/g, "the standard ")
+    // Stranded ".N" or " Nx" right after a removal site (within 3 chars of "standard")
+    .replace(/(the standard)\s*[.,]?\s*\d+(?:\.\d+)?[a-z]?\)/g, "$1)")
+    // Orphan single-letter followed by space inside parens: "(standard f)" → "(standard)"
+    .replace(/\(\s*([A-Za-z][A-Za-z\s]*?)\s+[a-z]{1,2}\s*\)/g, "($1)")
+    // Stranded ", and ," / ", ," / " ,," patterns
+    .replace(/,\s*,/g, ",")
+    .replace(/,\s*\./g, ".")
+    .replace(/\s+,/g, ",")
+    .replace(/\(\s*[.,;:]\s*/g, "(")
+    .replace(/\s*[.,;:]\s*\)/g, ")")
+    // Double spaces and empty parens again after the above
+    .replace(/\s{2,}/g, " ")
+    .replace(/\(\s*\)/g, "")
+    // Trim space before punctuation introduced by removals
+    .replace(/\s+([.,;:!?])/g, "$1");
+  if (out !== before2 && replacements.length > 0) {
+    replacements.push({ from: "(orphan cleanup)", to: "(applied)" });
+  }
   return { text: out, changed: replacements.length > 0, replacements };
 }
 
