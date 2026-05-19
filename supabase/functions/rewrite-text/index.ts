@@ -524,7 +524,7 @@ OUTPUT FORMAT:
 4. Maintain the SAME line-item order as the input
 5. Return ONLY valid JSON, no markdown wrapping
 
-${context ? `\nADDITIONAL CONTEXT:\n${context}` : ""}`;
+${(() => { const t = formatContextAsText(context); return t ? `\nADDITIONAL CONTEXT:\n${t}` : ""; })()}`;
         break;
       default:
         systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise. Separate different topics with blank lines.${formatRules}`;
