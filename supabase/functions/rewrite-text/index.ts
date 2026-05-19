@@ -223,6 +223,7 @@ serve(async (req) => {
       // Type-aware query construction: focused queries retrieve better chunks
       let query = "";
       let defaultLimit = 5;
+      let defaultMinSim: number | undefined = undefined;
       const ctx = (context ?? "").toString();
       switch (type) {
         case "quotation_title":
@@ -231,17 +232,20 @@ serve(async (req) => {
           break;
         case "quotation_summary":
           query = `${text}\n${ctx}\n${text.slice(0, 200)}`.trim();
-          defaultLimit = 6;
+          defaultLimit = 10;
+          defaultMinSim = 0.25;
           break;
         case "quotation_bs5839_expand":
           query = `${text}\n${ctx}`.trim();
-          defaultLimit = 8;
+          defaultLimit = 12;
+          defaultMinSim = 0.25;
           break;
         default:
           query = `${text}\n${ctx}`.trim();
       }
       const opts = { ...(referenceLibraryOptions ?? {}) };
       if (opts.limit == null) opts.limit = defaultLimit;
+      if (opts.minSimilarity == null && defaultMinSim != null) opts.minSimilarity = defaultMinSim;
       const r = await retrieveGrounding(query, opts);
       grounding = r.chunks;
       groundingError = r.error;
