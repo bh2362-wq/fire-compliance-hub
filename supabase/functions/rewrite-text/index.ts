@@ -196,10 +196,12 @@ function stripHallucinations(
       // Patterns: "per Clause X", "in accordance with Clause X", "(Clause X)",
       // "as required by Clause X", ", Clause X,", "Clause X"
       const patterns: Array<{ re: RegExp; sub: string }> = [
+        // Preserve the standard ref when an unverified Clause directly follows it: "BS 5839-1:2025 Clause 38" → "BS 5839-1:2025"
+        { re: new RegExp(`(BS\\s?\\d{3,5}(?:[-:]\\d+)?(?::\\d{4})?(?:\\+A\\d+(?::\\d{4})?)?)\\s+${escaped}\\b`, "gi"), sub: "$1" },
         { re: new RegExp(`\\s*\\(\\s*${escaped}\\s*\\)`, "gi"), sub: "" },
         { re: new RegExp(`\\s*,\\s*${escaped}\\s*,`, "gi"), sub: "," },
-        { re: new RegExp(`\\s+(?:per|under|in accordance with|as required by|as defined in|in line with|to)\\s+${escaped}\\b`, "gi"), sub: " per the standard" },
-        { re: new RegExp(`\\b${escaped}\\b`, "gi"), sub: "the standard" },
+        { re: new RegExp(`\\s+(?:per|under|in accordance with|as required by|as defined in|in line with|to)\\s+${escaped}\\b`, "gi"), sub: " per BS 5839-1:2025" },
+        { re: new RegExp(`\\b${escaped}\\b`, "gi"), sub: "BS 5839-1:2025" },
       ];
       const before = out;
       for (const p of patterns) out = out.replace(p.re, p.sub);
