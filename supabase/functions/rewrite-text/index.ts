@@ -99,10 +99,10 @@ function normalise(s: string): string {
 function validateGrounding(
   output: string,
   chunks: GroundingChunk[],
-): { hallucinated_clauses: string[]; verified_clauses: string[] } {
+): { hallucinated_clauses: string[]; verified_clauses: string[]; corpus: string } {
   const mentions = extractClauseMentions(output);
-  if (mentions.length === 0) return { hallucinated_clauses: [], verified_clauses: [] };
   const corpus = normalise(chunks.map((c) => `${c.standard_reference ?? ""} ${c.content}`).join("\n"));
+  if (mentions.length === 0) return { hallucinated_clauses: [], verified_clauses: [], corpus };
   const hallucinated: string[] = [];
   const verified: string[] = [];
   for (const m of mentions) {
@@ -110,7 +110,62 @@ function validateGrounding(
     if (corpus.includes(n)) verified.push(m);
     else hallucinated.push(m);
   }
-  return { hallucinated_clauses: hallucinated, verified_clauses: verified };
+  return { hallucinated_clauses: hallucinated, verified_clauses: verified, corpus };
+}
+
+// Walk up a clause hierarchy ("Clause 43.3.21" -> "Clause 43.3" -> "Clause 43")
+// and return the most specific parent that appears in the grounding corpus.
+function findVerifiedParent(mention: string, corpus: string): string | null {
+  const m = mention.match(/^(Clause|Section)\s+(\d+(?:\.\d+)*)([a-z])?$/i);
+  if (!m) return null;
+  const kind = m[1];
+  const parts = m[2].split(".");
+  while (parts.length > 1) {
+    parts.pop();
+    const candidate = `${kind} ${parts.join(".")}`;
+    if (corpus.includes(normalise(candidate))) return candidate;
+  }
+  return null;
+}
+
+// Post-process: replace hallucinated clause refs with verified parents,
+// or strip them and clean up surrounding prose.
+function stripHallucinations(
+  text: string,
+  hallucinated: string[],
+  corpus: string,
+): { text: string; changed: boolean; replacements: Array<{ from: string; to: string }> } {
+  if (hallucinated.length === 0) return { text, changed: false, replacements: [] };
+  let out = text;
+  const replacements: Array<{ from: string; to: string }> = [];
+  // Process longest first so "Clause 43.3.21" doesn't get partially matched by "Clause 43"
+  const ordered = [...hallucinated].sort((a, b) => b.length - a.length);
+  for (const mention of ordered) {
+    const parent = findVerifiedParent(mention, corpus);
+    const escaped = mention.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (parent) {
+      const re = new RegExp(`\\b${escaped}\\b`, "gi");
+      const before = out;
+      out = out.replace(re, parent);
+      if (out !== before) replacements.push({ from: mention, to: parent });
+    } else {
+      // Remove citation + small connective prose around it.
+      // Patterns: "per Clause X", "in accordance with Clause X", "(Clause X)",
+      // "as required by Clause X", ", Clause X,", "Clause X"
+      const patterns: Array<{ re: RegExp; sub: string }> = [
+        { re: new RegExp(`\\s*\\(\\s*${escaped}\\s*\\)`, "gi"), sub: "" },
+        { re: new RegExp(`\\s*,\\s*${escaped}\\s*,`, "gi"), sub: "," },
+        { re: new RegExp(`\\s+(?:per|under|in accordance with|as required by|as defined in|in line with|to)\\s+${escaped}\\b`, "gi"), sub: " per the standard" },
+        { re: new RegExp(`\\b${escaped}\\b`, "gi"), sub: "the standard" },
+      ];
+      const before = out;
+      for (const p of patterns) out = out.replace(p.re, p.sub);
+      // Tidy double spaces / stranded punctuation
+      out = out.replace(/\s{2,}/g, " ").replace(/\s+([.,;:])/g, "$1").replace(/\(\s*\)/g, "");
+      if (out !== before) replacements.push({ from: mention, to: "(removed)" });
+    }
+  }
+  return { text: out, changed: replacements.length > 0, replacements };
 }
 
 async function logAssist(row: Record<string, unknown>): Promise<void> {
