@@ -1025,7 +1025,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                       <Label>Quote Title</Label>
                       {!isLocked && (
                         <ImproveTitleButton
-                          title={title}
+                          text={title}
                           context={lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean).join("\n")}
                           onAccept={(t) => { setTitle(t); setHasChanges(true); }}
                         />
@@ -1034,7 +1034,21 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                     <Input value={title} onChange={(e) => { setTitle(e.target.value); setHasChanges(true); }} disabled={isLocked} />
                   </div>
                   <div>
-                    <Label>Summary</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Summary</Label>
+                      {!isLocked && (
+                        <ImproveTitleButton
+                          text={summary}
+                          type="quotation_summary"
+                          context={[
+                            title && `Title: ${title}`,
+                            "Line items:",
+                            ...lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean),
+                          ].filter(Boolean).join("\n")}
+                          onAccept={(t) => { setSummary(t); setHasChanges(true); }}
+                        />
+                      )}
+                    </div>
                     <Textarea rows={3} value={summary} onChange={(e) => { setSummary(e.target.value); setHasChanges(true); }} disabled={isLocked} />
                   </div>
                   <div>
