@@ -123,6 +123,19 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     existing_system_description: existingDesc || undefined,
     project_name: q?.title ?? undefined,
     quotation_id: quotationId,
+    site_context: siteIntel ? {
+      site_name: siteIntel.site.name,
+      address: siteIntel.site.address,
+      device_total: siteIntel.devices.total,
+      device_by_type: siteIntel.devices.by_type,
+      device_manufacturers: siteIntel.devices.manufacturers,
+      panel_age_years: siteIntel.panel?.age_years ?? null,
+      battery_age_years: siteIntel.battery?.age_years ?? null,
+      tagging_protocol: siteIntel.tagging.protocol,
+      latest_cert_date: siteIntel.latest_cert?.date ?? null,
+      latest_open_defects: siteIntel.latest_defects,
+      contract_frequency: siteIntel.contract?.frequency ?? null,
+    } : undefined,
   });
 
   const runGenerate = async () => {
