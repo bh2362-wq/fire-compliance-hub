@@ -48,7 +48,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Cpu, Search, ChevronLeft, ChevronRight, Pencil, Trash2, Loader2, Plus, Filter, Download, X, ChevronDown } from "lucide-react";
+import { Cpu, Search, ChevronLeft, ChevronRight, Pencil, Trash2, Loader2, Plus, Filter, Download, X, ChevronDown, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -87,6 +87,9 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [deletingDevice, setDeletingDevice] = useState<Device | null>(null);
+  const [purgeOpen, setPurgeOpen] = useState(false);
+  const [purgeConfirm, setPurgeConfirm] = useState("");
+  const [purging, setPurging] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>({
@@ -269,6 +272,25 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
     }
   };
 
+  const handlePurgeAll = async () => {
+    if (purgeConfirm.trim().toUpperCase() !== "PURGE") return;
+    setPurging(true);
+    const { error, count } = await supabase
+      .from("devices")
+      .delete({ count: "exact" })
+      .eq("site_id", siteId);
+    setPurging(false);
+
+    if (error) {
+      toast({ title: "Purge failed", description: error.message, variant: "destructive" });
+    } else {
+      setDevices([]);
+      toast({ title: "Inventory purged", description: `Removed ${count ?? 0} devices. You can now re-import.` });
+      setPurgeOpen(false);
+      setPurgeConfirm("");
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -303,6 +325,12 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
             <Button variant="outline" size="sm" onClick={onImportClick}>
               <Plus className="w-4 h-4 mr-1" />
               Add
+            </Button>
+          )}
+          {devices.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setPurgeOpen(true)} className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30">
+              <Trash2 className="w-4 h-4 mr-1" />
+              Purge All
             </Button>
           )}
         </div>
@@ -417,6 +445,38 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteConfirm} disabled={saving}>{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={purgeOpen} onOpenChange={(o) => { if (!o) { setPurgeOpen(false); setPurgeConfirm(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Purge entire device inventory?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes all <strong>{devices.length}</strong> devices for this site so you can start a fresh import. This cannot be undone. Service history and reports that reference these devices will lose their device links.
+              <br /><br />
+              Type <strong>PURGE</strong> below to confirm.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={purgeConfirm}
+            onChange={(e) => setPurgeConfirm(e.target.value)}
+            placeholder="Type PURGE to confirm"
+            autoFocus
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={purging}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handlePurgeAll(); }}
+              disabled={purging || purgeConfirm.trim().toUpperCase() !== "PURGE"}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {purging ? <Loader2 className="w-4 h-4 animate-spin" /> : "Purge All Devices"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
