@@ -32,6 +32,8 @@ export interface DeviceImport {
   device_type: string;
   location?: string;
   zone?: string;
+  raw_import_data?: Record<string, string>;
+  imported_source_columns?: string[];
 }
 
 export async function getSites(): Promise<{ sites: Site[]; error: Error | null }> {
@@ -204,11 +206,13 @@ export async function importDevices(
         device_type: d.device_type,
         location: d.location || null,
         zone: d.zone || null,
+        raw_import_data: d.raw_import_data || {},
+        imported_source_columns: d.imported_source_columns || [],
         status: "active",
       }));
 
       const { data, error } = await supabase
-        .from("devices")
+        .from("devices" as any)
         .upsert(batch, { onConflict: "site_id,loop,address", ignoreDuplicates: true })
         .select();
 
