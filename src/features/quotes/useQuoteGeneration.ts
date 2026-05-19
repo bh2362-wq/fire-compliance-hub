@@ -6,6 +6,7 @@ export interface QuotationFull {
   site_id: string | null;
   customer_id: string | null;
   quotation_number: string;
+  title: string | null;
   summary: string | null;
   introduction: string | null;
   scope: string[] | null;
