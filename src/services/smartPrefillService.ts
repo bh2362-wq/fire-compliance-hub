@@ -149,8 +149,16 @@ export async function buildSmartPrefill(
     .eq("site_id", siteId);
 
   const assets = (assetRows ?? []) as Array<{ asset_type: string; manufacturer: string | null; model: string | null; loops_count: number | null; zones_count: number | null; location: string | null }>;
-  const panelAsset = assets.find(a => a.asset_type === "fire_panel") ?? null;
-  const assetDeviceCount = assets.filter(a => a.asset_type !== "fire_panel").length;
+  // Treat asset_type='fire' (legacy) entries that look like panels as fire_panel.
+  const isPanelLike = (a: { asset_type: string; manufacturer: string | null; model: string | null; loops_count: number | null }) =>
+    a.asset_type === "fire_panel" ||
+    (a.asset_type === "fire" && (!!a.manufacturer || !!a.model || (a.loops_count ?? 0) > 0));
+  const panelCandidates = assets.filter(isPanelLike);
+  const panelAsset =
+    panelCandidates.find(a => a.manufacturer && a.model) ??
+    panelCandidates.find(a => a.manufacturer || a.model) ??
+    panelCandidates[0] ?? null;
+  const assetDeviceCount = assets.filter(a => !isPanelLike(a)).length;
 
   // ── 3. Fetch site + responsible person data ──────────────────────────────────
   const { data: siteData } = await supabase
