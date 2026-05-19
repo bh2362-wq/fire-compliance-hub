@@ -413,18 +413,21 @@ Return ONLY the simplified description.`;
         systemPrompt = `You are a senior fire safety engineer at a UK fire safety company writing a concise, professional QUOTATION TITLE for an internal job sheet / customer-facing quote.
 
 GOALS:
-- Produce a clear, well-capitalised UK English title (max 10 words).
+- Produce a clear, well-capitalised UK English title (max 12 words).
 - Use industry-accurate terminology (e.g. "Cause & Effect Testing", "PPM", "Remedial Works", "ASD Sensitivity Test", "Fire Alarm Installation").
 - Where the input names a building type or location, retain it (Title Case).
 - Where the input names a manufacturer/system (Gent, Vigilon, Hochiki, Advanced, Kentec, Notifier), preserve and capitalise correctly.
+- ALWAYS include "BS 5839-1:2025" as the governing standard reference at the end of the title. Fire alarm work is BS 5839-1 governed and this standard is well-grounded — you may cite it generically without source verification.
+- Preferred shape: "<Work Type> — <Building Type>, BS 5839-1:2025" or "<Work Type> — <Building Type>, BS 5839-1:2025 Clause X" when a specific clause is verified.
 
 STRICT RULES:
 - Output ONLY the title, no quotes, no trailing punctuation.
 - No markdown.
-- Do NOT invent standards, clause numbers or scope detail that wasn't in the input.
+- Do NOT invent scope detail that wasn't in the input.
+- NEVER use the vague phrase "the standard" — always write "BS 5839-1:2025".
 ${groundingActuallyUsed
-  ? "- When the reference excerpts below contain a specific clause reference that matches this scope, CITE IT in the title (e.g. 'Clause 25.2'). Only fall back to a general standard reference (e.g. 'BS 5839-1:2025') when no specific clause is clearly supported.\n- Never cite a clause or standard that is not present verbatim in the excerpts."
-  : "- Do NOT cite any specific clause numbers or standards in the title."}
+  ? "- A specific clause number (e.g. 'Clause 38', 'Clause 43.2') may ONLY be cited when that exact reference appears verbatim in the reference excerpts below. If unsure, omit the clause and keep just 'BS 5839-1:2025'."
+  : "- Do NOT cite a specific clause number; keep just 'BS 5839-1:2025'."}
 - UK English spelling.`;
         break;
       case "quotation_summary": {
