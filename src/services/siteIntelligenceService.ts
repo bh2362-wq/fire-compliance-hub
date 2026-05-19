@@ -151,15 +151,32 @@ export async function getSiteIntelligence(siteId: string): Promise<SiteIntellige
   const cert = (certRes.data?.[0] ?? null) as any;
   const defects: any[] = (defectsRes.data ?? []);
 
-  // ── Panel (first fire_panel asset wins) ──────────────────────────────────────
-  const panelAsset = assets.find(a => a.asset_type === "fire_panel") ?? null;
-  const panel = panelAsset ? {
-    manufacturer: panelAsset.manufacturer,
-    model: panelAsset.model,
-    loops_count: panelAsset.loops_count,
-    zones_count: panelAsset.zones_count,
-    location: panelAsset.location,
-    age_years: yearsBetween(panelAsset.created_at),
+  // ── Panel ────────────────────────────────────────────────────────────────────
+  // Many sites store panels as asset_type='fire' (legacy) rather than 'fire_panel'.
+  // Treat any 'fire_panel' OR a 'fire' asset whose name/model looks panel-like as a panel.
+  const looksLikePanel = (a: AssetRow) =>
+    a.asset_type === "fire_panel" ||
+    (a.asset_type === "fire" && (
+      /panel/i.test(a.item_name ?? "") ||
+      !!a.manufacturer ||
+      !!a.model ||
+      (a.loops_count ?? 0) > 0
+    ));
+  const panelAssets = assets.filter(looksLikePanel);
+  // Prefer the asset that actually has manufacturer + model populated.
+  const primaryPanel =
+    panelAssets.find(a => a.manufacturer && a.model) ??
+    panelAssets.find(a => a.manufacturer || a.model) ??
+    panelAssets[0] ?? null;
+  const totalLoops = panelAssets.reduce((sum, a) => sum + (a.loops_count ?? 0), 0);
+  const totalZones = panelAssets.reduce((sum, a) => sum + (a.zones_count ?? 0), 0);
+  const panel = primaryPanel ? {
+    manufacturer: primaryPanel.manufacturer,
+    model: primaryPanel.model,
+    loops_count: totalLoops || primaryPanel.loops_count,
+    zones_count: totalZones || primaryPanel.zones_count,
+    location: primaryPanel.location,
+    age_years: yearsBetween(primaryPanel.created_at),
   } : null;
 
   // ── Devices aggregate ────────────────────────────────────────────────────────
@@ -231,7 +248,7 @@ export async function getSiteIntelligence(siteId: string): Promise<SiteIntellige
 
   // ── Tagging (search panel notes first, then any asset) ───────────────────────
   let tagging = { protocol: null as string | null, scheme: null as string | null };
-  for (const a of [panelAsset, ...assets].filter(Boolean) as AssetRow[]) {
+  for (const a of [primaryPanel, ...assets].filter(Boolean) as AssetRow[]) {
     const meta = safeParseJson(a.notes);
     if (meta?.tagging_protocol || meta?.tagging_scheme) {
       tagging = {
