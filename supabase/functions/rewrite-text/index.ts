@@ -7,13 +7,27 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface StructuredLineItem {
+  description: string;
+  quantity?: number;
+  unitPrice?: number;
+  total?: number;
+}
+interface StructuredContext {
+  systemType?: string;
+  buildingType?: string;
+  jobCategory?: string;
+  bs5839Category?: string;
+  quoteTitle?: string;
+  lineItems?: StructuredLineItem[];
+}
 interface RewriteRequest {
   text: string;
   type:
     | "defects" | "defect_simplify" | "recommendations" | "works" | "comments"
     | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary"
     | "po_line_items" | "quotation_bs5839_expand";
-  context?: string;
+  context?: string | StructuredContext;
   customInstructions?: string;
   generateRecommendations?: boolean;
   generateQuotationMeta?: boolean;
@@ -23,6 +37,35 @@ interface RewriteRequest {
     minSimilarity?: number;
     docTypes?: string[];
   };
+}
+
+function formatContextAsText(ctx: RewriteRequest["context"]): string {
+  if (!ctx) return "";
+  if (typeof ctx === "string") return ctx;
+  const lines: string[] = [];
+  if (ctx.quoteTitle) lines.push(`Quote title: ${ctx.quoteTitle}`);
+  if (ctx.systemType) lines.push(`System: ${ctx.systemType}`);
+  if (ctx.buildingType) lines.push(`Building: ${ctx.buildingType}`);
+  if (ctx.jobCategory) lines.push(`Job category: ${ctx.jobCategory}`);
+  if (ctx.bs5839Category) lines.push(`BS 5839 category: ${ctx.bs5839Category}`);
+  if (ctx.lineItems && ctx.lineItems.length) {
+    const total = ctx.lineItems.reduce((s, i) => s + (Number(i.total) || 0), 0);
+    lines.push("");
+    lines.push(`Line items (total £${total.toFixed(2)}):`);
+    ctx.lineItems.forEach((i, idx) => {
+      const q = i.quantity ?? 1;
+      const up = i.unitPrice != null ? ` @ £${Number(i.unitPrice).toFixed(2)}` : "";
+      const tot = i.total != null ? ` = £${Number(i.total).toFixed(2)}` : "";
+      lines.push(`${idx + 1}. ${i.description} (qty ${q}${up}${tot})`);
+    });
+  }
+  return lines.join("\n");
+}
+
+function getLineItemsTotal(ctx: RewriteRequest["context"]): number | null {
+  if (!ctx || typeof ctx === "string") return null;
+  if (!ctx.lineItems?.length) return null;
+  return ctx.lineItems.reduce((s, i) => s + (Number(i.total) || 0), 0);
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
