@@ -209,17 +209,21 @@ function stripHallucinations(
     }
   }
   // Final orphan-fragment cleanup pass — catches debris left behind when a
-  // citation like "Annex G.1" was matched by extractor as "Annex G" leaving ".1"
-  // or model wrote "Figure G.1" and we stripped "G.1" leaving "Figure".
+  // citation like "Clause 43.2.2 g)" was matched as "Clause 43.2.2", leaving " g)"
+  // or "Annex G.1" was extracted as "Annex G" leaving ".1".
   const before2 = out;
   out = out
     // "the standard.1f)" / "the standard .2" / "the standard f," → "the standard"
     .replace(/\b(the standard)\s*\.[A-Za-z0-9]{1,4}\b/g, "$1")
-    // Single-letter orphans only (avoid eating common 2-letter words like "to","of","in")
-    .replace(/\b(the standard)\s+[A-Za-z]\b(?=[\s.,;:)])/g, "$1")
+    // "per the standard g" / "per the standard g)" / "...the standard g." / end-of-string
+    .replace(/\b(the standard)\s+[A-Za-z](?=[\s.,;:)]|\)|$)/g, "$1")
+    // "in accordance with the standard g" — covered by above; explicit safety net for trailing letter+paren
+    .replace(/\b(the standard)\s+[A-Za-z]\)/g, "$1")
+    // Stranded "(Clause N.N x)" / "Clause N.N x," — strip the orphan sub-letter
+    .replace(/\b(Clause|Section|Annex|Figure|Table)\s+\d+(?:\.\d+)*\s+[a-z](?=[\s.,;:)]|\)|$)/gi, "$1")
     // Orphaned "Figure"/"Table"/"Annex" left dangling with no identifier following
     .replace(/\b(Figure|Table|Annex)\s+(?=[.,;:)\s])/g, "the standard ")
-    // Stranded ".N" or " Nx" right after a removal site (within 3 chars of "standard")
+    // Stranded ".N" or " Nx" right after a removal site
     .replace(/(the standard)\s*[.,]?\s*\d+(?:\.\d+)?[a-z]?\)/g, "$1)")
     // Orphan single-letter followed by space inside parens: "(standard f)" → "(standard)"
     .replace(/\(\s*([A-Za-z][A-Za-z\s]*?)\s+[a-z]{1,2}\s*\)/g, "($1)")
@@ -229,16 +233,28 @@ function stripHallucinations(
     .replace(/\s+,/g, ",")
     .replace(/\(\s*[.,;:]\s*/g, "(")
     .replace(/\s*[.,;:]\s*\)/g, ")")
-    // Double spaces and empty parens again after the above
+    // Double spaces and empty parens
     .replace(/\s{2,}/g, " ")
     .replace(/\(\s*\)/g, "")
-    // Trim space before punctuation introduced by removals
     .replace(/\s+([.,;:!?])/g, "$1");
+
+  // Belt-and-braces final sanity pass: scan for any orphan single letter (NOT "a"/"A"/"I")
+  // that sits after a known anchor phrase or at end of string after stripping.
+  out = out
+    .replace(/\b(per|under|in accordance with|as required by|in line with|as defined in|the standard)\s+([b-hj-zB-HJ-Z])(?=[\s.,;:)]|\)|$)/g, "$1")
+    // Trailing single-letter at very end of string (after the above anchor strip)
+    .replace(/\s+[b-hj-zB-HJ-Z]\s*$/g, "")
+    // Re-tidy whitespace/punctuation after final strip
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .replace(/\s+$/g, "");
+
   if (out !== before2 && replacements.length > 0) {
     replacements.push({ from: "(orphan cleanup)", to: "(applied)" });
   }
   return { text: out, changed: replacements.length > 0, replacements };
 }
+
 
 async function logAssist(row: Record<string, unknown>): Promise<void> {
   try {
