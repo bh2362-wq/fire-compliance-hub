@@ -650,16 +650,43 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
 
           {/* Column Mapping Button - only for CSV/Excel/Paste, not PDF */}
           {availableColumns.length > 0 && !isPdfFile && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleOpenMappingDialog}
-              className="w-full"
-            >
-              <Settings2 className="w-4 h-4 mr-2" />
-              {currentMapping ? "Reconfigure Column Mapping" : "Configure Column Mapping"}
-            </Button>
+            <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <Label className="text-sm font-medium">Columns to upload</Label>
+                  <p className="text-xs text-muted-foreground">Mapped columns are required; tick any extra source data to keep with each device.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={handleOpenMappingDialog}>
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  {currentMapping ? "Mapping" : "Map"}
+                </Button>
+              </div>
+              <div className="max-h-40 overflow-y-auto rounded-md border border-border bg-background">
+                <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                  {[0, 1].map((group) => (
+                    <div key={group} className="divide-y divide-border">
+                      {availableColumns
+                        .filter((_, index) => index % 2 === group)
+                        .map((column) => {
+                          const isMapped = mappedColumnSet.has(column);
+                          const checked = selectedSourceColumns.includes(column) || isMapped;
+                          return (
+                            <label key={column} className="flex min-h-9 items-center gap-2 px-3 py-2 text-sm">
+                              <Checkbox
+                                checked={checked}
+                                disabled={isMapped}
+                                onCheckedChange={(value) => toggleSourceColumn(column, value === true)}
+                              />
+                              <span className="min-w-0 flex-1 truncate text-foreground">{column}</span>
+                              {isMapped && <span className="text-xs text-muted-foreground">mapped</span>}
+                            </label>
+                          );
+                        })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Parse Results */}
