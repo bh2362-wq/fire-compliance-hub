@@ -5,15 +5,43 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Mail, Loader2, RefreshCw, Scan, Search,
-  Paperclip, AlertCircle, ChevronLeft, ChevronRight, Inbox,
+  Paperclip, AlertCircle, ChevronLeft, ChevronRight, Inbox, Sparkles, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import {
   listInbox, getMessage, searchEmails, listAttachments, getAttachment,
   type OutlookMessage,
 } from "@/services/outlookEmailService";
+
+interface AiCitationEmail {
+  id: string;
+  subject: string;
+  from: string;
+  fromName: string;
+  date: string;
+  preview: string;
+  hasAttachments: boolean;
+}
+interface AiCitationQuote {
+  id: string;
+  quotation_number: string;
+  title: string | null;
+  total_amount: number;
+  status: string;
+  site_name?: string;
+  customer_name?: string;
+  created_at: string;
+}
+interface AiQueryResult {
+  answer: string;
+  keywords: string[];
+  emails: AiCitationEmail[];
+  quotations: AiCitationQuote[];
+}
+
 
 // ── Known client senders ──────────────────────────────────────────────────────
 const CLIENT_DOMAINS = [
@@ -38,6 +66,9 @@ export function InboxBrowser({ onScanEmail }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [offset, setOffset] = useState(0);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<AiQueryResult | null>(null);
   const LIMIT = 20;
 
   // Fetch inbox
@@ -121,6 +152,59 @@ export function InboxBrowser({ onScanEmail }: Props) {
     setOffset(0);
   }
 
+  async function handleAiAsk() {
+    const q = aiQuery.trim();
+    if (!q) return;
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("inbox-ai-query", { body: { query: q } });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setAiResult(data as AiQueryResult);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "AI query failed");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function handleScanById(id: string, fallbackSubject = "", fallbackFrom = "") {
+    setLoadingId(id);
+    try {
+      const detail = await getMessage(id);
+      const attsResult = detail.hasAttachments ? await listAttachments(id) : { attachments: [] };
+      const bodyText = detail.body || "";
+      const fullContent = [
+        `From: ${detail.from?.name || ""} <${detail.from?.address || fallbackFrom}>`,
+        `Subject: ${detail.subject || fallbackSubject}`,
+        `Date: ${format(parseISO(detail.receivedDateTime), "dd MMM yyyy HH:mm")}`,
+        "",
+        bodyText || "(no body text)",
+      ].join("\n");
+      const pdfList = (attsResult.attachments || [])
+        .filter(a =>
+          a.contentType?.toLowerCase().includes("pdf") ||
+          a.name?.toLowerCase().endsWith(".pdf") ||
+          (a.contentType === "application/octet-stream" && a.name?.toLowerCase().endsWith(".pdf"))
+        )
+        .slice(0, 3);
+      let pdfAttachments: { name: string; contentBytes: string }[] = [];
+      if (pdfList.length > 0) {
+        const results = await Promise.allSettled(pdfList.map(a => getAttachment(id, a.id)));
+        pdfAttachments = results
+          .filter((r): r is PromiseFulfilledResult<{ name: string; contentType: string; contentBytes: string }> => r.status === "fulfilled")
+          .map(r => ({ name: r.value.name, contentBytes: r.value.contentBytes }));
+      }
+      onScanEmail(fullContent, detail.subject || fallbackSubject, detail.from?.address || fallbackFrom, pdfAttachments);
+      toast.success("Email loaded into scanner");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load email");
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -140,6 +224,103 @@ export function InboxBrowser({ onScanEmail }: Props) {
           <RefreshCw className={cn("w-3 h-3", isFetching && "animate-spin")} />
           Refresh
         </Button>
+      </div>
+
+      {/* AI Ask */}
+      <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <p className="text-xs font-semibold">Ask AI about the inbox</p>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !aiLoading && handleAiAsk()}
+            placeholder='e.g. "how much did we quote for the works at WeWork"'
+            className="h-8 text-sm bg-background"
+            disabled={aiLoading}
+          />
+          <Button size="sm" className="h-8 px-3 text-xs gap-1" onClick={handleAiAsk} disabled={aiLoading || !aiQuery.trim()}>
+            {aiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+            Ask
+          </Button>
+          {aiResult && (
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setAiResult(null); setAiQuery(""); }}>
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
+
+        {aiResult && (
+          <div className="space-y-2 pt-1">
+            <div className="rounded-md bg-background border p-2.5">
+              <p className="text-xs whitespace-pre-wrap leading-relaxed">{aiResult.answer}</p>
+              {aiResult.keywords?.length > 0 && (
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  Searched for: {aiResult.keywords.join(", ")}
+                </p>
+              )}
+            </div>
+
+            {aiResult.quotations.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                  Matching quotations ({aiResult.quotations.length})
+                </p>
+                <div className="space-y-1">
+                  {aiResult.quotations.map((q) => (
+                    <div key={q.id} className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded border bg-background">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">
+                          {q.quotation_number} · £{Number(q.total_amount || 0).toFixed(2)} · <span className="text-muted-foreground">{q.status}</span>
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {[q.site_name, q.customer_name].filter(Boolean).join(" · ")} {q.title ? `— ${q.title}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiResult.emails.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                  Matching emails ({aiResult.emails.length})
+                </p>
+                <div className="space-y-1">
+                  {aiResult.emails.map((e, i) => (
+                    <div key={e.id} className="flex items-start gap-2 text-xs px-2 py-1.5 rounded border bg-background">
+                      <span className="text-[10px] text-muted-foreground font-mono mt-0.5">[{i + 1}]</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{e.subject || "(no subject)"}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {e.fromName || e.from} · {e.date ? format(parseISO(e.date), "dd MMM yyyy") : ""}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px] gap-1 flex-shrink-0"
+                        onClick={() => handleScanById(e.id, e.subject, e.from)}
+                        disabled={loadingId === e.id}
+                      >
+                        {loadingId === e.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Scan className="w-3 h-3" />}
+                        Scan
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiResult.emails.length === 0 && aiResult.quotations.length === 0 && (
+              <p className="text-xs text-muted-foreground italic">No matching emails or quotations found.</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Search */}
