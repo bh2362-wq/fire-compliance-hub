@@ -215,10 +215,10 @@ function stripHallucinations(
   out = out
     // "the standard.1f)" / "the standard .2" / "the standard f," → "the standard"
     .replace(/\b(the standard)\s*\.[A-Za-z0-9]{1,4}\b/g, "$1")
-    // "per the standard g" / "per the standard g)" / "...the standard g." / end-of-string
-    .replace(/\b(the standard)\s+[A-Za-z](?=[\s.,;:)]|\)|$)/g, "$1")
-    // "in accordance with the standard g" — covered by above; explicit safety net for trailing letter+paren
+    // Consume "the standard g)" / "the standard g)." — strip orphan letter + trailing paren together
     .replace(/\b(the standard)\s+[A-Za-z]\)/g, "$1")
+    // "per the standard g" / "...the standard g." / end-of-string (lookahead, no paren)
+    .replace(/\b(the standard)\s+[A-Za-z](?=[\s.,;:]|$)/g, "$1")
     // Stranded "(Clause N.N x)" / "Clause N.N x," — strip the orphan sub-letter
     .replace(/\b(Clause|Section|Annex|Figure|Table)\s+\d+(?:\.\d+)*\s+[a-z](?=[\s.,;:)]|\)|$)/gi, "$1")
     // Orphaned "Figure"/"Table"/"Annex" left dangling with no identifier following
