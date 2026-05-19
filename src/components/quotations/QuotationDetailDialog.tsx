@@ -1102,11 +1102,15 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                         <ImproveTitleButton
                           text={summary}
                           type="quotation_summary"
-                          context={[
-                            title && `Title: ${title}`,
-                            "Line items:",
-                            ...lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean),
-                          ].filter(Boolean).join("\n")}
+                          context={{
+                            quoteTitle: title,
+                            lineItems: lineItems.map((i) => ({
+                              description: i.description,
+                              quantity: i.quantity,
+                              unitPrice: i.unit_price,
+                              total: i.total_price,
+                            })),
+                          }}
                           onAccept={(t) => { setSummary(t); setHasChanges(true); }}
                         />
                       )}

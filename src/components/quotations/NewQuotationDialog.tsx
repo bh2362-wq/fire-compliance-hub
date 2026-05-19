@@ -513,18 +513,22 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
               <ImproveTitleButton
                 text={summary}
                 type="quotation_summary"
-                context={[
-                  title && `Title: ${title}`,
-                  systemType && `System: ${systemType}`,
-                  buildingType && `Building: ${buildingType}`,
-                  jobCategory && `Job: ${jobCategory}`,
-                  bs5839 && `BS 5839 category: ${bs5839}`,
-                  "",
-                  "Line items:",
-                  ...lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean),
-                ].filter(Boolean).join("\n")}
+                context={{
+                  quoteTitle: title,
+                  systemType,
+                  buildingType,
+                  jobCategory,
+                  bs5839Category: bs5839,
+                  lineItems: lineItems.map((i) => ({
+                    description: i.description,
+                    quantity: i.quantity,
+                    unitPrice: i.unit_price,
+                    total: i.total_price,
+                  })),
+                }}
                 onAccept={(t) => setSummary(t)}
               />
+
             </div>
             <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description of the works..." className="min-h-[60px]" />
           </div>

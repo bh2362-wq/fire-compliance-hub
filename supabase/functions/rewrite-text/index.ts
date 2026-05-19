@@ -7,13 +7,27 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface StructuredLineItem {
+  description: string;
+  quantity?: number;
+  unitPrice?: number;
+  total?: number;
+}
+interface StructuredContext {
+  systemType?: string;
+  buildingType?: string;
+  jobCategory?: string;
+  bs5839Category?: string;
+  quoteTitle?: string;
+  lineItems?: StructuredLineItem[];
+}
 interface RewriteRequest {
   text: string;
   type:
     | "defects" | "defect_simplify" | "recommendations" | "works" | "comments"
     | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary"
     | "po_line_items" | "quotation_bs5839_expand";
-  context?: string;
+  context?: string | StructuredContext;
   customInstructions?: string;
   generateRecommendations?: boolean;
   generateQuotationMeta?: boolean;
@@ -23,6 +37,35 @@ interface RewriteRequest {
     minSimilarity?: number;
     docTypes?: string[];
   };
+}
+
+function formatContextAsText(ctx: RewriteRequest["context"]): string {
+  if (!ctx) return "";
+  if (typeof ctx === "string") return ctx;
+  const lines: string[] = [];
+  if (ctx.quoteTitle) lines.push(`Quote title: ${ctx.quoteTitle}`);
+  if (ctx.systemType) lines.push(`System: ${ctx.systemType}`);
+  if (ctx.buildingType) lines.push(`Building: ${ctx.buildingType}`);
+  if (ctx.jobCategory) lines.push(`Job category: ${ctx.jobCategory}`);
+  if (ctx.bs5839Category) lines.push(`BS 5839 category: ${ctx.bs5839Category}`);
+  if (ctx.lineItems && ctx.lineItems.length) {
+    const total = ctx.lineItems.reduce((s, i) => s + (Number(i.total) || 0), 0);
+    lines.push("");
+    lines.push(`Line items (total £${total.toFixed(2)}):`);
+    ctx.lineItems.forEach((i, idx) => {
+      const q = i.quantity ?? 1;
+      const up = i.unitPrice != null ? ` @ £${Number(i.unitPrice).toFixed(2)}` : "";
+      const tot = i.total != null ? ` = £${Number(i.total).toFixed(2)}` : "";
+      lines.push(`${idx + 1}. ${i.description} (qty ${q}${up}${tot})`);
+    });
+  }
+  return lines.join("\n");
+}
+
+function getLineItemsTotal(ctx: RewriteRequest["context"]): number | null {
+  if (!ctx || typeof ctx === "string") return null;
+  if (!ctx.lineItems?.length) return null;
+  return ctx.lineItems.reduce((s, i) => s + (Number(i.total) || 0), 0);
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -253,7 +296,7 @@ serve(async (req) => {
       let query = "";
       let defaultLimit = 5;
       let defaultMinSim: number | undefined = undefined;
-      const ctx = (context ?? "").toString();
+      const ctx = formatContextAsText(context);
       switch (type) {
         case "quotation_title":
           query = `${text} ${ctx}`.trim();
@@ -357,6 +400,14 @@ ${groundingActuallyUsed
 - UK English spelling.`;
         break;
       case "quotation_summary": {
+        const ctxText = formatContextAsText(context);
+        const total = getLineItemsTotal(context);
+        const scaleHint = total != null
+          ? `\nTOTAL QUOTED VALUE: £${total.toFixed(2)}\n` +
+            `- Under £2,000 → small remedial/test job (e.g. cause & effect test, single device repair). NOT a new installation.\n` +
+            `- £2,000–£20,000 → moderate remedial / system upgrade / PPM contract.\n` +
+            `- Over £20,000 → typically new installation or major works.`
+          : "";
         const strictCitationBlock = `CITATION RULES — ABSOLUTE:
 
 You will be given source material from BS 5839-1:2025. You may ONLY cite clauses, sections, annexes, or sub-clauses whose exact reference (e.g. 'Clause 43.2.1' or 'Annex G') appears verbatim in the source material text provided below.
@@ -373,48 +424,63 @@ If you want to make a claim that needs a specific sub-clause reference and that 
 
 Inventing a citation that looks real but isn't will mislead the client and damage BHO's professional reputation. When in doubt, cite less, not more.`;
         systemPrompt = groundingActuallyUsed
-          ? `You are a quote description editor for BHO Fire & Security, a UK fire alarm specialist working to BS 5839-1:2025 with Honeywell Gent expertise.
+          ? `You are writing a Scope of Works description for a fire alarm quote from BHO Fire & Security (UK fire alarm specialist, BS 5839-1:2025, Honeywell Gent expertise).
+
+The description MUST accurately reflect what is actually being quoted. You will be given:
+- The quote title (the work being done)
+- The line items (the specific tasks and their values) — THE SOURCE OF TRUTH
+- Context fields (system type, building type, job category) — supporting only
+- Reference material from BS 5839-1:2025
+
+Your description MUST:
+1. Match the SCALE and NATURE of the line items. If the total quoted value is under £2,000, this is NOT a new installation — describe the actual scope from the line items.
+2. Reference only the specific tasks in the line items. Do NOT introduce work not being quoted (e.g. do not describe commissioning if commissioning is not a line item).
+3. Use the line item descriptions as the source of truth for what BHO is committing to deliver.
+4. Cite only verified clauses from the reference material provided.
+
+WORK-TYPE HEURISTICS:
+- Line items describing a cause and effect test (typical value £800–£2,000) → write a cause and effect testing scope.
+- Line items describing a new installation (typical value £20,000+) → write a new installation scope.
+- Line items describing maintenance/PPM → write a maintenance scope.
+- Line items describing remedial works / single-defect repair → write a remedial scope.
+
+Match the prose to the work, NOT to the context fields. The context fields describe the SITE; the line items describe the JOB.
 
 ${strictCitationBlock}
 
 STRUCTURE — output a structured description with these sections in this order:
-1. **Scope of Works** — bullet list of what we will do
-2. **Methodology** — how we will execute (brief, technical)
+1. **Scope of Works** — bullet list drawn directly from the line items
+2. **Methodology** — how we will execute (brief, technical, proportionate to the job size)
 3. **Compliance** — which standards and clauses apply, drawn from source material
-4. **Deliverables** — what the client receives (certificate, report, log entries)
+4. **Deliverables** — what the client receives (proportionate; small jobs don't need commissioning certificates)
 
 FORMATTING:
 - Use **bold** (double asterisks) for section headers
 - Use "- " for bullet points
 - British English spelling throughout (organisation, recognised, colour, centre)
 - Reference BS 5839-1:2025 only with clauses present verbatim in source material
-- Include manufacturer references (Gent Vigilon, Hochiki, Advanced, Kentec, Notifier) where context supports
 - Conservative tone — no marketing fluff, no superlatives
-- 200-400 words total
+- Length proportionate to the job: 120–250 words for sub-£2k jobs, 250–450 words for larger works
 
 CONTEXT:
-${context || "(no additional context)"}
+${ctxText || "(no additional context)"}
+${scaleHint}
 
 Return ONLY the description text. No preamble, no code fences.`
           : `You are a professional fire safety engineer at a UK fire safety company preparing a formal quotation scope of works for a client.
 
-Based on the existing summary text AND the line items provided below, generate a comprehensive, professionally formatted scope of works summary.
+The line items are the SOURCE OF TRUTH for what is being quoted. Match prose scale to the line items — if total is under £2,000, do NOT write a new-installation narrative.
 
 FORMATTING RULES:
-- Use **bold text** (wrapped in double asterisks) for headings and key terms e.g. **Scope of Works**, **Fire Detection Devices**
-- Use __underline__ (wrapped in double underscores) for important standards or references e.g. __BS 5839-1__
-- Use bullet points starting with "- " for listing devices, locations or key items
-- Group devices by type with quantities
-- Include device model numbers where available from the line items
-- Mention locations if evident from the descriptions
-- Reference relevant British Standards where applicable (e.g. __BS 5839-1__, __BS 5266__)
-- Use UK English spelling throughout (organisation, recognised, defence, colour, centre)
-- Keep it professional, clear and suitable for a formal client-facing quotation
-- Start with a brief introductory paragraph, then list the scope items
-- End with a brief note about compliance or standards if relevant
+- Use **bold text** (wrapped in double asterisks) for headings and key terms e.g. **Scope of Works**
+- Use __underline__ for important standards e.g. __BS 5839-1:2025__
+- Use "- " bullet points
+- UK English spelling
+- Keep it professional and proportionate to the job size
 
-LINE ITEMS FOR CONTEXT:
-${context || "No line items provided"}
+LINE ITEMS AND CONTEXT (SOURCE OF TRUTH):
+${ctxText || "No line items provided"}
+${scaleHint}
 
 Return ONLY the formatted summary text.`;
         break;
@@ -458,7 +524,7 @@ OUTPUT FORMAT:
 4. Maintain the SAME line-item order as the input
 5. Return ONLY valid JSON, no markdown wrapping
 
-${context ? `\nADDITIONAL CONTEXT:\n${context}` : ""}`;
+${(() => { const t = formatContextAsText(context); return t ? `\nADDITIONAL CONTEXT:\n${t}` : ""; })()}`;
         break;
       default:
         systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise. Separate different topics with blank lines.${formatRules}`;
@@ -557,7 +623,7 @@ ${context ? `\nADDITIONAL CONTEXT:\n${context}` : ""}`;
         ? `You are explaining the resolution path for a fire alarm defect to a non-technical building owner.
 
 Defect: ${text}
-${context ? `Engineer's recommended action (technical): ${context}` : ""}
+${(() => { const t = formatContextAsText(context); return t ? `Engineer's recommended action (technical): ${t}` : ""; })()}
 
 Write a short, clear RESOLUTION PATH the customer can follow:
 - 2-4 short steps in plain English (no jargon, no clause numbers)

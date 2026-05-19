@@ -35,8 +35,8 @@ interface Props {
   text: string;
   /** Type-aware prompt selection. Defaults to quotation_title for backwards compatibility. */
   type?: RewriteType;
-  /** Free-form context (line items as text, building type etc.) */
-  context?: string;
+  /** Free-form context (string) or structured context (object with lineItems etc.) */
+  context?: string | Record<string, unknown>;
   /** Called when user accepts improved text. */
   onAccept: (newText: string) => void;
   /** Button label override */
