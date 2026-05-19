@@ -48,7 +48,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Cpu, Search, ChevronLeft, ChevronRight, Pencil, Trash2, Loader2, Plus, Filter, Download, X, ChevronDown } from "lucide-react";
+import { Cpu, Search, ChevronLeft, ChevronRight, Pencil, Trash2, Loader2, Plus, Filter, Download, X, ChevronDown, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
