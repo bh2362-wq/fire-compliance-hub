@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Sparkles, RefreshCw, Check } from "lucide-react";
+import { Loader2, Sparkles, RefreshCw, Check, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useGenerateScope, useQuotationFull } from "@/features/quotes/useQuoteGeneration";
+import { useSiteIntelligence } from "@/hooks/useSiteIntelligence";
+import { intelligenceFieldCount } from "@/services/siteIntelligenceService";
 
 interface Props {
   open: boolean;
@@ -34,7 +36,9 @@ const OCCUPANCIES = [
 
 export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted }: Props) {
   const { data: q } = useQuotationFull(open ? quotationId : undefined);
+  const { data: siteIntel } = useSiteIntelligence(open ? q?.site_id : undefined);
   const gen = useGenerateScope();
+  const [intelApplied, setIntelApplied] = useState(false);
 
   const [worksType, setWorksType] = useState("new_install");
   const [category, setCategory] = useState<string>("L2");
@@ -78,6 +82,26 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     setExistingDesc(q.existing_system_description ?? "");
   }, [q]);
 
+  // Layer in harvested site intelligence — only fills blank fields, never overwrites.
+  useEffect(() => {
+    if (!siteIntel || intelApplied) return;
+    let touched = 0;
+    if (!manufacturer && siteIntel.panel?.manufacturer) { setManufacturer(siteIntel.panel.manufacturer); touched++; }
+    if (!panelType    && siteIntel.panel?.model)        { setPanelType(siteIntel.panel.model);          touched++; }
+    if (!loops        && siteIntel.panel?.loops_count)  { setLoops(String(siteIntel.panel.loops_count)); touched++; }
+    if (!buildingType && siteIntel.building?.type)      { setBuildingType(siteIntel.building.type);     touched++; }
+    if (siteIntel.building?.occupancy && occupancy === "non_sleeping") { setOccupancy(siteIntel.building.occupancy); touched++; }
+    if (!storeys      && siteIntel.building?.storeys)   { setStoreys(String(siteIntel.building.storeys)); touched++; }
+    if (siteIntel.contract?.category && category === "L2") { setCategory(siteIntel.contract.category); touched++; }
+    if (!arcSignal    && siteIntel.features.arc_signal)    { setArcSignal(true);    touched++; }
+    if (!voiceAlarm   && siteIntel.features.voice_alarm)   { setVoiceAlarm(true);   touched++; }
+    if (!wireless     && siteIntel.features.wireless)      { setWireless(true);     touched++; }
+    if (!bmsInterface && siteIntel.features.bms_interface) { setBmsInterface(true); touched++; }
+    if (!liftRecall   && siteIntel.features.lift_recall)   { setLiftRecall(true);   touched++; }
+    if (touched > 0) setIntelApplied(true);
+  }, [siteIntel, intelApplied, manufacturer, panelType, loops, buildingType, occupancy, storeys, category, arcSignal, voiceAlarm, wireless, bmsInterface, liftRecall]);
+
+
   const buildInput = () => ({
     works_type: worksType,
     system: {
@@ -99,6 +123,19 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     existing_system_description: existingDesc || undefined,
     project_name: q?.title ?? undefined,
     quotation_id: quotationId,
+    site_context: siteIntel ? {
+      site_name: siteIntel.site.name,
+      address: siteIntel.site.address,
+      device_total: siteIntel.devices.total,
+      device_by_type: siteIntel.devices.by_type,
+      device_manufacturers: siteIntel.devices.manufacturers,
+      panel_age_years: siteIntel.panel?.age_years ?? null,
+      battery_age_years: siteIntel.battery?.age_years ?? null,
+      tagging_protocol: siteIntel.tagging.protocol,
+      latest_cert_date: siteIntel.latest_cert?.date ?? null,
+      latest_open_defects: siteIntel.latest_defects,
+      contract_frequency: siteIntel.contract?.frequency ?? null,
+    } : undefined,
   });
 
   const runGenerate = async () => {
@@ -156,6 +193,18 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> AI Scope Writer — BS 5839-1:2025</DialogTitle>
         </DialogHeader>
+
+        {siteIntel && intelligenceFieldCount(siteIntel) > 0 && !result && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-xs">
+            <Building2 className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+            <span className="text-blue-700 dark:text-blue-400">
+              <span className="font-medium">Prefilled from site file</span> — {siteIntel.site.name}
+              {siteIntel.panel?.manufacturer && ` · ${siteIntel.panel.manufacturer} ${siteIntel.panel.model ?? ""}`}
+              {siteIntel.devices.total > 0 && ` · ${siteIntel.devices.total} devices`}
+              {siteIntel.latest_cert?.date && ` · last serviced ${new Date(siteIntel.latest_cert.date).toLocaleDateString("en-GB")}`}
+            </span>
+          </div>
+        )}
 
         {!result && (
           <div className="grid gap-4 py-2">

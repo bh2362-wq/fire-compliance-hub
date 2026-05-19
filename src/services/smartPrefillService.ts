@@ -142,6 +142,16 @@ export async function buildSmartPrefill(
 
   const latestReport = reportRows?.[0];
 
+  // ── 2b. Fetch site_assets (panel + devices) — harvested baseline ─────────────
+  const { data: assetRows } = await supabase
+    .from("site_assets")
+    .select("asset_type, manufacturer, model, loops_count, zones_count, location")
+    .eq("site_id", siteId);
+
+  const assets = (assetRows ?? []) as Array<{ asset_type: string; manufacturer: string | null; model: string | null; loops_count: number | null; zones_count: number | null; location: string | null }>;
+  const panelAsset = assets.find(a => a.asset_type === "fire_panel") ?? null;
+  const assetDeviceCount = assets.filter(a => a.asset_type !== "fire_panel").length;
+
   // ── 3. Fetch site + responsible person data ──────────────────────────────────
   const { data: siteData } = await supabase
     .from("sites")
@@ -150,7 +160,7 @@ export async function buildSmartPrefill(
     .single();
 
   // If nothing found, return null
-  if (!prevCert && !latestReport && !siteData) return null;
+  if (!prevCert && !latestReport && !siteData && assets.length === 0) return null;
 
   // ── 4. Determine static field list for this form type ───────────────────────
   const staticFields = STATIC_FIELDS_BY_TYPE[formType] ?? [];
@@ -169,6 +179,21 @@ export async function buildSmartPrefill(
     if (staticFields.includes("responsible_person_contact"))fields.responsible_person_contact = siteData.contact_phone || "";
     if (staticFields.includes("responsible_email"))     fields.responsible_email      = siteData.contact_email || "";
     if (staticFields.includes("approx_number_of_devices"))fields.approx_number_of_devices = siteData.total_devices || "";
+  }
+
+  // Layer in site_assets baseline (lower-mid priority — physical inventory)
+  if (panelAsset) {
+    if (staticFields.includes("panel_manufacturer") && panelAsset.manufacturer)
+      fields.panel_manufacturer = panelAsset.manufacturer;
+    if (staticFields.includes("panel_model") && panelAsset.model)
+      fields.panel_model = panelAsset.model;
+    if (staticFields.includes("manufacturer") && panelAsset.manufacturer)
+      fields.manufacturer = panelAsset.manufacturer;
+    if (staticFields.includes("model") && panelAsset.model)
+      fields.model = panelAsset.model;
+  }
+  if (assetDeviceCount > 0 && staticFields.includes("approx_number_of_devices") && !fields.approx_number_of_devices) {
+    fields.approx_number_of_devices = assetDeviceCount;
   }
 
   // Layer in service report data (medium priority — reflects actual on-site findings)
