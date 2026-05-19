@@ -36,7 +36,9 @@ const OCCUPANCIES = [
 
 export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted }: Props) {
   const { data: q } = useQuotationFull(open ? quotationId : undefined);
+  const { data: siteIntel } = useSiteIntelligence(open ? q?.site_id : undefined);
   const gen = useGenerateScope();
+  const [intelApplied, setIntelApplied] = useState(false);
 
   const [worksType, setWorksType] = useState("new_install");
   const [category, setCategory] = useState<string>("L2");
