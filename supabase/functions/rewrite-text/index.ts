@@ -319,37 +319,28 @@ Return ONLY the formatted summary text.`;
         systemPrompt = `You are a professional procurement specialist. Improve the grammar, spelling and clarity of these numbered purchase order line item descriptions. Keep the same numbering format (1. 2. 3. etc). Make descriptions clear, professional and suitable for a formal purchase order. Each description should be well-formatted - if a description contains multiple details (e.g. part number, specification, quantity notes), space them clearly across up to 2 lines using a newline within the numbered item. Do NOT add information that wasn't in the original. Use UK English spelling.${formatRules}`;
         break;
       case "quotation_bs5839_expand":
-        systemPrompt = `You are a senior fire safety engineer preparing a detailed quotation for a client. You must expand brief line item descriptions into comprehensive, professional descriptions that reference relevant British Standards (BS 5839-1, BS 5839-6, BS 5266, etc.) where applicable.
+        systemPrompt = `You are a BS 5839-1:2025 scope writer for BHO Fire & Security. You expand brief scope notes into technically precise scope statements suitable for inclusion in fire alarm quotes.
 
-For each line item, expand the description to include:
-- What work will be carried out (supply, install, commission, test)
-- Reference to relevant BS 5839 clauses where applicable
-- Commissioning and testing requirements per the standard
-- Any handover documentation or certification that will be provided
-- Professional fire safety engineering terminology
+${groundingActuallyUsed
+  ? "GROUNDING DIRECTIVE: For each item, cite the specific BS 5839-1:2025 clause(s) from the REFERENCE LIBRARY EXCERPTS below that govern the work. Never invent clause numbers — only cite clauses that appear verbatim in the excerpts. If no specific clause is supported, fall back to a general standard reference (e.g. 'BS 5839-1:2025') without inventing a clause number."
+  : "Reference BS 5839-1:2025 generally; do not cite specific clause numbers unless certain."}
 
-IMPORTANT RULES:
-1. Return a JSON array of objects with "index" (0-based) and "expanded_description" and "expanded_summary_section" fields
-2. expanded_description should be 2-4 sentences of detailed professional text for the line item
-3. expanded_summary_section should be a brief scope entry (1 sentence) for the overall summary
-4. Reference BS 5839-1:2025 for fire detection and alarm systems
-5. Reference BS 5839-6 for domestic fire detection
-6. Reference BS 5266-1 for emergency lighting where relevant
-7. Use UK English spelling throughout
-8. Be technically accurate - don't reference standards that don't apply
-9. Include commissioning, testing and certification where relevant
-10. Return ONLY valid JSON, no markdown wrapping
+For each item produce an expanded description that:
+- References the specific BS 5839-1:2025 clause(s) where supported by source material
+- Uses precise technical language (not "check" — use "verify operation per Clause X")
+- Includes any sub-tasks the standard implies (e.g. cause and effect testing implies output group verification)
+- Stays operationally clear — an engineer should be able to execute from the text
+- Uses UK English spelling
+- Includes commissioning, testing and certification deliverables where relevant
 
-${context ? `\nADDITIONAL CONTEXT FROM EMAIL/SOURCE:\n${context}` : ""}
+OUTPUT FORMAT:
+1. Return a JSON array of objects with "index" (0-based), "expanded_description" and "expanded_summary_section" fields
+2. expanded_description = 2-4 sentences of detailed professional text for the line item
+3. expanded_summary_section = brief scope entry (1 sentence) for the overall summary
+4. Maintain the SAME line-item order as the input
+5. Return ONLY valid JSON, no markdown wrapping
 
-Example output:
-[
-  {
-    "index": 0,
-    "expanded_description": "Supply and install one Hochiki ESP Intelligent multi-sensor detector to replace the existing end-of-life unit. The detector shall be installed in accordance with BS 5839-1:2025, Clause 25. Upon completion, the device will be commissioned and functionally tested to confirm correct operation with the existing fire alarm control panel, and a completion certificate issued.",
-    "expanded_summary_section": "Replacement of end-of-life multi-sensor detector with commissioning and testing to BS 5839-1"
-  }
-]`;
+${context ? `\nADDITIONAL CONTEXT:\n${context}` : ""}`;
         break;
       default:
         systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise. Separate different topics with blank lines.${formatRules}`;
