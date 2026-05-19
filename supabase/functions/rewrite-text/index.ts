@@ -303,7 +303,7 @@ Example output:
 [
   {
     "index": 0,
-    "expanded_description": "Supply and install one Hochiki ESP Intelligent multi-sensor detector to replace the existing end-of-life unit. The detector shall be installed in accordance with BS 5839-1:2017+A2:2019, Clause 25. Upon completion, the device will be commissioned and functionally tested to confirm correct operation with the existing fire alarm control panel, and a completion certificate issued.",
+    "expanded_description": "Supply and install one Hochiki ESP Intelligent multi-sensor detector to replace the existing end-of-life unit. The detector shall be installed in accordance with BS 5839-1:2025, Clause 25. Upon completion, the device will be commissioned and functionally tested to confirm correct operation with the existing fire alarm control panel, and a completion certificate issued.",
     "expanded_summary_section": "Replacement of end-of-life multi-sensor detector with commissioning and testing to BS 5839-1"
   }
 ]`;
