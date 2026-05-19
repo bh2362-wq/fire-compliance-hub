@@ -340,6 +340,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
         </div>
       ) : (
         <>
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -348,6 +349,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
                 <TableHead>Type</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Zone</TableHead>
+                {importColumns.map((column) => <TableHead key={column}>{column}</TableHead>)}
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -360,6 +362,11 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
                   <TableCell>{device.device_type}</TableCell>
                   <TableCell className="text-muted-foreground">{device.location || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{device.zone || "—"}</TableCell>
+                  {importColumns.map((column) => (
+                    <TableCell key={column} className="max-w-40 truncate text-muted-foreground">
+                      {String(device.raw_import_data?.[column] ?? "") || "—"}
+                    </TableCell>
+                  ))}
                   <TableCell>
                     <Badge variant={device.status === "active" ? "default" : "secondary"}>{device.status || "unknown"}</Badge>
                   </TableCell>
@@ -371,6 +378,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
               ))}
             </TableBody>
           </Table>
+          </div>
           {totalPages > 1 && (
             <div className="p-4 border-t border-border flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</p>
