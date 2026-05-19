@@ -226,6 +226,103 @@ export function InboxBrowser({ onScanEmail }: Props) {
         </Button>
       </div>
 
+      {/* AI Ask */}
+      <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <p className="text-xs font-semibold">Ask AI about the inbox</p>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !aiLoading && handleAiAsk()}
+            placeholder='e.g. "how much did we quote for the works at WeWork"'
+            className="h-8 text-sm bg-background"
+            disabled={aiLoading}
+          />
+          <Button size="sm" className="h-8 px-3 text-xs gap-1" onClick={handleAiAsk} disabled={aiLoading || !aiQuery.trim()}>
+            {aiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+            Ask
+          </Button>
+          {aiResult && (
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setAiResult(null); setAiQuery(""); }}>
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
+
+        {aiResult && (
+          <div className="space-y-2 pt-1">
+            <div className="rounded-md bg-background border p-2.5">
+              <p className="text-xs whitespace-pre-wrap leading-relaxed">{aiResult.answer}</p>
+              {aiResult.keywords?.length > 0 && (
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  Searched for: {aiResult.keywords.join(", ")}
+                </p>
+              )}
+            </div>
+
+            {aiResult.quotations.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                  Matching quotations ({aiResult.quotations.length})
+                </p>
+                <div className="space-y-1">
+                  {aiResult.quotations.map((q) => (
+                    <div key={q.id} className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded border bg-background">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">
+                          {q.quotation_number} · £{Number(q.total_amount || 0).toFixed(2)} · <span className="text-muted-foreground">{q.status}</span>
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {[q.site_name, q.customer_name].filter(Boolean).join(" · ")} {q.title ? `— ${q.title}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiResult.emails.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                  Matching emails ({aiResult.emails.length})
+                </p>
+                <div className="space-y-1">
+                  {aiResult.emails.map((e, i) => (
+                    <div key={e.id} className="flex items-start gap-2 text-xs px-2 py-1.5 rounded border bg-background">
+                      <span className="text-[10px] text-muted-foreground font-mono mt-0.5">[{i + 1}]</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{e.subject || "(no subject)"}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {e.fromName || e.from} · {e.date ? format(parseISO(e.date), "dd MMM yyyy") : ""}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px] gap-1 flex-shrink-0"
+                        onClick={() => handleScanById(e.id, e.subject, e.from)}
+                        disabled={loadingId === e.id}
+                      >
+                        {loadingId === e.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Scan className="w-3 h-3" />}
+                        Scan
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiResult.emails.length === 0 && aiResult.quotations.length === 0 && (
+              <p className="text-xs text-muted-foreground italic">No matching emails or quotations found.</p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Search */}
       <div className="flex gap-2">
         <div className="relative flex-1">
