@@ -194,6 +194,18 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
           <DialogTitle className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> AI Scope Writer — BS 5839-1:2025</DialogTitle>
         </DialogHeader>
 
+        {siteIntel && intelligenceFieldCount(siteIntel) > 0 && !result && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-xs">
+            <Building2 className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+            <span className="text-blue-700 dark:text-blue-400">
+              <span className="font-medium">Prefilled from site file</span> — {siteIntel.site.name}
+              {siteIntel.panel?.manufacturer && ` · ${siteIntel.panel.manufacturer} ${siteIntel.panel.model ?? ""}`}
+              {siteIntel.devices.total > 0 && ` · ${siteIntel.devices.total} devices`}
+              {siteIntel.latest_cert?.date && ` · last serviced ${new Date(siteIntel.latest_cert.date).toLocaleDateString("en-GB")}`}
+            </span>
+          </div>
+        )}
+
         {!result && (
           <div className="grid gap-4 py-2">
             <div className="grid grid-cols-2 gap-3">
