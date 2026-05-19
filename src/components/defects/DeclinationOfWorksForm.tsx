@@ -194,7 +194,7 @@ export default function DeclinationOfWorksForm({
                   <Input
                     value={form.standard_reference}
                     onChange={e => update("standard_reference", e.target.value)}
-                    placeholder="e.g. BS 5839-1:2017 Clause 45 — Cat 1 defect"
+                    placeholder="e.g. BS 5839-1:2025 Clause 45 — Cat 1 defect"
                   />
                 </div>
                 <div className="space-y-1.5">
