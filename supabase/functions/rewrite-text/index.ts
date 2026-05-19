@@ -623,6 +623,9 @@ ${rewrittenText}`;
         suggestedSummary,
         grounding_used,
         hallucinated_clauses,
+        post_processed,
+        post_process_replacements,
+        text_before_post_process: post_processed ? textBeforeStrip : null,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
