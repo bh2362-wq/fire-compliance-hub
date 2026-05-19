@@ -840,6 +840,23 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                         </Button>
                       )}
                       {!isLocked && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleBulkImproveScope}
+                          disabled={bulkScopeImproving || lineItems.length === 0}
+                          className="gap-1"
+                          title="Expand every line item against BS 5839-1:2025 reference library"
+                        >
+                          {bulkScopeImproving ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5" />
+                          )}
+                          Improve all (library)
+                        </Button>
+                      )}
+                      {!isLocked && (
                         <div className="flex items-center gap-1 border rounded-md px-2 py-1 bg-muted/40">
                           <Label className="text-xs whitespace-nowrap">Bulk Markup %</Label>
                           <Input
