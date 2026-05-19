@@ -623,7 +623,7 @@ ${(() => { const t = formatContextAsText(context); return t ? `\nADDITIONAL CONT
         ? `You are explaining the resolution path for a fire alarm defect to a non-technical building owner.
 
 Defect: ${text}
-${context ? `Engineer's recommended action (technical): ${context}` : ""}
+${(() => { const t = formatContextAsText(context); return t ? `Engineer's recommended action (technical): ${t}` : ""; })()}
 
 Write a short, clear RESOLUTION PATH the customer can follow:
 - 2-4 short steps in plain English (no jargon, no clause numbers)
