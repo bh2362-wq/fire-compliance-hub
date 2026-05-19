@@ -265,41 +265,28 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       } else {
         // Handle CSV files
         const content = await file.text();
-        const { devices, errors } = parseDeviceCSV(content);
-        
-        if (devices.length === 0 && errors.some(e => e.includes("must contain"))) {
-          // CSV missing columns - convert to rows format for mapping
-          const lines = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").filter(l => l.trim());
-          if (lines.length >= 1) {
-            const headers = lines[0].split(",").map(h => h.trim());
-            const rows: Record<string, unknown>[] = [];
-            
-            for (let i = 1; i < lines.length; i++) {
-              const values = lines[i].split(",").map(v => v.trim().replace(/^["']|["']$/g, ""));
-              const row: Record<string, unknown> = {};
-              headers.forEach((h, idx) => {
-                row[h] = values[idx] || "";
-              });
-              rows.push(row);
-            }
-            
-            setRawRows(rows);
-            setAvailableColumns(headers);
-            const { mapping } = detectColumnMapping(headers);
-            setSuggestedMapping(mapping);
-            setShowMappingDialog(true);
-          }
-        } else {
-          setParsedDevices(devices);
-          setParseErrors(errors);
-        }
+        const { rows, columns, errors } = parseDelimitedDeviceContent(content);
 
-        if (devices.length === 0 && errors.length > 0 && !errors.some(e => e.includes("must contain"))) {
+        setRawRows(rows);
+        setAvailableColumns(columns);
+        setSelectedSourceColumns(columns);
+
+        const { mapping, complete } = detectColumnMapping(columns);
+        setSuggestedMapping(mapping);
+
+        if (errors.length > 0) {
+          setParseErrors(errors);
           toast({
             title: "Parse failed",
             description: errors[0],
             variant: "destructive",
           });
+        } else if (complete) {
+          parseWithMapping(rows, mapping as ColumnMapping, {}, {}, columns);
+        } else {
+          setParsedDevices([]);
+          setParseErrors([]);
+          setShowMappingDialog(true);
         }
       }
     } catch (error) {
