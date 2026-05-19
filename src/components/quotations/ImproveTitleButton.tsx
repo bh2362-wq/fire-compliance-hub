@@ -1,20 +1,16 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, Check, X, RefreshCw, BookOpen, AlertTriangle } from "lucide-react";
+import { Sparkles, Loader2, Check, X, RefreshCw, BookOpen, AlertTriangle, Undo2 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface Props {
-  title: string;
-  context?: string;
-  onAccept: (newTitle: string) => void;
-  disabled?: boolean;
-}
+type RewriteType = "quotation_title" | "quotation_summary" | "quotation_bs5839_expand";
 
 interface GroundingChunkMeta {
   document_title: string;
@@ -34,25 +30,64 @@ interface GroundingMeta {
   error?: string;
 }
 
-export function ImproveTitleButton({ title, context, onAccept, disabled }: Props) {
+interface Props {
+  /** Current text in the field */
+  text: string;
+  /** Type-aware prompt selection. Defaults to quotation_title for backwards compatibility. */
+  type?: RewriteType;
+  /** Free-form context (line items as text, building type etc.) */
+  context?: string;
+  /** Called when user accepts improved text. */
+  onAccept: (newText: string) => void;
+  /** Button label override */
+  label?: string;
+  /** Minimum chars before button enables. Sensible per-type defaults applied if omitted. */
+  minChars?: number;
+  /** Visual size */
+  variant?: "inline" | "button";
+  disabled?: boolean;
+}
+
+const DEFAULT_MIN: Record<RewriteType, number> = {
+  quotation_title: 5,
+  quotation_summary: 20,
+  quotation_bs5839_expand: 30,
+};
+
+export function ImproveTitleButton({
+  text,
+  type = "quotation_title",
+  context,
+  onAccept,
+  label = "Improve",
+  minChars,
+  variant = "inline",
+  disabled,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [improved, setImproved] = useState("");
   const [grounding, setGrounding] = useState<GroundingMeta | null>(null);
   const [hallucinated, setHallucinated] = useState<string[]>([]);
   const [instructions, setInstructions] = useState("");
+  const [undoVisible, setUndoVisible] = useState(false);
+  const previousValueRef = useRef<string>("");
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const min = minChars ?? DEFAULT_MIN[type];
+  const tooShort = !text || text.trim().length < min;
 
   const run = async (custom?: string) => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("rewrite-text", {
         body: {
-          text: title,
-          type: "quotation_title",
+          text,
+          type,
           context,
           customInstructions: custom?.trim() || undefined,
           useReferenceLibrary: true,
-          referenceLibraryOptions: { limit: 5, minSimilarity: 0.25 },
+          referenceLibraryOptions: { minSimilarity: 0.25 },
         },
       });
       if (error) throw error;
@@ -70,37 +105,67 @@ export function ImproveTitleButton({ title, context, onAccept, disabled }: Props
   };
 
   const handleClick = () => {
-    if (!title.trim()) { toast.error("Type a title first"); return; }
+    if (tooShort) { toast.error(`Add at least ${min} characters first`); return; }
     setInstructions("");
     run();
   };
 
   const accept = () => {
+    previousValueRef.current = text;
     onAccept(improved);
-    toast.success("Title applied");
     setOpen(false);
+    setUndoVisible(true);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = setTimeout(() => setUndoVisible(false), 5000);
+    toast.success("Applied", {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          onAccept(previousValueRef.current);
+          setUndoVisible(false);
+        },
+      },
+      duration: 5000,
+    });
   };
+
+  const buttonLabel = loading ? "Improving…" : label;
+  const sourceLabel = type === "quotation_title" ? "Title" : type === "quotation_summary" ? "Description" : "Scope";
+
+  const triggerBtn = (
+    <Button
+      type="button"
+      variant={variant === "button" ? "outline" : "ghost"}
+      size="sm"
+      onClick={handleClick}
+      disabled={disabled || loading || tooShort}
+      className={variant === "inline" ? "h-7 px-2 text-xs text-muted-foreground hover:text-primary relative" : "gap-1 relative"}
+    >
+      {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+      {buttonLabel}
+      {hallucinated.length > 0 && !open && (
+        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500" />
+      )}
+    </Button>
+  );
 
   return (
     <>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={handleClick}
-        disabled={disabled || loading || !title.trim()}
-        className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
-      >
-        {loading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
-        {loading ? "Improving…" : "Improve"}
-      </Button>
+      {hallucinated.length > 0 && !open ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>{triggerBtn}</TooltipTrigger>
+            <TooltipContent>AI may have cited unverified clauses — review before sending</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : triggerBtn}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Improved Quote Title
+              Improved {sourceLabel}
               {grounding?.applied && (
                 <Badge variant="secondary" className="gap-1 text-xs">
                   <BookOpen className="w-3 h-3" /> Library-grounded
@@ -113,11 +178,11 @@ export function ImproveTitleButton({ title, context, onAccept, disabled }: Props
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">Original</p>
-                <div className="border rounded-md p-3 bg-muted/30 text-sm min-h-[44px]">{title}</div>
+                <div className="border rounded-md p-3 bg-muted/30 text-sm min-h-[44px] whitespace-pre-wrap max-h-[300px] overflow-auto">{text}</div>
               </div>
               <div>
                 <p className="text-xs font-medium text-primary mb-1">Improved</p>
-                <div className="border rounded-md p-3 border-primary/30 bg-primary/5 text-sm min-h-[44px] font-medium">{improved}</div>
+                <div className="border rounded-md p-3 border-primary/30 bg-primary/5 text-sm min-h-[44px] font-medium whitespace-pre-wrap max-h-[300px] overflow-auto">{improved}</div>
               </div>
             </div>
 
@@ -168,7 +233,7 @@ export function ImproveTitleButton({ title, context, onAccept, disabled }: Props
               <Textarea
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
-                placeholder="e.g. include the customer name, shorten, mention manufacturer…"
+                placeholder="e.g. shorten, cite specific clauses, mention manufacturer…"
                 className="min-h-[50px] text-sm"
               />
             </div>
@@ -191,3 +256,6 @@ export function ImproveTitleButton({ title, context, onAccept, disabled }: Props
     </>
   );
 }
+
+// Alias export for the broader use case
+export { ImproveTitleButton as ImproveButton };
