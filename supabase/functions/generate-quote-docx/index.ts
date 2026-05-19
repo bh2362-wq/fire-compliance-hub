@@ -56,11 +56,26 @@ const body = (str: string) =>
 const cell = (children: (Paragraph | Table)[], opts: Record<string, unknown> = {}) =>
   new TableCell({ children, borders: NONES, margins: { top: 60, bottom: 60, left: 0, right: 0 }, ...opts });
 
+// Normalises VAT rate to a fraction (0-1). Accepts either decimal form (0.20)
+// or whole-number percent (20). Throws loudly if the resulting fraction is
+// outside the plausible UK range so a misinterpreted rate (e.g. "20" parsed
+// as 2000%) can never silently render a wrong invoice again.
+function normalizeVatFraction(raw: number | null | undefined, ref?: string): number {
+  const r = raw == null ? 20 : Number(raw);
+  if (!Number.isFinite(r)) throw new Error(`VAT rate invalid (non-numeric) on quote ${ref ?? "?"}: ${raw}`);
+  const fraction = r > 1 ? r / 100 : r;
+  if (fraction < 0 || fraction > 0.5) {
+    throw new Error(`VAT rate out of plausible range on quote ${ref ?? "?"} — raw=${raw}, fraction=${fraction}. Refusing to render.`);
+  }
+  return fraction;
+}
+
 function buildDocument(q: QuoteInput, logo: ArrayBuffer): Document {
-  const vatRate = q.vat_rate ?? 0.20;
+  const vatFraction = normalizeVatFraction(q.vat_rate, q.ref);
   const subtotal = q.items.reduce((s, it) => s + it.qty * it.unit, 0);
-  const vat = subtotal * vatRate;
+  const vat = subtotal * vatFraction;
   const total = subtotal + vat;
+  const vatRate = vatFraction; // backwards-compatible alias for label below
 
   const banner = new Table({
     width: { size: CONTENT_W, type: WidthType.DXA },
