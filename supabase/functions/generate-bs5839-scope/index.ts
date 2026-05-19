@@ -114,7 +114,18 @@ async function callAI(input: ScopeWriterInput) {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
-  const userMessage = `Write the introduction and scope of works for this fire alarm quotation.\n\nINPUT (JSON):\n${JSON.stringify(input, null, 2)}\n\nReturn minified, valid JSON only. Do not include markdown fences or commentary.`;
+  const wt = normaliseWorksType(input.works_type);
+  const guidance = WORKS_TYPE_GUIDANCE[wt] ?? "";
+  const lineItemsBlock = input.line_items?.length
+    ? `\n\nLINE ITEMS (the SOURCE OF TRUTH for scope — match prose to these, not to context fields):\n` +
+      input.line_items.map((li, i) => `${i + 1}. ${li.description}${li.total != null ? ` — £${li.total}` : ""}`).join("\n")
+    : "";
+  const userMessage =
+    `Write the introduction and scope of works for this fire alarm quotation.\n\n` +
+    `${guidance}\n${lineItemsBlock}\n\n` +
+    `INPUT (JSON):\n${JSON.stringify({ ...input, works_type: wt }, null, 2)}\n\n` +
+    `Return minified, valid JSON only. Do not include markdown fences or commentary.`;
+
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
