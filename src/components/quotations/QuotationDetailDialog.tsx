@@ -359,6 +359,51 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     }
   };
 
+  const [bulkScopeImproving, setBulkScopeImproving] = useState(false);
+  const handleBulkImproveScope = async () => {
+    if (lineItems.length === 0) return;
+    setBulkScopeImproving(true);
+    try {
+      const descriptions = lineItems.map((item, i) => `${i + 1}. ${item.description}`).join("\n");
+      const { data, error } = await supabase.functions.invoke("rewrite-text", {
+        body: {
+          text: descriptions,
+          type: "quotation_bs5839_expand",
+          context: title ? `Quote title: ${title}` : undefined,
+          useReferenceLibrary: true,
+          referenceLibraryOptions: { minSimilarity: 0.25 },
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const raw = (data?.rewrittenText ?? "").replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      let parsed: Array<{ index: number; expanded_description: string; expanded_summary_section?: string }> = [];
+      try { parsed = JSON.parse(raw); } catch { throw new Error("AI returned malformed JSON"); }
+      if (!Array.isArray(parsed)) throw new Error("AI did not return an array");
+      const updated = [...lineItems];
+      parsed.forEach((entry) => {
+        if (typeof entry.index === "number" && updated[entry.index] && entry.expanded_description) {
+          updated[entry.index] = { ...updated[entry.index], description: entry.expanded_description };
+        }
+      });
+      setLineItems(updated);
+      setHasChanges(true);
+      const h = (data?.hallucinated_clauses ?? []) as string[];
+      const g = data?.grounding_used;
+      if (h.length > 0) {
+        toast.warning(`Scope improved — ${h.length} unverified citation(s) flagged: ${h.join(", ")}`);
+      } else {
+        toast.success(`Scope improved with ${g?.chunks_retrieved ?? 0} library chunks`);
+      }
+    } catch (e) {
+      console.error("Bulk scope improve error:", e);
+      toast.error(e instanceof Error ? e.message : "Improve scope failed");
+    } finally {
+      setBulkScopeImproving(false);
+    }
+  };
+
+
   const handleSave = async () => {
     if (!quotation) return;
     setSaving(true);
@@ -795,6 +840,23 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                         </Button>
                       )}
                       {!isLocked && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleBulkImproveScope}
+                          disabled={bulkScopeImproving || lineItems.length === 0}
+                          className="gap-1"
+                          title="Expand every line item against BS 5839-1:2025 reference library"
+                        >
+                          {bulkScopeImproving ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5" />
+                          )}
+                          Improve all (library)
+                        </Button>
+                      )}
+                      {!isLocked && (
                         <div className="flex items-center gap-1 border rounded-md px-2 py-1 bg-muted/40">
                           <Label className="text-xs whitespace-nowrap">Bulk Markup %</Label>
                           <Input
@@ -1025,7 +1087,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                       <Label>Quote Title</Label>
                       {!isLocked && (
                         <ImproveTitleButton
-                          title={title}
+                          text={title}
                           context={lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean).join("\n")}
                           onAccept={(t) => { setTitle(t); setHasChanges(true); }}
                         />
@@ -1034,7 +1096,21 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                     <Input value={title} onChange={(e) => { setTitle(e.target.value); setHasChanges(true); }} disabled={isLocked} />
                   </div>
                   <div>
-                    <Label>Summary</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Summary</Label>
+                      {!isLocked && (
+                        <ImproveTitleButton
+                          text={summary}
+                          type="quotation_summary"
+                          context={[
+                            title && `Title: ${title}`,
+                            "Line items:",
+                            ...lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean),
+                          ].filter(Boolean).join("\n")}
+                          onAccept={(t) => { setSummary(t); setHasChanges(true); }}
+                        />
+                      )}
+                    </div>
                     <Textarea rows={3} value={summary} onChange={(e) => { setSummary(e.target.value); setHasChanges(true); }} disabled={isLocked} />
                   </div>
                   <div>

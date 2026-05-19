@@ -488,7 +488,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
               <div className="flex items-center justify-between">
                 <Label>Quote Title</Label>
                 <ImproveTitleButton
-                  title={title}
+                  text={title}
                   context={lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean).join("\n")}
                   onAccept={(t) => setTitle(t)}
                 />
@@ -508,7 +508,24 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
           </div>
 
           <div className="space-y-2">
-            <Label>Summary</Label>
+            <div className="flex items-center justify-between">
+              <Label>Summary</Label>
+              <ImproveTitleButton
+                text={summary}
+                type="quotation_summary"
+                context={[
+                  title && `Title: ${title}`,
+                  systemType && `System: ${systemType}`,
+                  buildingType && `Building: ${buildingType}`,
+                  jobCategory && `Job: ${jobCategory}`,
+                  bs5839 && `BS 5839 category: ${bs5839}`,
+                  "",
+                  "Line items:",
+                  ...lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean),
+                ].filter(Boolean).join("\n")}
+                onAccept={(t) => setSummary(t)}
+              />
+            </div>
             <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Brief description of the works..." className="min-h-[60px]" />
           </div>
 
