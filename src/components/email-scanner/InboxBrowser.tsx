@@ -152,6 +152,59 @@ export function InboxBrowser({ onScanEmail }: Props) {
     setOffset(0);
   }
 
+  async function handleAiAsk() {
+    const q = aiQuery.trim();
+    if (!q) return;
+    setAiLoading(true);
+    setAiResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("inbox-ai-query", { body: { query: q } });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      setAiResult(data as AiQueryResult);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "AI query failed");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function handleScanById(id: string, fallbackSubject = "", fallbackFrom = "") {
+    setLoadingId(id);
+    try {
+      const detail = await getMessage(id);
+      const attsResult = detail.hasAttachments ? await listAttachments(id) : { attachments: [] };
+      const bodyText = detail.body || "";
+      const fullContent = [
+        `From: ${detail.from?.name || ""} <${detail.from?.address || fallbackFrom}>`,
+        `Subject: ${detail.subject || fallbackSubject}`,
+        `Date: ${format(parseISO(detail.receivedDateTime), "dd MMM yyyy HH:mm")}`,
+        "",
+        bodyText || "(no body text)",
+      ].join("\n");
+      const pdfList = (attsResult.attachments || [])
+        .filter(a =>
+          a.contentType?.toLowerCase().includes("pdf") ||
+          a.name?.toLowerCase().endsWith(".pdf") ||
+          (a.contentType === "application/octet-stream" && a.name?.toLowerCase().endsWith(".pdf"))
+        )
+        .slice(0, 3);
+      let pdfAttachments: { name: string; contentBytes: string }[] = [];
+      if (pdfList.length > 0) {
+        const results = await Promise.allSettled(pdfList.map(a => getAttachment(id, a.id)));
+        pdfAttachments = results
+          .filter((r): r is PromiseFulfilledResult<{ name: string; contentType: string; contentBytes: string }> => r.status === "fulfilled")
+          .map(r => ({ name: r.value.name, contentBytes: r.value.contentBytes }));
+      }
+      onScanEmail(fullContent, detail.subject || fallbackSubject, detail.from?.address || fallbackFrom, pdfAttachments);
+      toast.success("Email loaded into scanner");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load email");
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
