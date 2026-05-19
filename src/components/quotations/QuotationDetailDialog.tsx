@@ -14,7 +14,25 @@ import {
   Sparkles,
   Merge,
   LockOpen,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -108,6 +126,31 @@ const DEFAULT_TERMS = `1. This quotation is valid for 30 days from the date of i
 5. Access to all areas requiring work must be provided.
 6. Any additional work identified during the visit will be quoted separately.`;
 
+function SortableItemRow({
+  id,
+  disabled,
+  children,
+}: {
+  id: string;
+  disabled?: boolean;
+  children: (handle: { attributes: any; listeners: any; isDragging: boolean }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 10 : "auto",
+    position: "relative",
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ attributes, listeners, isDragging })}
+    </div>
+  );
+}
+
+
 export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdate }: QuotationDetailDialogProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -121,6 +164,25 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [bulkMarkup, setBulkMarkup] = useState("");
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = lineItems.findIndex((i) => i.id === active.id);
+    const newIndex = lineItems.findIndex((i) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(lineItems, oldIndex, newIndex).map((it, idx) => ({
+      ...it,
+      sort_order: idx,
+    }));
+    setLineItems(reordered);
+    setHasChanges(true);
+  };
 
   // Editable fields
   const [quotationNumber, setQuotationNumber] = useState("");
@@ -901,121 +963,148 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                   {lineItems.length === 0 ? (
                     <p className="text-center py-8 text-sm text-muted-foreground">No line items yet.</p>
                   ) : (
-                    <div className="space-y-3">
-                      {lineItems.map((item, index) => (
-                        <Card key={item.id} className={item.parent_id ? "ml-6 border-l-4 border-l-muted" : ""}>
-                          <CardContent className="p-4 space-y-3">
-                            <div className="flex items-start gap-3">
-                              {!isLocked && (
-                                <Checkbox
-                                  checked={selectedItemIds.has(item.id)}
-                                  onCheckedChange={(checked) => {
-                                    const next = new Set(selectedItemIds);
-                                    if (checked) next.add(item.id);
-                                    else next.delete(item.id);
-                                    setSelectedItemIds(next);
-                                  }}
-                                  className="mt-2"
-                                />
+                    <DndContext
+                      sensors={dndSensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={lineItems.map((i) => i.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-3">
+                          {lineItems.map((item, index) => (
+                            <SortableItemRow key={item.id} id={item.id} disabled={isLocked}>
+                              {({ attributes, listeners, isDragging }) => (
+                                <Card className={item.parent_id ? "ml-6 border-l-4 border-l-muted" : ""}>
+                                  <CardContent className="p-4 space-y-3">
+                                    <div className="flex items-start gap-3">
+                                      {!isLocked && (
+                                        <button
+                                          type="button"
+                                          {...attributes}
+                                          {...listeners}
+                                          aria-label="Drag to reorder"
+                                          className={`mt-1 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted ${isDragging ? "cursor-grabbing" : "cursor-grab"} touch-none`}
+                                        >
+                                          <GripVertical className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                      {!isLocked && (
+                                        <Checkbox
+                                          checked={selectedItemIds.has(item.id)}
+                                          onCheckedChange={(checked) => {
+                                            const next = new Set(selectedItemIds);
+                                            if (checked) next.add(item.id);
+                                            else next.delete(item.id);
+                                            setSelectedItemIds(next);
+                                          }}
+                                          className="mt-2"
+                                        />
+                                      )}
+                                      <div className="flex-1 space-y-2">
+                                        <Textarea
+                                          rows={2}
+                                          value={item.description}
+                                          onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                                          placeholder="Description of work..."
+                                          disabled={isLocked}
+                                        />
+                                        <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                                          <div>
+                                            <Label className="text-xs">Item / Part</Label>
+                                            <Input
+                                              value={item.item_name || ""}
+                                              onChange={(e) => handleItemChange(index, "item_name", e.target.value || null)}
+                                              disabled={isLocked}
+                                              className="h-8"
+                                            />
+                                          </div>
+                                          <div>
+                                            <Label className="text-xs">Qty</Label>
+                                            <Input
+                                              type="number"
+                                              min={1}
+                                              value={item.quantity}
+                                              onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
+                                              disabled={isLocked}
+                                              className="h-8"
+                                            />
+                                          </div>
+                                          <div>
+                                            <Label className="text-xs">Unit Cost £</Label>
+                                            <Input
+                                              type="number"
+                                              min={0}
+                                              step={0.01}
+                                              value={item.unit_price}
+                                              onChange={(e) => handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
+                                              disabled={isLocked}
+                                              className="h-8"
+                                            />
+                                          </div>
+                                          <div>
+                                            <Label className="text-xs">Markup %</Label>
+                                            <Input
+                                              type="number"
+                                              min={0}
+                                              step={1}
+                                              value={item.markup_percent || 0}
+                                              onChange={(e) => handleItemChange(index, "markup_percent", parseFloat(e.target.value) || 0)}
+                                              disabled={isLocked}
+                                              className="h-8"
+                                            />
+                                          </div>
+                                          <div>
+                                            <Label className="text-xs">Sell Price £</Label>
+                                            <Input
+                                              type="number"
+                                              readOnly
+                                              value={(item.unit_price * (1 + (item.markup_percent || 0) / 100)).toFixed(2)}
+                                              className="h-8 bg-muted"
+                                            />
+                                          </div>
+                                          <div>
+                                            <Label className="text-xs">Labour £</Label>
+                                            <Input
+                                              type="number"
+                                              min={0}
+                                              step={0.01}
+                                              value={item.labour_cost || 0}
+                                              onChange={(e) => handleItemChange(index, "labour_cost", parseFloat(e.target.value) || 0)}
+                                              disabled={isLocked}
+                                              className="h-8"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center justify-between pt-2 border-t">
+                                          <span className="text-xs text-muted-foreground">Total</span>
+                                          <span className="text-sm font-semibold flex items-center">
+                                            <PoundSterling className="w-3 h-3" />
+                                            {(item.total_price || 0).toFixed(2)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {!isLocked && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleRemoveItem(index)}
+                                          className="text-destructive"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </CardContent>
+                                </Card>
                               )}
-                              <div className="flex-1 space-y-2">
-                                <Textarea
-                                  rows={2}
-                                  value={item.description}
-                                  onChange={(e) => handleItemChange(index, "description", e.target.value)}
-                                  placeholder="Description of work..."
-                                  disabled={isLocked}
-                                />
-                                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                                  <div>
-                                    <Label className="text-xs">Item / Part</Label>
-                                    <Input
-                                      value={item.item_name || ""}
-                                      onChange={(e) => handleItemChange(index, "item_name", e.target.value || null)}
-                                      disabled={isLocked}
-                                      className="h-8"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs">Qty</Label>
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      value={item.quantity}
-                                      onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
-                                      disabled={isLocked}
-                                      className="h-8"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs">Unit Cost £</Label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      step={0.01}
-                                      value={item.unit_price}
-                                      onChange={(e) => handleItemChange(index, "unit_price", parseFloat(e.target.value) || 0)}
-                                      disabled={isLocked}
-                                      className="h-8"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs">Markup %</Label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      step={1}
-                                      value={item.markup_percent || 0}
-                                      onChange={(e) => handleItemChange(index, "markup_percent", parseFloat(e.target.value) || 0)}
-                                      disabled={isLocked}
-                                      className="h-8"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs">Sell Price £</Label>
-                                    <Input
-                                      type="number"
-                                      readOnly
-                                      value={(item.unit_price * (1 + (item.markup_percent || 0) / 100)).toFixed(2)}
-                                      className="h-8 bg-muted"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs">Labour £</Label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      step={0.01}
-                                      value={item.labour_cost || 0}
-                                      onChange={(e) => handleItemChange(index, "labour_cost", parseFloat(e.target.value) || 0)}
-                                      disabled={isLocked}
-                                      className="h-8"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-between pt-2 border-t">
-                                  <span className="text-xs text-muted-foreground">Total</span>
-                                  <span className="text-sm font-semibold flex items-center">
-                                    <PoundSterling className="w-3 h-3" />
-                                    {(item.total_price || 0).toFixed(2)}
-                                  </span>
-                                </div>
-                              </div>
-                              {!isLocked && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleRemoveItem(index)}
-                                  className="text-destructive"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                            </SortableItemRow>
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+
                   )}
 
                   <Card>
