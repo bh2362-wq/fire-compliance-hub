@@ -228,6 +228,72 @@ export async function importDevices(
   }
 }
 
+// Header alias dictionaries used by both CSV and spreadsheet parsers.
+const COLUMN_ALIASES: Record<keyof ColumnMapping, string[]> = {
+  loop: ["loop", "loop no", "loopno", "loop number", "loop#", "lp", "lp no", "circuit", "circuit no"],
+  address: ["address", "addr", "device address", "device addr", "point address", "point", "addr no", "address no", "device id", "device no"],
+  type: ["device type", "type", "type description", "device description", "device", "equipment", "equipment type", "model", "device model", "part", "part no", "part number"],
+  location: ["location", "loc", "device location", "description", "desc", "area description", "room", "place", "fitted location"],
+  zone: ["zone", "zone no", "zone number", "zone description", "area", "zone area"],
+};
+
+function normalizeHeader(h: string): string {
+  return h.toLowerCase().trim().replace(/[\s._\-/\\#]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function findColumnFuzzy(columns: string[], aliases: string[]): string | null {
+  const lookup = new Map<string, string>();
+  columns.forEach((c) => {
+    const n = normalizeHeader(c);
+    if (n && !lookup.has(n)) lookup.set(n, c);
+  });
+  const normAliases = aliases.map(normalizeHeader).filter(Boolean);
+
+  // 1. Exact normalized match
+  for (const a of normAliases) {
+    const hit = lookup.get(a);
+    if (hit) return hit;
+  }
+  // 2. Contains match (header contains alias or alias contains header)
+  for (const a of normAliases) {
+    for (const [norm, orig] of lookup.entries()) {
+      if (norm.includes(a) || a.includes(norm)) return orig;
+    }
+  }
+  return null;
+}
+
+// Proper CSV line parser - handles quoted fields containing commas/quotes
+function parseCSVLine(line: string, delimiter = ","): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === delimiter && !inQuotes) {
+      out.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map((v) => v.trim().replace(/^["']|["']$/g, ""));
+}
+
+function detectDelimiter(content: string): string {
+  const head = content.split("\n").slice(0, 5).join("\n");
+  const c = (head.match(/,/g) || []).length;
+  const s = (head.match(/;/g) || []).length;
+  const t = (head.match(/\t/g) || []).length;
+  if (t > c && t > s) return "\t";
+  if (s > c) return ";";
+  return ",";
+}
+
 export function parseDeviceCSV(content: string): { devices: DeviceImport[]; errors: string[] } {
   const errors: string[] = [];
   const devices: DeviceImport[] = [];
@@ -243,25 +309,28 @@ export function parseDeviceCSV(content: string): { devices: DeviceImport[]; erro
     return { devices, errors };
   }
 
-  // Parse headers
-  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-  
-  // Find column indices
-  const loopIdx = headers.findIndex((h) => ["loop", "loop_no", "circuit"].includes(h));
-  const addrIdx = headers.findIndex((h) => ["address", "addr", "point"].includes(h));
-  const typeIdx = headers.findIndex((h) => ["type", "device_type", "device", "equipment"].includes(h));
-  const locIdx = headers.findIndex((h) => ["location", "loc", "description", "desc"].includes(h));
-  const zoneIdx = headers.findIndex((h) => ["zone", "area"].includes(h));
+  const delimiter = detectDelimiter(content);
+  const headers = parseCSVLine(lines[0], delimiter);
 
-  if (loopIdx === -1 || addrIdx === -1 || typeIdx === -1) {
+  const loopCol = findColumnFuzzy(headers, COLUMN_ALIASES.loop);
+  const addrCol = findColumnFuzzy(headers, COLUMN_ALIASES.address);
+  const typeCol = findColumnFuzzy(headers, COLUMN_ALIASES.type);
+  const locCol = findColumnFuzzy(headers, COLUMN_ALIASES.location);
+  const zoneCol = findColumnFuzzy(headers, COLUMN_ALIASES.zone);
+
+  if (!loopCol || !addrCol || !typeCol) {
     errors.push("CSV must contain loop, address, and type columns");
     return { devices, errors };
   }
 
-  // Parse data rows
+  const loopIdx = headers.indexOf(loopCol);
+  const addrIdx = headers.indexOf(addrCol);
+  const typeIdx = headers.indexOf(typeCol);
+  const locIdx = locCol ? headers.indexOf(locCol) : -1;
+  const zoneIdx = zoneCol ? headers.indexOf(zoneCol) : -1;
+
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",").map((v) => v.trim().replace(/^["']|["']$/g, ""));
-    
+    const values = parseCSVLine(lines[i], delimiter);
     const loop = values[loopIdx];
     const address = values[addrIdx];
     const device_type = values[typeIdx];
@@ -275,8 +344,8 @@ export function parseDeviceCSV(content: string): { devices: DeviceImport[]; erro
       loop,
       address,
       device_type,
-      location: locIdx >= 0 ? values[locIdx] : undefined,
-      zone: zoneIdx >= 0 ? values[zoneIdx] : undefined,
+      location: locIdx >= 0 ? values[locIdx] || undefined : undefined,
+      zone: zoneIdx >= 0 ? values[zoneIdx] || undefined : undefined,
     });
   }
 
@@ -292,35 +361,18 @@ export function parseDeviceRows(rows: Record<string, unknown>[]): { devices: Dev
     return { devices, errors };
   }
 
-  // Get headers from first row keys (normalized to lowercase)
-  const sampleRow = rows[0];
-  const headerMap = new Map<string, string>();
-  
-  Object.keys(sampleRow).forEach((key) => {
-    headerMap.set(key.toLowerCase().trim(), key);
-  });
-
-  // Find column mappings
-  const findColumn = (aliases: string[]): string | null => {
-    for (const alias of aliases) {
-      const key = headerMap.get(alias);
-      if (key) return key;
-    }
-    return null;
-  };
-
-  const loopCol = findColumn(["loop", "loop_no", "circuit"]);
-  const addrCol = findColumn(["address", "addr", "point"]);
-  const typeCol = findColumn(["type", "device_type", "device", "equipment"]);
-  const locCol = findColumn(["location", "loc", "description", "desc"]);
-  const zoneCol = findColumn(["zone", "area"]);
+  const columns = Object.keys(rows[0]);
+  const loopCol = findColumnFuzzy(columns, COLUMN_ALIASES.loop);
+  const addrCol = findColumnFuzzy(columns, COLUMN_ALIASES.address);
+  const typeCol = findColumnFuzzy(columns, COLUMN_ALIASES.type);
+  const locCol = findColumnFuzzy(columns, COLUMN_ALIASES.location);
+  const zoneCol = findColumnFuzzy(columns, COLUMN_ALIASES.zone);
 
   if (!loopCol || !addrCol || !typeCol) {
     errors.push("Sheet must contain loop, address, and type columns");
     return { devices, errors };
   }
 
-  // Parse data rows
   rows.forEach((row, i) => {
     const loop = String(row[loopCol] ?? "").trim();
     const address = String(row[addrCol] ?? "").trim();
@@ -352,25 +404,12 @@ export interface ColumnMapping {
 }
 
 export function detectColumnMapping(columns: string[]): { mapping: Partial<ColumnMapping>; complete: boolean } {
-  const headerMap = new Map<string, string>();
-  columns.forEach((col) => {
-    headerMap.set(col.toLowerCase().trim(), col);
-  });
-
-  const findColumn = (aliases: string[]): string | null => {
-    for (const alias of aliases) {
-      const key = headerMap.get(alias);
-      if (key) return key;
-    }
-    return null;
-  };
-
   const mapping: Partial<ColumnMapping> = {
-    loop: findColumn(["loop", "loop_no", "circuit"]),
-    address: findColumn(["address", "addr", "point"]),
-    type: findColumn(["type", "device_type", "device", "equipment"]),
-    location: findColumn(["location", "loc", "description", "desc"]),
-    zone: findColumn(["zone", "area"]),
+    loop: findColumnFuzzy(columns, COLUMN_ALIASES.loop),
+    address: findColumnFuzzy(columns, COLUMN_ALIASES.address),
+    type: findColumnFuzzy(columns, COLUMN_ALIASES.type),
+    location: findColumnFuzzy(columns, COLUMN_ALIASES.location),
+    zone: findColumnFuzzy(columns, COLUMN_ALIASES.zone),
   };
 
   const complete = !!(mapping.loop && mapping.address && mapping.type);
