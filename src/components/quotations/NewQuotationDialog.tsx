@@ -24,6 +24,7 @@ import { Plus, Trash2, Loader2, Database, UserPlus, Building2 } from "lucide-rea
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { AIExpandButton } from "./AIExpandButton";
+import { ImproveTitleButton } from "./ImproveTitleButton";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -484,7 +485,14 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
           {/* Quote Details */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Quote Title</Label>
+              <div className="flex items-center justify-between">
+                <Label>Quote Title</Label>
+                <ImproveTitleButton
+                  title={title}
+                  context={lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean).join("\n")}
+                  onAccept={(t) => setTitle(t)}
+                />
+              </div>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Fire Alarm Upgrade" />
             </div>
             <div className="grid grid-cols-2 gap-4">
