@@ -163,6 +163,12 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     existing_system_description: existingDesc || undefined,
     project_name: q?.title ?? undefined,
     quotation_id: quotationId,
+    line_items: ((q as any)?.quotation_line_items ?? []).map((li: any) => ({
+      description: li.description,
+      quantity: li.quantity ?? 1,
+      unit_price: li.unit_price ?? 0,
+      total: (li.quantity ?? 1) * (li.unit_price ?? 0),
+    })),
     site_context: siteIntel ? {
       site_name: siteIntel.site.name,
       address: siteIntel.site.address,
