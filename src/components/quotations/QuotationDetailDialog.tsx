@@ -42,6 +42,7 @@ import { getCompanySettings } from "@/services/companySettingsService";
 import { EmailQuotationDialog } from "./EmailQuotationDialog";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { QuoteActions } from "@/features/quotes/QuoteActions";
+import { ImproveTitleButton } from "./ImproveTitleButton";
 
 interface LineItem {
   id: string;
