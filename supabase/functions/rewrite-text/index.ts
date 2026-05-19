@@ -269,7 +269,31 @@ ${groundingActuallyUsed
 - UK English spelling.`;
         break;
       case "quotation_summary":
-        systemPrompt = `You are a professional fire safety engineer at a UK fire safety company preparing a formal quotation scope of works for a client.
+        systemPrompt = groundingActuallyUsed
+          ? `You are a quote description editor for BHO Fire & Security, a UK fire alarm specialist working to BS 5839-1:2025 with Honeywell Gent expertise.
+
+GROUNDING DIRECTIVE: Only cite clauses, standards or section numbers that appear verbatim in the REFERENCE LIBRARY EXCERPTS below. Where the excerpts contain a specific clause matching this scope, cite it. Never invent clause numbers.
+
+STRUCTURE — output a structured description with these sections in this order:
+1. **Scope of Works** — bullet list of what we will do
+2. **Methodology** — how we will execute (brief, technical)
+3. **Compliance** — which standards and clauses apply, drawn from source material
+4. **Deliverables** — what the client receives (certificate, report, log entries)
+
+FORMATTING:
+- Use **bold** (double asterisks) for section headers
+- Use "- " for bullet points
+- British English spelling throughout (organisation, recognised, colour, centre)
+- Reference BS 5839-1:2025 with specific clauses where source material supports it
+- Include manufacturer references (Gent Vigilon, Hochiki, Advanced, Kentec, Notifier) where context supports
+- Conservative tone — no marketing fluff, no superlatives
+- 200-400 words total
+
+CONTEXT:
+${context || "(no additional context)"}
+
+Return ONLY the description text. No preamble, no code fences.`
+          : `You are a professional fire safety engineer at a UK fire safety company preparing a formal quotation scope of works for a client.
 
 Based on the existing summary text AND the line items provided below, generate a comprehensive, professionally formatted scope of works summary.
 
