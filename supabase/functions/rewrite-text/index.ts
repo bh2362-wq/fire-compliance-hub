@@ -165,10 +165,29 @@ serve(async (req) => {
     let groundingError: string | undefined;
     let groundingActuallyUsed = false;
     if (useReferenceLibrary) {
-      const r = await retrieveGrounding(
-        `${text}\n${context ?? ""}`.trim(),
-        referenceLibraryOptions ?? {},
-      );
+      // Type-aware query construction: focused queries retrieve better chunks
+      let query = "";
+      let defaultLimit = 5;
+      const ctx = (context ?? "").toString();
+      switch (type) {
+        case "quotation_title":
+          query = `${text} ${ctx}`.trim();
+          defaultLimit = 5;
+          break;
+        case "quotation_summary":
+          query = `${text}\n${ctx}\n${text.slice(0, 200)}`.trim();
+          defaultLimit = 6;
+          break;
+        case "quotation_bs5839_expand":
+          query = `${text}\n${ctx}`.trim();
+          defaultLimit = 8;
+          break;
+        default:
+          query = `${text}\n${ctx}`.trim();
+      }
+      const opts = { ...(referenceLibraryOptions ?? {}) };
+      if (opts.limit == null) opts.limit = defaultLimit;
+      const r = await retrieveGrounding(query, opts);
       grounding = r.chunks;
       groundingError = r.error;
       groundingActuallyUsed = r.usedLibrary && grounding.length > 0;
