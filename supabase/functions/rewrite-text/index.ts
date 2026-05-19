@@ -289,7 +289,7 @@ IMPORTANT RULES:
 1. Return a JSON array of objects with "index" (0-based) and "expanded_description" and "expanded_summary_section" fields
 2. expanded_description should be 2-4 sentences of detailed professional text for the line item
 3. expanded_summary_section should be a brief scope entry (1 sentence) for the overall summary
-4. Reference BS 5839-1:2017+A2:2019 for fire detection and alarm systems
+4. Reference BS 5839-1:2025 for fire detection and alarm systems
 5. Reference BS 5839-6 for domestic fire detection
 6. Reference BS 5266-1 for emergency lighting where relevant
 7. Use UK English spelling throughout
@@ -303,7 +303,7 @@ Example output:
 [
   {
     "index": 0,
-    "expanded_description": "Supply and install one Hochiki ESP Intelligent multi-sensor detector to replace the existing end-of-life unit. The detector shall be installed in accordance with BS 5839-1:2017+A2:2019, Clause 25. Upon completion, the device will be commissioned and functionally tested to confirm correct operation with the existing fire alarm control panel, and a completion certificate issued.",
+    "expanded_description": "Supply and install one Hochiki ESP Intelligent multi-sensor detector to replace the existing end-of-life unit. The detector shall be installed in accordance with BS 5839-1:2025, Clause 25. Upon completion, the device will be commissioned and functionally tested to confirm correct operation with the existing fire alarm control panel, and a completion certificate issued.",
     "expanded_summary_section": "Replacement of end-of-life multi-sensor detector with commissioning and testing to BS 5839-1"
   }
 ]`;

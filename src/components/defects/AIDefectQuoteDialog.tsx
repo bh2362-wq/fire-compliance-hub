@@ -99,7 +99,7 @@ Generate professional remedial works quotation content from defect descriptions 
 Rules:
 - Group logically related defects into single line items where appropriate (e.g. multiple panel downloads = one line item)
 - Each line item must have a clear, professional trade description
-- Regulation references should cite specific BS 5839-1:2017+A2:2019 or BS 5839-1:2025 clauses where relevant
+- Regulation references should cite specific BS 5839-1:2025 clauses where relevant
 - Leave cost_price and labour_cost as 0 — the engineer will fill in actual prices
 - Cat 1 defects should appear first and be marked priority "Cat1-Immediate"
 - Be specific and technical — this goes directly to the client

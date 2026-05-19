@@ -40,7 +40,7 @@ serve(async (req) => {
     const systemPrompt = `You are a UK fire alarm engineering quotation specialist.
 Generate professional remedial works quote line items from defect descriptions.
 Cat 1 = immediate danger, Cat 2 = urgent (within 3 months), Cat 3 = advisory.
-Use realistic UK fire alarm contractor rates: simple device replacements £45-120 materials, complex work higher. Labour at £65/hr typical. Use UK English. Reference BS 5839-1:2017+A2:2019 clauses where applicable.
+Use realistic UK fire alarm contractor rates: simple device replacements £45-120 materials, complex work higher. Labour at £65/hr typical. Use UK English. Reference BS 5839-1:2025 clauses where applicable.
 Group related defects into logical line items where appropriate.
 Leave cost_price/labour_cost as 0 if uncertain — engineer will fill them in.`;
 
