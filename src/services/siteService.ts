@@ -156,36 +156,45 @@ export async function importDevices(
   let skipped = 0;
 
   try {
-    // First, fetch existing devices for this site to check for duplicates
-    const { data: existingDevices, error: fetchError } = await supabase
-      .from("devices")
-      .select("loop, address")
-      .eq("site_id", siteId);
-
-    if (fetchError) {
-      throw fetchError;
+    // Fetch ALL existing devices for this site (paginate past the 1000 default limit)
+    const existingKeys = new Set<string>();
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data, error: fetchError } = await supabase
+        .from("devices")
+        .select("loop, address")
+        .eq("site_id", siteId)
+        .range(from, from + PAGE - 1);
+      if (fetchError) throw fetchError;
+      if (!data || data.length === 0) break;
+      for (const d of data) existingKeys.add(`${d.loop}-${d.address}`);
+      if (data.length < PAGE) break;
     }
 
-    // Create a Set of existing device keys for fast lookup
-    const existingKeys = new Set(
-      (existingDevices || []).map((d) => `${d.loop}-${d.address}`)
-    );
-
-    // Filter out duplicates
-    const newDevices = devices.filter((d) => {
+    // De-dupe within the imported file AND against existing DB rows
+    const seenInFile = new Set<string>();
+    const newDevices: DeviceImport[] = [];
+    for (const d of devices) {
       const key = `${d.loop}-${d.address}`;
       if (existingKeys.has(key)) {
         skipped++;
-        return false;
+        continue;
       }
-      return true;
-    });
+      if (seenInFile.has(key)) {
+        skipped++;
+        errors.push(`Duplicate row skipped within file: loop ${d.loop}, address ${d.address}`);
+        continue;
+      }
+      seenInFile.add(key);
+      newDevices.push(d);
+    }
 
     if (newDevices.length === 0) {
       return { imported: 0, skipped, errors, error: null };
     }
 
-    // Insert only new devices in batches
+    // Insert only new devices in batches. Use upsert with ignoreDuplicates so a
+    // single conflict never wipes the whole batch.
     const batchSize = 50;
     for (let i = 0; i < newDevices.length; i += batchSize) {
       const batch = newDevices.slice(i, i + batchSize).map((d) => ({
@@ -200,13 +209,14 @@ export async function importDevices(
 
       const { data, error } = await supabase
         .from("devices")
-        .insert(batch)
+        .upsert(batch, { onConflict: "site_id,loop,address", ignoreDuplicates: true })
         .select();
 
       if (error) {
         errors.push(`Batch ${Math.floor(i / batchSize) + 1}: ${error.message}`);
       } else {
         imported += data?.length || 0;
+        skipped += batch.length - (data?.length || 0);
       }
     }
 
