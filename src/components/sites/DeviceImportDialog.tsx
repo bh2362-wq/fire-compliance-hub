@@ -124,9 +124,12 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     rows: Record<string, unknown>[], 
     mapping: ColumnMapping, 
     manualValues: ManualValues = {},
-    bulkReplaces: BulkReplaceMap = {}
+    bulkReplaces: BulkReplaceMap = {},
+    selectedColumns: string[] = selectedSourceColumns
   ) => {
-    const { devices, errors } = parseDeviceRowsWithMapping(rows, mapping, manualValues, bulkReplaces);
+    const { devices, errors } = parseDeviceRowsWithMapping(rows, mapping, manualValues, bulkReplaces, {
+      selectedColumns,
+    });
     setParsedDevices(devices);
     setParseErrors(errors);
     setCurrentMapping(mapping);
@@ -140,7 +143,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [selectedSourceColumns, toast]);
 
   const parseSheet = useCallback((wb: XLSX.WorkBook, sheetName: string) => {
     const sheet = wb.Sheets[sheetName];
@@ -155,6 +158,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     setRawRows(rows);
     const columns = Object.keys(rows[0]);
     setAvailableColumns(columns);
+    setSelectedSourceColumns(columns);
 
     // Try to detect column mapping
     const { mapping, complete } = detectColumnMapping(columns);
@@ -162,25 +166,15 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
 
     if (complete) {
       // All required columns found - parse immediately
-      const { devices, errors } = parseDeviceRows(rows);
-      setParsedDevices(devices);
-      setParseErrors(errors);
-      setCurrentMapping(mapping as ColumnMapping);
+      parseWithMapping(rows, mapping as ColumnMapping, {}, {}, columns);
 
-      if (devices.length === 0 && errors.length > 0) {
-        toast({
-          title: "Parse failed",
-          description: errors[0],
-          variant: "destructive",
-        });
-      }
     } else {
       // Missing required columns - show mapping dialog
       setParsedDevices([]);
       setParseErrors([]);
       setShowMappingDialog(true);
     }
-  }, [toast]);
+  }, [parseWithMapping]);
 
   const handleSheetChange = useCallback((sheetName: string) => {
     setSelectedSheet(sheetName);
