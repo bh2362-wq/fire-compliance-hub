@@ -22,7 +22,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Upload, FileSpreadsheet, CheckCircle, AlertCircle, Settings2, FileText, ClipboardPaste } from "lucide-react";
 import { 
   Site, 
-  parseDeviceRows, 
   parseDeviceRowsWithMapping,
   parseDelimitedDeviceContent,
   detectColumnMapping,
@@ -353,34 +352,17 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       }
 
       // Not Gent format - try CSV/spreadsheet format
-      const firstLine = lines[0];
-      const hasTab = firstLine.includes("\t");
-      const delimiter = hasTab ? "\t" : ",";
-
-      // Parse headers from first line
-      const headers = firstLine.split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, ""));
-      
-      // Parse data rows
-      const rows: Record<string, unknown>[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(delimiter).map(v => v.trim().replace(/^["']|["']$/g, ""));
-        if (values.some(v => v)) { // Skip empty rows
-          const row: Record<string, unknown> = {};
-          headers.forEach((h, idx) => {
-            row[h] = values[idx] || "";
-          });
-          rows.push(row);
-        }
-      }
+      const { rows, columns: headers, errors } = parseDelimitedDeviceContent(text);
 
       if (rows.length === 0) {
-        setParseErrors(["No data rows found. Make sure to include a header row or use Gent panel format."]);
+        setParseErrors(errors.length > 0 ? errors : ["No data rows found. Make sure to include a header row or use Gent panel format."]);
         setLoading(false);
         return;
       }
 
       setRawRows(rows);
       setAvailableColumns(headers);
+      setSelectedSourceColumns(headers);
 
       // Try to detect column mapping
       const { mapping, complete } = detectColumnMapping(headers);
@@ -388,15 +370,12 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
 
       if (complete) {
         // All required columns found - parse immediately
-        const { devices, errors } = parseDeviceRows(rows);
-        setParsedDevices(devices);
-        setParseErrors(errors);
-        setCurrentMapping(mapping as ColumnMapping);
+        parseWithMapping(rows, mapping as ColumnMapping, {}, {}, headers);
 
-        if (devices.length > 0) {
+        if (rows.length > 0) {
           toast({
             title: "Data parsed",
-            description: `${devices.length} devices ready to import`,
+            description: `${rows.length} rows parsed; review columns before import`,
           });
         }
       } else {
@@ -411,7 +390,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
     }
 
     setLoading(false);
-  }, [toast]);
+  }, [parseWithMapping, toast]);
 
   const handlePasteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPastedText(e.target.value);
