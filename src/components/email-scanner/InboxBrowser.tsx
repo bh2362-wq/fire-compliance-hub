@@ -66,6 +66,9 @@ export function InboxBrowser({ onScanEmail }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [offset, setOffset] = useState(0);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<AiQueryResult | null>(null);
   const LIMIT = 20;
 
   // Fetch inbox
