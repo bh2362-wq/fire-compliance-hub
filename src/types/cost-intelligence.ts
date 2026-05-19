@@ -7,7 +7,8 @@ export type SystemType = typeof SYSTEM_TYPES[number];
 export const JOB_CATEGORIES = [
   'new_install', 'system_upgrade', 'system_takeover', 'extension',
   'reactive_remedial', 'planned_maintenance', 'design_only',
-  'commissioning_only', 'cause_and_effect', 'certification',
+  'commissioning_only', 'cause_and_effect', 'acceptance_testing',
+  'verification', 'certification',
 ] as const;
 export type JobCategory = typeof JOB_CATEGORIES[number];
 
@@ -56,6 +57,8 @@ export const JOB_CATEGORY_LABELS: Record<JobCategory, string> = {
   design_only: 'Design only',
   commissioning_only: 'Commissioning only',
   cause_and_effect: 'Cause & effect',
+  acceptance_testing: 'Acceptance testing',
+  verification: 'Verification',
   certification: 'Certification',
 };
 
