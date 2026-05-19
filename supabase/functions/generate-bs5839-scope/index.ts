@@ -70,19 +70,19 @@ async function callAI(input: ScopeWriterInput) {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
-  const userMessage = `Write the introduction and scope of works for this fire alarm quotation.\n\nINPUT (JSON):\n${JSON.stringify(input, null, 2)}\n\nReturn only the JSON object as specified.`;
+  const userMessage = `Write the introduction and scope of works for this fire alarm quotation.\n\nINPUT (JSON):\n${JSON.stringify(input, null, 2)}\n\nReturn minified, valid JSON only. Do not include markdown fences or commentary.`;
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userMessage },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 1500,
+      max_tokens: 3000,
       temperature: 0.3,
     }),
   });
@@ -97,7 +97,10 @@ async function callAI(input: ScopeWriterInput) {
   const content = data.choices?.[0]?.message?.content;
   if (!content) throw new Error("No text content in AI response");
 
-  const raw = String(content).trim().replace(/^```json\s*|\s*```$/g, "");
+  const rawText = String(content).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  const jsonStart = rawText.indexOf("{");
+  const jsonEnd = rawText.lastIndexOf("}");
+  const raw = jsonStart >= 0 && jsonEnd > jsonStart ? rawText.slice(jsonStart, jsonEnd + 1) : rawText;
   let parsed: ScopeOutput;
   try { parsed = JSON.parse(raw); }
   catch { throw new Error(`Failed to parse AI output as JSON. Raw: ${raw.slice(0, 200)}…`); }
@@ -105,7 +108,7 @@ async function callAI(input: ScopeWriterInput) {
   if (typeof parsed.introduction !== "string" || !Array.isArray(parsed.scope)) throw new Error("AI output missing required fields");
   if (parsed.scope.length < 3 || parsed.scope.length > 5) throw new Error(`Expected 3-5 scope paragraphs, got ${parsed.scope.length}`);
 
-  return { output: parsed, usage: { input_tokens: data.usage?.prompt_tokens ?? 0, output_tokens: data.usage?.completion_tokens ?? 0, model: data.model ?? "google/gemini-2.5-pro" } };
+  return { output: parsed, usage: { input_tokens: data.usage?.prompt_tokens ?? 0, output_tokens: data.usage?.completion_tokens ?? 0, model: data.model ?? "google/gemini-2.5-flash" } };
 }
 
 const corsHeaders = {
