@@ -272,6 +272,25 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
     }
   };
 
+  const handlePurgeAll = async () => {
+    if (purgeConfirm.trim().toUpperCase() !== "PURGE") return;
+    setPurging(true);
+    const { error, count } = await supabase
+      .from("devices")
+      .delete({ count: "exact" })
+      .eq("site_id", siteId);
+    setPurging(false);
+
+    if (error) {
+      toast({ title: "Purge failed", description: error.message, variant: "destructive" });
+    } else {
+      setDevices([]);
+      toast({ title: "Inventory purged", description: `Removed ${count ?? 0} devices. You can now re-import.` });
+      setPurgeOpen(false);
+      setPurgeConfirm("");
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-card rounded-xl border border-border overflow-hidden">
