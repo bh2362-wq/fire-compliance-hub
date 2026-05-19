@@ -105,13 +105,28 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const WINDOW_DAYS = Number(Deno.env.get("INGEST_WINDOW_DAYS") ?? "30");
 
-  // Auth: accept anon/publishable (cron) or service role (manual)
+  // Auth: accept anon/publishable (cron) or service role (manual). Supports both
+  // legacy JWT-format keys (validated via JWKS) and new sb_publishable_/sb_secret_ keys (exact match).
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
-  const validAnon = token && (token === ANON_KEY || token === PUBLISHABLE_KEY);
-  const validService = token && token === SERVICE_KEY;
+  let validAnon = !!token && (token === ANON_KEY || token === PUBLISHABLE_KEY);
+  let validService = !!token && token === SERVICE_KEY;
+
+  if (!validAnon && !validService && token && token.split(".").length === 3) {
+    try {
+      const jwks = JSON.parse(Deno.env.get("SUPABASE_JWKS") ?? "{}");
+      const keySet = createLocalJWKSet(jwks);
+      const { payload } = await jwtVerify(token, keySet);
+      const role = (payload as any).role;
+      if (role === "service_role") validService = true;
+      else if (role === "anon" || role === "authenticated") validAnon = true;
+    } catch (e) {
+      console.warn(`[contracts-finder-ingest] jwt verify failed: ${(e as Error).message}`);
+    }
+  }
+
   if (!validAnon && !validService) {
-    console.warn(`[contracts-finder-ingest] unauthorized token_prefix=${token.slice(0,8)} anon_prefix=${ANON_KEY.slice(0,8)} pub_prefix=${PUBLISHABLE_KEY.slice(0,8)} svc_prefix=${SERVICE_KEY.slice(0,8)}`);
+    console.warn(`[contracts-finder-ingest] unauthorized token_prefix=${token.slice(0,8)}`);
     return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
