@@ -124,6 +124,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       ? [currentMapping.loop, currentMapping.address, currentMapping.type, currentMapping.location, currentMapping.zone].filter(Boolean) as string[]
       : []
   ), [currentMapping]);
+  const previewColumns = useMemo(() => selectedSourceColumns.slice(0, 8), [selectedSourceColumns]);
 
   const parseWithMapping = useCallback((
     rows: Record<string, unknown>[], 
@@ -503,7 +504,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[900px]">
           <DialogHeader>
             <DialogTitle>Import Device Inventory</DialogTitle>
             <DialogDescription>
@@ -686,6 +687,29 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
                   ))}
                 </div>
               </div>
+              {rawRows.length > 0 && previewColumns.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Previewing {previewColumns.length} of {selectedSourceColumns.length} selected columns from {rawRows.length} rows
+                  </p>
+                  <div className="max-h-48 overflow-auto rounded-md border border-border bg-background">
+                    <table className="w-full min-w-max text-xs">
+                      <thead className="sticky top-0 bg-muted">
+                        <tr>
+                          {previewColumns.map((column) => <th key={column} className="px-2 py-1 text-left font-medium text-foreground">{column}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rawRows.slice(0, 5).map((row, index) => (
+                          <tr key={index} className="border-t border-border">
+                            {previewColumns.map((column) => <td key={column} className="max-w-40 truncate px-2 py-1 text-muted-foreground">{String(row[column] ?? "")}</td>)}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
