@@ -115,8 +115,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
   const importColumns = useMemo(() => {
     const core = new Set(["loop", "address", "type", "device type", "location", "zone"]);
     return Array.from(new Set(devices.flatMap((device) => device.imported_source_columns || Object.keys(device.raw_import_data || {}))))
-      .filter((column) => !core.has(column.toLowerCase()))
-      .slice(0, 12);
+      .filter((column) => !core.has(column.toLowerCase()));
   }, [devices]);
 
   const activeFilterCount = [filters.loop, filters.zone, filters.status].filter(Boolean).length + (filters.deviceTypes.length > 0 ? 1 : 0);
