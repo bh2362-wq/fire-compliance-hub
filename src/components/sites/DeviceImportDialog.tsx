@@ -119,6 +119,12 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
   const [pastedText, setPastedText] = useState("");
   const { toast } = useToast();
 
+  const mappedColumnSet = useMemo(() => new Set(
+    currentMapping
+      ? [currentMapping.loop, currentMapping.address, currentMapping.type, currentMapping.location, currentMapping.zone].filter(Boolean) as string[]
+      : []
+  ), [currentMapping]);
+
   const parseWithMapping = useCallback((
     rows: Record<string, unknown>[], 
     mapping: ColumnMapping, 
@@ -310,6 +316,20 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       setShowMappingDialog(true);
     }
   };
+
+  const applySelectedColumns = useCallback((columns: string[]) => {
+    setSelectedSourceColumns(columns);
+    if (currentMapping && rawRows.length > 0) {
+      parseWithMapping(rawRows, currentMapping, currentManualValues, currentBulkReplaces, columns);
+    }
+  }, [currentBulkReplaces, currentManualValues, currentMapping, parseWithMapping, rawRows]);
+
+  const toggleSourceColumn = useCallback((column: string, checked: boolean) => {
+    const nextColumns = checked
+      ? Array.from(new Set([...selectedSourceColumns, column]))
+      : selectedSourceColumns.filter((selected) => selected !== column);
+    applySelectedColumns(nextColumns);
+  }, [applySelectedColumns, selectedSourceColumns]);
 
   const parsePastedData = useCallback((text: string) => {
     if (!text.trim()) {
