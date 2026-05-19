@@ -488,7 +488,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
               <div className="flex items-center justify-between">
                 <Label>Quote Title</Label>
                 <ImproveTitleButton
-                  title={title}
+                  text={title}
                   context={lineItems.map((i, idx) => `${idx + 1}. ${i.description}`).filter(Boolean).join("\n")}
                   onAccept={(t) => setTitle(t)}
                 />
