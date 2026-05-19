@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,32 +9,180 @@ const corsHeaders = {
 
 interface RewriteRequest {
   text: string;
-  type: "defects" | "defect_simplify" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary" | "po_line_items" | "quotation_bs5839_expand";
+  type:
+    | "defects" | "defect_simplify" | "recommendations" | "works" | "comments"
+    | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary"
+    | "po_line_items" | "quotation_bs5839_expand";
   context?: string;
   customInstructions?: string;
   generateRecommendations?: boolean;
   generateQuotationMeta?: boolean;
+  useReferenceLibrary?: boolean;
+  referenceLibraryOptions?: {
+    limit?: number;
+    minSimilarity?: number;
+    docTypes?: string[];
+  };
+}
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+const MODEL = "google/gemini-3-flash-preview";
+
+interface GroundingChunk {
+  chunk_id: string;
+  document_id: string;
+  document_title: string;
+  doc_type: string;
+  standard_reference: string | null;
+  section_title: string | null;
+  page_number: number | null;
+  content: string;
+  similarity: number;
+}
+
+async function retrieveGrounding(
+  query: string,
+  opts: { limit?: number; minSimilarity?: number; docTypes?: string[] } = {},
+): Promise<{ chunks: GroundingChunk[]; usedLibrary: boolean; error?: string }> {
+  if (!OPENAI_API_KEY) return { chunks: [], usedLibrary: false, error: "OPENAI_API_KEY missing" };
+  try {
+    const embedResp = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "text-embedding-3-small", input: query }),
+    });
+    if (!embedResp.ok) {
+      return { chunks: [], usedLibrary: false, error: `embedding failed: ${embedResp.status}` };
+    }
+    const embedJson = await embedResp.json();
+    const embedding: number[] = embedJson.data[0].embedding;
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+    const limit = opts.limit ?? 5;
+    const filterDocType = opts.docTypes && opts.docTypes.length === 1 ? opts.docTypes[0] : null;
+    const { data, error } = await admin.rpc("ref_lib_query_by_embedding", {
+      query_embedding: embedding as unknown as string,
+      match_count: limit,
+      filter_doc_type: filterDocType,
+    });
+    if (error) return { chunks: [], usedLibrary: false, error: `rpc failed: ${error.message}` };
+    const min = opts.minSimilarity ?? 0;
+    const filtered = ((data ?? []) as GroundingChunk[]).filter((c) => c.similarity >= min);
+    return { chunks: filtered, usedLibrary: true };
+  } catch (e) {
+    return { chunks: [], usedLibrary: false, error: String((e as Error)?.message ?? e) };
+  }
+}
+
+// Find references like "BS 5839-1:2017+A2:2019", "BS5266-1", "Clause 25.2", "Section 12"
+function extractClauseMentions(text: string): string[] {
+  const out = new Set<string>();
+  const patterns = [
+    /BS\s?\d{3,5}(?:[-:]\d+)?(?::\d{4})?(?:\+A\d+(?::\d{4})?)?/gi,
+    /Clause\s+\d+(?:\.\d+)*[a-z]?/gi,
+    /Section\s+\d+(?:\.\d+)*/gi,
+    /Annex(?:\s+[A-Z])?/gi,
+  ];
+  for (const re of patterns) {
+    for (const m of text.matchAll(re)) {
+      out.add(m[0].replace(/\s+/g, " ").trim());
+    }
+  }
+  return Array.from(out);
+}
+
+function normalise(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, " ").replace(/[^\w\s\.\-:]/g, "");
+}
+
+function validateGrounding(
+  output: string,
+  chunks: GroundingChunk[],
+): { hallucinated_clauses: string[]; verified_clauses: string[] } {
+  const mentions = extractClauseMentions(output);
+  if (mentions.length === 0) return { hallucinated_clauses: [], verified_clauses: [] };
+  const corpus = normalise(chunks.map((c) => `${c.standard_reference ?? ""} ${c.content}`).join("\n"));
+  const hallucinated: string[] = [];
+  const verified: string[] = [];
+  for (const m of mentions) {
+    const n = normalise(m);
+    if (corpus.includes(n)) verified.push(m);
+    else hallucinated.push(m);
+  }
+  return { hallucinated_clauses: hallucinated, verified_clauses: verified };
+}
+
+async function logAssist(row: Record<string, unknown>): Promise<void> {
+  try {
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+    await admin.from("ai_assists").insert(row);
+  } catch (e) {
+    console.error("ai_assists insert failed:", e);
+  }
+}
+
+async function getUserIdFromAuth(req: Request): Promise<string | null> {
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  try {
+    const verifyKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+    const client = createClient(SUPABASE_URL, verifyKey, { auth: { persistSession: false } });
+    const { data } = await client.auth.getUser(token);
+    return data?.user?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  const startedAt = Date.now();
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const { text, type, context, customInstructions, generateRecommendations, generateQuotationMeta } = (await req.json()) as RewriteRequest;
+    const body = (await req.json()) as RewriteRequest;
+    const {
+      text, type, context, customInstructions,
+      generateRecommendations, generateQuotationMeta,
+      useReferenceLibrary, referenceLibraryOptions,
+    } = body;
 
     if (!text || !text.trim()) {
-      return new Response(
-        JSON.stringify({ error: "No text provided" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "No text provided" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
+    const userId = await getUserIdFromAuth(req);
+
+    // -------- Grounding (optional, opt-in) --------
+    let grounding: GroundingChunk[] = [];
+    let groundingError: string | undefined;
+    let groundingActuallyUsed = false;
+    if (useReferenceLibrary) {
+      const r = await retrieveGrounding(
+        `${text}\n${context ?? ""}`.trim(),
+        referenceLibraryOptions ?? {},
+      );
+      grounding = r.chunks;
+      groundingError = r.error;
+      groundingActuallyUsed = r.usedLibrary && grounding.length > 0;
+    }
+
+    const groundingBlock = groundingActuallyUsed
+      ? `\n\nREFERENCE LIBRARY EXCERPTS (the ONLY allowed source for standards/clauses you cite).\n` +
+        `If a clause or standard is not explicitly present in these excerpts, DO NOT mention it.\n\n` +
+        grounding.map((c, i) =>
+          `[#${i + 1}] ${c.document_title}${c.section_title ? ` — ${c.section_title}` : ""}` +
+          `${c.standard_reference ? ` (${c.standard_reference})` : ""}` +
+          `${c.page_number ? ` p.${c.page_number}` : ""}\n${c.content}`
+        ).join("\n\n---\n\n")
+      : "";
 
     const formatRules = `
 STRICT RULES:
@@ -79,12 +228,26 @@ Return ONLY the simplified description.`;
       case "notes":
         systemPrompt = `You are a professional fire safety engineer. Rewrite these additional notes using proper fire safety terminology. Keep it concise and professional. Separate different observations with blank lines.${formatRules}`;
         break;
-        break;
       case "quotation_items":
         systemPrompt = `You are a professional fire safety engineer preparing a quotation. Improve the grammar, spelling and professional presentation of these numbered quotation line item descriptions. Keep the same numbering format (1. 2. 3. etc). Use proper fire safety and engineering terminology. Make descriptions clear, professional and suitable for a formal quotation document. Do NOT add information that wasn't in the original.${formatRules}`;
         break;
       case "quotation_title":
-        systemPrompt = `You are a professional fire safety engineer at a UK fire safety company. Rewrite this quotation title to be grammatically correct, properly capitalised, and use professional UK English fire safety terminology consistent with BS5839 standards. Keep it concise (max 10 words). Return ONLY the improved title text, nothing else. Use UK English spelling (e.g. organisation, recognised, defence).`;
+        systemPrompt = `You are a senior fire safety engineer at a UK fire safety company writing a concise, professional QUOTATION TITLE for an internal job sheet / customer-facing quote.
+
+GOALS:
+- Produce a clear, well-capitalised UK English title (max 10 words).
+- Use industry-accurate terminology (e.g. "Cause & Effect Testing", "PPM", "Remedial Works", "ASD Sensitivity Test", "Fire Alarm Installation").
+- Where the input names a building type or location, retain it (Title Case).
+- Where the input names a manufacturer/system (Gent, Vigilon, Hochiki, Advanced, Kentec, Notifier), preserve and capitalise correctly.
+
+STRICT RULES:
+- Output ONLY the title, no quotes, no trailing punctuation.
+- No markdown.
+- Do NOT invent standards, clause numbers or scope detail that wasn't in the input.
+${groundingActuallyUsed
+  ? "- You MAY reference a British Standard ONLY if it appears verbatim in the reference excerpts below.\n- Prefer standards naming over generic phrasing where supported by the excerpts."
+  : "- Do NOT cite any specific clause numbers or standards in the title."}
+- UK English spelling.`;
         break;
       case "quotation_summary":
         systemPrompt = `You are a professional fire safety engineer at a UK fire safety company preparing a formal quotation scope of works for a client.
@@ -149,12 +312,13 @@ Example output:
         systemPrompt = `You are a professional technical writer. Rewrite this text to be clear and professional. Keep it concise. Separate different topics with blank lines.${formatRules}`;
     }
 
-    // Append custom instructions if provided
     if (customInstructions) {
       systemPrompt += `\n\nADDITIONAL USER INSTRUCTIONS: ${customInstructions}`;
     }
+    if (groundingBlock) {
+      systemPrompt += groundingBlock;
+    }
 
-    // First, rewrite the text
     const rewriteResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -162,27 +326,25 @@ Example output:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: text },
         ],
-        max_tokens: type === "quotation_summary" ? 800 : 350,
+        max_tokens: type === "quotation_summary" ? 800 : type === "quotation_title" ? 60 : 350,
       }),
     });
 
     if (!rewriteResponse.ok) {
       if (rewriteResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       if (rewriteResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       const errorText = await rewriteResponse.text();
       console.error("AI gateway error:", rewriteResponse.status, errorText);
@@ -190,13 +352,37 @@ Example output:
     }
 
     const rewriteData = await rewriteResponse.json();
-    const rewrittenText = rewriteData.choices?.[0]?.message?.content?.trim();
+    let rewrittenText: string = rewriteData.choices?.[0]?.message?.content?.trim() ?? "";
+    if (!rewrittenText) throw new Error("No response from AI");
 
-    if (!rewrittenText) {
-      throw new Error("No response from AI");
+    // Strip quotes/trailing punct on titles
+    if (type === "quotation_title") {
+      rewrittenText = rewrittenText.replace(/^["'`]+|["'`]+$/g, "").replace(/[.;:]+$/g, "").trim();
     }
 
-    // If generateRecommendations is requested and this is a works report, generate recommendations
+    // Validate hallucinated clauses against retrieved chunks (only when grounding was used)
+    const { hallucinated_clauses, verified_clauses } = groundingActuallyUsed
+      ? validateGrounding(rewrittenText, grounding)
+      : { hallucinated_clauses: [], verified_clauses: [] };
+
+    const grounding_used = {
+      enabled: !!useReferenceLibrary,
+      applied: groundingActuallyUsed,
+      chunks_retrieved: grounding.length,
+      documents_referenced: new Set(grounding.map((c) => c.document_id)).size,
+      top_similarity: grounding.length ? Math.max(...grounding.map((c) => c.similarity)) : 0,
+      verified_clauses,
+      error: groundingError,
+      chunks: grounding.map((c) => ({
+        document_title: c.document_title,
+        standard_reference: c.standard_reference,
+        section_title: c.section_title,
+        page_number: c.page_number,
+        similarity: c.similarity,
+      })),
+    };
+
+    // Existing optional extras
     let generatedRecommendations: string | null = null;
     if (generateRecommendations && (type === "works" || type === "defect_simplify")) {
       const recommendationsPrompt = type === "defect_simplify"
@@ -230,55 +416,35 @@ ${text}`;
 
       const recommendationsResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "user", content: recommendationsPrompt },
-          ],
+          model: MODEL,
+          messages: [{ role: "user", content: recommendationsPrompt }],
           max_tokens: 200,
         }),
       });
-
       if (recommendationsResponse.ok) {
         const recommendationsData = await recommendationsResponse.json();
         generatedRecommendations = recommendationsData.choices?.[0]?.message?.content?.trim() || null;
       }
     }
 
-    // Generate quotation title and summary from line items
     let suggestedTitle: string | null = null;
     let suggestedSummary: string | null = null;
     if (generateQuotationMeta && type === "quotation_items") {
       const metaPrompt = `You are a professional fire safety engineer at BHO Fire Ltd. Based on the following quotation line items, generate:
-1. A concise quotation title (max 8 words) - use terminology like: Fire Alarm Service & Maintenance, Emergency Lighting Installation, Fire Detection System Upgrade, Detector Replacement Works, Fire Alarm Remedial Works, Panel Upgrade & Commissioning, Weekly Fire Alarm Testing, Fire Risk Assessment Remedial Works, Smoke Detection System Installation, etc.
-2. A professional scope of works summary (2-3 sentences) describing the works - use fire safety engineering terminology consistent with BS5839 standards.
+1. A concise quotation title (max 8 words).
+2. A professional scope of works summary (2-3 sentences).
 
-STRICT RULES:
-- Title should be short and descriptive, like a job sheet title
-- Summary should read like a professional scope of works
-- NO markdown or special formatting
-- Return ONLY valid JSON in this exact format: {"title": "...", "summary": "..."}
+Return ONLY valid JSON: {"title": "...", "summary": "..."}
 
 Line Items:
 ${rewrittenText}`;
-
       const metaResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [{ role: "user", content: metaPrompt }],
-          max_tokens: 200,
-        }),
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: MODEL, messages: [{ role: "user", content: metaPrompt }], max_tokens: 200 }),
       });
-
       if (metaResponse.ok) {
         const metaData = await metaResponse.json();
         const metaText = metaData.choices?.[0]?.message?.content?.trim() || "";
@@ -293,16 +459,39 @@ ${rewrittenText}`;
       }
     }
 
+    const latency_ms = Date.now() - startedAt;
+
+    // Fire and forget log
+    logAssist({
+      user_id: userId,
+      assist_type: type,
+      input_text: text,
+      output_text: rewrittenText,
+      use_reference_library: !!useReferenceLibrary,
+      grounding: grounding_used,
+      hallucinated_clauses,
+      custom_instructions: customInstructions ?? null,
+      model: MODEL,
+      latency_ms,
+      status: "success",
+    });
+
     return new Response(
-      JSON.stringify({ rewrittenText, generatedRecommendations, suggestedTitle, suggestedSummary }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        rewrittenText,
+        generatedRecommendations,
+        suggestedTitle,
+        suggestedSummary,
+        grounding_used,
+        hallucinated_clauses,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("Rewrite error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
