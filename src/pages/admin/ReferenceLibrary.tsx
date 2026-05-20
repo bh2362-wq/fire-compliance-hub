@@ -266,6 +266,7 @@ export default function ReferenceLibrary() {
     setUploadProgress(0);
     let createdId: string | null = existingDocId ?? null;
     let storagePath: string | null = null;
+    let storageCommitted = false;
     try {
       // Phase 1 — upload archival copy to Storage (0–25%)
       setUploadStage("Uploading PDF to storage…");
@@ -305,6 +306,7 @@ export default function ReferenceLibrary() {
           total_tokens: 0,
         }).eq("id", existingDocId);
         if (updErr) throw new Error(`Update document row failed: ${updErr.message}`);
+        storageCommitted = true;
       } else {
         const { data: doc, error: insErr } = await refLib().from("documents").insert({
           title: title.trim(),
@@ -321,6 +323,7 @@ export default function ReferenceLibrary() {
         }).select("id").single();
         if (insErr || !doc) throw new Error(`Create document row failed: ${insErr?.message}`);
         createdId = doc.id as string;
+        storageCommitted = true;
       }
 
       // Phase 3 — embeddings (60–95%)
@@ -340,6 +343,9 @@ export default function ReferenceLibrary() {
       toast.error(err.message || "Ingest failed");
       setUploadStage(`Error: ${err.message || "failed"}`);
       // Mark row as failed if we created one
+      if (storagePath && !storageCommitted) {
+        await supabase.storage.from("reference-library").remove([storagePath]);
+      }
       if (createdId) {
         await refLib().from("documents").update({
           ingest_status: "failed",
