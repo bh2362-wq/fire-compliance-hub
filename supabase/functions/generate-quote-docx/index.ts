@@ -647,7 +647,7 @@ function setTotalsRowValue(xml: string, exactLabel: string, value: string, alsoU
 function forceTotalRowWhiteText(xml: string): string {
   const labelIdx = xml.indexOf(">TOTAL<");
   if (labelIdx < 0) return xml;
-  const rowStart = xml.lastIndexOf("<w:tr>", labelIdx);
+  const rowStart = findRowStart(xml, labelIdx);
   const rowEnd = xml.indexOf("</w:tr>", labelIdx) + "</w:tr>".length;
   if (rowStart < 0 || rowEnd <= 0) return xml;
   const row = xml.substring(rowStart, rowEnd);
