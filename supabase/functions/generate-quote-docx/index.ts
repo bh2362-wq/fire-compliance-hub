@@ -109,6 +109,10 @@ interface IssuerInfo {
 
 interface QuoteContext {
   worksType: string | null;        // quotations.works_type — drives §2.2 bullet set
+  systemManufacturer: string | null;
+  systemType: string | null;
+  systemPanel: string | null;
+  bs5839Category: string | null;
 }
 
 // ── §2.2 Works Included bullets, per works_type ───────────────────────────────
@@ -336,14 +340,20 @@ function removeSectionUntilNext(xml: string, headingMatch: string, untilNext: st
 // the text. Run on document.xml load so all downstream placeholder searches
 // see whole-string nodes.
 function mergeAdjacentRuns(xml: string): string {
+  // Strip proofErr markers first — Word inserts <w:proofErr w:type="spellStart"/>
+  // etc. between runs, which prevents otherwise-adjacent identical runs from
+  // merging. Removing them lets split placeholders like "[e.g. Gent S-Quad /
+  // Vigilon]" collapse into a single text node.
+  let curr = xml.replace(/<w:proofErr[^>]*\/>/g, "");
+
   // Pattern: capture rPr, capture text1, then a second run with identical rPr
   // and text2. Replace with a single run whose text is text1+text2.
   // Iterated to convergence — a 4-run split needs 3 passes.
-  const re = /<w:r>(<w:rPr>[^<]*(?:<[^/][^>]*\/>[^<]*)*<\/w:rPr>)<w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r>\1<w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
-  // Also handle runs with no rPr at all.
-  const reNoRpr = /<w:r><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
+  // Match <w:r> with or without attributes, identical rPr in both runs.
+  const re = /<w:r(?:\s[^>]*)?>(<w:rPr>[^<]*(?:<[^/][^>]*\/>[^<]*)*<\/w:rPr>)<w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r(?:\s[^>]*)?>\1<w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
+  // Also handle runs with no rPr at all (attributes still allowed on <w:r>).
+  const reNoRpr = /<w:r(?:\s[^>]*)?><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r(?:\s[^>]*)?><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
   let prev = "";
-  let curr = xml;
   let guard = 30; // worst-case 30 passes per file; placeholders rarely split more
   while (curr !== prev && guard-- > 0) {
     prev = curr;
@@ -359,11 +369,14 @@ function flatPriceableItems(q: QuoteInput): QuoteItem[] {
   if (Array.isArray(q.line_items) && q.line_items.length > 0) {
     return q.line_items
       .filter((li) => !li.is_section)
-      .map((li) => ({
-        desc: li.description ?? "",
-        qty: Number(li.quantity) || 0,
-        unit: Number(li.unit_price) || 0,
-      }));
+      .map((li) => {
+        const qty   = Number(li.quantity)   || 0;
+        let   unit  = Number(li.unit_price) || 0;
+        const total = Number(li.total_price) || 0;
+        // Manual total entered without unit price → derive unit so qty*unit == total.
+        if (unit === 0 && total > 0 && qty > 0) unit = total / qty;
+        return { desc: li.description ?? "", qty, unit };
+      });
   }
   return q.items ?? [];
 }
@@ -466,6 +479,19 @@ function fieldOrOmit(xml: string, placeholder: string, value: string | null | un
 
 // ── Pricing table — cell-by-cell rendering ───────────────────────────────────
 
+// Locate the start of the <w:tr ...> that encloses `anchorIdx`. The template
+// uses attribute-rich row tags (e.g. `<w:tr w:rsidR="...">`), so a literal
+// lastIndexOf("<w:tr>") would miss every row. Match both bare and attribute
+// forms by scanning backwards for `<w:tr` followed by whitespace or `>`.
+function findRowStart(xml: string, anchorIdx: number): number {
+  const slice = xml.substring(0, anchorIdx);
+  const re = /<w:tr(?:\s|>)/g;
+  let last = -1;
+  for (let m: RegExpExecArray | null; (m = re.exec(slice)) !== null;) last = m.index;
+  return last;
+}
+
+
 // Cell order in the canonical row is fixed by the template:
 //   0 = ITEM #   |  1 = DESCRIPTION  |  2 = QTY  |  3 = UNIT PRICE  |  4 = LINE TOTAL
 const CELL_ITEM_NUM = 0;
@@ -547,7 +573,7 @@ function renderPricingRows(xml: string, items: QuoteItem[]): string {
     if (canonicalIdx >= 0) break;
   }
   if (canonicalIdx < 0) return xml;
-  const canonicalRowStart = xml.lastIndexOf("<w:tr>", canonicalIdx);
+  const canonicalRowStart = findRowStart(xml, canonicalIdx);
   const canonicalRowEnd = xml.indexOf("</w:tr>", canonicalIdx) + "</w:tr>".length;
   if (canonicalRowStart < 0 || canonicalRowEnd <= 0) return xml;
   const canonicalRow = xml.substring(canonicalRowStart, canonicalRowEnd);
@@ -597,7 +623,7 @@ function setTotalsRowValue(xml: string, exactLabel: string, value: string, alsoU
   const m = re.exec(xml);
   if (!m) return xml;
   const anchorIdx = m.index;
-  const rowStart = xml.lastIndexOf("<w:tr>", anchorIdx);
+  const rowStart = findRowStart(xml, anchorIdx);
   if (rowStart < 0) return xml;
   // Anchor must be inside the located row — no </w:tr> between rowStart and anchor.
   if (xml.substring(rowStart, anchorIdx).indexOf("</w:tr>") >= 0) return xml;
@@ -622,7 +648,7 @@ function setTotalsRowValue(xml: string, exactLabel: string, value: string, alsoU
 function forceTotalRowWhiteText(xml: string): string {
   const labelIdx = xml.indexOf(">TOTAL<");
   if (labelIdx < 0) return xml;
-  const rowStart = xml.lastIndexOf("<w:tr>", labelIdx);
+  const rowStart = findRowStart(xml, labelIdx);
   const rowEnd = xml.indexOf("</w:tr>", labelIdx) + "</w:tr>".length;
   if (rowStart < 0 || rowEnd <= 0) return xml;
   const row = xml.substring(rowStart, rowEnd);
@@ -635,7 +661,7 @@ function forceTotalRowWhiteText(xml: string): string {
 
 // ── Top fields (Quote ref, dates, client, site, issued-by) ───────────────────
 
-function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo): string {
+function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo, ctx: QuoteContext): string {
   let x = xml;
   // Quote ref + dates (top of page).
   x = replaceAllWtText(x, "[BHO-Q-2026-0234]", q.ref);
@@ -656,8 +682,22 @@ function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo): string
   const siteForRender = (q.site?.address && q.site.address.trim()) || q.client.address;
   x = fieldOrOmit(x, "[Project Name]", q.project_title);
   x = fieldOrOmit(x, "[Site Name & Address]", siteForRender);
-  x = fieldOrOmit(x, "[e.g. Gent S-Quad / Vigilon]", "");  // no system info in payload yet
-  x = fieldOrOmit(x, "[e.g. BS 5839-1:2017 Cat L1]", "BS 5839-1:2025");
+
+  // System cell: "Gent Vigilon" — manufacturer + system_type. Where the
+  // schema only carries the panel model (system_panel) it stands in for type.
+  const systemLabel = [
+    ctx.systemManufacturer,
+    ctx.systemType ?? ctx.systemPanel,
+  ].map((s) => (s ?? "").trim()).filter(Boolean).join(" ");
+  x = fieldOrOmit(x, "[e.g. Gent S-Quad / Vigilon]", systemLabel);
+
+  // Standard cell: "BS 5839-1:2025 Cat L2" — driven by quotations.bs5839_category.
+  // Note: template now reads "2025"; the older "2017" form has been retired.
+  const standardLabel = ctx.bs5839Category && ctx.bs5839Category.trim()
+    ? `BS 5839-1:2025 Cat ${ctx.bs5839Category.trim()}`
+    : "";
+  x = fieldOrOmit(x, "[e.g. BS 5839-1:2025 Cat L1]", standardLabel);
+
   x = fieldOrOmit(x, "[Client Enquiry Reference]", q.ref);
 
   // Issued-By block (foot of doc). All sourced from the issuer profile;
@@ -734,15 +774,29 @@ interface QuotationLookup {
 async function loadQuotationData(quotationId: string | undefined, supabase: SupabaseClient): Promise<QuotationLookup> {
   const empty: QuotationLookup = {
     issuer: { name: "", position: "", email: "", direct: "" },
-    ctx: { worksType: null },
+    ctx: {
+      worksType: null,
+      systemManufacturer: null,
+      systemType: null,
+      systemPanel: null,
+      bs5839Category: null,
+    },
   };
   if (!quotationId) return empty;
   const { data: q } = await supabase
     .from("quotations")
-    .select("created_by, works_type")
+    .select("created_by, works_type, system_manufacturer, system_type, system_panel, bs5839_category")
     .eq("id", quotationId)
     .maybeSingle();
-  const quotation = (q as { created_by?: string; works_type?: string | null } | null) ?? null;
+  type QuotationRow = {
+    created_by?: string;
+    works_type?: string | null;
+    system_manufacturer?: string | null;
+    system_type?: string | null;
+    system_panel?: string | null;
+    bs5839_category?: string | null;
+  };
+  const quotation = (q as QuotationRow | null) ?? null;
   if (!quotation) return empty;
   let profile: { full_name?: string | null; email?: string | null } | null = null;
   if (quotation.created_by) {
@@ -760,8 +814,59 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
       email: profile?.email?.trim() ?? "",
       direct: "",                                       // not in schema; omit by default
     },
-    ctx: { worksType: quotation.works_type ?? null },
+    ctx: {
+      worksType: quotation.works_type ?? null,
+      systemManufacturer: quotation.system_manufacturer ?? null,
+      systemType: quotation.system_type ?? null,
+      systemPanel: quotation.system_panel ?? null,
+      bs5839Category: quotation.bs5839_category ?? null,
+    },
   };
+}
+
+// ── §2.2 Works Included — bullet swap per works_type ───────────────────────
+//
+// The master template hardcodes 8 install-flavoured bullets in §2.2 (see
+// TEMPLATE_WORKS_BULLETS). For any non-install job type those bullets are
+// misleading. This rewrites the block in place using WORKS_INCLUDED_BY_TYPE.
+// Unknown / null worksType keeps the template bullets (safe — they describe
+// a new install).
+function rewriteWorksBullets(xml: string, worksType: string | null): string {
+  if (!worksType) return xml;
+  const replacement = WORKS_INCLUDED_BY_TYPE[worksType];
+  if (!replacement?.length) return xml;
+
+  // Anchor on the first template bullet's <w:p>; absorb every subsequent
+  // template bullet paragraph up to the last one we can locate.
+  const firstBulletEsc = xmlEscapeSearch(TEMPLATE_WORKS_BULLETS[0]);
+  const firstIdx = xml.indexOf(firstBulletEsc);
+  if (firstIdx < 0) return xml;
+  const blockStart = findEnclosingWpStart(xml, firstIdx);
+  if (blockStart < 0) return xml;
+
+  const firstPEnd = xml.indexOf("</w:p>", firstIdx) + "</w:p>".length;
+  let blockEnd = firstPEnd;
+  let cursor = firstPEnd;
+  for (let i = 1; i < TEMPLATE_WORKS_BULLETS.length; i++) {
+    const idx = xml.indexOf(xmlEscapeSearch(TEMPLATE_WORKS_BULLETS[i]), cursor);
+    if (idx < 0) continue;
+    const pEnd = xml.indexOf("</w:p>", idx) + "</w:p>".length;
+    if (pEnd <= 0) break;
+    blockEnd = pEnd;
+    cursor = pEnd;
+  }
+
+  // Clone the first bullet's whole <w:p> as the paragraph template so
+  // numbering ref, indent, list style and run formatting all survive.
+  const templatePara = xml.substring(blockStart, firstPEnd);
+  const reBulletText = new RegExp(
+    `(<w:t(?:\\s[^>]*)?>)${firstBulletEsc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(</w:t>)`,
+  );
+  const newParas = replacement
+    .map((text) => templatePara.replace(reBulletText, `$1${escapeXmlText(text)}$2`))
+    .join("");
+
+  return xml.substring(0, blockStart) + newParas + xml.substring(blockEnd);
 }
 
 // ── §2.2 Detailed Scope renderer (replaces "Works Included" approach) ──────
@@ -869,7 +974,8 @@ Deno.serve(async (req) => {
     //    unambiguous (line items before totals before generic Copilot sweep).
     const items = flatPriceableItems(quote);
     const scope = resolveScopeParagraphs(quote);
-    xml = renderTopFields(xml, quote, issuer);
+    xml = renderTopFields(xml, quote, issuer, ctx);
+    xml = rewriteWorksBullets(xml, ctx.worksType);
     xml = renderDetailedScope(xml, scope);
     // §2.3 — if we have phasing_paragraph, fill it; otherwise drop the
     // whole section so the document doesn't show an empty heading.
