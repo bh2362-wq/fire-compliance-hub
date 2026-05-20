@@ -3336,10 +3336,12 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          is_section: boolean
           item_name: string | null
           labour_cost: number | null
           labour_included: boolean | null
           markup_percent: number | null
+          merged_from: Json | null
           notes: string | null
           parent_id: string | null
           priority: string | null
@@ -3349,6 +3351,7 @@ export type Database = {
           sort_order: number | null
           source_section: string | null
           source_type: string | null
+          title: string | null
           total_price: number | null
           unit_price: number | null
           updated_at: string
@@ -3358,10 +3361,12 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          is_section?: boolean
           item_name?: string | null
           labour_cost?: number | null
           labour_included?: boolean | null
           markup_percent?: number | null
+          merged_from?: Json | null
           notes?: string | null
           parent_id?: string | null
           priority?: string | null
@@ -3371,6 +3376,7 @@ export type Database = {
           sort_order?: number | null
           source_section?: string | null
           source_type?: string | null
+          title?: string | null
           total_price?: number | null
           unit_price?: number | null
           updated_at?: string
@@ -3380,10 +3386,12 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          is_section?: boolean
           item_name?: string | null
           labour_cost?: number | null
           labour_included?: boolean | null
           markup_percent?: number | null
+          merged_from?: Json | null
           notes?: string | null
           parent_id?: string | null
           priority?: string | null
@@ -3393,6 +3401,7 @@ export type Database = {
           sort_order?: number | null
           source_section?: string | null
           source_type?: string | null
+          title?: string | null
           total_price?: number | null
           unit_price?: number | null
           updated_at?: string
@@ -3450,6 +3459,7 @@ export type Database = {
           scope: Json | null
           sharepoint_folder: string | null
           sharepoint_url: string | null
+          show_section_subtotals: boolean
           site_id: string
           site_visit_date: string | null
           status: string
@@ -3503,6 +3513,7 @@ export type Database = {
           scope?: Json | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
+          show_section_subtotals?: boolean
           site_id: string
           site_visit_date?: string | null
           status?: string
@@ -3556,6 +3567,7 @@ export type Database = {
           scope?: Json | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
+          show_section_subtotals?: boolean
           site_id?: string
           site_visit_date?: string | null
           status?: string
