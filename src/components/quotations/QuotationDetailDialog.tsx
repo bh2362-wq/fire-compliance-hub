@@ -777,13 +777,99 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     }
   };
 
+  // Convert a Blob to a base64 string (without the data:...;base64, prefix)
+  // so it can be POSTed to the SharePoint upload edge function.
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result.split(",")[1] ?? "");
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
   const handleGeneratePDF = async () => {
     if (!quotation) return;
     setGenerating(true);
     try {
-      const companySettings = await getCompanySettings();
-      const pdfData = buildPDFData();
-      await generateQuotationPDF(pdfData, companySettings || undefined, false, columnOptions);
+      // 1. Build the QuoteInput payload from the current dialog state and the
+      //    fetched quotation row (which has additional columns like scope,
+      //    introduction, etc. not in the local interface). The shape matches
+      //    what generate-quote-docx expects via quotationToQuoteInput in
+      //    features/quotes/useQuoteGeneration.ts.
+      const q = quotation as typeof quotation & {
+        introduction?: string | null;
+        scope?: unknown;
+        assumptions?: unknown;
+        exclusions?: unknown;
+      };
+      const siteParts = [
+        quotation.sites?.name,
+        quotation.sites?.address,
+        quotation.sites?.city,
+        quotation.sites?.postcode,
+      ].filter(Boolean);
+      const payload = {
+        ref: (quotationNumber || quotation.quotation_number).trim(),
+        issued_date: format(new Date(quotation.created_at), "d MMMM yyyy"),
+        valid_until: validUntil ? format(new Date(validUntil), "d MMMM yyyy") : "",
+        project_title: title || "",
+        client: {
+          company: customerName || quotation.customers?.name || "",
+          contact: customerContactName || quotation.customers?.contact_name || "",
+          address: siteParts.join(", "),
+        },
+        introduction: q.introduction ?? summary ?? "",
+        scope: Array.isArray(q.scope) ? (q.scope as string[]) : [],
+        assumptions: Array.isArray(q.assumptions) ? (q.assumptions as string[]) : [],
+        exclusions: Array.isArray(q.exclusions) ? (q.exclusions as string[]) : [],
+        items: lineItems
+          .filter((i) => !i.is_section)
+          .slice()
+          .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+          .map((i) => ({
+            desc: i.description,
+            qty: i.quantity ?? 1,
+            unit: i.unit_price ?? 0,
+          })),
+        vat_rate: vatRate,
+        quotation_id: quotation.id,
+      };
+
+      // 2. Render Word from the master template via the edge function.
+      const docxRes = await supabase.functions.invoke("generate-quote-docx", { body: payload });
+      if (docxRes.error) throw new Error(`Word generation failed: ${docxRes.error.message}`);
+      const docxStoragePath = (docxRes.data as { storage_path?: string } | null)?.storage_path;
+      if (!docxStoragePath) throw new Error("Word generator did not return a storage path");
+
+      // 3. Convert Word to PDF via the conversion edge function (Microsoft Graph).
+      const pdfRes = await supabase.functions.invoke("convert-quote-pdf", {
+        body: { docx_storage_path: docxStoragePath, quotation_id: quotation.id },
+      });
+      if (pdfRes.error) throw new Error(`PDF conversion failed: ${pdfRes.error.message}`);
+      const pdfSignedUrl = (pdfRes.data as { signed_url?: string } | null)?.signed_url;
+      if (!pdfSignedUrl) throw new Error("PDF converter did not return a signed URL");
+
+      // 4. Fetch the PDF bytes once — used for the local download AND for the
+      //    SharePoint upload below, so we don't pay for two downloads.
+      const pdfFetch = await fetch(pdfSignedUrl);
+      if (!pdfFetch.ok) throw new Error(`Failed to download generated PDF: ${pdfFetch.status}`);
+      const pdfBlob = await pdfFetch.blob();
+
+      // 5. Trigger the browser download for the user.
+      const dlUrl = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = dlUrl;
+      a.download = `${quotation.quotation_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(dlUrl);
+
+      // 6. Prepare base64 for the SharePoint upload path below.
+      const pdfBase64 = await blobToBase64(pdfBlob);
       try {
         const { data: reportData } = await supabase
           .from("quotations")
@@ -832,7 +918,9 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           }
         }
         if (baseFolderPath) {
-          const pdfBase64 = await generateQuotationPDF(pdfData, companySettings || undefined, true, columnOptions);
+          // Re-use the PDF we already fetched (pdfBase64) instead of
+          // regenerating — saves a round-trip and keeps the SharePoint copy
+          // byte-identical to the downloaded copy.
           if (pdfBase64) {
             const pdfFileName = `${quotation.quotation_number} - ${quotation.sites?.name || "Site"}.pdf`;
             await supabase.functions.invoke("upload-to-sharepoint", {
@@ -853,7 +941,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       onUpdate?.();
     } catch (error) {
       console.error("Error generating PDF:", error);
-      toast.error("Failed to generate PDF");
+      toast.error(error instanceof Error ? error.message : "Failed to generate PDF");
     } finally {
       setGenerating(false);
     }
