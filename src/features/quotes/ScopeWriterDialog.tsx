@@ -35,6 +35,34 @@ const WORKS_TYPES = [
   { value: "certification", label: "Certification" },
 ];
 
+// Must match the quotations_building_type_check DB constraint exactly.
+const BUILDING_TYPES = [
+  { value: "hotel", label: "Hotel" },
+  { value: "serviced_apartments", label: "Serviced apartments" },
+  { value: "school_primary", label: "School — primary" },
+  { value: "school_secondary", label: "School — secondary" },
+  { value: "further_education", label: "Further education" },
+  { value: "higher_education", label: "Higher education" },
+  { value: "healthcare_acute", label: "Healthcare — acute" },
+  { value: "healthcare_care_home", label: "Care home" },
+  { value: "office_commercial", label: "Office / commercial" },
+  { value: "retail", label: "Retail" },
+  { value: "industrial_warehouse", label: "Industrial / warehouse" },
+  { value: "residential_hmo", label: "Residential — HMO" },
+  { value: "residential_block", label: "Residential block" },
+  { value: "gov_central", label: "Government — central" },
+  { value: "gov_local_authority", label: "Government — local authority" },
+  { value: "mod_defence", label: "MOD / defence" },
+  { value: "fcdo_diplomatic", label: "FCDO / diplomatic" },
+  { value: "data_centre", label: "Data centre" },
+  { value: "leisure_hospitality", label: "Leisure / hospitality" },
+  { value: "transport", label: "Transport" },
+  { value: "other", label: "Other" },
+];
+const BUILDING_TYPE_VALUES = new Set(BUILDING_TYPES.map(b => b.value));
+const coerceBuildingType = (v: string | null | undefined): string =>
+  v && BUILDING_TYPE_VALUES.has(v) ? v : "";
+
 // Infer works type from quotation title + line item descriptions.
 // Returns null when no keyword matches — caller must force user to choose.
 function inferWorksType(title: string | null | undefined, lineItemDescriptions: string[]): string | null {
@@ -109,7 +137,7 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     setManufacturer(q.system_manufacturer ?? "");
     setPanelType(q.system_panel ?? "");
     setLoops(q.loop_count?.toString() ?? "");
-    setBuildingType(q.building_type ?? "");
+    setBuildingType(coerceBuildingType(q.building_type));
     setOccupancy(q.occupancy_type ?? "non_sleeping");
     setStoreys(q.storeys?.toString() ?? "");
     const f = q.system_features ?? {};
@@ -129,7 +157,7 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     if (!manufacturer && siteIntel.panel?.manufacturer) { setManufacturer(siteIntel.panel.manufacturer); touched++; }
     if (!panelType    && siteIntel.panel?.model)        { setPanelType(siteIntel.panel.model);          touched++; }
     if (!loops        && siteIntel.panel?.loops_count)  { setLoops(String(siteIntel.panel.loops_count)); touched++; }
-    if (!buildingType && siteIntel.building?.type)      { setBuildingType(siteIntel.building.type);     touched++; }
+    if (!buildingType && siteIntel.building?.type) { const bt = coerceBuildingType(siteIntel.building.type); if (bt) { setBuildingType(bt); touched++; } }
     if (siteIntel.building?.occupancy && occupancy === "non_sleeping") { setOccupancy(siteIntel.building.occupancy); touched++; }
     if (!storeys      && siteIntel.building?.storeys)   { setStoreys(String(siteIntel.building.storeys)); touched++; }
     if (siteIntel.contract?.category && category === "L2") { const c: any = siteIntel.contract.category; setCategory(Array.isArray(c) ? (c[0] ?? "L2") : c); touched++; }
@@ -292,7 +320,10 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
               </div>
               <div>
                 <Label>Building type</Label>
-                <Input value={buildingType} onChange={e => setBuildingType(e.target.value)} placeholder="e.g. Care home, office, hotel" />
+                <Select value={buildingType} onValueChange={setBuildingType}>
+                  <SelectTrigger><SelectValue placeholder="Select building type" /></SelectTrigger>
+                  <SelectContent>{BUILDING_TYPES.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Occupancy</Label>
