@@ -22,7 +22,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { extractPdfInBrowser, extractTxtInBrowser, ExtractedPdf } from "@/lib/refLibPdfExtract";
+import { extractEdgeError } from "@/lib/edgeError";
+import { extractPdfInBrowser, extractTxtInBrowser, ocrPdfInBrowser, ScannedPdfError, ExtractedPdf } from "@/lib/refLibPdfExtract";
 
 type DocType =
   | "standard" | "fia_guidance" | "manufacturer_doc" | "past_quote"
@@ -224,12 +225,33 @@ export default function ReferenceLibrary() {
   const extractInBrowser = async (f: File): Promise<ExtractedPdf> => {
     const name = f.name.toLowerCase();
     if (name.endsWith(".pdf")) {
-      return extractPdfInBrowser(f, (p, t) => {
-        // 25% → 60% during extraction
-        const pct = 25 + Math.round((p / t) * 35);
-        setUploadProgress(pct);
-        setUploadStage(`Extracting text… page ${p} of ${t}`);
-      });
+      try {
+        return await extractPdfInBrowser(f, (p, t) => {
+          // 25% → 60% during extraction
+          const pct = 25 + Math.round((p / t) * 35);
+          setUploadProgress(pct);
+          setUploadStage(`Extracting text… page ${p} of ${t}`);
+        });
+      } catch (err) {
+        if (!(err instanceof ScannedPdfError)) throw err;
+        toast.info("Scanned PDF detected — running OCR instead");
+        return ocrPdfInBrowser(
+          f,
+          async (pageNumber, totalPages, imageDataUrl) => {
+            const { data, error } = await supabase.functions.invoke("ocr-reference-page", {
+              body: { image: imageDataUrl, page_number: pageNumber, total_pages: totalPages },
+            });
+            if (error) throw new Error(await extractEdgeError(error, "OCR failed"));
+            if (data?.success === false) throw new Error(data.error || "OCR failed");
+            return String(data?.text ?? "");
+          },
+          (p, t) => {
+            const pct = 25 + Math.round((p / t) * 35);
+            setUploadProgress(pct);
+            setUploadStage(`Running OCR… page ${p} of ${t}`);
+          },
+        );
+      }
     }
     if (name.endsWith(".txt")) return extractTxtInBrowser(f);
     if (name.endsWith(".docx")) {
