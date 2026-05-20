@@ -87,6 +87,125 @@ interface IssuerInfo {
   direct: string;
 }
 
+interface QuoteContext {
+  worksType: string | null;        // quotations.works_type — drives §2.2 bullet set
+}
+
+// ── §2.2 Works Included bullets, per works_type ───────────────────────────────
+//
+// The master template hardcodes a new-install-flavoured bullet list. For any
+// other job type those bullets are misleading. We swap them in-place using
+// the work-type the quotation was created for. Unknown / null keeps the
+// template defaults (safe — they match a new install).
+
+// EXACT bullets currently in the template's §2.2 (order matters — we
+// rewrite in-place, then strip any excess if the new list is shorter).
+const TEMPLATE_WORKS_BULLETS: string[] = [
+  "Design and design review to BS 5839-1:2017",
+  "Supply of all panels, devices, cabling, containment and ancillaries as scheduled",
+  "Installation by FIA-accredited engineers",
+  "Programming of cause & effect to agreed matrix",
+  "Pre-commissioning testing and commissioning",
+  "Issue of BS 5839-1 Certificate of Design, Installation and Commissioning",
+  "As-fitted drawings, zone plans and O&M manuals (PDF + 1 hard copy)",
+  "Site demonstration and client handover",
+];
+
+// Max 8 bullets per job (template only has 8 slots). Lists are kept tight —
+// long bullet runs read as marketing fluff in a quote.
+const WORKS_INCLUDED_BY_TYPE: Record<string, string[]> = {
+  new_install: TEMPLATE_WORKS_BULLETS,
+  system_upgrade: [
+    "Survey and impact assessment against the existing system architecture and battery capacity",
+    "Removal of redundant equipment and supply of replacement panel, loop cards and devices",
+    "Installation by FIA-accredited engineers, including any extension of detection coverage",
+    "Re-programming of cause & effect to the agreed matrix",
+    "Recommissioning of the affected zones in accordance with BS 5839-1:2017 Clause 39",
+    "Issue of a Modification Certificate per Clause 44 and Annex G",
+    "Update of as-fitted drawings, zone plans and the system logbook",
+    "Site demonstration and client handover",
+  ],
+  upgrade: undefined as unknown as string[],   // legacy alias resolved below
+  extension: [
+    "Impact assessment on existing system architecture and battery capacity",
+    "Supply and installation of additional devices, cabling and any reconfiguration required",
+    "Re-programming of cause & effect to integrate the new equipment",
+    "Partial commissioning of the new equipment per BS 5839-1:2017 Clause 39",
+    "Issue of a Modification Certificate per Clause 44 and Annex G",
+    "Update of zone plans, cause-and-effect schedule and the system logbook",
+  ],
+  system_takeover: [
+    "Initial condition survey of the existing fire detection and alarm system",
+    "Verification of zone plans, cause-and-effect schedule and as-fitted documentation",
+    "Functional sample test of detectors, manual call points and output groups",
+    "Rectification of any immediate defects identified (priced separately if extensive)",
+    "Issue of an Acceptance Certificate to BS 5839-1:2017",
+    "Commencement of routine servicing per the agreed maintenance frequency",
+  ],
+  takeover: undefined as unknown as string[],
+  reactive_remedial: [
+    "Site investigation of each reported defect",
+    "Rectification works — component replacement, wiring repair, or configuration change as required",
+    "Functional re-testing of the affected zones, devices and output groups",
+    "Update of the system logbook (BS 5839-1:2017 Annex G)",
+    "Issue of a service report detailing the works performed and confirming the system's operational status",
+  ],
+  remedial: undefined as unknown as string[],
+  planned_maintenance: [
+    "Visual inspection of the panel, batteries, indicators and printer",
+    "Functional testing of a representative sample of detectors and manual call points per BS 5839-1:2017 Clause 43.3",
+    "Verification of ARC signal transmission with the receiving centre notified before and after testing",
+    "Inspection of battery condition and recording of standby capacity",
+    "Issue of a Service Certificate (BS 5839-1:2017 Annex G)",
+    "Update of the system logbook",
+  ],
+  cause_and_effect: [
+    "Pre-test review of the documented cause-and-effect matrix and any site-specific software configuration",
+    "Systematic activation of every input (manual call points, detectors, interfaces) and verification of corresponding output groups (sounders, VADs, plant shutdowns, ancillary interfaces)",
+    "ARC signal transmission verification, with the receiving centre notified before and after testing",
+    "Issue of a Cause and Effect Test Report",
+    "Update of the system logbook and the cause-and-effect schedule",
+  ],
+  commissioning_only: [
+    "Review of as-installed documentation, zone plans and the design specification",
+    "Visual inspection of the installed equipment and insulation resistance testing of all cabling",
+    "Functional testing of every detector, manual call point, sounder, VAD and interface",
+    "Cause-and-effect verification against the documented matrix",
+    "Issue of a BS 5839-1:2017 Commissioning Certificate per Annex G",
+    "Handover of completion documentation to the responsible person",
+  ],
+  acceptance_testing: [
+    "Review of design documentation and the Commissioning Certificate",
+    "Witness testing of a representative sample of devices and cause-and-effect operations",
+    "Verification of zone plans, signage and accessibility of equipment",
+    "Issue of an Acceptance Certificate per BS 5839-1:2017",
+    "Recording of any outstanding items requiring rectification",
+  ],
+  verification: [
+    "Independent review of design, commissioning and modification certificates",
+    "Physical verification of the installation against the design and BS 5839-1:2017",
+    "Sample functional testing of devices and output groups",
+    "Issue of a verification report listing compliance status and any non-conformities",
+  ],
+  design_only: [
+    "Site survey and design brief capture",
+    "Production of a BS 5839-1:2017 compliant design — zone plans, device schedules, cabling routes",
+    "Production of the cause-and-effect matrix",
+    "Issue of a Design Certificate per BS 5839-1:2017 Clause 44 and Annex G",
+    "Handover pack for the installing contractor",
+  ],
+  certification: [
+    "Site audit and verification of the installed equipment against the as-found configuration",
+    "Functional sample testing where required to support certification",
+    "Production of the appropriate certificate (Commissioning / Modification / Acceptance) per BS 5839-1:2017 Annex G",
+    "Issue of the certificate to the responsible person and update of the system logbook",
+  ],
+};
+// Resolve legacy aliases.
+WORKS_INCLUDED_BY_TYPE.upgrade = WORKS_INCLUDED_BY_TYPE.system_upgrade;
+WORKS_INCLUDED_BY_TYPE.takeover = WORKS_INCLUDED_BY_TYPE.system_takeover;
+WORKS_INCLUDED_BY_TYPE.remedial = WORKS_INCLUDED_BY_TYPE.reactive_remedial;
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function normalizeVatFraction(raw: number | null | undefined, ref?: string): number {
@@ -442,30 +561,68 @@ function renderAIFillPlaceholders(xml: string, q: QuoteInput): string {
   return x;
 }
 
-// ── Issuer lookup ─────────────────────────────────────────────────────────────
+// ── Server-side lookups (quotation + issuer) ─────────────────────────────────
 
-async function loadIssuerInfo(quotationId: string | undefined, supabase: SupabaseClient): Promise<IssuerInfo> {
-  const empty: IssuerInfo = { name: "", position: "", email: "", direct: "" };
+interface QuotationLookup {
+  issuer: IssuerInfo;
+  ctx: QuoteContext;
+}
+
+async function loadQuotationData(quotationId: string | undefined, supabase: SupabaseClient): Promise<QuotationLookup> {
+  const empty: QuotationLookup = {
+    issuer: { name: "", position: "", email: "", direct: "" },
+    ctx: { worksType: null },
+  };
   if (!quotationId) return empty;
   const { data: q } = await supabase
     .from("quotations")
-    .select("created_by")
+    .select("created_by, works_type")
     .eq("id", quotationId)
     .maybeSingle();
-  const userId = (q as { created_by?: string } | null)?.created_by;
-  if (!userId) return empty;
-  const { data: p } = await supabase
-    .from("profiles")
-    .select("full_name, email")
-    .eq("user_id", userId)
-    .maybeSingle();
-  const profile = (p as { full_name?: string | null; email?: string | null } | null) ?? null;
+  const quotation = (q as { created_by?: string; works_type?: string | null } | null) ?? null;
+  if (!quotation) return empty;
+  let profile: { full_name?: string | null; email?: string | null } | null = null;
+  if (quotation.created_by) {
+    const { data: p } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("user_id", quotation.created_by)
+      .maybeSingle();
+    profile = (p as typeof profile) ?? null;
+  }
   return {
-    name: profile?.full_name?.trim() ?? "",
-    position: "Estimator",                            // not in schema; safe default
-    email: profile?.email?.trim() ?? "",
-    direct: "",                                       // not in schema; omit by default
+    issuer: {
+      name: profile?.full_name?.trim() ?? "",
+      position: "Estimator",                            // not in schema; safe default
+      email: profile?.email?.trim() ?? "",
+      direct: "",                                       // not in schema; omit by default
+    },
+    ctx: { worksType: quotation.works_type ?? null },
   };
+}
+
+// ── §2.2 Works Included renderer ──────────────────────────────────────────────
+
+// Swap the template's hardcoded §2.2 bullets for a job-type-appropriate list.
+// If we have no mapping for this works_type, leave the template defaults
+// alone (they read as a new-install bullet list — safe fallback).
+function renderWorksIncludedBullets(xml: string, worksType: string | null): string {
+  if (!worksType) return xml;
+  const bullets = WORKS_INCLUDED_BY_TYPE[worksType];
+  if (!bullets || bullets.length === 0) return xml;
+  let x = xml;
+  for (let i = 0; i < TEMPLATE_WORKS_BULLETS.length; i++) {
+    const templateText = TEMPLATE_WORKS_BULLETS[i];
+    const replacement = bullets[i];
+    if (replacement) {
+      x = replaceAllWtText(x, templateText, replacement);
+    } else {
+      // No replacement at this slot — strip the bullet paragraph entirely so
+      // the rendered list ends cleanly.
+      x = removeContainingParagraph(x, templateText);
+    }
+  }
+  return x;
 }
 
 // ── Handler ────────────────────────────────────────────────────────────────────
@@ -494,8 +651,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Look up the issuer (the user who created the quote).
-    const issuer = await loadIssuerInfo(quote.quotation_id, supabase);
+    // 2. Look up issuer info and quotation context (works_type for §2.2).
+    const { issuer, ctx } = await loadQuotationData(quote.quotation_id, supabase);
 
     // 3. Unzip + read document.xml.
     const zip = await JSZip.loadAsync(await templateBlob.arrayBuffer());
@@ -507,6 +664,7 @@ Deno.serve(async (req) => {
     //    unambiguous (line items before totals before generic Copilot sweep).
     const items = flatPriceableItems(quote);
     xml = renderTopFields(xml, quote, issuer);
+    xml = renderWorksIncludedBullets(xml, ctx.worksType);
     xml = renderPricingRows(xml, items);
 
     const vatFraction = normalizeVatFraction(quote.vat_rate, quote.ref);
