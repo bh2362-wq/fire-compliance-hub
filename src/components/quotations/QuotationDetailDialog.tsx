@@ -66,6 +66,7 @@ import {
   isQuotationMetadataThin,
 } from "@/services/quoteMetadataInheritanceService";
 import { ImproveTitleButton } from "./ImproveTitleButton";
+import { DuplicateQuotationDialog } from "./DuplicateQuotationDialog";
 
 // Snapshot of a pre-merge line item stored in the survivor's merged_from
 // JSONB. Shape matches what useQuoteGeneration.ts and the DB column comment
