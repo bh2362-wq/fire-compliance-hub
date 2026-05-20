@@ -622,7 +622,7 @@ function setTotalsRowValue(xml: string, exactLabel: string, value: string, alsoU
   const m = re.exec(xml);
   if (!m) return xml;
   const anchorIdx = m.index;
-  const rowStart = xml.lastIndexOf("<w:tr>", anchorIdx);
+  const rowStart = findRowStart(xml, anchorIdx);
   if (rowStart < 0) return xml;
   // Anchor must be inside the located row — no </w:tr> between rowStart and anchor.
   if (xml.substring(rowStart, anchorIdx).indexOf("</w:tr>") >= 0) return xml;
