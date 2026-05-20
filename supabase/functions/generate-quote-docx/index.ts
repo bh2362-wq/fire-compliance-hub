@@ -460,7 +460,7 @@ function setTotalsRowValueAt(xml: string, anchorIdx: number, value: string, newL
   // Optionally rewrite the label (e.g. "VAT @ 20%" -> "VAT @ 5%").
   let rebuilt = joinRowFromCells(shell, cells);
   if (newLabel) {
-    rebuilt = rebuilt.replace(/<w:t([^>]*)>([^<]*?)VAT @ \d+%([^<]*?)<\/w:t>/, `<w:t$1>$2${escapeXmlText(newLabel)}$3</w:t>`);
+    rebuilt = rebuilt.replace(/<w:t((?:\s[^>]*)?)>([^<]*?)VAT @ \d+%([^<]*?)<\/w:t>/, `<w:t$1>$2${escapeXmlText(newLabel)}$3</w:t>`);
   }
   return xml.substring(0, rowStart) + rebuilt + xml.substring(rowEnd);
 }
