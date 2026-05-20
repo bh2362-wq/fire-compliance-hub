@@ -111,7 +111,7 @@ LABOUR — Holistic labour for the whole job, NOT per defect.
     "2 engineers × N days on-site" or "Half-day commissioning visit".
   - **ANY line representing engineer time, day rates, half-day visits,
     on-site labour, investigation work, fault-finding, or "N men × M days"
-    MUST go in this `labour` array.** Never put engineering time in
+    MUST go in this 'labour' array.** Never put engineering time in
     materials or extras — the routing depends on bucket placement.
   - Adjust team size / days if the scope clearly implies more (major
     install may need 4 engineers × 3 days; a single device swap can be ½ day).
