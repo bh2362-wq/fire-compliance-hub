@@ -951,6 +951,20 @@ const Quotations = () => {
         onSuccess={fetchQuotations}
         prefillLineItem={prefillLineItem}
       />
+      <DuplicateQuotationDialog
+        open={!!duplicateSource}
+        onOpenChange={(o) => { if (!o) setDuplicateSource(null); }}
+        sourceQuotation={duplicateSource}
+        onDuplicated={(newQ) => {
+          setDuplicateSource(null);
+          fetchQuotations();
+          // Auto-open the new quote in the detail dialog
+          setSelectedQuotation({
+            id: newQ.id,
+            quotation_number: newQ.quotation_number,
+          } as any);
+        }}
+      />
     </DashboardLayout>
   );
 };
