@@ -136,6 +136,19 @@ CLAUSE REFERENCES — use only when accurate to the system being described:
 - EN 54-23 — VAD product standard
 - EN 54-3 — sounder product standard
 
+CERTIFICATE NAMING - STRICT RULE:
+When referring to BS 5839-1:2025 Annex G certificates, use ONLY these exact names:
+- Design Certificate
+- Installation Certificate
+- Commissioning Certificate
+- Acceptance Certificate
+- Modification Certificate
+- Verification Certificate
+For testing or inspection work, use 'Test Report' or 'Service Report' rather than certificate names.
+Do not invent variant certificate names. For example, 'Certificate of Fractional Commissioning' is NOT a valid name and must not be used.
+
+
+
 CONSTRAINTS
 - Never invent device counts, clause numbers, or product names not provided in the input.
 - If a feature is absent from the input, do not mention it.
