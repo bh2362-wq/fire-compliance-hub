@@ -249,6 +249,32 @@ function xmlEscapeSearch(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// Word fragments edited text into adjacent <w:r> runs (so "[Contact Email]"
+// can become 3 runs: "[Contact ", "Email", "]"). When two consecutive runs in
+// the same paragraph have identical <w:rPr> AND both contain only a <w:t>,
+// they can safely be merged into one — preserving formatting and concatenating
+// the text. Run on document.xml load so all downstream placeholder searches
+// see whole-string nodes.
+function mergeAdjacentRuns(xml: string): string {
+  // Pattern: capture rPr, capture text1, then a second run with identical rPr
+  // and text2. Replace with a single run whose text is text1+text2.
+  // Iterated to convergence — a 4-run split needs 3 passes.
+  const re = /<w:r>(<w:rPr>[^<]*(?:<[^/][^>]*\/>[^<]*)*<\/w:rPr>)<w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r>\1<w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
+  // Also handle runs with no rPr at all.
+  const reNoRpr = /<w:r><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
+  let prev = "";
+  let curr = xml;
+  let guard = 30; // worst-case 30 passes per file; placeholders rarely split more
+  while (curr !== prev && guard-- > 0) {
+    prev = curr;
+    curr = curr.replace(re, (_m, rpr, t1, t2) =>
+      `<w:r>${rpr}<w:t xml:space="preserve">${t1}${t2}</w:t></w:r>`);
+    curr = curr.replace(reNoRpr, (_m, t1, t2) =>
+      `<w:r><w:t xml:space="preserve">${t1}${t2}</w:t></w:r>`);
+  }
+  return curr;
+}
+
 function flatPriceableItems(q: QuoteInput): QuoteItem[] {
   if (Array.isArray(q.line_items) && q.line_items.length > 0) {
     return q.line_items
@@ -564,7 +590,7 @@ function renderAIFillPlaceholders(xml: string, q: QuoteInput): string {
     || "";
   x = replaceAllWtText(
     x,
-    "[Copilot: Insert a 3-5 sentence plain-English summary of the works — system type, scale, key interfaces, programme highlights.]",
+    "[Copilot: Insert a 3–5 sentence plain-English summary of the works — system type, scale, key interfaces, programme highlights.]",
     exec,
   );
 
@@ -701,6 +727,13 @@ Deno.serve(async (req) => {
     const documentFile = zip.file("word/document.xml");
     if (!documentFile) throw new Error("Template is missing word/document.xml — file is not a valid .docx");
     let xml = await documentFile.async("string");
+
+    // Defragment Word's split runs FIRST so subsequent placeholder searches
+    // see whole-string nodes. Word commonly splits placeholders into
+    // multiple <w:r>s when the user edits the template — without this pass
+    // a hand-edited template would silently leave placeholders untouched
+    // in the rendered output.
+    xml = mergeAdjacentRuns(xml);
 
     // 4. Apply replacements in the order most likely to keep cell-lookup
     //    unambiguous (line items before totals before generic Copilot sweep).
