@@ -1105,6 +1105,18 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                     {quotation.status}
                   </Badge>
                 )}
+                {quotation && isQuotationMetadataThin(quotation as unknown as Record<string, unknown>) && !isLocked && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={handleInheritMetadata}
+                    disabled={inheritingMetadata}
+                  >
+                    {inheritingMetadata ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    Inherit metadata from previous quote
+                  </Button>
+                )}
                 {isLocked && (
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setUnlockDialogOpen(true)}>
                     <LockOpen className="w-3.5 h-3.5" />

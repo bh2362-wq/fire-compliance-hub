@@ -118,7 +118,7 @@ async function retrieveGrounding(
   }
 }
 
-// Find references like "BS 5839-1:2017+A2:2019", "BS5266-1", "Clause 25.2", "Section 12"
+// Find references like "BS 5839-1:2025+A2:2019", "BS5266-1", "Clause 25.2", "Section 12"
 function extractClauseMentions(text: string): string[] {
   const out = new Set<string>();
   const patterns = [
@@ -196,12 +196,12 @@ function stripHallucinations(
       // Patterns: "per Clause X", "in accordance with Clause X", "(Clause X)",
       // "as required by Clause X", ", Clause X,", "Clause X"
       const patterns: Array<{ re: RegExp; sub: string }> = [
-        // Preserve the standard ref when an unverified Clause directly follows it: "BS 5839-1:2017 Clause 38" → "BS 5839-1:2017"
+        // Preserve the standard ref when an unverified Clause directly follows it: "BS 5839-1:2025 Clause 38" → "BS 5839-1:2025"
         { re: new RegExp(`(BS\\s?\\d{3,5}(?:[-:]\\d+)?(?::\\d{4})?(?:\\+A\\d+(?::\\d{4})?)?)\\s+${escaped}\\b`, "gi"), sub: "$1" },
         { re: new RegExp(`\\s*\\(\\s*${escaped}\\s*\\)`, "gi"), sub: "" },
         { re: new RegExp(`\\s*,\\s*${escaped}\\s*,`, "gi"), sub: "," },
-        { re: new RegExp(`\\s+(?:per|under|in accordance with|as required by|as defined in|in line with|to)\\s+${escaped}\\b`, "gi"), sub: " per BS 5839-1:2017" },
-        { re: new RegExp(`\\b${escaped}\\b`, "gi"), sub: "BS 5839-1:2017" },
+        { re: new RegExp(`\\s+(?:per|under|in accordance with|as required by|as defined in|in line with|to)\\s+${escaped}\\b`, "gi"), sub: " per BS 5839-1:2025" },
+        { re: new RegExp(`\\b${escaped}\\b`, "gi"), sub: "BS 5839-1:2025" },
       ];
       const before = out;
       for (const p of patterns) out = out.replace(p.re, p.sub);
@@ -419,17 +419,17 @@ GOALS:
 - Use industry-accurate terminology (e.g. "Cause & Effect Testing", "PPM", "Remedial Works", "ASD Sensitivity Test", "Fire Alarm Installation").
 - Where the input names a building type or location, retain it (Title Case).
 - Where the input names a manufacturer/system (Gent, Vigilon, Hochiki, Advanced, Kentec, Notifier), preserve and capitalise correctly.
-- ALWAYS include "BS 5839-1:2017" as the governing standard reference at the end of the title. Fire alarm work is BS 5839-1 governed and this standard is well-grounded — you may cite it generically without source verification.
-- Preferred shape: "<Work Type> — <Building Type>, BS 5839-1:2017" or "<Work Type> — <Building Type>, BS 5839-1:2017 Clause X" when a specific clause is verified.
+- ALWAYS include "BS 5839-1:2025" as the governing standard reference at the end of the title. Fire alarm work is BS 5839-1 governed and this standard is well-grounded — you may cite it generically without source verification.
+- Preferred shape: "<Work Type> — <Building Type>, BS 5839-1:2025" or "<Work Type> — <Building Type>, BS 5839-1:2025 Clause X" when a specific clause is verified.
 
 STRICT RULES:
 - Output ONLY the title, no quotes, no trailing punctuation.
 - No markdown.
 - Do NOT invent scope detail that wasn't in the input.
-- NEVER use the vague phrase "the standard" — always write "BS 5839-1:2017".
+- NEVER use the vague phrase "the standard" — always write "BS 5839-1:2025".
 ${groundingActuallyUsed
-  ? "- A specific clause number (e.g. 'Clause 38', 'Clause 43.2') may ONLY be cited when that exact reference appears verbatim in the reference excerpts below. If unsure, omit the clause and keep just 'BS 5839-1:2017'."
-  : "- Do NOT cite a specific clause number; keep just 'BS 5839-1:2017'."}
+  ? "- A specific clause number (e.g. 'Clause 38', 'Clause 43.2') may ONLY be cited when that exact reference appears verbatim in the reference excerpts below. If unsure, omit the clause and keep just 'BS 5839-1:2025'."
+  : "- Do NOT cite a specific clause number; keep just 'BS 5839-1:2025'."}
 - UK English spelling.`;
         break;
       case "quotation_summary": {
@@ -443,7 +443,7 @@ ${groundingActuallyUsed
           : "";
         const strictCitationBlock = `CITATION RULES — ABSOLUTE:
 
-You will be given source material from BS 5839-1:2017. You may ONLY cite clauses, sections, annexes, or sub-clauses whose exact reference (e.g. 'Clause 43.2.1' or 'Annex G') appears verbatim in the source material text provided below.
+You will be given source material from BS 5839-1:2025. You may ONLY cite clauses, sections, annexes, or sub-clauses whose exact reference (e.g. 'Clause 43.2.1' or 'Annex G') appears verbatim in the source material text provided below.
 
 You may NOT:
 - Invent sub-clauses by adding decimal points (e.g. you may not cite Clause 43.3.21 unless that exact string appears in the source)
@@ -457,13 +457,13 @@ If you want to make a claim that needs a specific sub-clause reference and that 
 
 Inventing a citation that looks real but isn't will mislead the client and damage BHO's professional reputation. When in doubt, cite less, not more.`;
         systemPrompt = groundingActuallyUsed
-          ? `You are writing a Scope of Works description for a fire alarm quote from BHO Fire Ltd (UK fire alarm specialist, BS 5839-1:2017, Honeywell Gent expertise).
+          ? `You are writing a Scope of Works description for a fire alarm quote from BHO Fire Ltd (UK fire alarm specialist, BS 5839-1:2025, Honeywell Gent expertise).
 
 The description MUST accurately reflect what is actually being quoted. You will be given:
 - The quote title (the work being done)
 - The line items (the specific tasks and their values) — THE SOURCE OF TRUTH
 - Context fields (system type, building type, job category) — supporting only
-- Reference material from BS 5839-1:2017
+- Reference material from BS 5839-1:2025
 
 Your description MUST:
 1. Match the SCALE and NATURE of the line items. If the total quoted value is under £2,000, this is NOT a new installation — describe the actual scope from the line items.
@@ -491,7 +491,7 @@ FORMATTING:
 - Use **bold** (double asterisks) for section headers
 - Use "- " for bullet points
 - British English spelling throughout (organisation, recognised, colour, centre)
-- Reference BS 5839-1:2017 only with clauses present verbatim in source material
+- Reference BS 5839-1:2025 only with clauses present verbatim in source material
 - Conservative tone — no marketing fluff, no superlatives
 - Length proportionate to the job: 120–250 words for sub-£2k jobs, 250–450 words for larger works
 
@@ -506,7 +506,7 @@ The line items are the SOURCE OF TRUTH for what is being quoted. Match prose sca
 
 FORMATTING RULES:
 - Use **bold text** (wrapped in double asterisks) for headings and key terms e.g. **Scope of Works**
-- Use __underline__ for important standards e.g. __BS 5839-1:2017__
+- Use __underline__ for important standards e.g. __BS 5839-1:2025__
 - Use "- " bullet points
 - UK English spelling
 - Keep it professional and proportionate to the job size
@@ -522,12 +522,12 @@ Return ONLY the formatted summary text.`;
         systemPrompt = `You are a professional procurement specialist. Improve the grammar, spelling and clarity of these numbered purchase order line item descriptions. Keep the same numbering format (1. 2. 3. etc). Make descriptions clear, professional and suitable for a formal purchase order. Each description should be well-formatted - if a description contains multiple details (e.g. part number, specification, quantity notes), space them clearly across up to 2 lines using a newline within the numbered item. Do NOT add information that wasn't in the original. Use UK English spelling.${formatRules}`;
         break;
       case "quotation_bs5839_expand":
-        systemPrompt = `You are a BS 5839-1:2017 scope writer for BHO Fire Ltd. You expand brief scope notes into technically precise scope statements suitable for inclusion in fire alarm quotes.
+        systemPrompt = `You are a BS 5839-1:2025 scope writer for BHO Fire Ltd. You expand brief scope notes into technically precise scope statements suitable for inclusion in fire alarm quotes.
 
 ${groundingActuallyUsed
   ? `CITATION RULES — ABSOLUTE:
 
-You will be given source material from BS 5839-1:2017. You may ONLY cite clauses, sections, annexes, or sub-clauses whose exact reference (e.g. 'Clause 43.2.1' or 'Annex G') appears verbatim in the source material text provided below.
+You will be given source material from BS 5839-1:2025. You may ONLY cite clauses, sections, annexes, or sub-clauses whose exact reference (e.g. 'Clause 43.2.1' or 'Annex G') appears verbatim in the source material text provided below.
 
 You may NOT:
 - Invent sub-clauses by adding decimal points (e.g. you may not cite Clause 43.3.21 unless that exact string appears in the source)
@@ -540,10 +540,10 @@ If you want to make a claim that needs a specific sub-clause reference and that 
 - Or omit the citation entirely and phrase the claim without it
 
 Inventing a citation that looks real but isn't will mislead the client and damage BHO's professional reputation. When in doubt, cite less, not more.`
-  : "Reference BS 5839-1:2017 generally; do not cite specific clause numbers unless certain."}
+  : "Reference BS 5839-1:2025 generally; do not cite specific clause numbers unless certain."}
 
 For each item produce an expanded description that:
-- References the specific BS 5839-1:2017 clause(s) where supported by source material
+- References the specific BS 5839-1:2025 clause(s) where supported by source material
 - Uses precise technical language (not "check" — use "verify operation per Clause X")
 - Includes any sub-tasks the standard implies (e.g. cause and effect testing implies output group verification)
 - Stays operationally clear — an engineer should be able to execute from the text
@@ -637,9 +637,9 @@ ${(() => { const t = formatContextAsText(context); return t ? `\nADDITIONAL CONT
     if (type === "quotation_title") {
       // Replace any lingering vague "the standard" with the concrete standard ref.
       rewrittenText = rewrittenText
-        .replace(/\bper\s+the standard\b/gi, "BS 5839-1:2017")
-        .replace(/\bthe standard\b/gi, "BS 5839-1:2017")
-        // Collapse accidental duplicate standard refs ("BS 5839-1:2017 BS 5839-1:2017")
+        .replace(/\bper\s+the standard\b/gi, "BS 5839-1:2025")
+        .replace(/\bthe standard\b/gi, "BS 5839-1:2025")
+        // Collapse accidental duplicate standard refs ("BS 5839-1:2025 BS 5839-1:2025")
         .replace(/\b(BS\s?5839-1:2025)(\s+\1)+/gi, "$1")
         // Tidy stranded connectives in front of the standard (", per BS …" → ", BS …")
         .replace(/,\s*per\s+(BS\s?5839)/gi, ", $1")
@@ -649,7 +649,7 @@ ${(() => { const t = formatContextAsText(context); return t ? `\nADDITIONAL CONT
         .trim();
       // Guarantee the standard reference is present in the final title.
       if (!/BS\s?5839/i.test(rewrittenText)) {
-        rewrittenText = `${rewrittenText}, BS 5839-1:2017`;
+        rewrittenText = `${rewrittenText}, BS 5839-1:2025`;
       }
     }
 
