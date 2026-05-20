@@ -62,6 +62,19 @@ import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { QuoteActions } from "@/features/quotes/QuoteActions";
 import { ImproveTitleButton } from "./ImproveTitleButton";
 
+// Snapshot of a pre-merge line item stored in the survivor's merged_from
+// JSONB. Shape matches what useQuoteGeneration.ts and the DB column comment
+// document so frontend and AI-generated quotes use the same structure.
+export interface MergedFromSnapshot {
+  id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  sort_order: number;
+  cost_price?: number;
+  labour_cost?: number;
+}
+
 interface LineItem {
   id: string;
   description: string;
@@ -78,6 +91,10 @@ interface LineItem {
   total_price: number;
   notes: string | null;
   sort_order: number;
+  // Section + merge metadata (added in the quote scope/cost refactor).
+  is_section?: boolean;
+  title?: string | null;
+  merged_from?: MergedFromSnapshot[] | null;
 }
 
 interface QuotationFull {
@@ -282,10 +299,11 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
         .order("sort_order", { ascending: true });
 
       if (itemsError) throw itemsError;
-      const mappedItems = (itemsData || []).map((item) => ({
+      const mappedItems: LineItem[] = (itemsData || []).map((item) => ({
         ...item,
         markup_percent: (item as any).markup_percent || 0,
         labour_included: !!(item as any).labour_included,
+        merged_from: ((item as any).merged_from ?? null) as MergedFromSnapshot[] | null,
       }));
       setLineItems(mappedItems);
 
@@ -364,6 +382,10 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       .map((item, idx) => ({ item, idx }))
       .filter(({ item }) => selectedItemIds.has(item.id));
     if (selectedIndices.length < 2) return;
+    if (selectedIndices.some(({ item }) => item.is_section)) {
+      toast.error("Section header rows can't be merged");
+      return;
+    }
     const first = selectedIndices[0];
     const mergedDescription = selectedIndices
       .map(({ item }) => item.description)
@@ -371,12 +393,28 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       .join("\n");
     const mergedQty = selectedIndices.reduce((sum, { item }) => sum + item.quantity, 0);
     const mergedLabour = selectedIndices.reduce((sum, { item }) => sum + (item.labour_cost || 0), 0);
+
+    // Snapshot every merged row (including the survivor's pre-merge state)
+    // into the survivor's merged_from. Existing merged_from on the survivor
+    // is carried forward so chained merges keep their full history.
+    const newSnapshots: MergedFromSnapshot[] = selectedIndices.map(({ item }) => ({
+      id: item.id,
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      sort_order: item.sort_order,
+      cost_price: (item as unknown as { cost_price?: number }).cost_price ?? undefined,
+      labour_cost: item.labour_cost,
+    }));
+    const carriedSnapshots = Array.isArray(first.item.merged_from) ? first.item.merged_from : [];
+
     const mergedItem: LineItem = {
       ...first.item,
       description: mergedDescription,
       quantity: mergedQty,
       labour_cost: mergedLabour,
       total_price: mergedQty * first.item.unit_price * (1 + (first.item.markup_percent || 0) / 100) + mergedLabour,
+      merged_from: [...carriedSnapshots, ...newSnapshots],
     };
     const idsToRemove = new Set(selectedIndices.slice(1).map(({ item }) => item.id));
     const updated = lineItems
@@ -519,10 +557,15 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             total_price: item.total_price,
             notes: item.notes,
             sort_order: lineItems.indexOf(item),
+            // Preserve scope-refactor fields so sections and merge history
+            // survive a save+reinsert cycle.
+            is_section: item.is_section ?? false,
+            title: item.title ?? null,
+            merged_from: item.merged_from ?? null,
           }));
           const { data: insertedParents, error: parentError } = await supabase
             .from("quotation_line_items")
-            .insert(parentsToInsert)
+            .insert(parentsToInsert as any)
             .select("id");
           if (parentError) throw parentError;
           parentItems.forEach((item, idx) => {
@@ -546,8 +589,13 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             total_price: item.total_price,
             notes: item.notes,
             sort_order: lineItems.indexOf(item),
+            // Preserve scope-refactor fields so sections and merge history
+            // survive a save+reinsert cycle.
+            is_section: item.is_section ?? false,
+            title: item.title ?? null,
+            merged_from: item.merged_from ?? null,
           }));
-          const { error: childError } = await supabase.from("quotation_line_items").insert(childrenToInsert);
+          const { error: childError } = await supabase.from("quotation_line_items").insert(childrenToInsert as any);
           if (childError) throw childError;
         }
       }
