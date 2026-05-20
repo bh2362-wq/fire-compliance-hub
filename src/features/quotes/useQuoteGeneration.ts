@@ -32,7 +32,7 @@ export interface QuotationFull {
   existing_system_description: string | null;
   customers: { name: string; contact_name: string | null; contact_email: string | null; address: string | null; city: string | null; postcode: string | null } | null;
   sites: { name: string; address: string | null; city: string | null; postcode: string | null } | null;
-  quotation_line_items: { description: string; quantity: number | null; unit_price: number | null; sort_order: number | null }[];
+  quotation_line_items: { description: string; quantity: number | null; unit_price: number | null; total_price: number | null; sort_order: number | null }[];
 }
 
 export function useQuotationFull(quotationId: string | undefined) {
