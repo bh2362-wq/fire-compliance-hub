@@ -29,7 +29,9 @@ async function getGraphToken(cfg: ReturnType<typeof readGraphConfig>) {
 }
 
 async function uploadToGraph(token: string, userUpn: string, fileName: string, bytes: Uint8Array): Promise<string> {
-  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userUpn)}/drive/root:/_quote-conversion/${encodeURIComponent(fileName)}:/content`;
+  // Upload directly to drive root. Using a subfolder path (`root:/folder/file:/content`)
+  // returns 404 itemNotFound if the folder doesn't exist yet — root-level PUT always works.
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userUpn)}/drive/root:/${encodeURIComponent(fileName)}:/content`;
   const res = await fetch(url, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
