@@ -275,7 +275,9 @@ function replaceAllWtText(xml: string, placeholder: string, value: string): stri
   // Search the XML for the entity-escaped form of the placeholder so & in the
   // source string finds &amp; in the document.
   const safe = xmlEscapeSearch(placeholder).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`(<w:t[^>]*>)([^<]*?)${safe}([^<]*?)(</w:t>)`, "g");
+  // `<w:t[^>]*>` would also match `<w:tcPr>`, `<w:tcW>`, etc. — restrict to
+  // genuine `<w:t>` / `<w:t ...>` elements.
+  const re = new RegExp(`(<w:t(?:\\s[^>]*)?>)([^<]*?)${safe}([^<]*?)(</w:t>)`, "g");
   return xml.replace(re, (_m, openTag, before, after, closeTag) =>
     `${openTag}${before}${escapeXmlText(value)}${after}${closeTag}`,
   );
@@ -376,7 +378,7 @@ function setCellText(cellXml: string, value: string): string {
   let c = cellXml
     .replace(/<w:i\s*\/>\s*<w:iCs\s*\/>/g, "")
     .replace(/<w:color w:val="9CA3AF"\s*\/>/g, '<w:color w:val="1A1A1A"/>');
-  const re = /(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/;
+  const re = /(<w:t(?:\s[^>]*)?>)([\s\S]*?)(<\/w:t>)/;
   if (!re.test(c)) return c;
   return c.replace(re, (_m, o, _t, e) => `${o}${escapeXmlText(value)}${e}`);
 }
@@ -458,7 +460,7 @@ function setTotalsRowValueAt(xml: string, anchorIdx: number, value: string, newL
   // Optionally rewrite the label (e.g. "VAT @ 20%" -> "VAT @ 5%").
   let rebuilt = joinRowFromCells(shell, cells);
   if (newLabel) {
-    rebuilt = rebuilt.replace(/<w:t([^>]*)>([^<]*?)VAT @ \d+%([^<]*?)<\/w:t>/, `<w:t$1>$2${escapeXmlText(newLabel)}$3</w:t>`);
+    rebuilt = rebuilt.replace(/<w:t((?:\s[^>]*)?)>([^<]*?)VAT @ \d+%([^<]*?)<\/w:t>/, `<w:t$1>$2${escapeXmlText(newLabel)}$3</w:t>`);
   }
   return xml.substring(0, rowStart) + rebuilt + xml.substring(rowEnd);
 }
@@ -571,7 +573,7 @@ function renderAIFillPlaceholders(xml: string, q: QuoteInput): string {
   // Sweep any remaining [Copilot: ...] markers so they don't leak into the
   // output — strip the marker text but preserve the surrounding paragraph
   // (renders as empty whitespace).
-  x = x.replace(/(<w:t[^>]*>)([^<]*?)\[Copilot:[^\]]*\]([^<]*?)(<\/w:t>)/g, "$1$2$3$4");
+  x = x.replace(/(<w:t(?:\s[^>]*)?>)([^<]*?)\[Copilot:[^\]]*\]([^<]*?)(<\/w:t>)/g, "$1$2$3$4");
   return x;
 }
 
