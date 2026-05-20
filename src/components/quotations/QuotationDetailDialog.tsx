@@ -1733,6 +1733,25 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DuplicateQuotationDialog
+        open={duplicateOpen}
+        onOpenChange={setDuplicateOpen}
+        sourceQuotation={
+          quotation
+            ? { id: quotationId, quotation_number: quotationNumber || quotation.quotation_number }
+            : null
+        }
+        onDuplicated={(newQ) => {
+          setDuplicateOpen(false);
+          onUpdate?.();
+          if (onDuplicated) {
+            // Parent will swap to the new quote — close this one
+            onOpenChange(false);
+            onDuplicated(newQ);
+          }
+        }}
+      />
     </>
   );
 }
