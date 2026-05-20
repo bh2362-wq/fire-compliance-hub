@@ -45,7 +45,7 @@ export async function inheritMetadataFromPriorQuote(
 
   let q = supabase
     .from("quotations")
-    .select(`quotation_number, ${INHERITABLE_METADATA_FIELDS.join(", ")}`)
+    .select(`quotation_number, ${INHERITABLE_METADATA_FIELDS.join(", ")}` as "*")
     .eq("site_id", siteId)
     .order("created_at", { ascending: false })
     .limit(10);
@@ -55,11 +55,11 @@ export async function inheritMetadataFromPriorQuote(
   if (error || !data || data.length === 0) return empty;
 
   // Pick the first prior quote that has at least one non-null inheritable field.
-  for (const row of data) {
+  for (const rowAny of data as unknown as Array<Record<string, unknown>>) {
     const values: InheritedMetadata = {};
     const fieldsFound: InheritableMetadataField[] = [];
     for (const field of INHERITABLE_METADATA_FIELDS) {
-      const v = (row as Record<string, unknown>)[field];
+      const v = rowAny[field];
       if (v !== null && v !== undefined && v !== "") {
         values[field] = v;
         fieldsFound.push(field);
@@ -68,7 +68,7 @@ export async function inheritMetadataFromPriorQuote(
     if (fieldsFound.length > 0) {
       return {
         values,
-        sourceQuotationNumber: (row as { quotation_number: string }).quotation_number ?? null,
+        sourceQuotationNumber: (rowAny.quotation_number as string | null) ?? null,
         fieldsFound,
       };
     }
