@@ -44,8 +44,9 @@ export async function extractPdfInBrowser(
   }
   if (fileSize > 100 * 1024 && totalChars < 500) {
     throw new Error(
-      `PDF extraction yielded only ${totalChars} characters from a ${Math.round(fileSize / 1024)}KB file — ` +
-        `likely a scanned/image-only PDF or worker failure. OCR is not supported in-browser.`,
+      `This PDF appears to be scanned (image-only) — we extracted ${totalChars} characters of text from ${totalPages} pages. ` +
+        `The Reference Library needs a text-based PDF. Please run the file through OCR first (e.g. Adobe Acrobat "Recognize Text", ` +
+        `or a free tool like ocrmypdf / Sejda / iLovePDF OCR), then re-upload the OCR'd version.`,
     );
   }
   return { pages, totalPages };
