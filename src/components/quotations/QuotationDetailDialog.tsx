@@ -60,6 +60,10 @@ import { getCompanySettings } from "@/services/companySettingsService";
 import { EmailQuotationDialog } from "./EmailQuotationDialog";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { QuoteActions } from "@/features/quotes/QuoteActions";
+import {
+  inheritMetadataFromPriorQuote,
+  isQuotationMetadataThin,
+} from "@/services/quoteMetadataInheritanceService";
 import { ImproveTitleButton } from "./ImproveTitleButton";
 
 // Snapshot of a pre-merge line item stored in the survivor's merged_from
@@ -174,6 +178,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [generating, setGenerating] = useState(false);
   const [improving, setImproving] = useState(false);
   const [quotation, setQuotation] = useState<QuotationFull | null>(null);
+  const [inheritingMetadata, setInheritingMetadata] = useState(false);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -322,6 +327,33 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       toast.error("Failed to load quotation");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInheritMetadata = async () => {
+    if (!quotation?.site_id) {
+      toast.error("Quote has no linked site");
+      return;
+    }
+    setInheritingMetadata(true);
+    try {
+      const inherited = await inheritMetadataFromPriorQuote(quotation.site_id, quotationId);
+      if (inherited.fieldsFound.length === 0) {
+        toast.info("No prior quote on this site has metadata to inherit");
+        return;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from("quotations").update(inherited.values as any).eq("id", quotationId);
+      if (error) throw error;
+      toast.success(
+        `Inherited ${inherited.fieldsFound.length} field${inherited.fieldsFound.length !== 1 ? "s" : ""} from ${inherited.sourceQuotationNumber ?? "previous quote"}`,
+      );
+      await fetchQuotation();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to inherit metadata";
+      toast.error(msg);
+    } finally {
+      setInheritingMetadata(false);
     }
   };
 
@@ -1104,6 +1136,18 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                   <Badge variant={quotation.status === "accepted" ? "default" : "secondary"} className="capitalize">
                     {quotation.status}
                   </Badge>
+                )}
+                {quotation && isQuotationMetadataThin(quotation as unknown as Record<string, unknown>) && !isLocked && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={handleInheritMetadata}
+                    disabled={inheritingMetadata}
+                  >
+                    {inheritingMetadata ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    Inherit metadata from previous quote
+                  </Button>
                 )}
                 {isLocked && (
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setUnlockDialogOpen(true)}>

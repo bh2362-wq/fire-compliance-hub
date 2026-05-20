@@ -18,6 +18,7 @@ import {
   type CostLine,
   type CategorisedLineItems,
 } from "@/hooks/useQuoteGeneration";
+import { inheritMetadataFromPriorQuote } from "@/services/quoteMetadataInheritanceService";
 
 interface Props {
   open: boolean;
@@ -100,19 +101,32 @@ export function AIDefectQuoteDialog({ open, onOpenChange, defects, onQuoteCreate
 
       const { data: quotationNumber } = await supabase.rpc("get_next_quotation_number");
 
+      // Inherit fire-alarm spec metadata from the most recent prior quote on
+      // this site so the shared DOCX template renders full header/system
+      // summary blocks rather than empty-state branches. NULL fields stay NULL.
+      const inherited = siteId ? await inheritMetadataFromPriorQuote(siteId) : { values: {}, sourceQuotationNumber: null, fieldsFound: [] };
+
+      const insertPayload: Record<string, unknown> = {
+        site_id: siteId,
+        customer_id: siteData?.customer_id ?? null,
+        title: quoteTitle,
+        introduction: scopeContent,
+        status: "draft",
+        quotation_number: quotationNumber,
+        total_amount: totals.exVat,
+        created_by: user.id,
+        // Defect-driven quotes are remedial works by nature.
+        works_type: "reactive_remedial",
+        job_category: "reactive_remedial",
+        // Spread inherited metadata (only non-null fields are present).
+        ...inherited.values,
+        notes: `Remedial works quotation generated from ${defects.length} defect${defects.length !== 1 ? "s" : ""} identified during site inspection. Defect IDs: ${defects.map(d => d.id).join(", ")}${inherited.sourceQuotationNumber ? `\nMetadata inherited from ${inherited.sourceQuotationNumber} (${inherited.fieldsFound.length} field${inherited.fieldsFound.length !== 1 ? "s" : ""}).` : ""}`,
+      };
+
       const { data: quotation, error: qErr } = await supabase
         .from("quotations")
-        .insert({
-          site_id: siteId,
-          customer_id: siteData?.customer_id ?? null,
-          title: quoteTitle,
-          introduction: scopeContent,
-          status: "draft",
-          quotation_number: quotationNumber,
-          total_amount: totals.exVat,
-          created_by: user.id,
-          notes: `Remedial works quotation generated from ${defects.length} defect${defects.length !== 1 ? "s" : ""} identified during site inspection. Defect IDs: ${defects.map(d => d.id).join(", ")}`,
-        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .insert(insertPayload as any)
         .select()
         .single();
       if (qErr) throw qErr;
