@@ -1023,7 +1023,49 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                         <div className="space-y-3">
                           {lineItems.map((item, index) => (
                             <SortableItemRow key={item.id} id={item.id} disabled={isLocked}>
-                              {({ attributes, listeners, isDragging }) => (
+                              {({ attributes, listeners, isDragging }) => item.is_section ? (
+                                // Section header row: title only, no pricing inputs,
+                                // no merge checkbox (sections can't be merged).
+                                <Card className="bg-muted/40 border-l-4 border-l-primary">
+                                  <CardContent className="p-3">
+                                    <div className="flex items-center gap-3">
+                                      {!isLocked && (
+                                        <button
+                                          type="button"
+                                          {...attributes}
+                                          {...listeners}
+                                          aria-label="Drag section to reorder"
+                                          className={`p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted ${isDragging ? "cursor-grabbing" : "cursor-grab"} touch-none`}
+                                        >
+                                          <GripVertical className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                      <div className="flex-1 flex items-center gap-2">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex-shrink-0">
+                                          Section
+                                        </span>
+                                        <Input
+                                          value={item.title ?? item.description ?? ""}
+                                          onChange={(e) => handleItemChange(index, "title", e.target.value)}
+                                          placeholder="Section title (e.g. Labour, Materials, Extras)"
+                                          disabled={isLocked}
+                                          className="h-8 font-semibold text-sm bg-background"
+                                        />
+                                      </div>
+                                      {!isLocked && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleRemoveItem(index)}
+                                          className="text-destructive flex-shrink-0"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ) : (
                                 <Card className={item.parent_id ? "ml-6 border-l-4 border-l-muted" : ""}>
                                   <CardContent className="p-4 space-y-3">
                                     <div className="flex items-start gap-3">
