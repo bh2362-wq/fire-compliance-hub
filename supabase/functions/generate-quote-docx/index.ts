@@ -249,6 +249,42 @@ function xmlEscapeSearch(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// Insert a page-break paragraph immediately before §7 PAYMENT TERMS so the
+// whole section starts on a fresh page (Word's auto layout was splitting it
+// between two pages). Idempotent — if a page break is already in place
+// directly before the heading, this is a no-op.
+function pageBreakBeforeSection7(xml: string): string {
+  const idx = xml.indexOf("7. PAYMENT TERMS");
+  if (idx < 0) return xml;
+  const pStart = findEnclosingWpStart(xml, idx);
+  if (pStart < 0) return xml;
+  // Skip if there's already a pageBreakBefore in the heading's own pPr or
+  // immediately preceding paragraph (avoid stacking blank pages).
+  const window = xml.substring(Math.max(0, pStart - 200), pStart + 100);
+  if (window.includes("<w:pageBreakBefore")) return xml;
+  return xml.substring(0, pStart)
+    + '<w:p><w:pPr><w:pageBreakBefore/></w:pPr></w:p>'
+    + xml.substring(pStart);
+}
+
+// Global cleanup: any run whose text is NO LONGER a [ bracketed placeholder
+// loses its italic + grey-9CA3AF "placeholder" styling — populated values
+// should read as normal body text. Applied AFTER all replacements so we only
+// demote runs that actually got filled; remaining "[Copilot:" etc. runs
+// either keep their styling or get stripped by removeAllParagraphsContaining.
+function demotePopulatedRuns(xml: string): string {
+  const re = /(<w:r>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?)<w:t([^>]*)>([^<]*)<\/w:t>(<\/w:r>)/g;
+  return xml.replace(re, (match, openAndRpr, tAttr, text, closeR) => {
+    if (text.length === 0) return match;          // empty cell — leave alone
+    if (text.includes("[")) return match;          // still a placeholder — leave alone
+    if (!/<w:i\s*\/>|9CA3AF/.test(openAndRpr)) return match;  // not styled grey/italic — no change needed
+    const cleaned = openAndRpr
+      .replace(/<w:i\s*\/>\s*<w:iCs\s*\/>/g, "")
+      .replace(/<w:color w:val="9CA3AF"\s*\/>/g, '<w:color w:val="1A1A1A"/>');
+    return `${cleaned}<w:t${tAttr}>${text}</w:t>${closeR}`;
+  });
+}
+
 // Word fragments edited text into adjacent <w:r> runs (so "[Contact Email]"
 // can become 3 runs: "[Contact ", "Email", "]"). When two consecutive runs in
 // the same paragraph have identical <w:rPr> AND both contain only a <w:t>,
@@ -453,24 +489,39 @@ function buildRow(canonicalRow: string, itemNum: number, item: QuoteItem): strin
 }
 
 // Replace ALL template placeholder rows in the pricing table with N rendered
-// rows. A placeholder row is any <w:tr> between the header and the Subtotal
-// row containing [Copilot: Line item or [Line item.
+// rows. The canonical row is the first one that contains a recognisable
+// placeholder marker (any of the three fallbacks below). If the user edits
+// the template and removes the [Copilot: Line item description] text from
+// the canonical row, we still find it via [Line item] or [Qty] / [0.00].
 function renderPricingRows(xml: string, items: QuoteItem[]): string {
-  const canonicalMarker = "[Copilot: Line item description]";
-  const canonicalIdx = xml.indexOf(canonicalMarker);
+  // Try markers in decreasing specificity. Whichever hits first owns the
+  // canonical row; the rest are absorbed as stubs.
+  const MARKERS = ["[Copilot: Line item description]", "[Line item]", "[Qty]"];
+  let canonicalIdx = -1;
+  for (const m of MARKERS) {
+    canonicalIdx = xml.indexOf(m);
+    if (canonicalIdx >= 0) break;
+  }
   if (canonicalIdx < 0) return xml;
   const canonicalRowStart = xml.lastIndexOf("<w:tr>", canonicalIdx);
   const canonicalRowEnd = xml.indexOf("</w:tr>", canonicalIdx) + "</w:tr>".length;
   if (canonicalRowStart < 0 || canonicalRowEnd <= 0) return xml;
   const canonicalRow = xml.substring(canonicalRowStart, canonicalRowEnd);
 
-  // Walk forward absorbing any [Line item] stub rows up to (but not into)
-  // the Subtotal row, so the final document has no leftover placeholders.
+  // Walk forward absorbing every subsequent placeholder row up to (but not
+  // into) the Subtotal row. A row is a stub if it contains any of the
+  // pricing-cell markers. Capped to defend against malformed templates.
   const subtotalIdx = xml.indexOf("Subtotal", canonicalRowEnd);
   let blockEnd = canonicalRowEnd;
   let cursor = canonicalRowEnd;
-  while (true) {
-    const nextStub = xml.indexOf("[Line item]", cursor);
+  for (let guard = 0; guard < 30; guard++) {
+    // Find the next position of ANY stub marker after the cursor.
+    const stubMarkers = ["[Line item]", "[Qty]", "[Copilot: Line item description]"];
+    let nextStub = -1;
+    for (const m of stubMarkers) {
+      const pos = xml.indexOf(m, cursor);
+      if (pos >= 0 && (nextStub < 0 || pos < nextStub)) nextStub = pos;
+    }
     if (nextStub < 0) break;
     if (subtotalIdx > 0 && nextStub > subtotalIdx) break;
     const stubRowEnd = xml.indexOf("</w:tr>", nextStub);
@@ -756,6 +807,16 @@ Deno.serve(async (req) => {
     xml = forceTotalRowWhiteText(xml);
 
     xml = renderAIFillPlaceholders(xml, quote);
+
+    // Layout: keep §7 PAYMENT TERMS on one page (Word was splitting it
+    // mid-section). pageBreakBefore on a leading empty paragraph forces
+    // the section to start on a fresh page.
+    xml = pageBreakBeforeSection7(xml);
+
+    // Final cleanup pass: any run that now holds a real value (not a
+    // [ bracketed placeholder) gets its italic + grey "placeholder" styling
+    // removed so the populated text reads as normal black body text.
+    xml = demotePopulatedRuns(xml);
 
     // 5. Write back.
     zip.file("word/document.xml", xml);
