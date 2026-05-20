@@ -1,8 +1,0 @@
-- name: Check token exists
-  run: |
-    if [ -z "${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_YELLOW_FIELD_02E32AF03 }}" ]; then
-      echo "Token is missing (empty secret)."
-      exit 1
-    else
-      echo "Token is present."
-    fi
