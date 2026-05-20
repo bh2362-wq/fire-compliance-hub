@@ -1159,9 +1159,21 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                     Unlock Quote
                   </Button>
                 )}
+                {quotation && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => setDuplicateOpen(true)}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Duplicate
+                  </Button>
+                )}
               </div>
             </div>
           </DialogHeader>
+
 
           <div className="flex-1 overflow-y-auto px-6 py-4">
             {loading ? (
