@@ -573,7 +573,7 @@ function renderAIFillPlaceholders(xml: string, q: QuoteInput): string {
   // Sweep any remaining [Copilot: ...] markers so they don't leak into the
   // output — strip the marker text but preserve the surrounding paragraph
   // (renders as empty whitespace).
-  x = x.replace(/(<w:t[^>]*>)([^<]*?)\[Copilot:[^\]]*\]([^<]*?)(<\/w:t>)/g, "$1$2$3$4");
+  x = x.replace(/(<w:t(?:\s[^>]*)?>)([^<]*?)\[Copilot:[^\]]*\]([^<]*?)(<\/w:t>)/g, "$1$2$3$4");
   return x;
 }
 
