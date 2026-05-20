@@ -35,6 +35,34 @@ const WORKS_TYPES = [
   { value: "certification", label: "Certification" },
 ];
 
+// Must match the quotations_building_type_check DB constraint exactly.
+const BUILDING_TYPES = [
+  { value: "hotel", label: "Hotel" },
+  { value: "serviced_apartments", label: "Serviced apartments" },
+  { value: "school_primary", label: "School — primary" },
+  { value: "school_secondary", label: "School — secondary" },
+  { value: "further_education", label: "Further education" },
+  { value: "higher_education", label: "Higher education" },
+  { value: "healthcare_acute", label: "Healthcare — acute" },
+  { value: "healthcare_care_home", label: "Care home" },
+  { value: "office_commercial", label: "Office / commercial" },
+  { value: "retail", label: "Retail" },
+  { value: "industrial_warehouse", label: "Industrial / warehouse" },
+  { value: "residential_hmo", label: "Residential — HMO" },
+  { value: "residential_block", label: "Residential block" },
+  { value: "gov_central", label: "Government — central" },
+  { value: "gov_local_authority", label: "Government — local authority" },
+  { value: "mod_defence", label: "MOD / defence" },
+  { value: "fcdo_diplomatic", label: "FCDO / diplomatic" },
+  { value: "data_centre", label: "Data centre" },
+  { value: "leisure_hospitality", label: "Leisure / hospitality" },
+  { value: "transport", label: "Transport" },
+  { value: "other", label: "Other" },
+];
+const BUILDING_TYPE_VALUES = new Set(BUILDING_TYPES.map(b => b.value));
+const coerceBuildingType = (v: string | null | undefined): string =>
+  v && BUILDING_TYPE_VALUES.has(v) ? v : "";
+
 // Infer works type from quotation title + line item descriptions.
 // Returns null when no keyword matches — caller must force user to choose.
 function inferWorksType(title: string | null | undefined, lineItemDescriptions: string[]): string | null {
