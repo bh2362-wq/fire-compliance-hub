@@ -865,6 +865,10 @@ const Quotations = () => {
           }}
           quotationId={selectedQuotation.id}
           onUpdate={fetchQuotations}
+          onDuplicated={(newQ) => {
+            fetchQuotations();
+            setSelectedQuotation({ id: newQ.id, quotation_number: newQ.quotation_number } as any);
+          }}
         />
       )}
 
