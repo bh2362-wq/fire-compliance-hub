@@ -15,6 +15,7 @@ import {
   Merge,
   LockOpen,
   GripVertical,
+  Copy,
 } from "lucide-react";
 import {
   DndContext,
