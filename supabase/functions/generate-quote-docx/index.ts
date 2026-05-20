@@ -835,8 +835,17 @@ Deno.serve(async (req) => {
       .from("quote-assets").download("master-template.docx");
     if (tmplErr || !templateBlob) {
       throw new Error(
-        "Master template not found at quote-assets/master-template.docx. " +
-        "Upload BHO_Quote_Template_Verdana.docx via Admin → Quote Settings.",
+        "DOCX generation temporarily unavailable — template restore in progress. " +
+        "Please try again later or contact an administrator.",
+      );
+    }
+    // Zero-byte template = upload corruption. Don't try to unzip — JSZip would
+    // throw a cryptic "end of central directory" error that masks the real issue.
+    const templateBytes = await templateBlob.arrayBuffer();
+    if (templateBytes.byteLength === 0) {
+      throw new Error(
+        "DOCX generation temporarily unavailable — template restore in progress. " +
+        "The master template at quote-assets/master-template.docx is empty (0 bytes).",
       );
     }
 
@@ -844,7 +853,7 @@ Deno.serve(async (req) => {
     const { issuer, ctx } = await loadQuotationData(quote.quotation_id, supabase);
 
     // 3. Unzip + read document.xml.
-    const zip = await JSZip.loadAsync(await templateBlob.arrayBuffer());
+    const zip = await JSZip.loadAsync(templateBytes);
     const documentFile = zip.file("word/document.xml");
     if (!documentFile) throw new Error("Template is missing word/document.xml — file is not a valid .docx");
     let xml = await documentFile.async("string");
