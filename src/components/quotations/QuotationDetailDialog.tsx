@@ -330,6 +330,33 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     }
   };
 
+  const handleInheritMetadata = async () => {
+    if (!quotation?.site_id) {
+      toast.error("Quote has no linked site");
+      return;
+    }
+    setInheritingMetadata(true);
+    try {
+      const inherited = await inheritMetadataFromPriorQuote(quotation.site_id, quotationId);
+      if (inherited.fieldsFound.length === 0) {
+        toast.info("No prior quote on this site has metadata to inherit");
+        return;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from("quotations").update(inherited.values as any).eq("id", quotationId);
+      if (error) throw error;
+      toast.success(
+        `Inherited ${inherited.fieldsFound.length} field${inherited.fieldsFound.length !== 1 ? "s" : ""} from ${inherited.sourceQuotationNumber ?? "previous quote"}`,
+      );
+      await fetchQuotation();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to inherit metadata";
+      toast.error(msg);
+    } finally {
+      setInheritingMetadata(false);
+    }
+  };
+
   const handleItemChange = (index: number, field: keyof LineItem, value: any) => {
     const updated = [...lineItems];
     updated[index] = { ...updated[index], [field]: value };
