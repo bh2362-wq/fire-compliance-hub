@@ -157,7 +157,7 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     if (!manufacturer && siteIntel.panel?.manufacturer) { setManufacturer(siteIntel.panel.manufacturer); touched++; }
     if (!panelType    && siteIntel.panel?.model)        { setPanelType(siteIntel.panel.model);          touched++; }
     if (!loops        && siteIntel.panel?.loops_count)  { setLoops(String(siteIntel.panel.loops_count)); touched++; }
-    if (!buildingType && siteIntel.building?.type)      { setBuildingType(siteIntel.building.type);     touched++; }
+    if (!buildingType && siteIntel.building?.type) { const bt = coerceBuildingType(siteIntel.building.type); if (bt) { setBuildingType(bt); touched++; } }
     if (siteIntel.building?.occupancy && occupancy === "non_sleeping") { setOccupancy(siteIntel.building.occupancy); touched++; }
     if (!storeys      && siteIntel.building?.storeys)   { setStoreys(String(siteIntel.building.storeys)); touched++; }
     if (siteIntel.contract?.category && category === "L2") { const c: any = siteIntel.contract.category; setCategory(Array.isArray(c) ? (c[0] ?? "L2") : c); touched++; }
