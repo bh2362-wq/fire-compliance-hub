@@ -211,7 +211,7 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
         storeys: storeys ? Number(storeys) : null,
         system_manufacturer: manufacturer || null,
         system_panel: panelType || null,
-        bs5839_category: category,
+        bs5839_category: Array.isArray(category) ? (category[0] ?? null) : (category || null),
         loop_count: loops ? Number(loops) : null,
         building_type: buildingType || null,
         system_features: { wireless, voice_alarm: voiceAlarm, bms_interface: bmsInterface, arc_signal: arcSignal, lift_recall: liftRecall },
