@@ -823,6 +823,51 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
   };
 }
 
+// ── §2.2 Works Included — bullet swap per works_type ───────────────────────
+//
+// The master template hardcodes 8 install-flavoured bullets in §2.2 (see
+// TEMPLATE_WORKS_BULLETS). For any non-install job type those bullets are
+// misleading. This rewrites the block in place using WORKS_INCLUDED_BY_TYPE.
+// Unknown / null worksType keeps the template bullets (safe — they describe
+// a new install).
+function rewriteWorksBullets(xml: string, worksType: string | null): string {
+  if (!worksType) return xml;
+  const replacement = WORKS_INCLUDED_BY_TYPE[worksType];
+  if (!replacement?.length) return xml;
+
+  // Anchor on the first template bullet's <w:p>; absorb every subsequent
+  // template bullet paragraph up to the last one we can locate.
+  const firstBulletEsc = xmlEscapeSearch(TEMPLATE_WORKS_BULLETS[0]);
+  const firstIdx = xml.indexOf(firstBulletEsc);
+  if (firstIdx < 0) return xml;
+  const blockStart = findEnclosingWpStart(xml, firstIdx);
+  if (blockStart < 0) return xml;
+
+  const firstPEnd = xml.indexOf("</w:p>", firstIdx) + "</w:p>".length;
+  let blockEnd = firstPEnd;
+  let cursor = firstPEnd;
+  for (let i = 1; i < TEMPLATE_WORKS_BULLETS.length; i++) {
+    const idx = xml.indexOf(xmlEscapeSearch(TEMPLATE_WORKS_BULLETS[i]), cursor);
+    if (idx < 0) continue;
+    const pEnd = xml.indexOf("</w:p>", idx) + "</w:p>".length;
+    if (pEnd <= 0) break;
+    blockEnd = pEnd;
+    cursor = pEnd;
+  }
+
+  // Clone the first bullet's whole <w:p> as the paragraph template so
+  // numbering ref, indent, list style and run formatting all survive.
+  const templatePara = xml.substring(blockStart, firstPEnd);
+  const reBulletText = new RegExp(
+    `(<w:t(?:\\s[^>]*)?>)${firstBulletEsc.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(</w:t>)`,
+  );
+  const newParas = replacement
+    .map((text) => templatePara.replace(reBulletText, `$1${escapeXmlText(text)}$2`))
+    .join("");
+
+  return xml.substring(0, blockStart) + newParas + xml.substring(blockEnd);
+}
+
 // ── §2.2 Detailed Scope renderer (replaces "Works Included" approach) ──────
 //
 // Template has §2.2 with just a [Copilot: Add project-specific items …]
