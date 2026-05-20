@@ -340,6 +340,12 @@ function removeSectionUntilNext(xml: string, headingMatch: string, untilNext: st
 // the text. Run on document.xml load so all downstream placeholder searches
 // see whole-string nodes.
 function mergeAdjacentRuns(xml: string): string {
+  // Strip proofErr markers first — Word inserts <w:proofErr w:type="spellStart"/>
+  // etc. between runs, which prevents otherwise-adjacent identical runs from
+  // merging. Removing them lets split placeholders like "[e.g. Gent S-Quad /
+  // Vigilon]" collapse into a single text node.
+  let curr = xml.replace(/<w:proofErr[^>]*\/>/g, "");
+
   // Pattern: capture rPr, capture text1, then a second run with identical rPr
   // and text2. Replace with a single run whose text is text1+text2.
   // Iterated to convergence — a 4-run split needs 3 passes.
@@ -347,7 +353,6 @@ function mergeAdjacentRuns(xml: string): string {
   // Also handle runs with no rPr at all.
   const reNoRpr = /<w:r><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
   let prev = "";
-  let curr = xml;
   let guard = 30; // worst-case 30 passes per file; placeholders rarely split more
   while (curr !== prev && guard-- > 0) {
     prev = curr;
