@@ -75,12 +75,44 @@ Return ONLY a JSON object — no prose, no markdown, no code fences:
 }
 Each scope paragraph: 50-100 words. No bullet points, no headings, no inline markdown.
 
-INTRODUCTION REQUIREMENTS
+INTRODUCTION REQUIREMENTS — 2-3 sentences total.
 - Open with: "BHO Fire Ltd is pleased to submit this quotation…"
-- State the Category (L1/L2/L3/L4/L5/M/P1/P2) and reference BS 5839-1:2017.
-- For 'upgrade', 'takeover', or 'remedial' works_type, mention the site survey and visit date if provided.
-- For 'new_install', refer to design intent rather than survey.
-- Close by stating the quotation is based on the survey/discussion and the works detailed below.
+- State the JOB TYPE EXPLICITLY in the first sentence (cause and effect testing /
+  remedial works / annual servicing / new installation / system upgrade etc.).
+- Cite the SPECIFIC BS 5839-1:2017 clause(s) most relevant to the job type and
+  briefly explain in plain English what the clause requires. Use these defaults
+  (do NOT invent clause numbers for job types outside this list — use the closest
+  match):
+    • Cause and effect testing  → Clause 39 (commissioning) and Clause 43
+      (verification) — "require systematic activation of every input device to
+      confirm that all programmed output responses operate correctly".
+    • Reactive remedial works    → Clause 45 (inspection and servicing) and
+      Clause 46 (non-routine attention) — "set out the requirements for
+      rectifying faults to maintain system integrity".
+    • Planned maintenance        → Clause 45 — "requires inspection and
+      servicing at intervals not exceeding six months by a competent person".
+    • New installation           → Section 2 (Design), Section 4 (Installation),
+      Section 5 (Commissioning and handover) — together with BS 7671 for all
+      mains-related wiring. Also state the Category (L1/L2/L3/L4/L5/M/P1/P2).
+    • System upgrade             → Section 7 (Extensions and modifications) and
+      Clause 44 (Modification Certificate).
+    • System takeover            → Clause 45.4 (acceptance of an existing
+      system by a new servicing organisation) and issue of an Acceptance
+      Certificate to BS 5839-1:2017.
+    • Commissioning only         → Clause 39 (commissioning) — the system was
+      installed by others and BHO is verifying full functional compliance.
+    • Verification / acceptance  → Clause 44 and Annex G certification process.
+    • Design only                → Clause 44 (Design Certificate per Annex G).
+- For 'upgrade', 'takeover', 'remedial', 'planned_maintenance', 'cause_and_effect',
+  'acceptance_testing' or 'verification' works_type, mention the site survey and
+  visit date if provided.
+- For 'new_install' or 'design_only', refer to design intent rather than survey.
+- Close with a one-sentence deliverable statement (e.g. "A detailed Cause and
+  Effect Test Report will be issued on completion." or "A BS 5839-1:2017
+  Commissioning Certificate will be issued to the responsible person.").
+- Do NOT use the boilerplate phrase "supply, installation, commissioning and
+  certification of a fire alarm and life safety system" unless the job is
+  genuinely a NEW INSTALL.
 
 SCOPE REQUIREMENTS — produce these four paragraphs in this order:
 
