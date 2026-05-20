@@ -275,7 +275,9 @@ function replaceAllWtText(xml: string, placeholder: string, value: string): stri
   // Search the XML for the entity-escaped form of the placeholder so & in the
   // source string finds &amp; in the document.
   const safe = xmlEscapeSearch(placeholder).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`(<w:t[^>]*>)([^<]*?)${safe}([^<]*?)(</w:t>)`, "g");
+  // `<w:t[^>]*>` would also match `<w:tcPr>`, `<w:tcW>`, etc. — restrict to
+  // genuine `<w:t>` / `<w:t ...>` elements.
+  const re = new RegExp(`(<w:t(?:\\s[^>]*)?>)([^<]*?)${safe}([^<]*?)(</w:t>)`, "g");
   return xml.replace(re, (_m, openTag, before, after, closeTag) =>
     `${openTag}${before}${escapeXmlText(value)}${after}${closeTag}`,
   );
