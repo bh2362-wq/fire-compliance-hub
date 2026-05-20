@@ -82,7 +82,13 @@ export function quotationToQuoteInput(q: QuotationFull) {
     items: (q.quotation_line_items ?? [])
       .slice()
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-      .map((li) => ({ desc: li.description, qty: li.quantity ?? 1, unit: li.unit_price ?? 0 })),
+      .map((li) => {
+        const qty = li.quantity ?? 1;
+        const unit = (li.unit_price ?? 0) > 0
+          ? (li.unit_price as number)
+          : (li.total_price && qty > 0 ? Number(li.total_price) / qty : 0);
+        return { desc: li.description, qty, unit };
+      }),
     assumptions: q.assumptions ?? [],
     exclusions: q.exclusions ?? [],
     // VAT is stored as whole-number percent (e.g. 20) per DB convention.
