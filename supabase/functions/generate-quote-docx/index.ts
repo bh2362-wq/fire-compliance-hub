@@ -897,6 +897,10 @@ Deno.serve(async (req) => {
       );
     } else {
       xml = removeSectionUntilNext(xml, "6. PROGRAMME", "7. PAYMENT TERMS");
+      // §6 removed — renumber subsequent headings to close the gap (7→6, 8→7, 9→8).
+      xml = replaceAllWtText(xml, "7. PAYMENT TERMS", "6. PAYMENT TERMS");
+      xml = replaceAllWtText(xml, "8. STANDARDS & ACCREDITATIONS", "7. STANDARDS & ACCREDITATIONS");
+      xml = replaceAllWtText(xml, "9. QUOTATION VALIDITY & ACCEPTANCE", "8. QUOTATION VALIDITY & ACCEPTANCE");
     }
     xml = renderPricingRows(xml, items);
 
