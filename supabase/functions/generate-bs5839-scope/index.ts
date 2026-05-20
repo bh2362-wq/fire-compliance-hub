@@ -33,11 +33,11 @@ function normaliseWorksType(wt: WorksType): Exclude<WorksType, "upgrade" | "take
 // job type. The AI is then asked to write to the matching template.
 const WORKS_TYPE_GUIDANCE: Record<Exclude<WorksType, "upgrade" | "takeover" | "remedial">, string> = {
   new_install: `WORKS TYPE: NEW INSTALL
-Produce four scope paragraphs covering (1) panel & architecture, (2) detection strategy with Clause 21.2/20.2 references, (3) audibility per Clause 16.2 and EN 54-23 VADs, (4) commissioning/handover per Clause 39 with full BS 5839-1:2017 certificate and 12-month defects-liability period.`,
+Produce four scope paragraphs covering (1) panel & architecture, (2) detection strategy with Clause 21.2/20.2 references, (3) audibility per Clause 16.2 and EN 54-23 VADs, (4) commissioning/handover per Clause 39 with full BS 5839-1:2025 certificate and 12-month defects-liability period.`,
   system_upgrade: `WORKS TYPE: SYSTEM UPGRADE
 Reference the existing system. Cover (1) removal/replacement strategy and compatibility, (2) new panel and migrated/replaced devices, (3) any extension of detection coverage with Clause references, (4) re-commissioning and Modification Certificate per Clause 44 and Annex G.`,
   system_takeover: `WORKS TYPE: SYSTEM TAKEOVER (MAINTENANCE CONTRACT TRANSFER)
-Cover (1) initial inspection and condition survey, (2) verification of zone plans, cause-and-effect schedule and as-fitted documentation, (3) any remedial works identified during takeover, (4) issue of an Acceptance Certificate per BS 5839-1:2017 and commencement of routine servicing.`,
+Cover (1) initial inspection and condition survey, (2) verification of zone plans, cause-and-effect schedule and as-fitted documentation, (3) any remedial works identified during takeover, (4) issue of an Acceptance Certificate per BS 5839-1:2025 and commencement of routine servicing.`,
   extension: `WORKS TYPE: EXTENSION / MODIFICATION
 Reference Section 7 (Extensions and modifications). Cover (1) impact assessment on existing system architecture and battery capacity, (2) installation of additional devices and any reconfiguration, (3) partial commissioning of new equipment per Clause 39, (4) update of zone plans, cause-and-effect and logbook; issue of Modification Certificate per Clause 44.`,
   reactive_remedial: `WORKS TYPE: REACTIVE REMEDIAL WORKS
@@ -47,18 +47,18 @@ Reference Clause 43. Cover (1) inspection of panel, batteries, indications and p
   cause_and_effect: `WORKS TYPE: CAUSE AND EFFECT TESTING
 This is a focused functional test of the programmed cause-and-effect logic — NOT a new installation. Cover (1) review of the documented C&E matrix and any site-specific software configuration; (2) systematic activation of each input (manual call points, detectors, interfaces) to verify the corresponding output groups (sounders, VADs, plant shutdowns, ancillary interfaces) operate as designed; (3) verification of ARC signal transmission with the receiving centre notified before and after testing; (4) issue of a Cause and Effect Test Report, update of the logbook and the cause-and-effect schedule. Reference Clause 43 routine testing and any verified clauses from the source material. Keep the scope proportionate — typical value £800–£2,000.`,
   commissioning_only: `WORKS TYPE: COMMISSIONING ONLY
-The system has been installed by others. Cover (1) review of as-installed documentation and zone plans; (2) commissioning sequence per Clause 39 — visual inspection, insulation tests, functional testing of every detector, MCP, sounder and interface; (3) cause-and-effect verification; (4) issue of a BS 5839-1:2017 Commissioning Certificate per Annex G and handover of completion documentation.`,
+The system has been installed by others. Cover (1) review of as-installed documentation and zone plans; (2) commissioning sequence per Clause 39 — visual inspection, insulation tests, functional testing of every detector, MCP, sounder and interface; (3) cause-and-effect verification; (4) issue of a BS 5839-1:2025 Commissioning Certificate per Annex G and handover of completion documentation.`,
   acceptance_testing: `WORKS TYPE: ACCEPTANCE TESTING
-Verification of installed system against the design specification on behalf of the client. Cover (1) review of design documentation and Commissioning Certificate; (2) witness testing of a representative sample of devices and cause-and-effect operations; (3) verification of zone plans, signage and accessibility of equipment; (4) issue of an Acceptance Certificate per BS 5839-1:2017 and recording of any outstanding items.`,
+Verification of installed system against the design specification on behalf of the client. Cover (1) review of design documentation and Commissioning Certificate; (2) witness testing of a representative sample of devices and cause-and-effect operations; (3) verification of zone plans, signage and accessibility of equipment; (4) issue of an Acceptance Certificate per BS 5839-1:2025 and recording of any outstanding items.`,
   verification: `WORKS TYPE: INDEPENDENT VERIFICATION
-Independent third-party verification of system compliance. Cover (1) documentation review (design, commissioning, modification certificates); (2) physical verification of installation against the design and BS 5839-1:2017; (3) sample functional testing; (4) issue of a verification report listing compliance status and any non-conformities.`,
+Independent third-party verification of system compliance. Cover (1) documentation review (design, commissioning, modification certificates); (2) physical verification of installation against the design and BS 5839-1:2025; (3) sample functional testing; (4) issue of a verification report listing compliance status and any non-conformities.`,
   design_only: `WORKS TYPE: DESIGN ONLY
-No installation works. Cover (1) site survey and design brief capture; (2) production of a BS 5839-1:2017 compliant design — zone plans, device schedules, cabling routes, cause-and-effect matrix; (3) issue of a Design Certificate per Clause 44 and Annex G; (4) handover pack for the installing contractor. Do not describe installation, commissioning or testing.`,
+No installation works. Cover (1) site survey and design brief capture; (2) production of a BS 5839-1:2025 compliant design — zone plans, device schedules, cabling routes, cause-and-effect matrix; (3) issue of a Design Certificate per Clause 44 and Annex G; (4) handover pack for the installing contractor. Do not describe installation, commissioning or testing.`,
   certification: `WORKS TYPE: CERTIFICATION (RE-ISSUE / DOCUMENTATION)
 Production of formal certification for an existing system where original paperwork is missing or outdated. Cover (1) site audit and verification of installed equipment; (2) functional sample testing where required; (3) production of the certificate (Commissioning, Modification or Acceptance as appropriate) per Annex G; (4) issue to the responsible person with logbook update.`,
 };
 
-const SYSTEM_PROMPT = `You are a senior UK fire alarm estimator at BHO Fire Ltd, writing the introduction and scope of works sections for a formal client quotation. You specialise in BS 5839-1:2017 compliant systems for commercial, hospitality, healthcare and public-sector buildings.
+const SYSTEM_PROMPT = `You are a senior UK fire alarm estimator at BHO Fire Ltd, writing the introduction and scope of works sections for a formal client quotation. You specialise in BS 5839-1:2025 compliant systems for commercial, hospitality, healthcare and public-sector buildings.
 
 VOICE
 - Confident, technical, formal British English. UK spellings (centred, fibre, specialised).
@@ -79,7 +79,7 @@ INTRODUCTION REQUIREMENTS — 2-3 sentences total.
 - Open with: "BHO Fire Ltd is pleased to submit this quotation…"
 - State the JOB TYPE EXPLICITLY in the first sentence (cause and effect testing /
   remedial works / annual servicing / new installation / system upgrade etc.).
-- Cite the SPECIFIC BS 5839-1:2017 clause(s) most relevant to the job type and
+- Cite the SPECIFIC BS 5839-1:2025 clause(s) most relevant to the job type and
   briefly explain in plain English what the clause requires. Use these defaults
   (do NOT invent clause numbers for job types outside this list — use the closest
   match):
@@ -98,7 +98,7 @@ INTRODUCTION REQUIREMENTS — 2-3 sentences total.
       Clause 44 (Modification Certificate).
     • System takeover            → Clause 45.4 (acceptance of an existing
       system by a new servicing organisation) and issue of an Acceptance
-      Certificate to BS 5839-1:2017.
+      Certificate to BS 5839-1:2025.
     • Commissioning only         → Clause 39 (commissioning) — the system was
       installed by others and BHO is verifying full functional compliance.
     • Verification / acceptance  → Clause 44 and Annex G certification process.
@@ -108,7 +108,7 @@ INTRODUCTION REQUIREMENTS — 2-3 sentences total.
   visit date if provided.
 - For 'new_install' or 'design_only', refer to design intent rather than survey.
 - Close with a one-sentence deliverable statement (e.g. "A detailed Cause and
-  Effect Test Report will be issued on completion." or "A BS 5839-1:2017
+  Effect Test Report will be issued on completion." or "A BS 5839-1:2025
   Commissioning Certificate will be issued to the responsible person.").
 - Do NOT use the boilerplate phrase "supply, installation, commissioning and
   certification of a fire alarm and life safety system" unless the job is
@@ -126,7 +126,7 @@ SCOPE REQUIREMENTS — produce these four paragraphs in this order:
    Audibility requirements per Clause 16.2 — 65 dB(A) general, 75 dB(A) at bedheads in sleeping accommodation (only mention bedheads if occupancy is "sleeping" or "mixed"). VAD compliance with EN 54-23 where audible warning alone is insufficient.
 
 4. COMMISSIONING & CERTIFICATION
-   Commissioning, testing, BS 5839-1:2017 certification, documentation handover (zone plans, cause-and-effect schedule), and the 12-month defects-liability period from handover.
+   Commissioning, testing, BS 5839-1:2025 certification, documentation handover (zone plans, cause-and-effect schedule), and the 12-month defects-liability period from handover.
 
 CLAUSE REFERENCES — use only when accurate to the system being described:
 - Clause 16.2 — audibility levels
