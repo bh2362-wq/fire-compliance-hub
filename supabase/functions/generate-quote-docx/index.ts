@@ -773,15 +773,29 @@ interface QuotationLookup {
 async function loadQuotationData(quotationId: string | undefined, supabase: SupabaseClient): Promise<QuotationLookup> {
   const empty: QuotationLookup = {
     issuer: { name: "", position: "", email: "", direct: "" },
-    ctx: { worksType: null },
+    ctx: {
+      worksType: null,
+      systemManufacturer: null,
+      systemType: null,
+      systemPanel: null,
+      bs5839Category: null,
+    },
   };
   if (!quotationId) return empty;
   const { data: q } = await supabase
     .from("quotations")
-    .select("created_by, works_type")
+    .select("created_by, works_type, system_manufacturer, system_type, system_panel, bs5839_category")
     .eq("id", quotationId)
     .maybeSingle();
-  const quotation = (q as { created_by?: string; works_type?: string | null } | null) ?? null;
+  type QuotationRow = {
+    created_by?: string;
+    works_type?: string | null;
+    system_manufacturer?: string | null;
+    system_type?: string | null;
+    system_panel?: string | null;
+    bs5839_category?: string | null;
+  };
+  const quotation = (q as QuotationRow | null) ?? null;
   if (!quotation) return empty;
   let profile: { full_name?: string | null; email?: string | null } | null = null;
   if (quotation.created_by) {
@@ -799,7 +813,13 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
       email: profile?.email?.trim() ?? "",
       direct: "",                                       // not in schema; omit by default
     },
-    ctx: { worksType: quotation.works_type ?? null },
+    ctx: {
+      worksType: quotation.works_type ?? null,
+      systemManufacturer: quotation.system_manufacturer ?? null,
+      systemType: quotation.system_type ?? null,
+      systemPanel: quotation.system_panel ?? null,
+      bs5839Category: quotation.bs5839_category ?? null,
+    },
   };
 }
 
