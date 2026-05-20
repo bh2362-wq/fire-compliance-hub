@@ -92,14 +92,15 @@ Deno.serve(async (req) => {
     const docxBytes = new Uint8Array(await docxBlob.arrayBuffer());
 
     const token = await getGraphToken(cfg);
+    const driveId = await getUserDriveId(token, cfg.conversionUser);
     const fileName = `${crypto.randomUUID()}.docx`;
-    const itemId = await uploadToGraph(token, cfg.conversionUser, fileName, docxBytes);
+    const itemId = await uploadToGraph(token, driveId, fileName, docxBytes);
 
     let pdfBytes: Uint8Array;
     try {
-      pdfBytes = await downloadAsPdf(token, cfg.conversionUser, itemId);
+      pdfBytes = await downloadAsPdf(token, driveId, itemId);
     } finally {
-      await deleteFromGraph(token, cfg.conversionUser, itemId);
+      await deleteFromGraph(token, driveId, itemId);
     }
 
     const pdfStoragePath = docx_storage_path.replace(/\.docx$/i, ".pdf");
