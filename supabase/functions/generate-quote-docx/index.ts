@@ -7,19 +7,45 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 interface QuoteItem { desc: string; qty: number; unit: number; }
 
+// Sectioned line item — mirrors quotation_line_items rows. A section row
+// is a header; subsequent non-section rows belong to that section until
+// the next section row.
+interface SectionedLineItem {
+  is_section: boolean;
+  title?: string | null;
+  description?: string;
+  quantity?: number;
+  unit_price?: number;
+  total_price?: number;
+}
+
 interface QuoteInput {
   ref: string;
   issued_date: string;
   valid_until: string;
   project_title: string;
   client: { company: string; contact: string; address: string };
-  introduction: string;
-  scope: string[];
-  items: QuoteItem[];
-  assumptions: string[];
-  exclusions: string[];
+
+  // Scope: prefer markdown narrative; fall back to string[] for legacy callers.
+  scope_content?: string;
+  scope?: string[];
+
+  // Line items: prefer sectioned list; fall back to flat items for legacy callers.
+  line_items?: SectionedLineItem[];
+  items?: QuoteItem[];
+
+  // Optional context blocks — sections are skipped if absent.
+  introduction?: string;
+  assumptions?: string[];
+  exclusions?: string[];
+
   vat_rate?: number;
   quotation_id?: string;
+}
+
+interface SectionGroup {
+  header: SectionedLineItem | null; // null = ungrouped items at the top
+  items: SectionedLineItem[];
 }
 
 const RED       = "EB1D23";
@@ -70,12 +96,120 @@ function normalizeVatFraction(raw: number | null | undefined, ref?: string): num
   return fraction;
 }
 
+// ── Helpers for the new sectioned/markdown payload ───────────────────────────
+
+// Parse Claude-style markdown numbered list ("1. **Heading.** narrative…")
+// into one Paragraph per numbered item. Bold spans (**text**) are preserved
+// as bold TextRuns. Anything that isn't a numbered line gets emitted as a
+// plain body paragraph (handles preamble lines if the model adds them).
+function parseScopeMarkdown(md: string): Paragraph[] {
+  const trimmed = md.replace(/\r\n/g, "\n").trim();
+  if (!trimmed) return [];
+
+  // Split into chunks at the start of each "N. " line so multi-line items
+  // (a numbered item with wrapped lines) stay together.
+  const chunks: string[] = [];
+  const lines = trimmed.split("\n");
+  let buf: string[] = [];
+  const flush = () => { if (buf.length) { chunks.push(buf.join(" ").trim()); buf = []; } };
+  for (const line of lines) {
+    if (/^\s*\d+\.\s+/.test(line)) {
+      flush();
+      buf.push(line.trim());
+    } else if (line.trim().length === 0) {
+      flush();
+    } else {
+      buf.push(line.trim());
+    }
+  }
+  flush();
+
+  return chunks
+    .filter((c) => c.length > 0)
+    .map((chunk) => renderMarkdownParagraph(chunk));
+}
+
+function renderMarkdownParagraph(chunk: string): Paragraph {
+  const runs: TextRun[] = [];
+  // Split on **bold** spans, preserve order.
+  const parts = chunk.split(/(\*\*[^*]+\*\*)/g);
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.startsWith("**") && part.endsWith("**")) {
+      runs.push(new TextRun({ text: part.slice(2, -2), font: BODY_FONT, color: BLACK, size: 22, bold: true }));
+    } else {
+      runs.push(new TextRun({ text: part, font: BODY_FONT, color: BLACK, size: 22 }));
+    }
+  }
+  return new Paragraph({
+    children: runs,
+    alignment: AlignmentType.JUSTIFIED,
+    spacing: { after: 160, line: 320 },
+  });
+}
+
+// Group sectioned line items into header + items pairs. Items that appear
+// before the first section header are collected and appended at the end
+// under a synthetic "Other" header so the rendered DOCX always presents
+// sections first, ungrouped items last (Option 2 layout).
+function groupLineItems(items: SectionedLineItem[]): SectionGroup[] {
+  const sections: SectionGroup[] = [];
+  const ungrouped: SectionedLineItem[] = [];
+  let current: SectionGroup | null = null;
+  for (const li of items) {
+    if (li.is_section) {
+      current = { header: li, items: [] };
+      sections.push(current);
+    } else if (current) {
+      current.items.push(li);
+    } else {
+      ungrouped.push(li);
+    }
+  }
+  if (ungrouped.length > 0) {
+    sections.push({
+      header: { is_section: true, title: "Other", description: "Other" },
+      items: ungrouped,
+    });
+  }
+  return sections;
+}
+
+// Smart-default subtotal rule: only show per-section subtotals when there
+// are 2+ sections with 3+ items each. Single-section or sparse quotes stay
+// clean with just a grand total.
+function shouldShowSubtotals(groups: SectionGroup[]): boolean {
+  const sections = groups.filter((g) => g.header !== null);
+  return sections.length >= 2 && sections.every((g) => g.items.length >= 3);
+}
+
+function lineTotal(it: SectionedLineItem): number {
+  if (typeof it.total_price === "number" && it.total_price > 0) return it.total_price;
+  return (Number(it.quantity) || 0) * (Number(it.unit_price) || 0);
+}
+
+// ── Document builder ──────────────────────────────────────────────────────────
+
 function buildDocument(q: QuoteInput, logo: ArrayBuffer): Document {
   const vatFraction = normalizeVatFraction(q.vat_rate, q.ref);
-  const subtotal = q.items.reduce((s, it) => s + it.qty * it.unit, 0);
+  const vatRate = vatFraction; // backwards-compatible alias for label below
+
+  // Normalise either input shape to a single groups[] structure. The legacy
+  // flat `items` shape becomes one ungrouped section that the renderer
+  // collapses into a header-less table.
+  const sectionedSource: SectionedLineItem[] = Array.isArray(q.line_items) && q.line_items.length > 0
+    ? q.line_items
+    : (q.items ?? []).map((it) => ({
+        is_section: false,
+        description: it.desc,
+        quantity: it.qty,
+        unit_price: it.unit,
+      }));
+  const groups = groupLineItems(sectionedSource);
+  const showSubtotals = shouldShowSubtotals(groups);
+  const subtotal = groups.reduce((s, g) => s + g.items.reduce((ss, it) => ss + lineTotal(it), 0), 0);
   const vat = subtotal * vatFraction;
   const total = subtotal + vat;
-  const vatRate = vatFraction; // backwards-compatible alias for label below
 
   const banner = new Table({
     width: { size: CONTENT_W, type: WidthType.DXA },
@@ -160,11 +294,22 @@ function buildDocument(q: QuoteInput, logo: ArrayBuffer): Document {
     new TableCell({ width: { size: 1363, type: WidthType.DXA }, borders: { ...priceBorders, bottom: MED() }, shading: { fill: BG_GREY, type: ShadingType.CLEAR, color: "auto" }, margins: { top: 100, bottom: 100, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "NET £", font: BODY_FONT, size: 18, bold: true, color: BLACK, characterSpacing: 30 })] })] }),
   ] });
 
-  const priceItemRow = (it: QuoteItem) => new TableRow({ children: [
-    new TableCell({ width: { size: 5400, type: WidthType.DXA }, borders: priceBorders, margins: { top: 80, bottom: 80, left: 140, right: 140 }, children: [new Paragraph({ children: [text(it.desc)] })] }),
-    new TableCell({ width: { size: 900, type: WidthType.DXA }, borders: priceBorders, margins: { top: 80, bottom: 80, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [text(String(it.qty))] })] }),
-    new TableCell({ width: { size: 1363, type: WidthType.DXA }, borders: priceBorders, margins: { top: 80, bottom: 80, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [text(gbp(it.unit))] })] }),
-    new TableCell({ width: { size: 1363, type: WidthType.DXA }, borders: priceBorders, margins: { top: 80, bottom: 80, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [text(gbp(it.qty * it.unit))] })] }),
+  const priceItemRow = (it: SectionedLineItem) => new TableRow({ children: [
+    new TableCell({ width: { size: 5400, type: WidthType.DXA }, borders: priceBorders, margins: { top: 80, bottom: 80, left: 140, right: 140 }, children: [new Paragraph({ children: [text(it.description ?? "")] })] }),
+    new TableCell({ width: { size: 900, type: WidthType.DXA }, borders: priceBorders, margins: { top: 80, bottom: 80, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [text(String(it.quantity ?? 0))] })] }),
+    new TableCell({ width: { size: 1363, type: WidthType.DXA }, borders: priceBorders, margins: { top: 80, bottom: 80, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [text(gbp(it.unit_price ?? 0))] })] }),
+    new TableCell({ width: { size: 1363, type: WidthType.DXA }, borders: priceBorders, margins: { top: 80, bottom: 80, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [text(gbp(lineTotal(it)))] })] }),
+  ] });
+
+  const sectionHeaderRow = (title: string) => new TableRow({ children: [
+    new TableCell({
+      width: { size: CONTENT_W, type: WidthType.DXA },
+      columnSpan: 4,
+      borders: { ...priceBorders, top: MED(), bottom: THIN() },
+      shading: { fill: BG_GREY, type: ShadingType.CLEAR, color: "auto" },
+      margins: { top: 100, bottom: 100, left: 140, right: 140 },
+      children: [new Paragraph({ children: [new TextRun({ text: title, font: BODY_FONT, size: 20, bold: true, color: BLACK, characterSpacing: 30 })] })],
+    }),
   ] });
 
   const totalsRow = (label: string, value: number, bold = false, top = false) => new TableRow({ children: [
@@ -172,16 +317,27 @@ function buildDocument(q: QuoteInput, logo: ArrayBuffer): Document {
     new TableCell({ width: { size: 1363, type: WidthType.DXA }, borders: { ...priceBorders, top: top ? MED() : THIN() }, margins: { top: 80, bottom: 80, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: gbp(value), font: BODY_FONT, size: 22, color: BLACK, bold })] })] }),
   ] });
 
+  const priceRows: TableRow[] = [priceHeader];
+  for (const g of groups) {
+    // Only render a header row if the source actually had a section (skip
+    // for the legacy flat-items case where the synthetic header is absent).
+    if (g.header && (g.header.title || g.header.description)) {
+      priceRows.push(sectionHeaderRow(g.header.title ?? g.header.description ?? "Section"));
+    }
+    for (const it of g.items) priceRows.push(priceItemRow(it));
+    if (showSubtotals && g.items.length > 0 && g.header) {
+      const sectionTotal = g.items.reduce((s, it) => s + lineTotal(it), 0);
+      priceRows.push(totalsRow(`${g.header.title ?? "Section"} subtotal`, sectionTotal, false, false));
+    }
+  }
+  priceRows.push(totalsRow("Subtotal (excl. VAT)", subtotal, false, true));
+  priceRows.push(totalsRow(`VAT @ ${Math.round(vatRate * 100)}%`, vat, false, false));
+  priceRows.push(totalsRow("TOTAL (incl. VAT)", total, true, true));
+
   const priceTable = new Table({
     width: { size: CONTENT_W, type: WidthType.DXA },
     columnWidths: [5400, 900, 1363, 1363],
-    rows: [
-      priceHeader,
-      ...q.items.map(priceItemRow),
-      totalsRow("Subtotal (excl. VAT)", subtotal, false, true),
-      totalsRow(`VAT @ ${Math.round(vatRate * 100)}%`, vat, false, false),
-      totalsRow("TOTAL (incl. VAT)", total, true, true),
-    ],
+    rows: priceRows,
   });
 
   const acceptanceBox = new Table({
@@ -234,18 +390,53 @@ function buildDocument(q: QuoteInput, logo: ArrayBuffer): Document {
           new TextRun({ children: [PageNumber.TOTAL_PAGES], font: BODY_FONT, size: 14, color: MUTED }),
         ],
       })] }) },
-      children: [
-        banner, redRule, title, subtitle, refRow, blank(160), clientBox,
-        sectionHeading(1, "Introduction"), body(q.introduction),
-        sectionHeading(2, "Scope of Works"), ...q.scope.map(body),
-        sectionHeading(3, "Pricing Schedule", { pageBreakBefore: true }), priceTable, blank(80),
-        new Paragraph({ children: [new TextRun({ text: "All prices in pounds sterling. VAT charged at the prevailing rate.", font: BODY_FONT, size: 16, color: MUTED, italics: true })] }),
-        sectionHeading(4, "Assumptions"),
-        ...q.assumptions.map((a) => new Paragraph({ numbering: { reference: "bul", level: 0 }, children: [text(a)], spacing: { after: 100 } })),
-        sectionHeading(5, "Exclusions"),
-        ...q.exclusions.map((e) => new Paragraph({ numbering: { reference: "bul", level: 0 }, children: [text(e)], spacing: { after: 100 } })),
-        sectionHeading(6, "Acceptance", { pageBreakBefore: true }), acceptanceBox,
-      ],
+      children: (() => {
+        // Build the children list dynamically so empty sections (no
+        // introduction / no assumptions / no exclusions) don't leave a
+        // headed blank in the rendered document, and so section numbers
+        // stay sequential regardless of what's present.
+        const out: (Paragraph | Table)[] = [
+          banner, redRule, title, subtitle, refRow, blank(160), clientBox,
+        ];
+        let n = 0;
+
+        if (q.introduction && q.introduction.trim().length > 0) {
+          out.push(sectionHeading(++n, "Introduction"));
+          out.push(body(q.introduction));
+        }
+
+        // Scope: prefer markdown narrative when provided, fall back to
+        // the legacy string[] for older callers.
+        const scopeBlocks: Paragraph[] =
+          q.scope_content && q.scope_content.trim().length > 0
+            ? parseScopeMarkdown(q.scope_content)
+            : (q.scope ?? []).map(body);
+        if (scopeBlocks.length > 0) {
+          out.push(sectionHeading(++n, "Scope of Works"));
+          out.push(...scopeBlocks);
+        }
+
+        out.push(sectionHeading(++n, "Pricing Schedule", { pageBreakBefore: true }));
+        out.push(priceTable);
+        out.push(blank(80));
+        out.push(new Paragraph({ children: [new TextRun({ text: "All prices in pounds sterling. VAT charged at the prevailing rate.", font: BODY_FONT, size: 16, color: MUTED, italics: true })] }));
+
+        if (Array.isArray(q.assumptions) && q.assumptions.length > 0) {
+          out.push(sectionHeading(++n, "Assumptions"));
+          out.push(...q.assumptions.map((a) =>
+            new Paragraph({ numbering: { reference: "bul", level: 0 }, children: [text(a)], spacing: { after: 100 } })));
+        }
+
+        if (Array.isArray(q.exclusions) && q.exclusions.length > 0) {
+          out.push(sectionHeading(++n, "Exclusions"));
+          out.push(...q.exclusions.map((e) =>
+            new Paragraph({ numbering: { reference: "bul", level: 0 }, children: [text(e)], spacing: { after: 100 } })));
+        }
+
+        out.push(sectionHeading(++n, "Acceptance", { pageBreakBefore: true }));
+        out.push(acceptanceBox);
+        return out;
+      })(),
     }],
   });
 }
@@ -262,8 +453,14 @@ Deno.serve(async (req) => {
 
   try {
     const quote = (await req.json()) as QuoteInput;
-    const required: (keyof QuoteInput)[] = ["ref", "issued_date", "valid_until", "project_title", "client", "introduction", "scope", "items"];
+    const required: (keyof QuoteInput)[] = ["ref", "issued_date", "valid_until", "project_title", "client"];
     for (const k of required) if (quote[k] == null) throw new Error(`Missing required field: ${k}`);
+    const hasScope = (quote.scope_content && quote.scope_content.trim().length > 0)
+      || (Array.isArray(quote.scope) && quote.scope.length > 0);
+    if (!hasScope) throw new Error("Missing required field: scope_content or scope");
+    const hasItems = (Array.isArray(quote.line_items) && quote.line_items.length > 0)
+      || (Array.isArray(quote.items) && quote.items.length > 0);
+    if (!hasItems) throw new Error("Missing required field: line_items or items");
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing Authorization header");
