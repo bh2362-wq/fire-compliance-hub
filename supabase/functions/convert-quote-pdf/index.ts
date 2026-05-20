@@ -28,10 +28,20 @@ async function getGraphToken(cfg: ReturnType<typeof readGraphConfig>) {
   return (await res.json()).access_token as string;
 }
 
-async function uploadToGraph(token: string, userUpn: string, fileName: string, bytes: Uint8Array): Promise<string> {
-  // Upload directly to drive root. Using a subfolder path (`root:/folder/file:/content`)
-  // returns 404 itemNotFound if the folder doesn't exist yet — root-level PUT always works.
-  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userUpn)}/drive/root:/${encodeURIComponent(fileName)}:/content`;
+async function getUserDriveId(token: string, userUpn: string): Promise<string> {
+  // Fetching /drive provisions OneDrive if needed and returns the driveId.
+  // Using driveId directly avoids 404 itemNotFound on the path-based root:/ syntax,
+  // which fails when the user's drive isn't yet initialised or the UPN routing is stale.
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userUpn)}/drive`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Graph drive lookup failed ${res.status}: ${await res.text()}. Ensure GRAPH_CONVERSION_USER (${userUpn}) has a licensed OneDrive/SharePoint mailbox.`);
+  const id = (await res.json()).id as string | undefined;
+  if (!id) throw new Error(`Graph drive lookup returned no id for ${userUpn}`);
+  return id;
+}
+
+async function uploadToGraph(token: string, driveId: string, fileName: string, bytes: Uint8Array): Promise<string> {
+  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodeURIComponent(fileName)}:/content`;
   const res = await fetch(url, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
