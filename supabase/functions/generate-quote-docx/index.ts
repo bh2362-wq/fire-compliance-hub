@@ -121,7 +121,7 @@ interface QuoteContext {
 // EXACT bullets currently in the template's §2.2 (order matters — we
 // rewrite in-place, then strip any excess if the new list is shorter).
 const TEMPLATE_WORKS_BULLETS: string[] = [
-  "Design and design review to BS 5839-1:2017",
+  "Design and design review to BS 5839-1:2025",
   "Supply of all panels, devices, cabling, containment and ancillaries as scheduled",
   "Installation by FIA-accredited engineers",
   "Programming of cause & effect to agreed matrix",
@@ -140,7 +140,7 @@ const WORKS_INCLUDED_BY_TYPE: Record<string, string[]> = {
     "Removal of redundant equipment and supply of replacement panel, loop cards and devices",
     "Installation by FIA-accredited engineers, including any extension of detection coverage",
     "Re-programming of cause & effect to the agreed matrix",
-    "Recommissioning of the affected zones in accordance with BS 5839-1:2017 Clause 39",
+    "Recommissioning of the affected zones in accordance with BS 5839-1:2025 Clause 39",
     "Issue of a Modification Certificate per Clause 44 and Annex G",
     "Update of as-fitted drawings, zone plans and the system logbook",
     "Site demonstration and client handover",
@@ -150,7 +150,7 @@ const WORKS_INCLUDED_BY_TYPE: Record<string, string[]> = {
     "Impact assessment on existing system architecture and battery capacity",
     "Supply and installation of additional devices, cabling and any reconfiguration required",
     "Re-programming of cause & effect to integrate the new equipment",
-    "Partial commissioning of the new equipment per BS 5839-1:2017 Clause 39",
+    "Partial commissioning of the new equipment per BS 5839-1:2025 Clause 39",
     "Issue of a Modification Certificate per Clause 44 and Annex G",
     "Update of zone plans, cause-and-effect schedule and the system logbook",
   ],
@@ -159,7 +159,7 @@ const WORKS_INCLUDED_BY_TYPE: Record<string, string[]> = {
     "Verification of zone plans, cause-and-effect schedule and as-fitted documentation",
     "Functional sample test of detectors, manual call points and output groups",
     "Rectification of any immediate defects identified (priced separately if extensive)",
-    "Issue of an Acceptance Certificate to BS 5839-1:2017",
+    "Issue of an Acceptance Certificate to BS 5839-1:2025",
     "Commencement of routine servicing per the agreed maintenance frequency",
   ],
   takeover: undefined as unknown as string[],
@@ -167,16 +167,16 @@ const WORKS_INCLUDED_BY_TYPE: Record<string, string[]> = {
     "Site investigation of each reported defect",
     "Rectification works — component replacement, wiring repair, or configuration change as required",
     "Functional re-testing of the affected zones, devices and output groups",
-    "Update of the system logbook (BS 5839-1:2017 Annex G)",
+    "Update of the system logbook (BS 5839-1:2025 Annex G)",
     "Issue of a service report detailing the works performed and confirming the system's operational status",
   ],
   remedial: undefined as unknown as string[],
   planned_maintenance: [
     "Visual inspection of the panel, batteries, indicators and printer",
-    "Functional testing of a representative sample of detectors and manual call points per BS 5839-1:2017 Clause 43.3",
+    "Functional testing of a representative sample of detectors and manual call points per BS 5839-1:2025 Clause 43.3",
     "Verification of ARC signal transmission with the receiving centre notified before and after testing",
     "Inspection of battery condition and recording of standby capacity",
-    "Issue of a Service Certificate (BS 5839-1:2017 Annex G)",
+    "Issue of a Service Certificate (BS 5839-1:2025 Annex G)",
     "Update of the system logbook",
   ],
   cause_and_effect: [
@@ -191,33 +191,33 @@ const WORKS_INCLUDED_BY_TYPE: Record<string, string[]> = {
     "Visual inspection of the installed equipment and insulation resistance testing of all cabling",
     "Functional testing of every detector, manual call point, sounder, VAD and interface",
     "Cause-and-effect verification against the documented matrix",
-    "Issue of a BS 5839-1:2017 Commissioning Certificate per Annex G",
+    "Issue of a BS 5839-1:2025 Commissioning Certificate per Annex G",
     "Handover of completion documentation to the responsible person",
   ],
   acceptance_testing: [
     "Review of design documentation and the Commissioning Certificate",
     "Witness testing of a representative sample of devices and cause-and-effect operations",
     "Verification of zone plans, signage and accessibility of equipment",
-    "Issue of an Acceptance Certificate per BS 5839-1:2017",
+    "Issue of an Acceptance Certificate per BS 5839-1:2025",
     "Recording of any outstanding items requiring rectification",
   ],
   verification: [
     "Independent review of design, commissioning and modification certificates",
-    "Physical verification of the installation against the design and BS 5839-1:2017",
+    "Physical verification of the installation against the design and BS 5839-1:2025",
     "Sample functional testing of devices and output groups",
     "Issue of a verification report listing compliance status and any non-conformities",
   ],
   design_only: [
     "Site survey and design brief capture",
-    "Production of a BS 5839-1:2017 compliant design — zone plans, device schedules, cabling routes",
+    "Production of a BS 5839-1:2025 compliant design — zone plans, device schedules, cabling routes",
     "Production of the cause-and-effect matrix",
-    "Issue of a Design Certificate per BS 5839-1:2017 Clause 44 and Annex G",
+    "Issue of a Design Certificate per BS 5839-1:2025 Clause 44 and Annex G",
     "Handover pack for the installing contractor",
   ],
   certification: [
     "Site audit and verification of the installed equipment against the as-found configuration",
     "Functional sample testing where required to support certification",
-    "Production of the appropriate certificate (Commissioning / Modification / Acceptance) per BS 5839-1:2017 Annex G",
+    "Production of the appropriate certificate (Commissioning / Modification / Acceptance) per BS 5839-1:2025 Annex G",
     "Issue of the certificate to the responsible person and update of the system logbook",
   ],
 };
@@ -657,7 +657,7 @@ function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo): string
   x = fieldOrOmit(x, "[Project Name]", q.project_title);
   x = fieldOrOmit(x, "[Site Name & Address]", siteForRender);
   x = fieldOrOmit(x, "[e.g. Gent S-Quad / Vigilon]", "");  // no system info in payload yet
-  x = fieldOrOmit(x, "[e.g. BS 5839-1:2017 Cat L1]", "BS 5839-1:2017");
+  x = fieldOrOmit(x, "[e.g. BS 5839-1:2017 Cat L1]", "BS 5839-1:2025");
   x = fieldOrOmit(x, "[Client Enquiry Reference]", q.ref);
 
   // Issued-By block (foot of doc). All sourced from the issuer profile;
