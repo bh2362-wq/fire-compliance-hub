@@ -237,7 +237,7 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> AI Scope Writer — BS 5839-1:2025</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> AI Scope Writer — BS 5839-1:2017</DialogTitle>
         </DialogHeader>
 
         {siteIntel && intelligenceFieldCount(siteIntel) > 0 && !result && (

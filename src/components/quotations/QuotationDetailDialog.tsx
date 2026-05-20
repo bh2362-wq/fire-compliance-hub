@@ -967,7 +967,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                           onClick={handleBulkImproveScope}
                           disabled={bulkScopeImproving || lineItems.length === 0}
                           className="gap-1"
-                          title="Expand every line item against BS 5839-1:2025 reference library"
+                          title="Expand every line item against BS 5839-1:2017 reference library"
                         >
                           {bulkScopeImproving ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />

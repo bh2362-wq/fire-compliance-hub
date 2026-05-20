@@ -54,7 +54,7 @@ interface CostEstimate {
 
 // ── Prompts ────────────────────────────────────────────────────────────────────
 
-const SCOPE_SYSTEM = `You are a fire alarm engineering scope-of-works author for BHO Fire & Security Ltd, a UK fire alarm contractor based in Kent.
+const SCOPE_SYSTEM = `You are a fire alarm engineering scope-of-works author for BHO Fire Ltd, a UK fire alarm contractor based in Kent.
 
 Given a list of work items (defects, requests, or scope inputs), write a professional scope-of-works narrative that goes to the client as part of a remedial-works quotation.
 
@@ -62,7 +62,7 @@ Output: A markdown numbered list. One numbered item per logical scope of work.
 
 Conventions:
 - Each item begins with a short, declarative trade-language heading, followed by a 1-2 sentence technical narrative describing WHAT will be done and WHY.
-- Cite the specific BS 5839-1:2025 clause where relevant (e.g. "in accordance with BS 5839-1:2025 Cl. 25.2(d)"). Do NOT invent clause numbers — omit if uncertain.
+- Cite the specific BS 5839-1:2017 clause where relevant (e.g. "in accordance with BS 5839-1:2017 Cl. 25.2(d)"). Do NOT invent clause numbers — omit if uncertain.
 - Group related work items into a single numbered point where it reads more naturally.
 - Use UK English. Use the active voice.
 - Be specific and technical. This represents BHO's professional standing to the client.
@@ -72,7 +72,7 @@ Conventions:
 
 If a work item is ambiguous, write the scope conservatively (describe investigation + remediation as separate phases if needed) and flag the assumption parenthetically at the end of that item.`;
 
-const COST_SYSTEM = `You are a fire alarm engineering quotation cost estimator for BHO Fire & Security Ltd, a UK fire alarm contractor based in Kent (Sittingbourne ME10 3TB).
+const COST_SYSTEM = `You are a fire alarm engineering quotation cost estimator for BHO Fire Ltd, a UK fire alarm contractor based in Kent (Sittingbourne ME10 3TB).
 
 Given a scope of works AND the underlying work items, return a FIRST-PASS commercial estimate in three buckets via the build_cost_estimate tool.
 

@@ -67,7 +67,7 @@ export function AIExpandButton({ lineItems, context, onAccept, disabled }: AIExp
       const summaryParts = parsed
         .map((r) => r.expanded_summary_section)
         .filter(Boolean);
-      const fullSummary = `**Scope of Works**\n\nWe are pleased to provide our quotation for the following works:\n\n${summaryParts.map((s) => `- ${s}`).join("\n")}\n\nAll works will be carried out in accordance with __BS 5839-1:2025__ and relevant British Standards. A completion certificate will be issued upon successful commissioning and testing.`;
+      const fullSummary = `**Scope of Works**\n\nWe are pleased to provide our quotation for the following works:\n\n${summaryParts.map((s) => `- ${s}`).join("\n")}\n\nAll works will be carried out in accordance with __BS 5839-1:2017__ and relevant British Standards. A completion certificate will be issued upon successful commissioning and testing.`;
       setGeneratedSummary(fullSummary);
 
       setPreviewOpen(true);
