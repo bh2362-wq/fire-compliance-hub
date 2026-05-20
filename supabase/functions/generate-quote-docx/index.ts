@@ -109,6 +109,10 @@ interface IssuerInfo {
 
 interface QuoteContext {
   worksType: string | null;        // quotations.works_type — drives §2.2 bullet set
+  systemManufacturer: string | null;
+  systemType: string | null;
+  systemPanel: string | null;
+  bs5839Category: string | null;
 }
 
 // ── §2.2 Works Included bullets, per works_type ───────────────────────────────
