@@ -349,9 +349,10 @@ function mergeAdjacentRuns(xml: string): string {
   // Pattern: capture rPr, capture text1, then a second run with identical rPr
   // and text2. Replace with a single run whose text is text1+text2.
   // Iterated to convergence — a 4-run split needs 3 passes.
-  const re = /<w:r>(<w:rPr>[^<]*(?:<[^/][^>]*\/>[^<]*)*<\/w:rPr>)<w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r>\1<w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
-  // Also handle runs with no rPr at all.
-  const reNoRpr = /<w:r><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
+  // Match <w:r> with or without attributes, identical rPr in both runs.
+  const re = /<w:r(?:\s[^>]*)?>(<w:rPr>[^<]*(?:<[^/][^>]*\/>[^<]*)*<\/w:rPr>)<w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r(?:\s[^>]*)?>\1<w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
+  // Also handle runs with no rPr at all (attributes still allowed on <w:r>).
+  const reNoRpr = /<w:r(?:\s[^>]*)?><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r><w:r(?:\s[^>]*)?><w:t(?:\s[^>]*)?>([^<]*)<\/w:t><\/w:r>/g;
   let prev = "";
   let guard = 30; // worst-case 30 passes per file; placeholders rarely split more
   while (curr !== prev && guard-- > 0) {
