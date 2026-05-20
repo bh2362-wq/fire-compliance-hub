@@ -15,6 +15,7 @@ import {
   Merge,
   LockOpen,
   GripVertical,
+  Copy,
 } from "lucide-react";
 import {
   DndContext,
@@ -65,6 +66,7 @@ import {
   isQuotationMetadataThin,
 } from "@/services/quoteMetadataInheritanceService";
 import { ImproveTitleButton } from "./ImproveTitleButton";
+import { DuplicateQuotationDialog } from "./DuplicateQuotationDialog";
 
 // Snapshot of a pre-merge line item stored in the survivor's merged_from
 // JSONB. Shape matches what useQuoteGeneration.ts and the DB column comment
@@ -138,6 +140,7 @@ interface QuotationDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   quotationId: string;
   onUpdate?: () => void;
+  onDuplicated?: (newQuote: { id: string; quotation_number: string }) => void;
 }
 
 const DEFAULT_TERMS = `1. This quotation is valid for 30 days from the date of issue.
@@ -172,7 +175,8 @@ function SortableItemRow({
 }
 
 
-export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdate }: QuotationDetailDialogProps) {
+export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdate, onDuplicated }: QuotationDetailDialogProps) {
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -1155,9 +1159,21 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                     Unlock Quote
                   </Button>
                 )}
+                {quotation && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => setDuplicateOpen(true)}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Duplicate
+                  </Button>
+                )}
               </div>
             </div>
           </DialogHeader>
+
 
           <div className="flex-1 overflow-y-auto px-6 py-4">
             {loading ? (
@@ -1717,6 +1733,25 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DuplicateQuotationDialog
+        open={duplicateOpen}
+        onOpenChange={setDuplicateOpen}
+        sourceQuotation={
+          quotation
+            ? { id: quotationId, quotation_number: quotationNumber || quotation.quotation_number }
+            : null
+        }
+        onDuplicated={(newQ) => {
+          setDuplicateOpen(false);
+          onUpdate?.();
+          if (onDuplicated) {
+            // Parent will swap to the new quote — close this one
+            onOpenChange(false);
+            onDuplicated(newQ);
+          }
+        }}
+      />
     </>
   );
 }

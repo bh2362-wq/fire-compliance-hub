@@ -62,6 +62,7 @@ import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDi
 import { AcceptQuotationDialog } from "@/components/quotations/AcceptQuotationDialog";
 import { EmailQuotationDialog } from "@/components/quotations/EmailQuotationDialog";
 import { NewQuotationDialog } from "@/components/quotations/NewQuotationDialog";
+import { DuplicateQuotationDialog } from "@/components/quotations/DuplicateQuotationDialog";
 import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
 import { getCompanySettings } from "@/services/companySettingsService";
 
@@ -140,6 +141,7 @@ const Quotations = () => {
   const [emailColumnOptions, setEmailColumnOptions] = useState<PDFColumnOptions | null>(null);
   const [uploadingToSharePoint, setUploadingToSharePoint] = useState<string | null>(null);
   const [newQuoteOpen, setNewQuoteOpen] = useState(false);
+  const [duplicateSource, setDuplicateSource] = useState<{ id: string; quotation_number: string } | null>(null);
 
   // Auto-open new quote dialog when navigated with prefill data
   useEffect(() => {
@@ -702,6 +704,12 @@ const Quotations = () => {
                               Edit Quote
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              onClick={() => setDuplicateSource({ id: quotation.id, quotation_number: quotation.quotation_number })}
+                            >
+                              <Copy className="w-4 h-4 mr-2" />
+                              Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               onClick={() => navigate(`/dashboard/sites/${quotation.site_id}`)}
                             >
                               <Building2 className="w-4 h-4 mr-2" />
@@ -857,6 +865,10 @@ const Quotations = () => {
           }}
           quotationId={selectedQuotation.id}
           onUpdate={fetchQuotations}
+          onDuplicated={(newQ) => {
+            fetchQuotations();
+            setSelectedQuotation({ id: newQ.id, quotation_number: newQ.quotation_number } as any);
+          }}
         />
       )}
 
@@ -942,6 +954,20 @@ const Quotations = () => {
         onOpenChange={setNewQuoteOpen}
         onSuccess={fetchQuotations}
         prefillLineItem={prefillLineItem}
+      />
+      <DuplicateQuotationDialog
+        open={!!duplicateSource}
+        onOpenChange={(o) => { if (!o) setDuplicateSource(null); }}
+        sourceQuotation={duplicateSource}
+        onDuplicated={(newQ) => {
+          setDuplicateSource(null);
+          fetchQuotations();
+          // Auto-open the new quote in the detail dialog
+          setSelectedQuotation({
+            id: newQ.id,
+            quotation_number: newQ.quotation_number,
+          } as any);
+        }}
       />
     </DashboardLayout>
   );
