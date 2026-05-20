@@ -478,6 +478,19 @@ function fieldOrOmit(xml: string, placeholder: string, value: string | null | un
 
 // ── Pricing table — cell-by-cell rendering ───────────────────────────────────
 
+// Locate the start of the <w:tr ...> that encloses `anchorIdx`. The template
+// uses attribute-rich row tags (e.g. `<w:tr w:rsidR="...">`), so a literal
+// lastIndexOf("<w:tr>") would miss every row. Match both bare and attribute
+// forms by scanning backwards for `<w:tr` followed by whitespace or `>`.
+function findRowStart(xml: string, anchorIdx: number): number {
+  const slice = xml.substring(0, anchorIdx);
+  const re = /<w:tr(?:\s|>)/g;
+  let last = -1;
+  for (let m: RegExpExecArray | null; (m = re.exec(slice)) !== null;) last = m.index;
+  return last;
+}
+
+
 // Cell order in the canonical row is fixed by the template:
 //   0 = ITEM #   |  1 = DESCRIPTION  |  2 = QTY  |  3 = UNIT PRICE  |  4 = LINE TOTAL
 const CELL_ITEM_NUM = 0;
