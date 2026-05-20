@@ -660,7 +660,7 @@ function forceTotalRowWhiteText(xml: string): string {
 
 // ── Top fields (Quote ref, dates, client, site, issued-by) ───────────────────
 
-function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo): string {
+function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo, ctx: QuoteContext): string {
   let x = xml;
   // Quote ref + dates (top of page).
   x = replaceAllWtText(x, "[BHO-Q-2026-0234]", q.ref);
@@ -681,8 +681,22 @@ function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo): string
   const siteForRender = (q.site?.address && q.site.address.trim()) || q.client.address;
   x = fieldOrOmit(x, "[Project Name]", q.project_title);
   x = fieldOrOmit(x, "[Site Name & Address]", siteForRender);
-  x = fieldOrOmit(x, "[e.g. Gent S-Quad / Vigilon]", "");  // no system info in payload yet
-  x = fieldOrOmit(x, "[e.g. BS 5839-1:2017 Cat L1]", "BS 5839-1:2025");
+
+  // System cell: "Gent Vigilon" — manufacturer + system_type. Where the
+  // schema only carries the panel model (system_panel) it stands in for type.
+  const systemLabel = [
+    ctx.systemManufacturer,
+    ctx.systemType ?? ctx.systemPanel,
+  ].map((s) => (s ?? "").trim()).filter(Boolean).join(" ");
+  x = fieldOrOmit(x, "[e.g. Gent S-Quad / Vigilon]", systemLabel);
+
+  // Standard cell: "BS 5839-1:2025 Cat L2" — driven by quotations.bs5839_category.
+  // Note: template now reads "2025"; the older "2017" form has been retired.
+  const standardLabel = ctx.bs5839Category && ctx.bs5839Category.trim()
+    ? `BS 5839-1:2025 Cat ${ctx.bs5839Category.trim()}`
+    : "";
+  x = fieldOrOmit(x, "[e.g. BS 5839-1:2025 Cat L1]", standardLabel);
+
   x = fieldOrOmit(x, "[Client Enquiry Reference]", q.ref);
 
   // Issued-By block (foot of doc). All sourced from the issuer profile;
