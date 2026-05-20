@@ -704,6 +704,12 @@ const Quotations = () => {
                               Edit Quote
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              onClick={() => setDuplicateSource({ id: quotation.id, quotation_number: quotation.quotation_number })}
+                            >
+                              <Copy className="w-4 h-4 mr-2" />
+                              Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               onClick={() => navigate(`/dashboard/sites/${quotation.site_id}`)}
                             >
                               <Building2 className="w-4 h-4 mr-2" />
