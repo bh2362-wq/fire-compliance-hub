@@ -140,6 +140,7 @@ interface QuotationDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   quotationId: string;
   onUpdate?: () => void;
+  onDuplicated?: (newQuote: { id: string; quotation_number: string }) => void;
 }
 
 const DEFAULT_TERMS = `1. This quotation is valid for 30 days from the date of issue.
