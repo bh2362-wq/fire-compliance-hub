@@ -19,6 +19,7 @@ import { useQuotationFull, useGenerateQuoteDocx, useGenerateScope, useConvertQuo
 
 const LOGO_BUCKET = "quote-assets";
 const LOGO_PATH = "bho-logo.jpg";
+const TEMPLATE_PATH = "master-template.docx";
 
 type SecretStatus = "unknown" | "ok" | "missing";
 
@@ -61,6 +62,41 @@ export default function QuoteSettings() {
   };
 
   useEffect(() => { if (isAdmin) refreshLogo(); }, [isAdmin]);
+
+  // --- Template state ---
+  const [templateExists, setTemplateExists] = useState<boolean | null>(null);
+  const [templateSize, setTemplateSize] = useState<number | null>(null);
+  const [templateModified, setTemplateModified] = useState<string | null>(null);
+  const [templateBusy, setTemplateBusy] = useState(false);
+
+  const refreshTemplate = async () => {
+    const { data } = await supabase.storage.from(LOGO_BUCKET).list("", { search: TEMPLATE_PATH });
+    const found = (data ?? []).find((f) => f.name === TEMPLATE_PATH);
+    setTemplateExists(!!found);
+    setTemplateSize(found?.metadata?.size ?? null);
+    setTemplateModified(found?.updated_at ?? found?.created_at ?? null);
+  };
+  useEffect(() => { if (isAdmin) refreshTemplate(); }, [isAdmin]);
+
+  const onTemplateUpload = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error("File too large (max 10MB)"); return; }
+    if (!file.name.toLowerCase().endsWith(".docx")) { toast.error("Must be a .docx file"); return; }
+    setTemplateBusy(true);
+    try {
+      const { error } = await supabase.storage.from(LOGO_BUCKET).upload(TEMPLATE_PATH, file, {
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        upsert: true,
+      });
+      if (error) throw error;
+      toast.success("Master template uploaded");
+      await refreshTemplate();
+    } catch (e: any) {
+      toast.error("Template upload failed", { description: e?.message });
+    } finally {
+      setTemplateBusy(false);
+    }
+  };
 
   const onLogoUpload = async (file: File | undefined) => {
     if (!file) return;
@@ -259,6 +295,57 @@ export default function QuoteSettings() {
                 <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
                 <p className="text-sm">{logoBusy ? "Uploading…" : "Click to upload PNG / JPG / SVG (max 5MB)"}</p>
                 <p className="text-xs text-muted-foreground mt-1">File will be saved as bho-logo.jpg (overwrites existing)</p>
+              </label>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Section 1b — Master quote template */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Master quote template</CardTitle>
+            <CardDescription>
+              Stored at <span className="font-mono text-xs">quote-assets/master-template.docx</span>.
+              The Word generator loads this on every render and replaces placeholder markers
+              (<span className="font-mono text-xs">[Copilot: …]</span>, <span className="font-mono text-xs">[Line item]</span>, etc.)
+              with quote-specific content. All static sections (Exclusions, Assumptions, Payment Terms,
+              Standards &amp; Accreditations) come verbatim from this file.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {templateExists === false && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>No master template uploaded</AlertTitle>
+                <AlertDescription>The Word generator will fail until you upload <span className="font-mono">BHO_Quote_Template_Verdana.docx</span> here.</AlertDescription>
+              </Alert>
+            )}
+            <div className="flex items-start gap-4">
+              {templateExists ? (
+                <div className="border rounded p-3 bg-muted/30 min-w-[160px]">
+                  <FileText className="w-8 h-8 text-muted-foreground mb-2" />
+                  <p className="text-xs font-medium">master-template.docx</p>
+                  {templateSize != null && (
+                    <p className="text-[10px] text-muted-foreground">{(templateSize / 1024).toFixed(1)} KB</p>
+                  )}
+                  {templateModified && (
+                    <p className="text-[10px] text-muted-foreground">Updated {new Date(templateModified).toLocaleString("en-GB")}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="border rounded h-24 w-40 flex items-center justify-center text-xs text-muted-foreground">No template</div>
+              )}
+              <label className="flex-1 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/40 transition">
+                <input
+                  type="file"
+                  accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="hidden"
+                  onChange={(e) => onTemplateUpload(e.target.files?.[0])}
+                  disabled={templateBusy}
+                />
+                <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm">{templateBusy ? "Uploading…" : "Click to upload .docx (max 10MB)"}</p>
+                <p className="text-xs text-muted-foreground mt-1">File will be saved as master-template.docx (overwrites existing)</p>
               </label>
             </div>
           </CardContent>

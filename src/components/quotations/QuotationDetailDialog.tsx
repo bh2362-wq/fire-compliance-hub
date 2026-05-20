@@ -480,20 +480,31 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       let parsed: Array<{ index: number; expanded_description: string; expanded_summary_section?: string }> = [];
       try { parsed = JSON.parse(raw); } catch { throw new Error("AI returned malformed JSON"); }
       if (!Array.isArray(parsed)) throw new Error("AI did not return an array");
-      const updated = [...lineItems];
-      parsed.forEach((entry) => {
-        if (typeof entry.index === "number" && updated[entry.index] && entry.expanded_description) {
-          updated[entry.index] = { ...updated[entry.index], description: entry.expanded_description };
-        }
-      });
-      setLineItems(updated);
-      setHasChanges(true);
+
+      // Build the scope/summary text from the AI output. The long
+      // `expanded_description` strings are TECHNICAL NARRATIVE — they
+      // belong in scope, not in the commercial line items table. Line
+      // item descriptions stay untouched so they remain short and commercial.
+      const scopeParagraphs = parsed
+        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+        .map((e, i) => {
+          const heading = lineItems[e.index]?.description || `Item ${i + 1}`;
+          return `${i + 1}. ${heading}\n\n${e.expanded_description?.trim() || ""}`;
+        })
+        .filter((p) => p.trim().length > 0)
+        .join("\n\n");
+      if (scopeParagraphs) {
+        // Append to existing summary so the engineer can review and trim,
+        // rather than silently overwriting prior edits.
+        setSummary((prev) => prev ? `${prev}\n\n${scopeParagraphs}` : scopeParagraphs);
+        setHasChanges(true);
+      }
       const h = (data?.hallucinated_clauses ?? []) as string[];
       const g = data?.grounding_used;
       if (h.length > 0) {
-        toast.warning(`Scope improved — ${h.length} unverified citation(s) flagged: ${h.join(", ")}`);
+        toast.warning(`Scope expanded — ${h.length} unverified citation(s) flagged: ${h.join(", ")}`);
       } else {
-        toast.success(`Scope improved with ${g?.chunks_retrieved ?? 0} library chunks`);
+        toast.success(`Scope expanded with ${g?.chunks_retrieved ?? 0} library chunks (line items unchanged)`);
       }
     } catch (e) {
       console.error("Bulk scope improve error:", e);
