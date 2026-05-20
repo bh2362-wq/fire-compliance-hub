@@ -378,7 +378,7 @@ function setCellText(cellXml: string, value: string): string {
   let c = cellXml
     .replace(/<w:i\s*\/>\s*<w:iCs\s*\/>/g, "")
     .replace(/<w:color w:val="9CA3AF"\s*\/>/g, '<w:color w:val="1A1A1A"/>');
-  const re = /(<w:t[^>]*>)([\s\S]*?)(<\/w:t>)/;
+  const re = /(<w:t(?:\s[^>]*)?>)([\s\S]*?)(<\/w:t>)/;
   if (!re.test(c)) return c;
   return c.replace(re, (_m, o, _t, e) => `${o}${escapeXmlText(value)}${e}`);
 }
