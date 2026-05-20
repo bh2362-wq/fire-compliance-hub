@@ -185,13 +185,41 @@ export default function ReferenceLibrary() {
   };
 
   const runIngest = async (document_id: string, pages: string[], totalPages: number) => {
-    const { data, error } = await supabase.functions.invoke("ingest-reference-document", {
-      body: { document_id, pages, total_pages: totalPages },
-    });
-    if (error) throw new Error(error.message);
-    if (data && data.success === false) throw new Error(data.error || "Ingest failed");
-    return data as { chunk_count: number; total_tokens: number; duration_ms: number };
+    // Send pages to the edge function in batches to stay within CPU/timeout limits.
+    const PAGE_BATCH = 25;
+    let nextChunkIndex = 0;
+    let finalResult: { chunk_count: number; total_tokens: number; duration_ms: number } | null = null;
+    for (let offset = 0; offset < pages.length; offset += PAGE_BATCH) {
+      const slice = pages.slice(offset, offset + PAGE_BATCH);
+      const isLast = offset + PAGE_BATCH >= pages.length;
+      const { data, error } = await supabase.functions.invoke("ingest-reference-document", {
+        body: {
+          document_id,
+          pages: slice,
+          total_pages: totalPages,
+          page_offset: offset,
+          chunk_index_offset: nextChunkIndex,
+          finalize: isLast,
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data && data.success === false) throw new Error(data.error || "Ingest failed");
+      nextChunkIndex = Number(data?.next_chunk_index ?? nextChunkIndex);
+      // Update progress bar 70% → 95% across batches
+      const pct = 70 + Math.round(((offset + slice.length) / pages.length) * 25);
+      setUploadProgress(Math.min(95, pct));
+      setUploadStage(`Embedding pages ${offset + 1}–${Math.min(offset + PAGE_BATCH, pages.length)} of ${pages.length}…`);
+      if (isLast) {
+        finalResult = {
+          chunk_count: Number(data?.chunk_count ?? nextChunkIndex),
+          total_tokens: Number(data?.total_tokens ?? 0),
+          duration_ms: Number(data?.duration_ms ?? 0),
+        };
+      }
+    }
+    return finalResult ?? { chunk_count: nextChunkIndex, total_tokens: 0, duration_ms: 0 };
   };
+
 
   const extractInBrowser = async (f: File): Promise<ExtractedPdf> => {
     const name = f.name.toLowerCase();

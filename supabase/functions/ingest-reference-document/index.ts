@@ -130,6 +130,9 @@ Deno.serve(async (req) => {
     document_id = body?.document_id;
     const pages: unknown = body?.pages;
     const total_pages: number | undefined = body?.total_pages;
+    const page_offset: number = Number(body?.page_offset ?? 0); // 0-based index of first page in this batch
+    const chunk_index_offset: number = Number(body?.chunk_index_offset ?? 0);
+    const finalize: boolean = body?.finalize !== false; // default true for back-compat
 
     if (!document_id) {
       return new Response(JSON.stringify({ success: false, error: "document_id is required" }), {
@@ -154,12 +157,21 @@ Deno.serve(async (req) => {
       .update({ ingest_status: "processing", ingest_error: null })
       .eq("id", document_id);
 
-    // Chunk per-page so page_number is preserved
+    // Chunk per-page so page_number is preserved. Use real page numbers via page_offset.
     const chunks: Chunk[] = [];
     pageTexts.forEach((pageText, i) => {
-      chunks.push(...chunkPage(pageText, i + 1, chunks.length));
+      chunks.push(...chunkPage(pageText, page_offset + i + 1, chunk_index_offset + chunks.length));
     });
-    if (chunks.length === 0) throw new Error("no extractable text in supplied pages");
+    if (chunks.length === 0 && !finalize) {
+      // Empty batch but more to come — just return ok
+      return new Response(JSON.stringify({
+        success: true, document_id, batch_chunk_count: 0, batch_token_count: 0,
+        next_chunk_index: chunk_index_offset, duration_ms: Date.now() - started,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (chunks.length === 0 && finalize && chunk_index_offset === 0) {
+      throw new Error("no extractable text in supplied pages");
+    }
 
     // Embed in batches of 50
     const embeddings: number[][] = [];
@@ -187,22 +199,41 @@ Deno.serve(async (req) => {
       if (insErr) throw new Error(`chunk insert failed: ${insErr.message}`);
     }
 
-    const totalTokens = chunks.reduce((s, c) => s + c.token_count, 0);
-    await admin.from("ref_lib_documents").update({
-      ingest_status: "completed",
-      ingested_at: new Date().toISOString(),
-      chunk_count: chunks.length,
-      total_tokens: totalTokens,
-      page_count: total_pages ?? pageTexts.length,
-    }).eq("id", document_id);
+    const batchTokens = chunks.reduce((s, c) => s + c.token_count, 0);
+    const nextChunkIndex = chunk_index_offset + chunks.length;
+
+    if (finalize) {
+      // Sum totals across all chunks for this document
+      const { count: totalChunkCount } = await admin
+        .from("ref_lib_chunks").select("id", { count: "exact", head: true }).eq("document_id", document_id);
+      const { data: tokRows } = await admin
+        .from("ref_lib_chunks").select("token_count").eq("document_id", document_id);
+      const totalTokens = (tokRows ?? []).reduce((s: number, r: any) => s + (r?.token_count ?? 0), 0);
+
+      await admin.from("ref_lib_documents").update({
+        ingest_status: "completed",
+        ingested_at: new Date().toISOString(),
+        chunk_count: totalChunkCount ?? nextChunkIndex,
+        total_tokens: totalTokens,
+        page_count: total_pages ?? (page_offset + pageTexts.length),
+      }).eq("id", document_id);
+
+      return new Response(JSON.stringify({
+        success: true, document_id,
+        chunk_count: totalChunkCount ?? nextChunkIndex,
+        total_tokens: totalTokens,
+        duration_ms: Date.now() - started,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     return new Response(JSON.stringify({
-      success: true,
-      document_id,
-      chunk_count: chunks.length,
-      total_tokens: totalTokens,
+      success: true, document_id,
+      batch_chunk_count: chunks.length,
+      batch_token_count: batchTokens,
+      next_chunk_index: nextChunkIndex,
       duration_ms: Date.now() - started,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
   } catch (err: any) {
     console.error("ingest-reference-document error:", err);
     if (document_id) {
