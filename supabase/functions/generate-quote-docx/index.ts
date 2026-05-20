@@ -57,7 +57,17 @@ interface QuoteInput {
   issued_date: string;
   valid_until?: string;
   project_title: string;
-  client: { company: string; contact: string; address: string };
+  client: {
+    company: string;
+    contact: string;
+    address: string;       // billing address
+    email?: string;
+    phone?: string;
+  };
+  site?: {
+    name?: string;
+    address?: string;
+  };
 
   // Scope narrative. scope_content (markdown) preferred; falls back to scope (string[]).
   scope_content?: string;
@@ -322,6 +332,25 @@ function removeContainingParagraph(xml: string, placeholder: string): string {
   return xml.substring(0, pStart) + xml.substring(pEnd);
 }
 
+// Repeatedly remove every paragraph that contains the substring `needle`.
+// Used to sweep ANY remaining [Copilot: ...] paragraph (including ones whose
+// exact text we couldn't pre-match) so the orphan labels — e.g. "Lead time
+// on materials: " left after the marker was stripped — don't survive into
+// the output. Capped to 200 iterations as a runaway guard.
+function removeAllParagraphsContaining(xml: string, needle: string): string {
+  let x = xml;
+  for (let i = 0; i < 200; i++) {
+    const idx = x.indexOf(needle);
+    if (idx < 0) break;
+    const pStart = findEnclosingWpStart(x, idx);
+    if (pStart < 0) break;
+    const pEnd = x.indexOf("</w:p>", idx);
+    if (pEnd < 0) break;
+    x = x.substring(0, pStart) + x.substring(pEnd + "</w:p>".length);
+  }
+  return x;
+}
+
 // Apply a field-or-omit: if value has content, replace; if empty, drop the
 // label+value paragraph pair entirely.
 function fieldOrOmit(xml: string, placeholder: string, value: string | null | undefined): string {
@@ -432,35 +461,38 @@ function renderPricingRows(xml: string, items: QuoteItem[]): string {
 
 // ── Totals row updates by label ──────────────────────────────────────────────
 
-// Find the <w:tr> whose first non-empty <w:t> contains `label`, then set the
-// LAST cell's text to `value`. The totals rows have an empty first cell and
-// the value in the rightmost cell; using "last cell" avoids ambiguity if the
-// label spans multiple runs.
-function setTotalsRowValue(xml: string, label: string, value: string, alsoUpdateLabel?: string): string {
-  // Locate the row by its label text.
-  const labelIdx = xml.indexOf(`>${label}<`); // bare text node, e.g. ">Subtotal<"
-  if (labelIdx < 0) {
-    // Try a slightly looser locate via the label substring inside any w:t.
-    const looser = xml.indexOf(label);
-    if (looser < 0) return xml;
-    return setTotalsRowValueAt(xml, looser, value, alsoUpdateLabel);
-  }
-  return setTotalsRowValueAt(xml, labelIdx, value, alsoUpdateLabel);
-}
-
-function setTotalsRowValueAt(xml: string, anchorIdx: number, value: string, newLabel?: string): string {
+// Find the <w:tr> whose label-cell text matches `exactLabel` and set the
+// LAST cell's text to `value`. The label MUST be the full text content of a
+// <w:t> node (e.g. "VAT @ 20%" not "VAT") so a substring elsewhere in the
+// document (e.g. the "exclusive of VAT" preamble) can't accidentally match.
+// Also validates that the located <w:tr> actually CONTAINS the anchor — a
+// stale earlier-table <w:tr> can leak through lastIndexOf otherwise.
+function setTotalsRowValue(xml: string, exactLabel: string, value: string, alsoUpdateLabel?: string): string {
+  // Search for the label as the entire text of a <w:t> node:
+  // <w:t...>label</w:t>. The pattern is anchored on both sides so partial
+  // matches like ">VAT @" inside ">VAT @ 20%</w:t>" don't confuse us.
+  const safe = exactLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`<w:t[^>]*>${safe}</w:t>`);
+  const m = re.exec(xml);
+  if (!m) return xml;
+  const anchorIdx = m.index;
   const rowStart = xml.lastIndexOf("<w:tr>", anchorIdx);
+  if (rowStart < 0) return xml;
+  // Anchor must be inside the located row — no </w:tr> between rowStart and anchor.
+  if (xml.substring(rowStart, anchorIdx).indexOf("</w:tr>") >= 0) return xml;
   const rowEnd = xml.indexOf("</w:tr>", anchorIdx) + "</w:tr>".length;
-  if (rowStart < 0 || rowEnd <= 0) return xml;
+  if (rowEnd <= 0) return xml;
   const row = xml.substring(rowStart, rowEnd);
   const { shell, cells } = splitRowIntoCells(row);
   if (cells.length === 0) return xml;
-  // Update the last cell with the calculated value.
   cells[cells.length - 1] = setCellText(cells[cells.length - 1], value);
-  // Optionally rewrite the label (e.g. "VAT @ 20%" -> "VAT @ 5%").
   let rebuilt = joinRowFromCells(shell, cells);
-  if (newLabel) {
-    rebuilt = rebuilt.replace(/<w:t((?:\s[^>]*)?)>([^<]*?)VAT @ \d+%([^<]*?)<\/w:t>/, `<w:t$1>$2${escapeXmlText(newLabel)}$3</w:t>`);
+  if (alsoUpdateLabel) {
+    // Rewrite the label cell's text — used to swap "VAT @ 20%" for the actual rate.
+    rebuilt = rebuilt.replace(
+      new RegExp(`(<w:t[^>]*>)${safe}(</w:t>)`),
+      `$1${escapeXmlText(alsoUpdateLabel)}$2`,
+    );
   }
   return xml.substring(0, rowStart) + rebuilt + xml.substring(rowEnd);
 }
@@ -488,16 +520,21 @@ function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo): string
   x = replaceAllWtText(x, "[BHO-Q-2026-0234]", q.ref);
   x = replaceAllWtText(x, "[DD Month YYYY]", q.issued_date);
 
-  // Client block — omit empty rows.
+  // Client block — omit empty rows. Email/phone now come from the payload
+  // (caller pulls from customers.contact_email/contact_phone) rather than
+  // being hardcoded empty as before.
   x = fieldOrOmit(x, "[Client / Main Contractor]", q.client.company);
   x = fieldOrOmit(x, "[Contact Name & Role]", q.client.contact);
   x = fieldOrOmit(x, "[Billing Address]", q.client.address);
-  x = fieldOrOmit(x, "[Contact Email]", "");  // not in QuoteInput payload
-  x = fieldOrOmit(x, "[Contact Phone]", "");
+  x = fieldOrOmit(x, "[Contact Email]", q.client.email ?? "");
+  x = fieldOrOmit(x, "[Contact Phone]", q.client.phone ?? "");
 
-  // Site Details block — omit empty rows.
+  // Site Details block — site address (which already includes the site
+  // name as its first component) is distinct from the billing address.
+  // Falls back to client.address if the caller didn't split them.
+  const siteForRender = (q.site?.address && q.site.address.trim()) || q.client.address;
   x = fieldOrOmit(x, "[Project Name]", q.project_title);
-  x = fieldOrOmit(x, "[Site Name & Address]", q.client.address);
+  x = fieldOrOmit(x, "[Site Name & Address]", siteForRender);
   x = fieldOrOmit(x, "[e.g. Gent S-Quad / Vigilon]", "");  // no system info in payload yet
   x = fieldOrOmit(x, "[e.g. BS 5839-1:2017 Cat L1]", "BS 5839-1:2017");
   x = fieldOrOmit(x, "[Client Enquiry Reference]", q.ref);
@@ -518,10 +555,12 @@ function renderAIFillPlaceholders(xml: string, q: QuoteInput): string {
   const scope = resolveScopeParagraphs(q);
 
   // §1 Executive Summary — prefer the dynamic per-job-type summary_paragraph,
-  // fall back to introduction, then to first scope paragraph.
+  // fall back to introduction, then first scope paragraph, then project title
+  // as a last-resort so §1 isn't a heading with nothing under it.
   const exec = (q.summary_paragraph && q.summary_paragraph.trim())
     || (q.introduction && q.introduction.trim())
     || scope[0]
+    || (q.project_title && `BHO Fire Ltd is pleased to submit this quotation for ${q.project_title.trim()}.`)
     || "";
   x = replaceAllWtText(
     x,
@@ -556,24 +595,11 @@ function renderAIFillPlaceholders(xml: string, q: QuoteInput): string {
     (q.assumptions ?? []).join("  "),
   );
 
-  // §6 Programme bullets — remove the whole bullet if we have no data.
-  // Free-standing placeholders, not label+value pairs.
-  for (const p of [
-    "[Copilot: insert weeks — typically 4-6 for Gent]",
-    "[Copilot: insert]",
-    "[Copilot: Insert phasing notes, isolation windows, or critical client milestones.]",
-    "[Copilot: Insert phasing arrangement, key milestones, agreed dates, working hours, isolations required.]",
-    "[Copilot: Adjust milestones for project-specific application/valuation arrangements (JCT, NEC, monthly applications).]",
-  ]) {
-    while (x.indexOf(p) >= 0) {
-      x = removeContainingParagraph(x, p);
-    }
-  }
-
-  // Sweep any remaining [Copilot: ...] markers so they don't leak into the
-  // output — strip the marker text but preserve the surrounding paragraph
-  // (renders as empty whitespace).
-  x = x.replace(/(<w:t(?:\s[^>]*)?>)([^<]*?)\[Copilot:[^\]]*\]([^<]*?)(<\/w:t>)/g, "$1$2$3$4");
+  // Anything still containing "[Copilot:" — Programme bullets, leftover
+  // markers in any section — gets its entire paragraph removed. This wipes
+  // the orphan labels (e.g. "Lead time on materials: ") that would
+  // otherwise survive a text-only strip.
+  x = removeAllParagraphsContaining(x, "[Copilot:");
   return x;
 }
 
@@ -688,8 +714,11 @@ Deno.serve(async (req) => {
     const vat = subtotal * vatFraction;
     const total = subtotal + vat;
     const vatPercent = Math.round(vatFraction * 100);
+    // Pass the EXACT label as it appears in the template's totals rows.
+    // The renderer matches >${exactLabel}</w:t> so partial substrings
+    // ("VAT" inside "exclusive of VAT") can't trip the locator.
     xml = setTotalsRowValue(xml, "Subtotal", gbp(subtotal));
-    xml = setTotalsRowValue(xml, "VAT", gbp(vat), `VAT @ ${vatPercent}%`);
+    xml = setTotalsRowValue(xml, "VAT @ 20%", gbp(vat), `VAT @ ${vatPercent}%`);
     xml = setTotalsRowValue(xml, "TOTAL", `£${gbp(total)}`);
     xml = forceTotalRowWhiteText(xml);
 

@@ -805,21 +805,41 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
         assumptions?: unknown;
         exclusions?: unknown;
       };
+      // Customer block — pull every field the template expects so the
+      // Client section doesn't render with most rows omitted. fieldOrOmit
+      // on the renderer side drops anything still empty.
+      const cust = quotation.customers ?? null;
+      const billingAddress = [
+        customerAddress || cust?.address,
+        customerCity || cust?.city,
+        customerPostcode || cust?.postcode,
+      ].filter(Boolean).join(", ");
+      // Site block — the site name + full address belongs in Site Details,
+      // distinct from the customer's billing address.
       const siteParts = [
         quotation.sites?.name,
         quotation.sites?.address,
         quotation.sites?.city,
         quotation.sites?.postcode,
       ].filter(Boolean);
+      const siteAddress = siteParts.join(", ");
       const payload = {
         ref: (quotationNumber || quotation.quotation_number).trim(),
         issued_date: format(new Date(quotation.created_at), "d MMMM yyyy"),
         valid_until: validUntil ? format(new Date(validUntil), "d MMMM yyyy") : "",
         project_title: title || "",
         client: {
-          company: customerName || quotation.customers?.name || "",
-          contact: customerContactName || quotation.customers?.contact_name || "",
-          address: siteParts.join(", "),
+          company: customerName || cust?.name || "",
+          contact: customerContactName || cust?.contact_name || "",
+          // address goes in the Billing Address slot — customer's address,
+          // NOT the site's. Falls back to site address if customer has none.
+          address: billingAddress || siteAddress,
+          email: customerContactEmail || cust?.contact_email || "",
+          phone: customerContactPhone || cust?.contact_phone || "",
+        },
+        site: {
+          name: quotation.sites?.name || "",
+          address: siteAddress,
         },
         introduction: q.introduction ?? summary ?? "",
         scope: Array.isArray(q.scope) ? (q.scope as string[]) : [],
