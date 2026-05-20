@@ -320,7 +320,10 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
               </div>
               <div>
                 <Label>Building type</Label>
-                <Input value={buildingType} onChange={e => setBuildingType(e.target.value)} placeholder="e.g. Care home, office, hotel" />
+                <Select value={buildingType} onValueChange={setBuildingType}>
+                  <SelectTrigger><SelectValue placeholder="Select building type" /></SelectTrigger>
+                  <SelectContent>{BUILDING_TYPES.map(b => <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Occupancy</Label>
