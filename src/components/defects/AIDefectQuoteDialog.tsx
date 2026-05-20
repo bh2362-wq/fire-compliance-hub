@@ -106,7 +106,7 @@ export function AIDefectQuoteDialog({ open, onOpenChange, defects, onQuoteCreate
           site_id: siteId,
           customer_id: siteData?.customer_id ?? null,
           title: quoteTitle,
-          scope_content: scopeContent,
+          introduction: scopeContent,
           status: "draft",
           quotation_number: quotationNumber,
           total_amount: totals.exVat,
