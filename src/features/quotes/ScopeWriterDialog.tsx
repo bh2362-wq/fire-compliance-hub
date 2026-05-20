@@ -137,7 +137,7 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     setManufacturer(q.system_manufacturer ?? "");
     setPanelType(q.system_panel ?? "");
     setLoops(q.loop_count?.toString() ?? "");
-    setBuildingType(q.building_type ?? "");
+    setBuildingType(coerceBuildingType(q.building_type));
     setOccupancy(q.occupancy_type ?? "non_sleeping");
     setStoreys(q.storeys?.toString() ?? "");
     const f = q.system_features ?? {};
