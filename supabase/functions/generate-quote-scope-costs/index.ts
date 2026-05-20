@@ -62,7 +62,7 @@ Output: A markdown numbered list. One numbered item per logical scope of work.
 
 Conventions:
 - Each item begins with a short, declarative trade-language heading, followed by a 1-2 sentence technical narrative describing WHAT will be done and WHY.
-- Cite the specific BS 5839-1:2017 clause where relevant (e.g. "in accordance with BS 5839-1:2017 Cl. 25.2(d)"). Do NOT invent clause numbers — omit if uncertain.
+- Cite the specific BS 5839-1:2025 clause where relevant (e.g. "in accordance with BS 5839-1:2025 Cl. 25.2(d)"). Do NOT invent clause numbers — omit if uncertain.
 - Group related work items into a single numbered point where it reads more naturally.
 - Use UK English. Use the active voice.
 - Be specific and technical. This represents BHO's professional standing to the client.
@@ -95,7 +95,7 @@ DO (these are correct line item descriptions):
 DO NOT (these are SCOPE content, NOT line items):
   • "Two engineers for two days to investigate battery faults, earth
      fault on Zone 07.000, replace Vesda unit on 6th floor and conduct
-     system retest in accordance with BS 5839-1:2017 Cl.45"
+     system retest in accordance with BS 5839-1:2025 Cl.45"
   • "Investigate and rectify open circuit wiring fault on contact input
      device A114, Zone 07.032 — check cable continuity, verify EOL
      resistor, repair or replace damaged cabling, test and commission"
