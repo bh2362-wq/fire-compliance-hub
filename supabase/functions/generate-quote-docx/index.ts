@@ -368,11 +368,14 @@ function flatPriceableItems(q: QuoteInput): QuoteItem[] {
   if (Array.isArray(q.line_items) && q.line_items.length > 0) {
     return q.line_items
       .filter((li) => !li.is_section)
-      .map((li) => ({
-        desc: li.description ?? "",
-        qty: Number(li.quantity) || 0,
-        unit: Number(li.unit_price) || 0,
-      }));
+      .map((li) => {
+        const qty   = Number(li.quantity)   || 0;
+        let   unit  = Number(li.unit_price) || 0;
+        const total = Number(li.total_price) || 0;
+        // Manual total entered without unit price → derive unit so qty*unit == total.
+        if (unit === 0 && total > 0 && qty > 0) unit = total / qty;
+        return { desc: li.description ?? "", qty, unit };
+      });
   }
   return q.items ?? [];
 }
