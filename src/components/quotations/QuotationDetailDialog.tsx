@@ -175,7 +175,8 @@ function SortableItemRow({
 }
 
 
-export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdate }: QuotationDetailDialogProps) {
+export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdate, onDuplicated }: QuotationDetailDialogProps) {
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
