@@ -3,7 +3,7 @@
 // too small for pdfjs to parse multi-hundred-page standards.
 // Using the legacy build for broader compatibility (Safari, older browsers).
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-// @ts-ignore - Vite ?url import returns a string at runtime
+// @ts-expect-error - Vite ?url import returns a string at runtime
 import workerSrc from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc as string;
@@ -91,7 +91,7 @@ export async function ocrPdfInBrowser(
 
     canvas.width = Math.ceil(scaledViewport.width);
     canvas.height = Math.ceil(scaledViewport.height);
-    await page.render({ canvasContext: context, viewport: scaledViewport } as any).promise;
+    await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
     const imageDataUrl = canvas.toDataURL("image/jpeg", 0.78);
     const text = await ocrPageImage(i, totalPages, imageDataUrl);
     pages.push((text || "").replace(/\s+\n/g, "\n").replace(/\n\s+/g, "\n").trim());
