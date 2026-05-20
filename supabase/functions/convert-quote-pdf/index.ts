@@ -51,15 +51,15 @@ async function uploadToGraph(token: string, driveId: string, fileName: string, b
   return (await res.json()).id as string;
 }
 
-async function downloadAsPdf(token: string, userUpn: string, itemId: string): Promise<Uint8Array> {
-  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userUpn)}/drive/items/${itemId}/content?format=pdf`;
+async function downloadAsPdf(token: string, driveId: string, itemId: string): Promise<Uint8Array> {
+  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/content?format=pdf`;
   const res = await fetch(url, { method: "GET", headers: { Authorization: `Bearer ${token}` }, redirect: "follow" });
   if (!res.ok) throw new Error(`Graph PDF conversion failed ${res.status}: ${await res.text()}`);
   return new Uint8Array(await res.arrayBuffer());
 }
 
-async function deleteFromGraph(token: string, userUpn: string, itemId: string) {
-  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userUpn)}/drive/items/${itemId}`;
+async function deleteFromGraph(token: string, driveId: string, itemId: string) {
+  const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}`;
   const res = await fetch(url, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok && res.status !== 204) console.error(`Graph cleanup warning: ${res.status}`);
 }
