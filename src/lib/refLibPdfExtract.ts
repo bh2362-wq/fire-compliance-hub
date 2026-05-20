@@ -3,7 +3,6 @@
 // too small for pdfjs to parse multi-hundred-page standards.
 // Using the legacy build for broader compatibility (Safari, older browsers).
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-// @ts-expect-error - Vite ?url import returns a string at runtime
 import workerSrc from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc as string;
