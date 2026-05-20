@@ -572,7 +572,7 @@ function renderPricingRows(xml: string, items: QuoteItem[]): string {
     if (canonicalIdx >= 0) break;
   }
   if (canonicalIdx < 0) return xml;
-  const canonicalRowStart = xml.lastIndexOf("<w:tr>", canonicalIdx);
+  const canonicalRowStart = findRowStart(xml, canonicalIdx);
   const canonicalRowEnd = xml.indexOf("</w:tr>", canonicalIdx) + "</w:tr>".length;
   if (canonicalRowStart < 0 || canonicalRowEnd <= 0) return xml;
   const canonicalRow = xml.substring(canonicalRowStart, canonicalRowEnd);
