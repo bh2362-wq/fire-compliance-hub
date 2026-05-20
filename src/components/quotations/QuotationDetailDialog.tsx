@@ -459,6 +459,115 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     }
   };
 
+  // Restructure-with-AI: takes the current line items (where engineers have
+  // dumped per-defect technical descriptions) and re-shapes the quote into
+  // (1) a proper numbered scope narrative in quotations.scope_content and
+  // (2) commercial line items split into Labour / Materials / Extras buckets.
+  // Discards the existing line items' prices — the AI re-estimates from scratch
+  // (engineer reviews before send anyway). Required to clean up legacy quotes
+  // that pre-date the scope/cost separation refactor.
+  const [restructuring, setRestructuring] = useState(false);
+  const handleRestructureWithAI = async () => {
+    if (!quotation || lineItems.length === 0) return;
+    const confirm = window.confirm(
+      "Restructure this quote with AI?\n\n" +
+      "This will:\n" +
+      "• Use the current line items as the technical work-item input\n" +
+      "• Generate a clean numbered Scope of Works narrative\n" +
+      "• Replace the line items with commercial buckets (Labour / Materials / Extras) at first-pass prices for you to review\n\n" +
+      "Existing line item prices will be discarded. Click Cancel to bail out."
+    );
+    if (!confirm) return;
+    setRestructuring(true);
+    try {
+      const priceableItems = lineItems.filter((i) => !i.is_section);
+      const workItems = priceableItems.map((i) => ({
+        description: i.description,
+        location: null as string | null,
+        urgency: null as string | null,
+        source: "manual" as const,
+      }));
+      const sitePostcode = (quotation as { sites?: { postcode?: string | null } | null })
+        ?.sites?.postcode ?? undefined;
+      const { data, error } = await supabase.functions.invoke("generate-quote-scope-costs", {
+        body: {
+          site_name: quotation.sites?.name || "site",
+          site_postcode: sitePostcode,
+          work_items: workItems,
+        },
+      });
+      if (error) throw new Error(error.message);
+      const result = data as {
+        scope_content?: string;
+        line_items?: {
+          labour?: Array<{ description: string; quantity: number; unit_price: number; notes?: string }>;
+          materials?: Array<{ description: string; quantity: number; unit_price: number; notes?: string; regulation_reference?: string }>;
+          extras?: Array<{ description: string; quantity: number; unit_price: number; notes?: string }>;
+        };
+      };
+
+      // 1. Persist the new scope narrative.
+      await supabase.from("quotations").update({ scope_content: result.scope_content ?? "" } as any).eq("id", quotationId);
+
+      // 2. Clear the old line items.
+      await supabase.from("quotation_line_items").delete().eq("quotation_id", quotationId);
+
+      // 3. Build sectioned commercial line items and insert.
+      const rows: any[] = [];
+      let sort = 0;
+      const pushBucket = (
+        title: string,
+        items: Array<{ description: string; quantity: number; unit_price: number; notes?: string; regulation_reference?: string }> | undefined,
+        isLabour: boolean,
+      ) => {
+        if (!items || items.length === 0) return;
+        rows.push({
+          quotation_id: quotationId,
+          is_section: true,
+          title,
+          description: title,
+          sort_order: sort++,
+        });
+        for (const item of items) {
+          const qty = Number(item.quantity) || 1;
+          const unit = Number(item.unit_price) || 0;
+          rows.push({
+            quotation_id: quotationId,
+            is_section: false,
+            description: item.description,
+            quantity: qty,
+            unit_price: unit,
+            cost_price: isLabour ? 0 : unit,
+            labour_cost: isLabour ? unit : 0,
+            labour_included: isLabour,
+            total_price: qty * unit,
+            notes: item.notes || null,
+            regulation_reference: item.regulation_reference || null,
+            sort_order: sort++,
+          });
+        }
+      };
+      pushBucket("Labour",    result.line_items?.labour,    true);
+      pushBucket("Materials", result.line_items?.materials, false);
+      pushBucket("Extras",    result.line_items?.extras,    false);
+
+      if (rows.length > 0) {
+        const { error: insErr } = await supabase.from("quotation_line_items").insert(rows as any);
+        if (insErr) throw insErr;
+      }
+
+      toast.success("Quote restructured — scope updated and line items replaced with commercial buckets");
+      setHasChanges(false);
+      fetchQuotation();
+      onUpdate?.();
+    } catch (e) {
+      console.error("Restructure failed:", e);
+      toast.error(e instanceof Error ? e.message : "Restructure failed");
+    } finally {
+      setRestructuring(false);
+    }
+  };
+
   const [bulkScopeImproving, setBulkScopeImproving] = useState(false);
   const handleBulkImproveScope = async () => {
     if (lineItems.length === 0) return;
@@ -1050,6 +1159,23 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                         <Button variant="outline" size="sm" onClick={handleMergeItems} className="gap-1">
                           <Merge className="w-3.5 h-3.5" />
                           Merge ({selectedItemIds.size})
+                        </Button>
+                      )}
+                      {!isLocked && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRestructureWithAI}
+                          disabled={restructuring || lineItems.length === 0}
+                          className="gap-1"
+                          title="Rebuild this quote: move technical descriptions into Scope of Works, replace line items with commercial buckets (Labour / Materials / Extras)"
+                        >
+                          {restructuring ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5" />
+                          )}
+                          Restructure with AI
                         </Button>
                       )}
                       {!isLocked && (
