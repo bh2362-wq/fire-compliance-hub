@@ -657,7 +657,7 @@ function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo): string
   x = fieldOrOmit(x, "[Project Name]", q.project_title);
   x = fieldOrOmit(x, "[Site Name & Address]", siteForRender);
   x = fieldOrOmit(x, "[e.g. Gent S-Quad / Vigilon]", "");  // no system info in payload yet
-  x = fieldOrOmit(x, "[e.g. BS 5839-1:2025 Cat L1]", "BS 5839-1:2025");
+  x = fieldOrOmit(x, "[e.g. BS 5839-1:2017 Cat L1]", "BS 5839-1:2025");
   x = fieldOrOmit(x, "[Client Enquiry Reference]", q.ref);
 
   // Issued-By block (foot of doc). All sourced from the issuer profile;
