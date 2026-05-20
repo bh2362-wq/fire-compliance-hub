@@ -156,7 +156,7 @@ async function callAI(input: ScopeWriterInput) {
   const jsonStart = rawText.indexOf("{");
   const jsonEnd = rawText.lastIndexOf("}");
   const raw = jsonStart >= 0 && jsonEnd > jsonStart ? rawText.slice(jsonStart, jsonEnd + 1) : rawText;
-  let parsed: ScopeOutput;
+  let parsed: { introduction: string; scope: string[] };
   try { parsed = JSON.parse(raw); }
   catch { throw new Error(`Failed to parse AI output as JSON. Raw: ${raw.slice(0, 200)}…`); }
 
