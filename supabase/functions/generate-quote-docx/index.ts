@@ -82,6 +82,12 @@ interface QuoteInput {
   // (heading + body) is hidden from the rendered document — no orphan heading.
   phasing_paragraph?: string;
 
+  // §6 Programme & Delivery body text. Same omission behaviour as §2.3 —
+  // an empty programme leaves §6 absent entirely (avoids the "heading
+  // then nearly-blank page" the user complained about). When the AI starts
+  // emitting this field, the section automatically reappears with content.
+  programme_paragraph?: string;
+
   // Line items — sectioned or flat. Section header rows are filtered out;
   // the template's own §3 visual layout doesn't expose per-section subtotals.
   line_items?: SectionedLineItem[];
@@ -305,6 +311,22 @@ function removeSectionHeadingAndBody(xml: string, headingMatch: string): string 
   const bodyEnd = xml.indexOf("</w:p>", hEnd + "</w:p>".length);
   if (bodyEnd < 0) return xml;
   return xml.substring(0, hStart) + xml.substring(bodyEnd + "</w:p>".length);
+}
+
+// Remove everything from `headingMatch` up to (but not including) the
+// `untilNext` heading. Used for multi-paragraph sections like §6 PROGRAMME
+// where the section has a heading + an intro line + several bullets, all
+// of which need to vanish when there's no content to populate.
+function removeSectionUntilNext(xml: string, headingMatch: string, untilNext: string): string {
+  const idx = xml.indexOf(headingMatch);
+  if (idx < 0) return xml;
+  const hStart = findEnclosingWpStart(xml, idx);
+  if (hStart < 0) return xml;
+  const nextIdx = xml.indexOf(untilNext, idx);
+  if (nextIdx < 0) return xml;
+  const nextStart = findEnclosingWpStart(xml, nextIdx);
+  if (nextStart < 0 || nextStart <= hStart) return xml;
+  return xml.substring(0, hStart) + xml.substring(nextStart);
 }
 
 // Word fragments edited text into adjacent <w:r> runs (so "[Contact Email]"
@@ -850,6 +872,22 @@ Deno.serve(async (req) => {
       );
     } else {
       xml = removeSectionHeadingAndBody(xml, "2.3 Phasing");
+    }
+    // §6 PROGRAMME & DELIVERY — populate or hide.
+    // The template has heading + "Subject to receipt..." intro + 4 bullets
+    // with [Copilot:] placeholders. If we have no programme_paragraph,
+    // drop the whole section through to (but not into) §7 PAYMENT TERMS.
+    if (quote.programme_paragraph && quote.programme_paragraph.trim()) {
+      // Replace the first remaining [Copilot:] inside §6 with the body text.
+      // (Specific bullet placeholders are still stripped by the generic
+      // [Copilot:] sweep below; this captures any survivor we care to fill.)
+      xml = replaceAllWtText(
+        xml,
+        "[Copilot: Insert phasing notes, isolation windows, or critical client milestones.]",
+        quote.programme_paragraph.trim(),
+      );
+    } else {
+      xml = removeSectionUntilNext(xml, "6. PROGRAMME", "7. PAYMENT TERMS");
     }
     xml = renderPricingRows(xml, items);
 

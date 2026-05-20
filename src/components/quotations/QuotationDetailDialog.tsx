@@ -516,18 +516,14 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       const rows: any[] = [];
       let sort = 0;
       const pushBucket = (
-        title: string,
+        _title: string,
         items: Array<{ description: string; quantity: number; unit_price: number; notes?: string; regulation_reference?: string }> | undefined,
         isLabour: boolean,
       ) => {
         if (!items || items.length === 0) return;
-        rows.push({
-          quotation_id: quotationId,
-          is_section: true,
-          title,
-          description: title,
-          sort_order: sort++,
-        });
+        // No section divider row — user wants only real costed rows in the
+        // pricing table. Bucket grouping is visible from the items' content
+        // (e.g. material names vs labour days) and clutter-free totals.
         for (const item of items) {
           const qty = Number(item.quantity) || 1;
           const unit = Number(item.unit_price) || 0;

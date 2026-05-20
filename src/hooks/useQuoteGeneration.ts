@@ -144,28 +144,16 @@ export function useQuoteGeneration() {
 
   // Convert the edited buckets into rows for quotation_line_items.
   //
-  // Layout: sections and items share parent_id=null and are interleaved by
-  // sort_order — section row first, its items immediately after. The DOCX
-  // renderer walks rows in sort_order and starts a new section whenever it
-  // sees is_section=true. parent_id is reserved for future sub-item nesting
-  // and for the merge feature; it is not used for the section grouping itself.
-  //
-  // Buckets with zero items emit no section row at all (no empty "Materials"
-  // header in the rendered output).
+  // No section divider rows emitted — the user wants the pricing table to
+  // contain ONLY real costed rows. Bucket grouping is implicit from item
+  // content (a labour day vs a device name vs a surcharge).
   const toLineItemRows = useCallback(
     (quotationId: string): QuotationLineItemInsert[] => {
       const rows: QuotationLineItemInsert[] = [];
       let sort = 0;
 
-      const pushBucket = (title: string, items: CostLine[], isLabour: boolean) => {
+      const pushBucket = (_title: string, items: CostLine[], isLabour: boolean) => {
         if (items.length === 0) return;
-        rows.push({
-          quotation_id: quotationId,
-          is_section: true,
-          title,
-          description: title,
-          sort_order: sort++,
-        });
         for (const item of items) {
           const qty = Number(item.quantity) || 1;
           const unit = Number(item.unit_price) || 0;
