@@ -58,11 +58,14 @@ export async function extractPdfInBrowser(
   // scanned/image-only PDF, encrypted, etc.) instead of letting empty data
   // through to the embeddings pipeline.
   if (totalPages === 0) {
+    await pdf.destroy();
     throw new Error("PDF extraction returned 0 pages — worker likely failed to load");
   }
   if (fileSize > 100 * 1024 && totalChars < 500) {
+    await pdf.destroy();
     throw new ScannedPdfError(totalPages, totalChars, fileSize);
   }
+  await pdf.destroy();
   return { pages, totalPages };
 }
 
@@ -101,11 +104,13 @@ export async function ocrPdfInBrowser(
 
   const totalChars = pages.reduce((n, p) => n + p.length, 0);
   if (totalPages === 0 || totalChars < 500) {
+    await pdf.destroy();
     throw new Error(
       `OCR completed but only recovered ${totalChars} characters from ${totalPages} pages. ` +
         `Please run the PDF through a dedicated OCR tool and re-upload the OCR'd version.`,
     );
   }
+  await pdf.destroy();
   return { pages, totalPages, ocrUsed: true };
 }
 
