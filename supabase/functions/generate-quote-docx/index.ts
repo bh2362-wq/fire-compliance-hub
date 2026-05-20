@@ -78,6 +78,10 @@ interface QuoteInput {
   summary_paragraph?: string;
   introduction?: string;
 
+  // §2.3 Phasing & Programme text. If empty/null, the whole §2.3 section
+  // (heading + body) is hidden from the rendered document — no orphan heading.
+  phasing_paragraph?: string;
+
   // Line items — sectioned or flat. Section header rows are filtered out;
   // the template's own §3 visual layout doesn't expose per-section subtotals.
   line_items?: SectionedLineItem[];
@@ -272,8 +276,9 @@ function pageBreakBeforeSection7(xml: string): string {
 // should read as normal body text. Applied AFTER all replacements so we only
 // demote runs that actually got filled; remaining "[Copilot:" etc. runs
 // either keep their styling or get stripped by removeAllParagraphsContaining.
+// Matches both <w:r> and attribute-rich <w:r w:rsidR="..."> forms.
 function demotePopulatedRuns(xml: string): string {
-  const re = /(<w:r>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?)<w:t([^>]*)>([^<]*)<\/w:t>(<\/w:r>)/g;
+  const re = /(<w:r(?:\s[^>]*)?>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?)<w:t([^>]*)>([^<]*)<\/w:t>(<\/w:r>)/g;
   return xml.replace(re, (match, openAndRpr, tAttr, text, closeR) => {
     if (text.length === 0) return match;          // empty cell — leave alone
     if (text.includes("[")) return match;          // still a placeholder — leave alone
@@ -283,6 +288,23 @@ function demotePopulatedRuns(xml: string): string {
       .replace(/<w:color w:val="9CA3AF"\s*\/>/g, '<w:color w:val="1A1A1A"/>');
     return `${cleaned}<w:t${tAttr}>${text}</w:t>${closeR}`;
   });
+}
+
+// Remove a numbered section (e.g. "2.3 Phasing & Programme") entirely —
+// heading paragraph PLUS the single body paragraph immediately following it.
+// Used when the section has no dynamic data to render so we don't leave an
+// orphan heading floating above no content.
+function removeSectionHeadingAndBody(xml: string, headingMatch: string): string {
+  const idx = xml.indexOf(headingMatch);
+  if (idx < 0) return xml;
+  const hStart = findEnclosingWpStart(xml, idx);
+  if (hStart < 0) return xml;
+  const hEnd = xml.indexOf("</w:p>", idx);
+  if (hEnd < 0) return xml;
+  // Find the next paragraph after the heading and remove it too.
+  const bodyEnd = xml.indexOf("</w:p>", hEnd + "</w:p>".length);
+  if (bodyEnd < 0) return xml;
+  return xml.substring(0, hStart) + xml.substring(bodyEnd + "</w:p>".length);
 }
 
 // Word fragments edited text into adjacent <w:r> runs (so "[Contact Email]"
@@ -720,28 +742,54 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
   };
 }
 
-// ── §2.2 Works Included renderer ──────────────────────────────────────────────
+// ── §2.2 Detailed Scope renderer (replaces "Works Included" approach) ──────
+//
+// Template has §2.2 with just a [Copilot: Add project-specific items …]
+// placeholder paragraph (the old install-focused static bullets were stripped
+// from the template). This renderer replaces that placeholder with N numbered
+// scope-item paragraphs styled as Verdana 8pt black body text — not the
+// italic-grey "placeholder" style of the marker it replaces.
 
-// Swap the template's hardcoded §2.2 bullets for a job-type-appropriate list.
-// If we have no mapping for this works_type, leave the template defaults
-// alone (they read as a new-install bullet list — safe fallback).
-function renderWorksIncludedBullets(xml: string, worksType: string | null): string {
-  if (!worksType) return xml;
-  const bullets = WORKS_INCLUDED_BY_TYPE[worksType];
-  if (!bullets || bullets.length === 0) return xml;
-  let x = xml;
-  for (let i = 0; i < TEMPLATE_WORKS_BULLETS.length; i++) {
-    const templateText = TEMPLATE_WORKS_BULLETS[i];
-    const replacement = bullets[i];
-    if (replacement) {
-      x = replaceAllWtText(x, templateText, replacement);
-    } else {
-      // No replacement at this slot — strip the bullet paragraph entirely so
-      // the rendered list ends cleanly.
-      x = removeContainingParagraph(x, templateText);
-    }
+const BODY_RPR =
+  '<w:rPr>' +
+    '<w:rFonts w:ascii="Verdana" w:cs="Verdana" w:eastAsia="Verdana" w:hAnsi="Verdana"/>' +
+    '<w:color w:val="1A1A1A"/>' +
+    '<w:sz w:val="16"/><w:szCs w:val="16"/>' +
+  '</w:rPr>';
+
+function buildScopeItemParagraph(num: number, text: string): string {
+  const prefix = escapeXmlText(`${num}. `);
+  const body = escapeXmlText(text.trim());
+  return '<w:p>'
+    + '<w:pPr>'
+      + '<w:spacing w:after="120" w:line="260" w:lineRule="auto"/>'
+      + '<w:ind w:left="360" w:hanging="360"/>'
+      + '<w:jc w:val="both"/>'
+    + '</w:pPr>'
+    + `<w:r>${BODY_RPR}<w:t xml:space="preserve">${prefix}</w:t></w:r>`
+    + `<w:r>${BODY_RPR}<w:t xml:space="preserve">${body}</w:t></w:r>`
+    + '</w:p>';
+}
+
+// Replace the §2.2 placeholder paragraph with N numbered scope items.
+// scope[0] feeds §2.1 (System Description) so §2.2 lists scope[1..] —
+// unless the entire scope is one item, in which case §2.2 is omitted.
+function renderDetailedScope(xml: string, scope: string[]): string {
+  const marker = "[Copilot: Add project-specific items";  // partial match — placeholder may have been edited
+  const phIdx = xml.indexOf(marker);
+  if (phIdx < 0) return xml;
+  const pStart = findEnclosingWpStart(xml, phIdx);
+  if (pStart < 0) return xml;
+  const pEnd = xml.indexOf("</w:p>", phIdx) + "</w:p>".length;
+  if (pEnd <= 0) return xml;
+
+  const items = scope.slice(1).filter((s) => s && s.trim().length > 0);
+  if (items.length === 0) {
+    // No detailed items — strip the placeholder paragraph cleanly.
+    return xml.substring(0, pStart) + xml.substring(pEnd);
   }
-  return x;
+  const paragraphs = items.map((t, i) => buildScopeItemParagraph(i + 1, t)).join("");
+  return xml.substring(0, pStart) + paragraphs + xml.substring(pEnd);
 }
 
 // ── Handler ────────────────────────────────────────────────────────────────────
@@ -789,8 +837,20 @@ Deno.serve(async (req) => {
     // 4. Apply replacements in the order most likely to keep cell-lookup
     //    unambiguous (line items before totals before generic Copilot sweep).
     const items = flatPriceableItems(quote);
+    const scope = resolveScopeParagraphs(quote);
     xml = renderTopFields(xml, quote, issuer);
-    xml = renderWorksIncludedBullets(xml, ctx.worksType);
+    xml = renderDetailedScope(xml, scope);
+    // §2.3 — if we have phasing_paragraph, fill it; otherwise drop the
+    // whole section so the document doesn't show an empty heading.
+    if (quote.phasing_paragraph && quote.phasing_paragraph.trim()) {
+      xml = replaceAllWtText(
+        xml,
+        "[Copilot: Insert phasing arrangement, key milestones, agreed dates, working hours, isolations required.]",
+        quote.phasing_paragraph.trim(),
+      );
+    } else {
+      xml = removeSectionHeadingAndBody(xml, "2.3 Phasing");
+    }
     xml = renderPricingRows(xml, items);
 
     const vatFraction = normalizeVatFraction(quote.vat_rate, quote.ref);
