@@ -227,6 +227,18 @@ function escapeXmlText(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// When a placeholder string in TS source contains `&` (e.g. "[Contact Name & Role]"),
+// the matching XML text node will have it XML-escaped as `&amp;`. Searching the
+// XML for the literal `&` form misses the match entirely — every placeholder
+// stays visible in the rendered document. Applied to every helper that searches
+// XML by literal text.
+function xmlEscapeSearch(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 function flatPriceableItems(q: QuoteInput): QuoteItem[] {
   if (Array.isArray(q.line_items) && q.line_items.length > 0) {
     return q.line_items
@@ -260,7 +272,9 @@ function resolveScopeParagraphs(q: QuoteInput): string[] {
 // ── XML primitives ────────────────────────────────────────────────────────────
 
 function replaceAllWtText(xml: string, placeholder: string, value: string): string {
-  const safe = placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Search the XML for the entity-escaped form of the placeholder so & in the
+  // source string finds &amp; in the document.
+  const safe = xmlEscapeSearch(placeholder).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const re = new RegExp(`(<w:t[^>]*>)([^<]*?)${safe}([^<]*?)(</w:t>)`, "g");
   return xml.replace(re, (_m, openTag, before, after, closeTag) =>
     `${openTag}${before}${escapeXmlText(value)}${after}${closeTag}`,
@@ -279,7 +293,7 @@ function findEnclosingWpStart(xml: string, fromIdx: number): number {
 // preceding paragraph (its label). Used for fields like "Project: / [Project
 // Name]" where label and value are in two sibling <w:p>s.
 function removePairedParagraphs(xml: string, placeholder: string): string {
-  const phIdx = xml.indexOf(placeholder);
+  const phIdx = xml.indexOf(xmlEscapeSearch(placeholder));
   if (phIdx < 0) return xml;
   const valueStart = findEnclosingWpStart(xml, phIdx);
   if (valueStart < 0) return xml;
@@ -297,7 +311,7 @@ function removePairedParagraphs(xml: string, placeholder: string): string {
 // Remove just the paragraph containing `placeholder` (no label pair). Used
 // for free-standing placeholders like the Programme bullets.
 function removeContainingParagraph(xml: string, placeholder: string): string {
-  const phIdx = xml.indexOf(placeholder);
+  const phIdx = xml.indexOf(xmlEscapeSearch(placeholder));
   if (phIdx < 0) return xml;
   const pStart = findEnclosingWpStart(xml, phIdx);
   if (pStart < 0) return xml;
