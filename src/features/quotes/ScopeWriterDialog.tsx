@@ -132,7 +132,7 @@ export function ScopeWriterDialog({ open, onOpenChange, quotationId, onAccepted 
     if (!buildingType && siteIntel.building?.type)      { setBuildingType(siteIntel.building.type);     touched++; }
     if (siteIntel.building?.occupancy && occupancy === "non_sleeping") { setOccupancy(siteIntel.building.occupancy); touched++; }
     if (!storeys      && siteIntel.building?.storeys)   { setStoreys(String(siteIntel.building.storeys)); touched++; }
-    if (siteIntel.contract?.category && category === "L2") { setCategory(siteIntel.contract.category); touched++; }
+    if (siteIntel.contract?.category && category === "L2") { const c: any = siteIntel.contract.category; setCategory(Array.isArray(c) ? (c[0] ?? "L2") : c); touched++; }
     if (!arcSignal    && siteIntel.features.arc_signal)    { setArcSignal(true);    touched++; }
     if (!voiceAlarm   && siteIntel.features.voice_alarm)   { setVoiceAlarm(true);   touched++; }
     if (!wireless     && siteIntel.features.wireless)      { setWireless(true);     touched++; }
