@@ -60,6 +60,10 @@ import { getCompanySettings } from "@/services/companySettingsService";
 import { EmailQuotationDialog } from "./EmailQuotationDialog";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { QuoteActions } from "@/features/quotes/QuoteActions";
+import {
+  inheritMetadataFromPriorQuote,
+  isQuotationMetadataThin,
+} from "@/services/quoteMetadataInheritanceService";
 import { ImproveTitleButton } from "./ImproveTitleButton";
 
 // Snapshot of a pre-merge line item stored in the survivor's merged_from
@@ -174,6 +178,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [generating, setGenerating] = useState(false);
   const [improving, setImproving] = useState(false);
   const [quotation, setQuotation] = useState<QuotationFull | null>(null);
+  const [inheritingMetadata, setInheritingMetadata] = useState(false);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
