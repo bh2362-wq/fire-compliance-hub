@@ -1,30 +1,23 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Plus, Trash2, Send, Loader2, AlertOctagon, AlertTriangle, Info } from "lucide-react";
+import {
+  Sparkles, Plus, Trash2, Send, Loader2, AlertOctagon, AlertTriangle, Info, Briefcase, Package, Receipt,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { updateDefect, type Defect } from "@/services/defectService";
-import { cn } from "@/lib/utils";
-
-// ── Types ──────────────────────────────────────────────────────────────────────
-
-interface LineItem {
-  id: string;
-  item_name: string;
-  description: string;
-  quantity: number;
-  cost_price: number;
-  labour_cost: number;
-  regulation_reference: string;
-  notes: string;
-  priority: string;
-}
+import {
+  useQuoteGeneration,
+  defectsToWorkItems,
+  type CostLine,
+  type CategorisedLineItems,
+} from "@/hooks/useQuoteGeneration";
 
 interface Props {
   open: boolean;
@@ -33,229 +26,110 @@ interface Props {
   onQuoteCreated: () => void;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
 function catIcon(cat: number) {
   if (cat === 1) return <AlertOctagon className="w-3 h-3 text-destructive flex-shrink-0" />;
   if (cat === 2) return <AlertTriangle className="w-3 h-3 text-orange-500 flex-shrink-0" />;
   return <Info className="w-3 h-3 text-yellow-600 flex-shrink-0" />;
 }
 
-function catLabel(cat: number) {
-  if (cat === 1) return "Cat 1 — Immediate";
-  if (cat === 2) return "Cat 2 — Urgent";
-  return "Cat 3 — Advisory";
-}
+type BucketKey = keyof CategorisedLineItems;
 
-// ── Component ──────────────────────────────────────────────────────────────────
+const BUCKET_META: Record<BucketKey, { label: string; icon: typeof Briefcase; showRegRef: boolean }> = {
+  labour:    { label: "Labour",    icon: Briefcase, showRegRef: false },
+  materials: { label: "Materials", icon: Package,   showRegRef: true  },
+  extras:    { label: "Extras",    icon: Receipt,   showRegRef: false },
+};
 
 export function AIDefectQuoteDialog({ open, onOpenChange, defects, onQuoteCreated }: Props) {
   const navigate = useNavigate();
-  const [step, setStep] = useState<"idle" | "generating" | "review">("idle");
-  const [lineItems, setLineItems] = useState<LineItem[]>([]);
-  const [quoteTitle, setQuoteTitle] = useState("");
-  const [quoteSummary, setQuoteSummary] = useState("");
+  const {
+    status, error, scopeContent, setScopeContent, lineItems, setLineItems, generate, reset, toLineItemRows, totals,
+  } = useQuoteGeneration();
   const [creating, setCreating] = useState(false);
 
-  // Group defects by site for the prompt
   const primarySite = defects[0];
   const siteName = primarySite?.site_name || "site";
   const siteId = primarySite?.site_id || "";
 
+  const defaultTitle = useMemo(() => `Remedial Works — ${siteName}`, [siteName]);
+  const [quoteTitle, setQuoteTitle] = useState(defaultTitle);
+
   function handleClose() {
-    setStep("idle");
-    setLineItems([]);
-    setQuoteTitle("");
-    setQuoteSummary("");
+    reset();
+    setQuoteTitle(defaultTitle);
     onOpenChange(false);
   }
 
   async function handleGenerate() {
-    setStep("generating");
-    try {
-      const defectList = defects
-        .sort((a, b) => a.category - b.category) // Cat 1 first
-        .map((d, i) =>
-          `${i + 1}. [${catLabel(d.category)}] ${d.description}` +
-          (d.location ? ` — Location: ${d.location}` : "") +
-          (d.notes ? ` — Notes: ${d.notes}` : "")
-        )
-        .join("\n");
-
-      const hasCat1 = defects.some(d => d.category === 1);
-      const hasCat2 = defects.some(d => d.category === 2);
-      const urgency = hasCat1 ? "URGENT — Cat 1 immediate danger defects present" : hasCat2 ? "Cat 2 urgent defects present" : "Advisory defects";
-
-      const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-chat", {
-        body: {
-          model: "claude-sonnet-4-20250514",
-          system: `You are a fire alarm engineering quotation specialist for BHO Fire & Security Ltd, a UK fire alarm contractor based in Kent. 
-Generate professional remedial works quotation content from defect descriptions found during a BS 5839-1 inspection.
-
-Rules:
-- Group logically related defects into single line items where appropriate (e.g. multiple panel downloads = one line item)
-- Each line item must have a clear, professional trade description
-- Regulation references should cite specific BS 5839-1:2025 clauses where relevant
-- Leave cost_price and labour_cost as 0 — the engineer will fill in actual prices
-- Cat 1 defects should appear first and be marked priority "Cat1-Immediate"
-- Be specific and technical — this goes directly to the client
-
-Return ONLY this exact JSON structure, no other text:
-{
-  "quote_title": "Remedial Works — [site name] — [brief scope]",
-  "summary": "Two to three sentence professional summary of the remedial works required and urgency level.",
-  "line_items": [
-    {
-      "item_name": "Short trade name, max 8 words",
-      "description": "Full professional description of the scope of work for this item, including what will be done and why",
-      "quantity": 1,
-      "cost_price": 0,
-      "labour_cost": 0,
-      "regulation_reference": "BS 5839-1:2025 Cl. XX or leave blank if not specific",
-      "notes": "Any relevant notes for the engineer pricing this item",
-      "priority": "Cat1-Immediate | Cat2-Urgent | Cat3-Advisory"
-    }
-  ]
-}`,
-          messages: [{
-            role: "user",
-            content: `Generate a remedial works quotation for the following defects found at ${siteName}.\n\nUrgency: ${urgency}\n\nDefects:\n${defectList}`,
-          }],
-        },
-      });
-
-      if (fnError) {
-        throw new Error(`AI request failed: ${fnError.message}`);
-      }
-
-      const rawText: string = typeof fnData?.content === "string"
-        ? fnData.content
-        : Array.isArray(fnData?.content)
-          ? fnData.content.find((c: { type: string }) => c.type === "text")?.text || ""
-          : "";
-
-      let parsed: { quote_title: string; summary: string; line_items: LineItem[] };
-      try {
-        parsed = JSON.parse(rawText.replace(/```json|```/g, "").trim());
-      } catch {
-        throw new Error("AI returned an unexpected format — please try again");
-      }
-
-      setQuoteTitle(parsed.quote_title || `Remedial Works — ${siteName}`);
-      setQuoteSummary(parsed.summary || "");
-      setLineItems((parsed.line_items || []).map(item => ({ ...item, id: uid() })));
-      setStep("review");
-      toast.success(`${parsed.line_items?.length || 0} line items generated — review and adjust before creating`);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Generation failed";
-      toast.error(message);
-      setStep("idle");
-    }
+    const workItems = defectsToWorkItems(
+      defects.map(d => ({ description: d.description, location: d.location ?? null, category: d.category })),
+    );
+    await generate({ siteName }, workItems);
+    if (!quoteTitle) setQuoteTitle(defaultTitle);
   }
 
-  // ── Line item editing ────────────────────────────────────────────────────────
+  // ── Bucket editing helpers ───────────────────────────────────────────────────
 
-  function updateItem<K extends keyof LineItem>(id: string, field: K, value: LineItem[K]) {
-    setLineItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+  function updateBucketLine(bucket: BucketKey, index: number, field: keyof CostLine, value: string | number) {
+    setLineItems({
+      ...lineItems,
+      [bucket]: lineItems[bucket].map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    });
+  }
+  function removeBucketLine(bucket: BucketKey, index: number) {
+    setLineItems({ ...lineItems, [bucket]: lineItems[bucket].filter((_, i) => i !== index) });
+  }
+  function addBucketLine(bucket: BucketKey) {
+    const empty: CostLine = { description: "", quantity: 1, unit_price: 0, notes: "" };
+    setLineItems({ ...lineItems, [bucket]: [...lineItems[bucket], empty] });
   }
 
-  function removeItem(id: string) {
-    setLineItems(prev => prev.filter(item => item.id !== id));
-  }
-
-  function addItem() {
-    setLineItems(prev => [...prev, {
-      id: uid(),
-      item_name: "",
-      description: "",
-      quantity: 1,
-      cost_price: 0,
-      labour_cost: 0,
-      regulation_reference: "",
-      notes: "",
-      priority: "Cat3-Advisory",
-    }]);
-  }
-
-  // ── Totals ────────────────────────────────────────────────────────────────────
-
-  const totalMaterials = lineItems.reduce((s, i) => s + Number(i.cost_price) * Number(i.quantity), 0);
-  const totalLabour    = lineItems.reduce((s, i) => s + Number(i.labour_cost) * Number(i.quantity), 0);
-  const totalAmount    = totalMaterials + totalLabour;
+  const totalLines = lineItems.labour.length + lineItems.materials.length + lineItems.extras.length;
 
   // ── Create quote ──────────────────────────────────────────────────────────────
 
   async function handleCreateQuote() {
-    if (!lineItems.length) { toast.error("Add at least one line item"); return; }
+    if (totalLines === 0) { toast.error("Add at least one line item"); return; }
     setCreating(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
 
-      // Get customer_id from the first defect's site
       const { data: siteData } = await supabase
-        .from("sites")
-        .select("customer_id, name")
-        .eq("id", siteId)
-        .maybeSingle();
+        .from("sites").select("customer_id").eq("id", siteId).maybeSingle();
 
       const { data: quotationNumber } = await supabase.rpc("get_next_quotation_number");
 
-      // Create quotation
       const { data: quotation, error: qErr } = await supabase
         .from("quotations")
         .insert({
           site_id: siteId,
           customer_id: siteData?.customer_id ?? null,
           title: quoteTitle,
-          summary: quoteSummary,
+          scope_content: scopeContent,
           status: "draft",
           quotation_number: quotationNumber,
-          total_amount: totalAmount,
+          total_amount: totals.exVat,
           created_by: user.id,
           notes: `Remedial works quotation generated from ${defects.length} defect${defects.length !== 1 ? "s" : ""} identified during site inspection. Defect IDs: ${defects.map(d => d.id).join(", ")}`,
         })
         .select()
         .single();
-
       if (qErr) throw qErr;
 
-      // Create line items
-      const lineItemRows = lineItems.map((item, idx) => ({
-        quotation_id: quotation.id,
-        item_name: item.item_name,
-        description: item.description,
-        quantity: Number(item.quantity),
-        cost_price: Number(item.cost_price),
-        labour_cost: Number(item.labour_cost),
-        labour_included: Number(item.labour_cost) > 0,
-        regulation_reference: item.regulation_reference || null,
-        notes: item.notes || null,
-        priority: item.priority,
-        sort_order: idx,
-      }));
+      const rows = toLineItemRows(quotation.id);
+      if (rows.length > 0) {
+        const { error: liErr } = await supabase.from("quotation_line_items").insert(rows);
+        if (liErr) throw liErr;
+      }
 
-      const { error: liErr } = await supabase
-        .from("quotation_line_items")
-        .insert(lineItemRows);
-
-      if (liErr) throw liErr;
-
-      // Mark all selected defects as "quoted" and link quotation_id
       await Promise.all(defects.map(d =>
-        updateDefect(d.id, { status: "quoted", quotation_id: quotation.id })
-          .catch(console.error)
+        updateDefect(d.id, { status: "quoted", quotation_id: quotation.id }).catch(console.error),
       ));
 
       toast.success(`Quote ${quotationNumber} created — opening now`);
       handleClose();
       onQuoteCreated();
-
-      // Navigate to the quotation
       navigate(`/dashboard/quotations`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create quotation";
@@ -267,15 +141,9 @@ Return ONLY this exact JSON structure, no other text:
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
-  const priorityColor: Record<string, string> = {
-    "Cat1-Immediate": "border-red-300/60 bg-red-50 dark:bg-red-950/20",
-    "Cat2-Urgent":    "border-orange-300/60 bg-orange-50 dark:bg-orange-950/20",
-    "Cat3-Advisory":  "border-border bg-card",
-  };
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col gap-0 p-0">
         <DialogHeader className="px-6 pt-5 pb-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -294,7 +162,7 @@ Return ONLY this exact JSON structure, no other text:
               Defects being quoted
             </p>
             {defects
-              .sort((a, b) => a.category - b.category)
+              .slice().sort((a, b) => a.category - b.category)
               .map(d => (
                 <div key={d.id} className="flex items-start gap-2 text-xs">
                   {catIcon(d.category)}
@@ -308,194 +176,187 @@ Return ONLY this exact JSON structure, no other text:
           </div>
 
           {/* Step: idle — generate button */}
-          {step === "idle" && (
-            <Button
-              onClick={handleGenerate}
-              size="lg"
-              className="w-full gap-2"
-            >
+          {status === "idle" && (
+            <Button onClick={handleGenerate} size="lg" className="w-full gap-2">
               <Sparkles className="h-4 w-4" />
-              Generate Skeleton Quote with AI
+              Generate Scope + Costs with AI
             </Button>
           )}
 
           {/* Step: generating */}
-          {step === "generating" && (
+          {status === "generating" && (
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm font-medium">Analysing defects and generating quote…</p>
-              <p className="text-xs">Claude is reading your defects and drafting professional line items</p>
+              <p className="text-sm font-medium">Drafting scope and estimating costs…</p>
+              <p className="text-xs">Claude is writing a BS 5839-1 narrative, then estimating labour + materials + extras</p>
             </div>
           )}
 
-          {/* Step: review */}
-          {step === "review" && (
-            <div className="space-y-4">
+          {/* Step: error */}
+          {status === "error" && (
+            <div className="space-y-2">
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                {error || "Generation failed"}
+              </div>
+              <Button variant="outline" onClick={handleGenerate} className="w-full">Try again</Button>
+            </div>
+          )}
+
+          {/* Step: ready — review */}
+          {status === "ready" && (
+            <div className="space-y-5">
               {/* Quote title */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Quote Title</Label>
-                <Input
-                  value={quoteTitle}
-                  onChange={e => setQuoteTitle(e.target.value)}
-                  className="font-medium"
-                />
+                <Input value={quoteTitle} onChange={e => setQuoteTitle(e.target.value)} className="font-medium" />
               </div>
 
-              {/* Summary */}
+              {/* Scope content — markdown editor */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
-                  Cover Summary <span className="font-normal text-muted-foreground">(shown to client)</span>
+                  Scope of Works
+                  <span className="font-normal text-muted-foreground ml-2">
+                    — markdown numbered list, edit before saving
+                  </span>
                 </Label>
                 <Textarea
-                  rows={3}
-                  value={quoteSummary}
-                  onChange={e => setQuoteSummary(e.target.value)}
-                  className="text-sm"
+                  rows={Math.min(20, Math.max(8, scopeContent.split("\n").length))}
+                  value={scopeContent}
+                  onChange={e => setScopeContent(e.target.value)}
+                  className="text-sm font-mono"
                 />
               </div>
 
-              {/* Line items */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold">
-                    Line Items
-                    <span className="font-normal text-muted-foreground ml-2">
-                      — edit descriptions, add prices, adjust quantities
-                    </span>
-                  </Label>
-                  <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addItem}>
-                    <Plus className="h-3.5 w-3.5" />Add Row
-                  </Button>
-                </div>
-
-                {lineItems.map((item, idx) => (
-                  <div
-                    key={item.id}
-                    className={cn("rounded-lg border p-3 space-y-2.5", priorityColor[item.priority] || "border-border")}
-                  >
-                    {/* Row header */}
-                    <div className="flex items-start gap-2">
-                      <span className="text-[10px] font-bold text-muted-foreground w-5 mt-1 flex-shrink-0">
-                        {idx + 1}.
-                      </span>
-                      <div className="flex-1 space-y-2">
-                        <Input
-                          value={item.item_name}
-                          onChange={e => updateItem(item.id, "item_name", e.target.value)}
-                          placeholder="Item name (e.g. Replace VESDA Unit)"
-                          className="font-semibold text-sm h-8"
-                        />
-                        <Textarea
-                          rows={2}
-                          value={item.description}
-                          onChange={e => updateItem(item.id, "description", e.target.value)}
-                          placeholder="Full description of work to be carried out…"
-                          className="text-xs"
-                        />
-
-                        {/* Pricing row */}
-                        <div className="grid grid-cols-4 gap-2">
-                          <div>
-                            <Label className="text-[10px] text-muted-foreground">Qty</Label>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={item.quantity}
-                              onChange={e => updateItem(item.id, "quantity", Number(e.target.value) || 1)}
-                              className="h-7 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px] text-muted-foreground">Materials £</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              step={0.01}
-                              value={item.cost_price}
-                              onChange={e => updateItem(item.id, "cost_price", parseFloat(e.target.value) || 0)}
-                              className="h-7 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px] text-muted-foreground">Labour £</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              step={0.01}
-                              value={item.labour_cost}
-                              onChange={e => updateItem(item.id, "labour_cost", parseFloat(e.target.value) || 0)}
-                              className="h-7 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px] text-muted-foreground">Line total</Label>
-                            <div className="h-7 flex items-center text-sm font-semibold text-foreground">
-                              £{((Number(item.cost_price) + Number(item.labour_cost)) * Number(item.quantity)).toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Reg ref + priority */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-[10px] text-muted-foreground">Regulation Reference</Label>
-                            <Input
-                              value={item.regulation_reference}
-                              onChange={e => updateItem(item.id, "regulation_reference", e.target.value)}
-                              placeholder="e.g. BS 5839-1:2025 Cl. 25"
-                              className="h-7 text-xs"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[10px] text-muted-foreground">Priority</Label>
-                            <select
-                              value={item.priority}
-                              onChange={e => updateItem(item.id, "priority", e.target.value)}
-                              className="w-full h-7 text-xs rounded-md border border-input bg-background px-2"
-                            >
-                              <option value="Cat1-Immediate">Cat 1 — Immediate</option>
-                              <option value="Cat2-Urgent">Cat 2 — Urgent</option>
-                              <option value="Cat3-Advisory">Cat 3 — Advisory</option>
-                            </select>
-                          </div>
-                        </div>
+              {/* Line item buckets */}
+              {(Object.keys(BUCKET_META) as BucketKey[]).map(bucket => {
+                const meta = BUCKET_META[bucket];
+                const rows = lineItems[bucket];
+                const Icon = meta.icon;
+                const bucketTotal = rows.reduce(
+                  (s, r) => s + (Number(r.quantity) || 1) * (Number(r.unit_price) || 0), 0,
+                );
+                return (
+                  <div key={bucket} className="rounded-lg border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        <Label className="text-xs font-semibold">{meta.label}</Label>
+                        <span className="text-[10px] text-muted-foreground">
+                          {rows.length} item{rows.length !== 1 ? "s" : ""} · £{bucketTotal.toFixed(2)}
+                        </span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-                        onClick={() => removeItem(item.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
+                      <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => addBucketLine(bucket)}>
+                        <Plus className="h-3.5 w-3.5" />Add Row
                       </Button>
                     </div>
+
+                    {rows.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic px-1 py-2">
+                        No {meta.label.toLowerCase()} lines.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {rows.map((row, idx) => (
+                          <div key={idx} className="rounded-md border bg-card p-2.5 space-y-2">
+                            <div className="flex items-start gap-2">
+                              <span className="text-[10px] font-bold text-muted-foreground w-5 mt-1 flex-shrink-0">
+                                {idx + 1}.
+                              </span>
+                              <div className="flex-1 space-y-2">
+                                <Input
+                                  value={row.description}
+                                  onChange={e => updateBucketLine(bucket, idx, "description", e.target.value)}
+                                  placeholder="Description"
+                                  className="text-sm h-8"
+                                />
+                                <div className={`grid gap-2 ${meta.showRegRef ? "grid-cols-5" : "grid-cols-4"}`}>
+                                  <div>
+                                    <Label className="text-[10px] text-muted-foreground">Qty</Label>
+                                    <Input
+                                      type="number" min={1}
+                                      value={row.quantity}
+                                      onChange={e => updateBucketLine(bucket, idx, "quantity", Number(e.target.value) || 1)}
+                                      className="h-7 text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] text-muted-foreground">Unit £</Label>
+                                    <Input
+                                      type="number" min={0} step={0.01}
+                                      value={row.unit_price}
+                                      onChange={e => updateBucketLine(bucket, idx, "unit_price", parseFloat(e.target.value) || 0)}
+                                      className="h-7 text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] text-muted-foreground">Line £</Label>
+                                    <div className="h-7 flex items-center text-sm font-semibold">
+                                      £{((Number(row.quantity) || 1) * (Number(row.unit_price) || 0)).toFixed(2)}
+                                    </div>
+                                  </div>
+                                  <div className={meta.showRegRef ? "col-span-1" : "col-span-1"}>
+                                    <Label className="text-[10px] text-muted-foreground">Notes</Label>
+                                    <Input
+                                      value={row.notes}
+                                      onChange={e => updateBucketLine(bucket, idx, "notes", e.target.value)}
+                                      placeholder="Engineer notes"
+                                      className="h-7 text-xs"
+                                    />
+                                  </div>
+                                  {meta.showRegRef && (
+                                    <div>
+                                      <Label className="text-[10px] text-muted-foreground">Reg ref</Label>
+                                      <Input
+                                        value={row.regulation_reference || ""}
+                                        onChange={e => updateBucketLine(bucket, idx, "regulation_reference", e.target.value)}
+                                        placeholder="BS 5839-1 Cl."
+                                        className="h-7 text-xs"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost" size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+                                onClick={() => removeBucketLine(bucket, idx)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
 
               {/* Totals */}
               <div className="rounded-lg border bg-muted/30 p-3">
                 <div className="flex items-center justify-between flex-wrap gap-3 text-sm">
                   <div className="flex gap-6">
                     <div>
-                      <span className="text-muted-foreground text-xs">Materials</span>
-                      <p className="font-semibold">£{totalMaterials.toFixed(2)}</p>
+                      <span className="text-muted-foreground text-xs">Labour</span>
+                      <p className="font-semibold">£{totals.labour.toFixed(2)}</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs">Labour</span>
-                      <p className="font-semibold">£{totalLabour.toFixed(2)}</p>
+                      <span className="text-muted-foreground text-xs">Materials</span>
+                      <p className="font-semibold">£{totals.materials.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground text-xs">Extras</span>
+                      <p className="font-semibold">£{totals.extras.toFixed(2)}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <span className="text-muted-foreground text-xs">Total (ex VAT)</span>
-                    <p className="text-lg font-bold">
-                      £{totalAmount.toFixed(2)}
-                    </p>
+                    <p className="text-lg font-bold">£{totals.exVat.toFixed(2)}</p>
                   </div>
                 </div>
-                {totalAmount === 0 && (
+                {totals.exVat === 0 && (
                   <p className="text-[11px] text-muted-foreground mt-1.5">
-                    Prices are £0 — you can update them after the quote is created, or fill them in above first.
+                    Prices are £0 — update them above before sending, or create the quote and edit pricing later.
                   </p>
                 )}
               </div>
@@ -505,24 +366,18 @@ Return ONLY this exact JSON structure, no other text:
 
         {/* Footer actions */}
         <div className="border-t px-6 py-4 flex items-center gap-2 flex-shrink-0 bg-background">
-          <Button variant="outline" onClick={handleClose} disabled={creating}>
-            Cancel
-          </Button>
-          {step === "review" && (
+          <Button variant="outline" onClick={handleClose} disabled={creating}>Cancel</Button>
+          {status === "ready" && (
             <>
-              <Button variant="ghost" onClick={() => { setStep("idle"); setLineItems([]); }} disabled={creating}>
-                Re-generate
-              </Button>
+              <Button variant="ghost" onClick={handleGenerate} disabled={creating}>Re-generate</Button>
               <Button
                 className="ml-auto gap-2"
                 onClick={handleCreateQuote}
-                disabled={creating || lineItems.length === 0}
+                disabled={creating || totalLines === 0}
               >
-                {creating ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Creating…</>
-                ) : (
-                  <><Send className="h-4 w-4" />Create Quote</>
-                )}
+                {creating
+                  ? <><Loader2 className="h-4 w-4 animate-spin" />Creating…</>
+                  : <><Send className="h-4 w-4" />Create Quote</>}
               </Button>
             </>
           )}
