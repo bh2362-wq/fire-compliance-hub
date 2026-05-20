@@ -32,7 +32,7 @@ export interface QuotationFull {
   existing_system_description: string | null;
   customers: { name: string; contact_name: string | null; contact_email: string | null; address: string | null; city: string | null; postcode: string | null } | null;
   sites: { name: string; address: string | null; city: string | null; postcode: string | null } | null;
-  quotation_line_items: { description: string; quantity: number | null; unit_price: number | null; sort_order: number | null }[];
+  quotation_line_items: { description: string; quantity: number | null; unit_price: number | null; total_price: number | null; sort_order: number | null }[];
 }
 
 export function useQuotationFull(quotationId: string | undefined) {
@@ -46,7 +46,7 @@ export function useQuotationFull(quotationId: string | undefined) {
           *,
           customers ( name, contact_name, contact_email, address, city, postcode ),
           sites ( name, address, city, postcode ),
-          quotation_line_items ( description, quantity, unit_price, sort_order )
+          quotation_line_items ( description, quantity, unit_price, total_price, sort_order )
         `)
         .eq("id", quotationId)
         .single();
@@ -82,7 +82,13 @@ export function quotationToQuoteInput(q: QuotationFull) {
     items: (q.quotation_line_items ?? [])
       .slice()
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-      .map((li) => ({ desc: li.description, qty: li.quantity ?? 1, unit: li.unit_price ?? 0 })),
+      .map((li) => {
+        const qty = li.quantity ?? 1;
+        const unit = (li.unit_price ?? 0) > 0
+          ? (li.unit_price as number)
+          : (li.total_price && qty > 0 ? Number(li.total_price) / qty : 0);
+        return { desc: li.description, qty, unit };
+      }),
     assumptions: q.assumptions ?? [],
     exclusions: q.exclusions ?? [],
     // VAT is stored as whole-number percent (e.g. 20) per DB convention.
