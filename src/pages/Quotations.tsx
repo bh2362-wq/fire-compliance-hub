@@ -62,6 +62,7 @@ import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDi
 import { AcceptQuotationDialog } from "@/components/quotations/AcceptQuotationDialog";
 import { EmailQuotationDialog } from "@/components/quotations/EmailQuotationDialog";
 import { NewQuotationDialog } from "@/components/quotations/NewQuotationDialog";
+import { DuplicateQuotationDialog } from "@/components/quotations/DuplicateQuotationDialog";
 import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
 import { getCompanySettings } from "@/services/companySettingsService";
 
