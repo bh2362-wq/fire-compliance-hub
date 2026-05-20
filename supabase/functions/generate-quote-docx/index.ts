@@ -973,7 +973,8 @@ Deno.serve(async (req) => {
     //    unambiguous (line items before totals before generic Copilot sweep).
     const items = flatPriceableItems(quote);
     const scope = resolveScopeParagraphs(quote);
-    xml = renderTopFields(xml, quote, issuer);
+    xml = renderTopFields(xml, quote, issuer, ctx);
+    xml = rewriteWorksBullets(xml, ctx.worksType);
     xml = renderDetailedScope(xml, scope);
     // §2.3 — if we have phasing_paragraph, fill it; otherwise drop the
     // whole section so the document doesn't show an empty heading.
