@@ -46,7 +46,7 @@ export function useQuotationFull(quotationId: string | undefined) {
           *,
           customers ( name, contact_name, contact_email, address, city, postcode ),
           sites ( name, address, city, postcode ),
-          quotation_line_items ( description, quantity, unit_price, sort_order )
+          quotation_line_items ( description, quantity, unit_price, total_price, sort_order )
         `)
         .eq("id", quotationId)
         .single();
