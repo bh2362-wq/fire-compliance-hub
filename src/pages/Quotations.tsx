@@ -141,6 +141,7 @@ const Quotations = () => {
   const [emailColumnOptions, setEmailColumnOptions] = useState<PDFColumnOptions | null>(null);
   const [uploadingToSharePoint, setUploadingToSharePoint] = useState<string | null>(null);
   const [newQuoteOpen, setNewQuoteOpen] = useState(false);
+  const [duplicateSource, setDuplicateSource] = useState<{ id: string; quotation_number: string } | null>(null);
 
   // Auto-open new quote dialog when navigated with prefill data
   useEffect(() => {
