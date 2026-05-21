@@ -1,7 +1,17 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { SignaturePad } from "@/components/ui/signature-pad";
 import { ServiceReport } from "@/services/serviceReportService";
+import {
+  getEngineerSignature,
+  setEngineerSignature,
+} from "@/services/profileSignatureService";
 
 interface Props {
   report: ServiceReport;
@@ -10,56 +20,183 @@ interface Props {
   completing: boolean;
 }
 
-// Chunk 4 will replace the placeholder signature blocks with a touch-input
-// signature canvas (and surface the engineer's stored signature from their
-// profile). For Chunk 2, the client and engineer name fields persist; the
-// signature fields stay untouched.
+const ABSENT_MARKER = "absent";
+
+function isDataUrlSig(value: string | null): boolean {
+  return typeof value === "string" && value.startsWith("data:image");
+}
+
 export function SignOffStep({ report, onPatch, onComplete, completing }: Props) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [savedDefault, setSavedDefault] = useState<string | null>(null);
+  const [savingDefault, setSavingDefault] = useState(false);
+  const [defaultLoaded, setDefaultLoaded] = useState(false);
+
+  // Load the engineer's stored default signature once.
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const stored = await getEngineerSignature(user.id);
+        setSavedDefault(stored);
+        // If no engineer sig yet on this report but a default exists, preload it.
+        if (stored && !report.engineer_signature) {
+          onPatch({ engineer_signature: stored });
+        }
+      } catch {
+        // Ignore — column may not be present yet (migration not applied).
+      } finally {
+        setDefaultLoaded(true);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const clientAbsent = report.client_signature === ABSENT_MARKER;
+
+  const handleUseDefault = () => {
+    if (savedDefault) onPatch({ engineer_signature: savedDefault });
+  };
+
+  const handleSaveAsDefault = async () => {
+    if (!user || !report.engineer_signature) return;
+    setSavingDefault(true);
+    try {
+      await setEngineerSignature(user.id, report.engineer_signature);
+      setSavedDefault(report.engineer_signature);
+      toast({ title: "Saved as your default signature" });
+    } catch (e) {
+      toast({
+        title: "Could not save default",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingDefault(false);
+    }
+  };
+
+  const toggleClientAbsent = (absent: boolean) => {
+    if (absent) {
+      onPatch({ client_signature: ABSENT_MARKER });
+    } else {
+      onPatch({ client_signature: null });
+    }
+  };
+
+  const engineerSigOk = isDataUrlSig(report.engineer_signature);
+  const clientSigOk = clientAbsent || isDataUrlSig(report.client_signature);
+  const clientDetailsOk = clientAbsent || !!report.client_sign_name;
   const canComplete =
-    !!report.system_status && !!report.client_name && !!report.client_sign_name;
+    !!report.system_status && engineerSigOk && clientSigOk && clientDetailsOk;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
         <h3 className="text-base font-semibold">Sign-off</h3>
         <p className="text-xs text-muted-foreground">
-          Capture the client's name and position. Digital signature capture is added
-          in a later chunk.
+          Both signatures use BS 5839-1 compliant canvas capture.
         </p>
       </div>
 
-      <div>
-        <Label className="text-xs">Engineer name</Label>
-        <Input
-          value={report.engineer_name ?? ""}
-          onChange={(e) => onPatch({ engineer_name: e.target.value || null })}
-        />
-      </div>
+      {/* ── Engineer block ──────────────────────────────────────────── */}
+      <section className="space-y-3 rounded-lg border bg-card p-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium">Engineer</h4>
+          {defaultLoaded && savedDefault && (
+            <Badge
+              variant="outline"
+              className="bg-emerald-50 text-emerald-800 border-emerald-200"
+            >
+              Default on file
+            </Badge>
+          )}
+        </div>
 
-      <div>
-        <Label className="text-xs">Client name</Label>
-        <Input
-          value={report.client_name ?? ""}
-          onChange={(e) => onPatch({ client_name: e.target.value || null })}
-        />
-      </div>
+        <div>
+          <Label className="text-xs">Engineer name</Label>
+          <Input
+            value={report.engineer_name ?? ""}
+            onChange={(e) => onPatch({ engineer_name: e.target.value || null })}
+          />
+        </div>
 
-      <div>
-        <Label className="text-xs">Client signing name (as printed)</Label>
-        <Input
-          value={report.client_sign_name ?? ""}
-          onChange={(e) => onPatch({ client_sign_name: e.target.value || null })}
+        <SignaturePad
+          label="Engineer signature"
+          value={report.engineer_signature ?? ""}
+          onChange={(v) => onPatch({ engineer_signature: v || null })}
         />
-      </div>
 
-      <div>
-        <Label className="text-xs">Client position</Label>
-        <Input
-          value={report.client_sign_position ?? ""}
-          onChange={(e) => onPatch({ client_sign_position: e.target.value || null })}
-          placeholder="e.g. Site Manager"
-        />
-      </div>
+        <div className="flex flex-wrap gap-2">
+          {savedDefault && report.engineer_signature !== savedDefault && (
+            <Button variant="outline" size="sm" onClick={handleUseDefault}>
+              Use saved signature
+            </Button>
+          )}
+          {engineerSigOk && report.engineer_signature !== savedDefault && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveAsDefault}
+              disabled={savingDefault}
+            >
+              {savingDefault ? "Saving…" : "Save as my default"}
+            </Button>
+          )}
+        </div>
+      </section>
+
+      {/* ── Client block ────────────────────────────────────────────── */}
+      <section className="space-y-3 rounded-lg border bg-card p-3">
+        <h4 className="text-sm font-medium">Client</h4>
+
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="client-absent"
+            checked={clientAbsent}
+            onCheckedChange={(checked) => toggleClientAbsent(checked === true)}
+          />
+          <Label htmlFor="client-absent" className="text-sm">
+            Client not present on site
+          </Label>
+        </div>
+
+        {!clientAbsent && (
+          <>
+            <div>
+              <Label className="text-xs">Client name</Label>
+              <Input
+                value={report.client_name ?? ""}
+                onChange={(e) => onPatch({ client_name: e.target.value || null })}
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs">Signing name (as printed)</Label>
+              <Input
+                value={report.client_sign_name ?? ""}
+                onChange={(e) => onPatch({ client_sign_name: e.target.value || null })}
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs">Client position</Label>
+              <Input
+                value={report.client_sign_position ?? ""}
+                onChange={(e) => onPatch({ client_sign_position: e.target.value || null })}
+                placeholder="e.g. Site Manager"
+              />
+            </div>
+
+            <SignaturePad
+              label="Client signature"
+              value={isDataUrlSig(report.client_signature) ? (report.client_signature as string) : ""}
+              onChange={(v) => onPatch({ client_signature: v || null })}
+            />
+          </>
+        )}
+      </section>
 
       <div className="pt-2">
         <Button
@@ -71,9 +208,12 @@ export function SignOffStep({ report, onPatch, onComplete, completing }: Props) 
           {completing ? "Completing…" : "Complete service report"}
         </Button>
         {!canComplete && (
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            System status, client name, and signing name are required before completion.
-          </p>
+          <ul className="text-xs text-muted-foreground mt-2 space-y-0.5">
+            {!report.system_status && <li>• Departure status missing (Step 7)</li>}
+            {!engineerSigOk && <li>• Engineer signature required</li>}
+            {!clientSigOk && <li>• Client signature required (or mark client absent)</li>}
+            {!clientDetailsOk && <li>• Client signing name required</li>}
+          </ul>
         )}
       </div>
     </div>
