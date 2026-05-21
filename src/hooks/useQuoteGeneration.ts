@@ -46,6 +46,7 @@ export interface QuotationLineItemInsert {
   cost_price?: number;
   labour_cost?: number;
   labour_included?: boolean;
+  total_price?: number;
   notes?: string | null;
   regulation_reference?: string | null;
   sort_order: number;
@@ -157,15 +158,25 @@ export function useQuoteGeneration() {
         for (const item of items) {
           const qty = Number(item.quantity) || 1;
           const unit = Number(item.unit_price) || 0;
+          // For labour rows the price lives in labour_cost ONLY — keeping
+          // unit_price at 0 prevents the same value appearing in both the
+          // "Cost £" and "Labour £" inputs of the detail dialog, where
+          // editing one looked like the other had reverted. For non-labour
+          // rows the price lives in unit_price (and cost_price mirrors it
+          // pre-markup).
+          // total_price is computed here so the parent quote's total_amount
+          // is correct on insert — the DB default of 0 used to leave new
+          // quotes showing £0 until something re-saved each line.
           rows.push({
             quotation_id: quotationId,
             is_section: false,
             description: item.description,
             quantity: qty,
-            unit_price: unit,
+            unit_price: isLabour ? 0 : unit,
             cost_price: isLabour ? 0 : unit,
             labour_cost: isLabour ? unit : 0,
             labour_included: isLabour,
+            total_price: qty * unit,
             notes: item.notes || null,
             regulation_reference: item.regulation_reference || null,
             sort_order: sort++,

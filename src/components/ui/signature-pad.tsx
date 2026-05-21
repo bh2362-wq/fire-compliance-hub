@@ -104,7 +104,19 @@ export function SignaturePad({
         >
           <canvas
             ref={canvasRef}
-            style={{ width, height }}
+            // touchAction must be inline (not only Tailwind class) — iOS
+            // Safari has been observed to ignore class-based touch-action in
+            // some layouts, falling back to scroll gesture before pointer
+            // events fire on the canvas. WebkitUserSelect + userSelect
+            // suppress iOS text-callout that can swallow the first touch.
+            style={{
+              width,
+              height,
+              touchAction: "none",
+              WebkitUserSelect: "none",
+              userSelect: "none",
+              WebkitTouchCallout: "none",
+            }}
             className={cn(
               "touch-none block",
               disabled && "cursor-not-allowed"
