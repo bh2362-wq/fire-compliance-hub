@@ -50,15 +50,16 @@ async function buildEmailPdfBase64(quotationId: string): Promise<string> {
   if (qErr || !full) throw new Error(qErr?.message ?? "Could not load quotation");
 
   const quote = full as unknown as QuotationFull;
-  let docxPath = quote.latest_docx_path;
-  if (!docxPath) {
-    const { data: docxRes, error: docxErr } = await supabase.functions.invoke(
-      "generate-quote-docx",
-      { body: quotationToQuoteInput(quote) },
-    );
-    if (docxErr) throw new Error(docxErr.message);
-    docxPath = (docxRes as { storage_path: string }).storage_path;
-  }
+  // Always regenerate the DOCX for an email send. Reusing latest_docx_path
+  // would silently re-attach a stale render — existing quotes have a cached
+  // DOCX from before whatever template change the engineer is trying to
+  // ship, and the email would then look identical to the old version.
+  const { data: docxRes, error: docxErr } = await supabase.functions.invoke(
+    "generate-quote-docx",
+    { body: quotationToQuoteInput(quote) },
+  );
+  if (docxErr) throw new Error(docxErr.message);
+  const docxPath = (docxRes as { storage_path: string }).storage_path;
 
   const { data: pdfRes, error: pdfErr } = await supabase.functions.invoke("convert-quote-pdf", {
     body: { docx_storage_path: docxPath, quotation_id: quotationId },
