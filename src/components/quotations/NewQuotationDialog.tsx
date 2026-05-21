@@ -758,7 +758,7 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
                   jobCategory: jobCategory || "",
                   buildingType: buildingType || "",
                   region: region || "",
-                  deviceCount: deviceCount ?? null,
+                  deviceCount: deviceCount ? Number(deviceCount) || null : null,
                 })}
               />
             </div>
