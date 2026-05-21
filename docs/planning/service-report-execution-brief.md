@@ -339,10 +339,15 @@ estimate factors in:
 
 ---
 
-## Sign-off needed before kickoff
+## Sign-off
 
-- [ ] Confirm Quote Refactor is stable in production
-- [ ] Confirm the 5 reconciliation decisions
-- [ ] Confirm the 7 design decisions
-- [ ] Confirm the 5-6 week timeline (vs original 4)
-- [ ] Confirm Chunk 8's "2 weeks of real-engineer visits" is acceptable before GA
+Ben signed off on 2026-05-21:
+
+- [x] 5 reconciliation decisions confirmed
+- [x] 7 design decisions confirmed
+- [x] 5-6 week timeline accepted (vs original 4)
+- [x] Chunk 8's "2 weeks of real-engineer visits before GA" accepted
+
+**Still gated:** Quote Refactor must be stable in production before kickoff.
+Reconfirm that gate at the moment of starting Chunk 1, not on the basis of
+this document.
