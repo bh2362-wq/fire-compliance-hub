@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2 } from "lucide-react";
 import {
   Select,
@@ -17,19 +18,66 @@ import {
   deleteBatteryTest,
   listBatteryTests,
 } from "@/services/batteryTestService";
+import {
+  listMutations,
+  queueMutation,
+  removeMutation,
+  QueuedMutationRecord,
+} from "@/lib/offlineQueue";
+import { runSync } from "@/lib/syncWorker";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface Props {
   reportId: string;
 }
 
+type DisplayTest = {
+  id: string;
+  label: string;
+  voltage: number | null;
+  current: number | null;
+  loadResult: "pass" | "fail" | "not_tested" | null;
+  recommendation: "retain" | "replace" | null;
+  pendingSync: boolean;
+  queueEntryId: string | null;
+};
+
+function fromServer(t: BatteryTest): DisplayTest {
+  return {
+    id: t.id,
+    label: t.panel_or_psu_label,
+    voltage: t.terminal_voltage_v,
+    current: t.charge_current_ma,
+    loadResult: t.load_test_result,
+    recommendation: t.recommendation,
+    pendingSync: false,
+    queueEntryId: null,
+  };
+}
+
+function fromQueue(rec: QueuedMutationRecord): DisplayTest | null {
+  if (rec.mutation.kind !== "battery-create") return null;
+  const p = rec.mutation.payload;
+  return {
+    id: rec.mutation.id,
+    label: p.panel_or_psu_label,
+    voltage: p.terminal_voltage_v,
+    current: p.charge_current_ma,
+    loadResult: p.load_test_result,
+    recommendation: p.recommendation,
+    pendingSync: true,
+    queueEntryId: rec.id,
+  };
+}
+
 export function BatteryStep({ reportId }: Props) {
   const { toast } = useToast();
-  const [tests, setTests] = useState<BatteryTest[]>([]);
+  const online = useOnlineStatus();
+  const [tests, setTests] = useState<DisplayTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // New-test draft.
   const [label, setLabel] = useState("");
   const [voltage, setVoltage] = useState("");
   const [current, setCurrent] = useState("");
@@ -39,7 +87,26 @@ export function BatteryStep({ reportId }: Props) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setTests(await listBatteryTests(reportId));
+      let server: DisplayTest[] = [];
+      if (online) {
+        try {
+          const all = await listBatteryTests(reportId);
+          server = all.map(fromServer);
+        } catch {
+          server = [];
+        }
+      }
+      const queued = await listMutations().catch(() => [] as QueuedMutationRecord[]);
+      const queuedRows = queued
+        .filter(
+          (r) =>
+            r.mutation.kind === "battery-create" &&
+            r.mutation.payload.service_report_id === reportId,
+        )
+        .map(fromQueue)
+        .filter((x): x is DisplayTest => x !== null);
+      const serverIds = new Set(server.map((d) => d.id));
+      setTests([...server, ...queuedRows.filter((d) => !serverIds.has(d.id))]);
     } catch (e) {
       toast({
         title: "Could not load battery tests",
@@ -49,7 +116,7 @@ export function BatteryStep({ reportId }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [reportId, toast]);
+  }, [reportId, online, toast]);
 
   useEffect(() => {
     void load();
@@ -62,7 +129,8 @@ export function BatteryStep({ reportId }: Props) {
     }
     setSubmitting(true);
     try {
-      await createBatteryTest({
+      const id = crypto.randomUUID();
+      const payload = {
         service_report_id: reportId,
         panel_or_psu_label: label.trim(),
         install_date: null,
@@ -71,7 +139,18 @@ export function BatteryStep({ reportId }: Props) {
         load_test_result: loadResult,
         recommendation,
         notes: null,
-      });
+      };
+
+      if (online) {
+        try {
+          await createBatteryTest({ id, ...payload });
+        } catch {
+          await queueMutation({ kind: "battery-create", id, payload });
+        }
+      } else {
+        await queueMutation({ kind: "battery-create", id, payload });
+      }
+
       setLabel("");
       setVoltage("");
       setCurrent("");
@@ -79,6 +158,7 @@ export function BatteryStep({ reportId }: Props) {
       setRecommendation("retain");
       setAdding(false);
       await load();
+      if (online) void runSync();
     } catch (e) {
       toast({
         title: "Could not save battery test",
@@ -90,9 +170,14 @@ export function BatteryStep({ reportId }: Props) {
     }
   };
 
-  const handleRemove = async (id: string) => {
+  const handleRemove = async (t: DisplayTest) => {
     try {
-      await deleteBatteryTest(id);
+      if (t.queueEntryId) {
+        await removeMutation(t.queueEntryId);
+        await load();
+        return;
+      }
+      await deleteBatteryTest(t.id);
       await load();
     } catch (e) {
       toast({
@@ -121,14 +206,24 @@ export function BatteryStep({ reportId }: Props) {
           {tests.map((t) => (
             <li key={t.id} className="rounded-lg border bg-card p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="text-sm">
-                  <p className="font-medium">{t.panel_or_psu_label}</p>
+                <div className="text-sm space-y-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{t.label}</p>
+                    {t.pendingSync && (
+                      <Badge
+                        variant="outline"
+                        className="bg-amber-50 text-amber-800 border-amber-200"
+                      >
+                        Pending sync
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {t.terminal_voltage_v != null ? `${t.terminal_voltage_v}V` : "—V"}
+                    {t.voltage != null ? `${t.voltage}V` : "—V"}
                     {" · "}
-                    {t.charge_current_ma != null ? `${t.charge_current_ma}mA` : "—mA"}
+                    {t.current != null ? `${t.current}mA` : "—mA"}
                     {" · Load: "}
-                    {t.load_test_result ?? "—"}
+                    {t.loadResult ?? "—"}
                     {" · "}
                     {t.recommendation ?? "—"}
                   </p>
@@ -136,7 +231,7 @@ export function BatteryStep({ reportId }: Props) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => handleRemove(t.id)}
+                  onClick={() => handleRemove(t)}
                   aria-label="Remove battery test"
                 >
                   <Trash2 className="h-4 w-4" />

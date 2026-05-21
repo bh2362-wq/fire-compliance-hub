@@ -15,6 +15,15 @@ import {
   deleteDefect,
   listDefects,
 } from "@/services/defectService";
+import {
+  listMutations,
+  queueMutation,
+  removeMutation,
+  QueuedMutationRecord,
+} from "@/lib/offlineQueue";
+import { runSync } from "@/lib/syncWorker";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { PhotoCapture } from "../PhotoCapture";
 
 interface Props {
   siteId: string;
@@ -22,19 +31,55 @@ interface Props {
   reportId: string;
 }
 
+// Optimistic union row: either a server-side SiteDefect or a still-queued
+// defect-create. Both expose the same display fields and a stable `id` (the
+// client UUID, which the server adopts on sync).
+type DisplayDefect = {
+  id: string;
+  description: string;
+  location: string | null;
+  category: DefectCategory;
+  pendingSync: boolean;
+  queueEntryId: string | null; // present when still in the IndexedDB queue
+};
+
 const CATEGORY_COLORS: Record<DefectCategory, string> = {
   1: "bg-red-100 text-red-800 border-red-200",
   2: "bg-amber-100 text-amber-800 border-amber-200",
   3: "bg-blue-100 text-blue-800 border-blue-200",
 };
 
+function fromServer(d: SiteDefect): DisplayDefect {
+  return {
+    id: d.id,
+    description: d.description,
+    location: d.location,
+    category: d.category,
+    pendingSync: false,
+    queueEntryId: null,
+  };
+}
+
+function fromQueue(rec: QueuedMutationRecord): DisplayDefect | null {
+  if (rec.mutation.kind !== "defect-create") return null;
+  const p = rec.mutation.payload;
+  return {
+    id: rec.mutation.id,
+    description: p.description,
+    location: p.location,
+    category: p.category,
+    pendingSync: true,
+    queueEntryId: rec.id,
+  };
+}
+
 export function DefectsStep({ siteId, visitId, reportId }: Props) {
   const { toast } = useToast();
-  const [defects, setDefects] = useState<SiteDefect[]>([]);
+  const online = useOnlineStatus();
+  const [defects, setDefects] = useState<DisplayDefect[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
 
-  // Inline draft for the new-defect form.
   const [draftCategory, setDraftCategory] = useState<DefectCategory>(2);
   const [draftLocation, setDraftLocation] = useState("");
   const [draftDescription, setDraftDescription] = useState("");
@@ -44,10 +89,34 @@ export function DefectsStep({ siteId, visitId, reportId }: Props) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Filter to defects on this site for this visit (created here or pre-existing
-      // imports). The persistent register keeps wider history.
-      const all = await listDefects({ siteId });
-      setDefects(all.filter((d) => d.visit_id === visitId || d.report_id === reportId));
+      // Server defects (may be empty when offline).
+      let server: DisplayDefect[] = [];
+      if (online) {
+        try {
+          const all = await listDefects({ siteId });
+          server = all
+            .filter((d) => d.visit_id === visitId || d.report_id === reportId)
+            .map(fromServer);
+        } catch {
+          server = [];
+        }
+      }
+
+      // Queued defect-creates for this report.
+      const queued = await listMutations().catch(() => [] as QueuedMutationRecord[]);
+      const fromQueueRows = queued
+        .filter(
+          (r) =>
+            r.mutation.kind === "defect-create" && r.mutation.payload.report_id === reportId,
+        )
+        .map(fromQueue)
+        .filter((x): x is DisplayDefect => x !== null);
+
+      // De-dupe: if a queued item has the same id as a server item (i.e. sync
+      // ran but the queue entry hasn't been removed yet), prefer the server row.
+      const serverIds = new Set(server.map((d) => d.id));
+      const merged = [...server, ...fromQueueRows.filter((d) => !serverIds.has(d.id))];
+      setDefects(merged);
     } catch (e) {
       toast({
         title: "Could not load defects",
@@ -57,7 +126,7 @@ export function DefectsStep({ siteId, visitId, reportId }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [siteId, visitId, reportId, toast]);
+  }, [siteId, visitId, reportId, online, toast]);
 
   useEffect(() => {
     void load();
@@ -70,25 +139,38 @@ export function DefectsStep({ siteId, visitId, reportId }: Props) {
     }
     setSubmitting(true);
     try {
+      const id = crypto.randomUUID();
       const composed = draftAction.trim()
         ? `${draftDescription.trim()}\nRecommended: ${draftAction.trim()}`
         : draftDescription.trim();
-      await createDefect({
+      const payload = {
         site_id: siteId,
         visit_id: visitId,
         report_id: reportId,
         description: composed,
         location: draftLocation || null,
         category: draftCategory,
-        status: "open",
-      });
+        status: "open" as const,
+      };
+
+      if (online) {
+        try {
+          await createDefect({ id, ...payload } as never);
+        } catch {
+          await queueMutation({ kind: "defect-create", id, payload });
+        }
+      } else {
+        await queueMutation({ kind: "defect-create", id, payload });
+      }
+
       setDraftCategory(2);
       setDraftLocation("");
       setDraftDescription("");
       setDraftAction("");
       setAdding(false);
       await load();
-      toast({ title: "Defect added" });
+      if (online) void runSync();
+      toast({ title: online ? "Defect added" : "Defect queued offline" });
     } catch (e) {
       toast({
         title: "Could not save defect",
@@ -100,9 +182,15 @@ export function DefectsStep({ siteId, visitId, reportId }: Props) {
     }
   };
 
-  const handleRemove = async (id: string) => {
+  const handleRemove = async (d: DisplayDefect) => {
     try {
-      await deleteDefect(id);
+      if (d.queueEntryId) {
+        // Still in the queue — just drop the mutation.
+        await removeMutation(d.queueEntryId);
+        await load();
+        return;
+      }
+      await deleteDefect(d.id);
       await load();
     } catch (e) {
       toast({
@@ -118,7 +206,7 @@ export function DefectsStep({ siteId, visitId, reportId }: Props) {
       <div>
         <h3 className="text-base font-semibold">Defects identified on site</h3>
         <p className="text-xs text-muted-foreground">
-          Each defect is added to the site register and can be flagged for a remedial quote.
+          Each defect is added to the site register. Attach photos for evidence.
         </p>
       </div>
 
@@ -131,13 +219,20 @@ export function DefectsStep({ siteId, visitId, reportId }: Props) {
           {defects.map((d) => (
             <li key={d.id} className="rounded-lg border bg-card p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
-                <Badge variant="outline" className={CATEGORY_COLORS[d.category]}>
-                  {DEFECT_CATEGORY_LABELS[d.category]}
-                </Badge>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className={CATEGORY_COLORS[d.category]}>
+                    {DEFECT_CATEGORY_LABELS[d.category]}
+                  </Badge>
+                  {d.pendingSync && (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200">
+                      Pending sync
+                    </Badge>
+                  )}
+                </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => handleRemove(d.id)}
+                  onClick={() => handleRemove(d)}
                   aria-label="Remove defect"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -147,6 +242,12 @@ export function DefectsStep({ siteId, visitId, reportId }: Props) {
                 <p className="text-xs text-muted-foreground">Location: {d.location}</p>
               )}
               <p className="text-sm whitespace-pre-line">{d.description}</p>
+              <PhotoCapture
+                defectId={d.id}
+                reportId={reportId}
+                visitId={visitId}
+                siteId={siteId}
+              />
             </li>
           ))}
         </ul>

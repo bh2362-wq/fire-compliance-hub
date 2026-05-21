@@ -35,6 +35,9 @@ export interface SiteDefect {
 }
 
 export interface DefectInsert {
+  // Optional client-generated UUID; when present, used as the server primary
+  // key so that offline-queued inserts have stable identity before they sync.
+  id?: string;
   site_id: string;
   visit_id?: string | null;
   report_id?: string | null;

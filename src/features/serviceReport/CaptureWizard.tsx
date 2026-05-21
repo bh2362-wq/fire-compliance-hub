@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Visit } from "@/hooks/useVisits";
 import { ServiceReport, BS5839Checklist } from "@/services/serviceReportService";
 import { useServiceReportDraft } from "./useServiceReportDraft";
+import { OfflineBadge } from "./OfflineBadge";
 import { StartStep } from "./steps/StartStep";
 import { SystemStep } from "./steps/SystemStep";
 import { ChecklistStep } from "./steps/ChecklistStep";
@@ -106,11 +107,14 @@ export function CaptureWizard({ visit, userId, onCompleted }: Props) {
           <p className="text-xs text-muted-foreground">
             Step {stepIdx + 1} of {STEP_LABELS.length} · {STEP_LABELS[stepIdx]}
           </p>
-          {saving && (
-            <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-              <Save className="h-3 w-3 animate-pulse" /> Saving…
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {saving && (
+              <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                <Save className="h-3 w-3 animate-pulse" /> Saving…
+              </span>
+            )}
+            <OfflineBadge />
+          </div>
         </div>
         <Progress value={progressPct} className="mt-2 h-1.5" />
       </header>

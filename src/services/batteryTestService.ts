@@ -21,10 +21,12 @@ export interface BatteryTest {
   updated_at: string;
 }
 
+// `id` is optional: callers can pass a client-generated UUID so offline-queued
+// inserts have stable identity before they sync.
 export type BatteryTestInsert = Omit<
   BatteryTest,
   "id" | "created_at" | "updated_at"
->;
+> & { id?: string };
 
 export type BatteryTestUpdate = Partial<
   Omit<BatteryTest, "id" | "service_report_id" | "created_at" | "updated_at">
