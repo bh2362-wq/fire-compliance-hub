@@ -32,6 +32,44 @@ import { toast } from "sonner";
 import { searchSupplierProducts, SupplierProduct } from "@/services/supplierProductService";
 import { ScopeFields } from "@/components/cost-intelligence/ClassifyJobDialog";
 import { ComparableJobsPanel } from "@/components/cost-intelligence/ComparableJobsPanel";
+import { CostIntelligencePanelV2 } from "@/components/quotations/CostIntelligencePanelV2";
+import type { Civ2JobCategory, Civ2BuildingType, Civ2ScopeInput } from "@/types/cost-intelligence-v2";
+
+function mapV1ToV2Scope(args: {
+  jobCategory: string; buildingType: string; region: string; deviceCount?: number | null;
+}): Civ2ScopeInput | null {
+  const catMap: Record<string, Civ2JobCategory> = {
+    new_install: "install", system_upgrade: "install", extension: "install",
+    system_takeover: "takeover", reactive_remedial: "remedial",
+    planned_maintenance: "service", design_only: "design",
+    commissioning_only: "commissioning", cause_and_effect: "commissioning",
+    acceptance_testing: "commissioning", verification: "commissioning",
+    certification: "commissioning",
+  };
+  const bldMap: Record<string, Civ2BuildingType> = {
+    hotel: "hotel", serviced_apartments: "hotel",
+    school_primary: "school", school_secondary: "school",
+    further_education: "school", higher_education: "school",
+    healthcare_acute: "hospital", healthcare_care_home: "care_home",
+    office_commercial: "office", retail: "retail",
+    industrial_warehouse: "warehouse", residential_hmo: "hmo",
+    residential_block: "residential", gov_central: "public",
+    gov_local_authority: "public", mod_defence: "public",
+    fcdo_diplomatic: "public", data_centre: "industrial",
+    leisure_hospitality: "hotel", transport: "public", other: "other",
+  };
+  const job_category = catMap[args.jobCategory] ?? (args.jobCategory ? "other" : null);
+  const building_type = bldMap[args.buildingType] ?? null;
+  if (!job_category) return null;
+  return {
+    job_category,
+    system_type: "fire_alarm",
+    building_type,
+    region: args.region || null,
+    device_count: args.deviceCount ?? null,
+    panel_make: null,
+  };
+}
 import {
   type SystemType, type BuildingType, type JobCategory,
   type Region, type Bs5839Category, type QuoteScope,
