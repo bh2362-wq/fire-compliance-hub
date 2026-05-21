@@ -106,7 +106,9 @@ Deno.serve(async (req) => {
     const docxBytes = new Uint8Array(await docxBlob.arrayBuffer());
 
     const token = await getGraphToken(cfg);
-    const driveId = await getUserDriveId(token, cfg.conversionUser);
+    const driveId = cfg.conversionSite
+      ? await getSiteDriveId(token, cfg.conversionSite)
+      : await getUserDriveId(token, cfg.conversionUser!);
     const fileName = `${crypto.randomUUID()}.docx`;
     const itemId = await uploadToGraph(token, driveId, fileName, docxBytes);
 
