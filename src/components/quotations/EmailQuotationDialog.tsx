@@ -23,6 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
+import { quotationToQuoteInput, type QuotationFull } from "@/features/quotes/useQuoteGeneration";
 import { getCompanySettings } from "@/services/companySettingsService";
 import {
   EmailTemplate,
@@ -30,6 +31,56 @@ import {
   getDefaultTemplate,
   applyTemplate,
 } from "@/services/emailTemplateService";
+
+// Generate the email-attached PDF via the master DOCX template path so the
+// recipient sees exactly what "Export to Word" + "Generate PDF" produces.
+// Falls back to the older jsPDF generator only if the DOCX→PDF pipeline
+// fails (e.g. Microsoft Graph conversion outage).
+async function buildEmailPdfBase64(quotationId: string): Promise<string> {
+  const { data: full, error: qErr } = await supabase
+    .from("quotations")
+    .select(
+      `*,
+       customers ( name, contact_name, contact_email, address, city, postcode ),
+       sites ( name, address, city, postcode ),
+       quotation_line_items ( description, quantity, unit_price, total_price, sort_order )`,
+    )
+    .eq("id", quotationId)
+    .single();
+  if (qErr || !full) throw new Error(qErr?.message ?? "Could not load quotation");
+
+  const quote = full as unknown as QuotationFull;
+  let docxPath = quote.latest_docx_path;
+  if (!docxPath) {
+    const { data: docxRes, error: docxErr } = await supabase.functions.invoke(
+      "generate-quote-docx",
+      { body: quotationToQuoteInput(quote) },
+    );
+    if (docxErr) throw new Error(docxErr.message);
+    docxPath = (docxRes as { storage_path: string }).storage_path;
+  }
+
+  const { data: pdfRes, error: pdfErr } = await supabase.functions.invoke("convert-quote-pdf", {
+    body: { docx_storage_path: docxPath, quotation_id: quotationId },
+  });
+  if (pdfErr) throw new Error(pdfErr.message);
+
+  const signedUrl = (pdfRes as { signed_url: string }).signed_url;
+  const pdfResp = await fetch(signedUrl);
+  if (!pdfResp.ok) throw new Error(`PDF download failed (${pdfResp.status})`);
+  const blob = await pdfResp.blob();
+
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      const idx = result.indexOf(",");
+      resolve(idx >= 0 ? result.slice(idx + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("base64 encode failed"));
+    reader.readAsDataURL(blob);
+  });
+}
 
 interface ContactSuggestion {
   email: string;
@@ -252,8 +303,23 @@ export function EmailQuotationDialog({
 
     setSending(true);
     try {
-      const companySettings = await getCompanySettings();
-      const pdfBase64 = await generateQuotationPDF(pdfData, companySettings || undefined, true, columnOptions);
+      // Render the email attachment from the master DOCX template via the
+      // generate-quote-docx → convert-quote-pdf pipeline (same source as
+      // the "Generate PDF" button), with a fall-back to the legacy jsPDF
+      // generator if Microsoft Graph conversion is unavailable.
+      let pdfBase64: string | void;
+      try {
+        pdfBase64 = await buildEmailPdfBase64(quotation.id);
+      } catch (e) {
+        console.warn("DOCX→PDF pipeline failed, falling back to jsPDF:", e);
+        const companySettings = await getCompanySettings();
+        pdfBase64 = await generateQuotationPDF(
+          pdfData,
+          companySettings || undefined,
+          true,
+          columnOptions,
+        );
+      }
 
       if (!pdfBase64) {
         throw new Error("Failed to generate PDF");
