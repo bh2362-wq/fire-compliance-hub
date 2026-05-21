@@ -747,11 +747,19 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
           </div>
           </div>
           <aside className="lg:col-span-4 order-first lg:order-last">
-            <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+            <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto space-y-4">
               <ComparableJobsPanel
                 scope={scope}
                 currentQuoteTotal={subtotal}
                 onSelectJob={openHistoricalJob}
+              />
+              <CostIntelligencePanelV2
+                scope={mapV1ToV2Scope({
+                  jobCategory: jobCategory || "",
+                  buildingType: buildingType || "",
+                  region: region || "",
+                  deviceCount: deviceCount ?? null,
+                })}
               />
             </div>
           </aside>
