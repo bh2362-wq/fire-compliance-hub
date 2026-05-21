@@ -5588,6 +5588,53 @@ export type Database = {
           status: string
         }[]
       }
+      civ2_benchmark_summary: {
+        Args: {
+          p_building_type?: string
+          p_job_category: string
+          p_panel_make?: string
+          p_region?: string
+          p_system_type: string
+        }
+        Returns: {
+          avg_margin_percent: number
+          avg_quoted_price: number
+          avg_total_cost: number
+          median_quoted_price: number
+          p25_quoted_price: number
+          p75_quoted_price: number
+          sample_size: number
+          win_rate: number
+        }[]
+      }
+      civ2_find_comparable_jobs: {
+        Args: {
+          p_building_type?: string
+          p_device_count?: number
+          p_job_category: string
+          p_limit?: number
+          p_panel_make?: string
+          p_region?: string
+          p_system_type: string
+        }
+        Returns: {
+          building_type: string
+          complexity: string
+          decided_at: string
+          device_count: number
+          job_category: string
+          margin_percent: number
+          outcome: string
+          panel_make: string
+          quotation_id: string
+          quotation_number: string
+          quoted_price: number
+          region: string
+          similarity_score: number
+          system_type: string
+          total_cost: number
+        }[]
+      }
       get_next_po_number: { Args: never; Returns: string }
       get_next_qms_number: { Args: { prefix: string }; Returns: string }
       get_next_quotation_number: { Args: never; Returns: string }
