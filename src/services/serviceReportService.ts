@@ -139,6 +139,12 @@ export interface BS5839Checklist {
   };
 }
 
+export type ServiceReportSystemStatus =
+  | "fully_operational"
+  | "advisory_only"
+  | "partial_operation"
+  | "not_operational";
+
 export interface ServiceReport {
   id: string;
   visit_id: string;
@@ -169,6 +175,16 @@ export interface ServiceReport {
   status: string;
   sharepoint_folder: string | null;
   sharepoint_url: string | null;
+  // Chunk 1 additions — service visit metadata.
+  arrival_time: string | null;
+  departure_time: string | null;
+  mileage_miles: number | null;
+  arc_connected: boolean | null;
+  system_status: ServiceReportSystemStatus | null;
+  isolation_details: string | null;
+  client_sign_name: string | null;
+  client_sign_position: string | null;
+  panel_id: string | null;
 }
 
 export const getDefaultChecklist = (): BS5839Checklist => ({
@@ -397,7 +413,7 @@ export const CHECKLIST_LABELS: Record<string, Record<string, string>> = {
     defectsReported: "15.3 Have defects identified during this visit been reported and recorded in logbook?",
   },
   certification: {
-    bs5839CertIssued: "16.1 Has a BS5839-1:2017 H.6 Inspection & Service certificate been issued?",
+    bs5839CertIssued: "16.1 Has a BS5839-1:2025 H.6 Inspection & Service certificate been issued?",
     bafeCertIssued: "16.2 Has a BAFE SP203-1 Section 5 Inspection & Service certificate been issued?",
   },
   postInspection: {
@@ -463,7 +479,7 @@ export async function getServiceReport(visitId: string): Promise<ServiceReport |
   return {
     ...data,
     checklist: (data.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-  } as ServiceReport;
+  } as unknown as ServiceReport;
 }
 
 export async function createServiceReport(
@@ -489,18 +505,26 @@ export async function createServiceReport(
     }
   }
 
-  const insertData = {
+  const insertData: Record<string, unknown> = {
     visit_id: visitId,
     site_id: siteId,
     created_by: userId,
     checklist: JSON.parse(JSON.stringify(getDefaultChecklist())) as Json,
     report_number: reportNumber,
-    ...(initialData?.engineer_name && { engineer_name: initialData.engineer_name }),
   };
+
+  // Forward any caller-supplied initial scalars (checklist handled separately).
+  if (initialData) {
+    const { checklist: initialChecklist, ...scalars } = initialData;
+    Object.assign(insertData, scalars);
+    if (initialChecklist) {
+      insertData.checklist = JSON.parse(JSON.stringify(initialChecklist)) as Json;
+    }
+  }
 
   const { data, error } = await supabase
     .from("service_reports")
-    .insert(insertData)
+    .insert(insertData as never)
     .select()
     .single();
 
@@ -508,7 +532,7 @@ export async function createServiceReport(
   return {
     ...data,
     checklist: (data.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-  } as ServiceReport;
+  } as unknown as ServiceReport;
 }
 
 // Assign a report number to an existing report (call when completing/finalizing)
@@ -561,7 +585,7 @@ export async function updateServiceReport(
   return {
     ...data,
     checklist: (data.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-  } as ServiceReport;
+  } as unknown as ServiceReport;
 }
 
 export async function getSiteServiceReports(siteId: string): Promise<ServiceReport[]> {
@@ -575,5 +599,5 @@ export async function getSiteServiceReports(siteId: string): Promise<ServiceRepo
   return (data || []).map((d) => ({
     ...d,
     checklist: (d.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-  })) as ServiceReport[];
+  })) as unknown as ServiceReport[];
 }

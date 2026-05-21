@@ -21,6 +21,7 @@ import SiteDetail from "./pages/SiteDetail";
 import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
 import Visits from "./pages/Visits";
+import ServiceReportCapture from "./pages/ServiceReportCapture";
 import Invoices from "./pages/Invoices";
 import Reports from "./pages/Reports";
 import UploadDemo from "./pages/UploadDemo";
@@ -139,6 +140,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Visits />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/visits/:visitId/service-report/capture"
+              element={
+                <ProtectedRoute>
+                  <ServiceReportCapture />
                 </ProtectedRoute>
               }
             />
