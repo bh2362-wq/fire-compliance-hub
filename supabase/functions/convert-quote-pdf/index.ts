@@ -4,17 +4,31 @@ function readGraphConfig() {
   const tenantId = Deno.env.get("GRAPH_TENANT_ID") ?? Deno.env.get("MICROSOFT_TENANT_ID");
   const clientId = Deno.env.get("GRAPH_CLIENT_ID") ?? Deno.env.get("MICROSOFT_CLIENT_ID");
   const clientSecret = Deno.env.get("GRAPH_CLIENT_SECRET") ?? Deno.env.get("MICROSOFT_CLIENT_SECRET");
+  // Prefer SharePoint site drive (no per-user licensing required).
+  // GRAPH_CONVERSION_SITE can be a site ID (host,siteCollectionId,siteId) or a path like "host:/sites/SiteName".
+  const conversionSite = Deno.env.get("GRAPH_CONVERSION_SITE");
   const conversionUser = Deno.env.get("GRAPH_CONVERSION_USER");
-  if (!tenantId || !clientId || !clientSecret || !conversionUser) {
+  if (!tenantId || !clientId || !clientSecret || (!conversionSite && !conversionUser)) {
     const missing = [
       !tenantId && "GRAPH_TENANT_ID (or MICROSOFT_TENANT_ID)",
       !clientId && "GRAPH_CLIENT_ID (or MICROSOFT_CLIENT_ID)",
       !clientSecret && "GRAPH_CLIENT_SECRET (or MICROSOFT_CLIENT_SECRET)",
-      !conversionUser && "GRAPH_CONVERSION_USER",
+      !conversionSite && !conversionUser && "GRAPH_CONVERSION_SITE or GRAPH_CONVERSION_USER",
     ].filter(Boolean).join(", ");
     throw new Error(`Microsoft Graph environment variables missing: ${missing}`);
   }
-  return { tenantId, clientId, clientSecret, conversionUser };
+  return { tenantId, clientId, clientSecret, conversionUser, conversionSite };
+}
+
+async function getSiteDriveId(token: string, siteRef: string): Promise<string> {
+  // siteRef may be: "{hostname},{siteCollectionId},{siteId}" OR "hostname:/sites/Name"
+  const sitePath = siteRef.includes(",") ? siteRef : siteRef;
+  const url = `https://graph.microsoft.com/v1.0/sites/${sitePath}/drive`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Graph site drive lookup failed ${res.status}: ${await res.text()}. Check GRAPH_CONVERSION_SITE and that the app registration has Sites.ReadWrite.All.`);
+  const id = (await res.json()).id as string | undefined;
+  if (!id) throw new Error(`Graph site drive lookup returned no id for ${siteRef}`);
+  return id;
 }
 
 async function getGraphToken(cfg: ReturnType<typeof readGraphConfig>) {
