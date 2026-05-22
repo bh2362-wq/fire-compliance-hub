@@ -7,6 +7,7 @@ import { DeviceTesting } from "./pages/DeviceTesting";
 import { Signoff } from "./pages/Signoff";
 import { JobComplete } from "./pages/JobComplete";
 import { DefectCapture } from "./pages/DefectCapture";
+import { VisitDocuments } from "./pages/VisitDocuments";
 
 export function FieldRoutes() {
   return (
@@ -17,6 +18,7 @@ export function FieldRoutes() {
         <Route path="job/:visitId/briefing" element={<SiteBriefing />} />
         <Route path="job/:visitId/test" element={<DeviceTesting />} />
         <Route path="job/:visitId/defect" element={<DefectCapture />} />
+        <Route path="job/:visitId/documents" element={<VisitDocuments />} />
         <Route path="job/:visitId/signoff" element={<Signoff />} />
         <Route path="job/:visitId/complete" element={<JobComplete />} />
         <Route path="*" element={<Navigate to="/field" replace />} />
