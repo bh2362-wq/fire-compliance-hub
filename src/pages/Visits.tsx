@@ -26,7 +26,7 @@ const Visits = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const initialVisitId = searchParams.get("visitId");
 
-  const { visits: allVisits, loading, refetch } = useVisits({
+  const { visits: allVisits, loading, error: visitsError, refetch } = useVisits({
     siteId: selectedSiteId && selectedSiteId !== "all" ? selectedSiteId : undefined,
   });
 
@@ -179,6 +179,19 @@ const Visits = () => {
             </Select>
           </div>
         </div>
+
+        {/* Load error — surfaced rather than rendering a silent empty table */}
+        {visitsError && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl border bg-destructive/8 border-destructive/20 text-destructive text-sm">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            <span className="flex-1">
+              Couldn't load visits: {visitsError.message}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </div>
+        )}
 
         {/* Visits table */}
         <div className="bg-card rounded-xl border border-border overflow-hidden">
