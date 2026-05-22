@@ -5,14 +5,18 @@
 -- All changes are additive or backwards-compatible. Existing service_reports
 -- rows remain valid; new columns are nullable.
 --
--- Three deviations from docs/planning/service-report-execution-brief.md
+-- Two deviations from docs/planning/service-report-execution-brief.md
 -- (logged in the Chunk 1 commit message):
 --   1. panel_id references site_assets(id), not a non-existent panels(id).
---   2. visits.visit_type new enum preserves biannual_service and supply_only
---      (existing production values the brief didn't enumerate).
---   3. Severity-vocabulary rename (BS5839Payload.defects[].severity) deferred
+--   2. Severity-vocabulary rename (BS5839Payload.defects[].severity) deferred
 --      to Chunk 6 — it is tightly coupled to the PDF generator's colour switch
 --      and cannot ship in isolation without regressing the production PDF.
+--
+-- The visits.visit_type enum swap originally planned here has been REMOVED:
+-- production carries visit_type values the new enum did not cover (e.g.
+-- 'subcontract'), and the frontend still keys row styling and labels off the
+-- old values. Rationalising visit_type is deferred to its own change, with
+-- the frontend updated alongside it.
 -- ============================================================================
 
 -- ── 1. service_reports: new visit metadata columns ──────────────────────────
@@ -32,27 +36,7 @@ ALTER TABLE public.service_reports
   CHECK (system_status IS NULL OR system_status IN
     ('fully_operational','advisory_only','partial_operation','not_operational'));
 
--- ── 2. visits.visit_type: enum swap with data migration ─────────────────────
--- Drop existing constraint, migrate values, install new constraint.
-ALTER TABLE public.visits DROP CONSTRAINT IF EXISTS visits_visit_type_check;
-
-UPDATE public.visits SET visit_type = CASE visit_type
-    WHEN 'quarterly_service'  THEN 'routine_3mo'
-    WHEN 'biannual_service'   THEN 'routine_6mo'
-    WHEN 'annual_inspection'  THEN 'annual'
-    WHEN 'emergency'          THEN 'reactive'
-    WHEN 'remedial'           THEN 'reactive'
-    WHEN 'supply_only'        THEN 'supply_only'
-    ELSE visit_type
-  END
-WHERE visit_type IN
-  ('quarterly_service','biannual_service','annual_inspection','emergency','remedial');
-
-ALTER TABLE public.visits ADD CONSTRAINT visits_visit_type_check
-  CHECK (visit_type IN
-    ('routine_3mo','routine_6mo','annual','reactive','commissioning','supply_only'));
-
--- ── 3. service_report_battery_tests: child table for per-panel/PSU tests ────
+-- ── 2. service_report_battery_tests: child table for per-panel/PSU tests ────
 CREATE TABLE public.service_report_battery_tests (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   service_report_id  uuid NOT NULL REFERENCES public.service_reports(id) ON DELETE CASCADE,
@@ -106,14 +90,14 @@ BEGIN
   END IF;
 END$$;
 
--- ── 4. file_uploads: link photos to defects ─────────────────────────────────
+-- ── 3. file_uploads: link photos to defects ─────────────────────────────────
 ALTER TABLE public.file_uploads
   ADD COLUMN defect_id uuid REFERENCES public.site_defects(id) ON DELETE SET NULL;
 
 CREATE INDEX idx_file_uploads_defect ON public.file_uploads(defect_id)
   WHERE defect_id IS NOT NULL;
 
--- ── 5. profiles: stored engineer signature for reuse across visits ──────────
+-- ── 4. profiles: stored engineer signature for reuse across visits ──────────
 ALTER TABLE public.profiles
   ADD COLUMN engineer_signature text;
 
