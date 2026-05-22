@@ -77,6 +77,8 @@ const EmailScanner = () => {
   const [activeTab, setActiveTab] = useState("scanner");
   const [pendingPdfs, setPendingPdfs] = useState<{ name: string; contentBytes: string }[]>([]);
   const [supplierPreview, setSupplierPreview] = useState<{ rows: ParsedPriceRow[]; sourceName: string } | null>(null);
+  const [lastSourceEmail, setLastSourceEmail] = useState<{ subject?: string; from?: string }>({});
+  const qc = useQueryClient();
 
   // Load price list
   const { data: priceList = [] } = useQuery({
