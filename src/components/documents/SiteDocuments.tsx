@@ -279,7 +279,10 @@ export function SiteDocuments({
             onClose={() => setEmailDoc(null)}
           />
         </>
-      )}
+    </div>
+  );
+}
+
 
 /* ---------- Upload dialog ---------- */
 
