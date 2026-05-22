@@ -27,9 +27,26 @@ import {
   MoreHorizontal,
   Eye,
   Trash2,
+  PowerOff,
+  Power,
 } from "lucide-react";
 import DeleteSiteDialog from "@/components/sites/DeleteSiteDialog";
-import { Customer, getCustomer, getCustomerSites } from "@/services/customerService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Customer,
+  getCustomer,
+  getCustomerSites,
+  setCustomerActiveStatus,
+} from "@/services/customerService";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
 import { CustomerReports } from "@/components/customers/CustomerReports";
