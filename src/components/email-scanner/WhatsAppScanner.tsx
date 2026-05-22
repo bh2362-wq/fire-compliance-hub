@@ -42,6 +42,8 @@ interface WaChat {
 
 interface Props {
   onScanMessage: (content: string, from: string) => void;
+  onSweepIntents?: (content: string, from: string) => void | Promise<void>;
+  sweeping?: boolean;
 }
 
 class ExtensionMissingError extends Error {
