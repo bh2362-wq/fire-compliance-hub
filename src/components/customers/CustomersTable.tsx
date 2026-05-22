@@ -26,9 +26,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Pencil, Trash2, Building2, MapPin, Loader2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Building2, MapPin, Loader2, EyeOff } from "lucide-react";
 import { CustomerWithSiteCount, getCustomers, deleteCustomer } from "@/services/customerService";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface CustomersTableProps {
   onEdit: (customer: CustomerWithSiteCount) => void;
