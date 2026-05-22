@@ -100,10 +100,25 @@ export function SiteDocuments({
   serviceVisitId,
   defaultTitlePrefix,
 }: SiteDocumentsProps) {
+  const [resolvedCustomerId, setResolvedCustomerId] = useState<string | null>(
+    customerId ?? null
+  );
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [emailDoc, setEmailDoc] = useState<DocRow | null>(null);
+
+  useEffect(() => {
+    if (resolvedCustomerId) return;
+    supabase
+      .from("sites")
+      .select("customer_id")
+      .eq("id", siteId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.customer_id) setResolvedCustomerId(data.customer_id);
+      });
+  }, [siteId, resolvedCustomerId]);
 
   const load = useCallback(async () => {
     setLoading(true);
