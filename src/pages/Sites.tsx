@@ -178,6 +178,7 @@ const Sites = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("all");
+  const [showInactive, setShowInactive] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
