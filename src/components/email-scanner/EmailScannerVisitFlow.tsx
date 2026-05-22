@@ -212,7 +212,7 @@ export const EmailScannerVisitFlow = ({ data, onBack }: Props) => {
       }
 
       // Create visit (no asset_type column — stored in notes JSON)
-      const { data: visit, error: visitErr } = await supabase.from("visits").insert({
+      const { data: visit, error: visitErr } = await supabase.from("service_visits").insert({
         site_id: siteId,
         visit_date: visitDate,
         visit_type: visitType,

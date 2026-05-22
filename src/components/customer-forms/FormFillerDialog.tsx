@@ -169,7 +169,7 @@ export default function FormFillerDialog({
   // Load visits when site is selected
   useEffect(() => {
     if (!selectedSiteId) { setVisits([]); return; }
-    supabase.from("visits").select("id, visit_type, visit_date")
+    supabase.from("service_visits").select("id, visit_type, visit_date")
       .eq("site_id", selectedSiteId)
       .order("visit_date", { ascending: false })
       .limit(20)

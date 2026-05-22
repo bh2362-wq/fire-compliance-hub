@@ -47,7 +47,7 @@ export function AISweepDialog({ open, onOpenChange }: AISweepDialogProps) {
     try {
       // Fetch all open visits with their requirements and site info
       const { data: visits, error: visitError } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select("id, visit_date, visit_type, status, notes, site:sites(id, name)")
         .in("status", ["scheduled", "in_progress", "pending_review"])
         .order("visit_date", { ascending: true });

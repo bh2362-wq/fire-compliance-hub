@@ -282,7 +282,7 @@ export default function BulkImportPODialog({ open, onOpenChange, onSuccess }: Bu
 
         // Create visit
         const { error: visitError } = await supabase
-          .from("visits")
+          .from("service_visits")
           .insert({
             site_id: siteId,
             visit_type: item.visitType || "remedial",

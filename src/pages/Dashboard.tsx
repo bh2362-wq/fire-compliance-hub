@@ -79,10 +79,10 @@ const Dashboard = () => {
       const [sitesResult, visitsThisMonthResult, openVisitsResult, overdueResult] =
         await Promise.all([
           supabase.from("sites").select("id", { count: "exact", head: true }).eq("status", "active"),
-          supabase.from("visits").select("id, status", { count: "exact" })
+          supabase.from("service_visits").select("id, status", { count: "exact" })
             .gte("visit_date", monthStart)
             .lte("visit_date", monthEnd),
-          supabase.from("visits").select("id", { count: "exact", head: true })
+          supabase.from("service_visits").select("id", { count: "exact", head: true })
             .in("status", ["scheduled", "in_progress", "pending_review"]),
           // Overdue invoices via Xero-synced records
           supabase.from("xero_invoices")

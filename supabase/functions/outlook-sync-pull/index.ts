@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
 
           if (apt?.visit_id) {
             await supabase
-              .from("visits")
+              .from("service_visits")
               .update({ visit_date: outlookDate })
               .eq("id", apt.visit_id);
           }

@@ -89,7 +89,7 @@ export async function createAppointment(input: AppointmentInput, userId: string)
   
   if (!visitId && input.visit_type) {
     const { data: visitData, error: visitError } = await supabase
-      .from('visits')
+      .from("service_visits")
       .insert({
         site_id: input.site_id,
         visit_date: input.appointment_date,
@@ -143,7 +143,7 @@ export async function updateAppointment(id: string, input: Partial<AppointmentIn
   // If date changed, sync linked visit date
   if (input.appointment_date && data.visit_id) {
     await supabase
-      .from('visits')
+      .from("service_visits")
       .update({ visit_date: input.appointment_date })
       .eq('id', data.visit_id);
   }
@@ -170,7 +170,7 @@ export async function deleteAppointment(id: string): Promise<void> {
   // If there was a linked visit, delete it too
   if (appointment?.visit_id) {
     await supabase
-      .from('visits')
+      .from("service_visits")
       .delete()
       .eq('id', appointment.visit_id);
   }

@@ -31,7 +31,7 @@ const RecentVisits = () => {
     const fetchRecentVisits = async () => {
       try {
         const { data, error } = await supabase
-          .from("visits")
+          .from("service_visits")
           .select(`
             id,
             visit_date,

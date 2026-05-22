@@ -73,7 +73,7 @@ export function GlobalSearch() {
       const [customers, sites, visits, reports, quotations] = await Promise.all([
         supabase.from("customers").select("id, name, contact_name, city").ilike("name", term).limit(5),
         supabase.from("sites").select("id, name, address, city").ilike("name", term).limit(5),
-        supabase.from("visits").select("id, visit_type, visit_date, sites!inner(name)").or(`visit_type.ilike.${term}`).limit(5),
+        supabase.from("service_visits").select("id, visit_type, visit_date, sites!inner(name)").or(`visit_type.ilike.${term}`).limit(5),
         supabase.from("service_reports").select("id, report_number, report_type, sites!inner(name)").or(`report_number.ilike.${term},report_type.ilike.${term}`).limit(5),
         supabase.from("quotations").select("id, quotation_number, customer_name, site_name").or(`quotation_number.ilike.${term},customer_name.ilike.${term},site_name.ilike.${term}`).limit(5),
       ]);

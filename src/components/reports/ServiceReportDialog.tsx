@@ -496,7 +496,7 @@ export function ServiceReportDialog({
 
       // Mark the visit as completed
       const { error: visitError } = await supabase
-        .from("visits")
+        .from("service_visits")
         .update({ status: "completed" })
         .eq("id", visit.id);
 

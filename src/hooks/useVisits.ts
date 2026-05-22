@@ -41,7 +41,7 @@ export function useVisits(options?: UseVisitsOptions) {
 
     try {
       let query = supabase
-        .from("visits")
+        .from("service_visits")
         .select(`
           *,
           site:sites(id, name)
@@ -82,7 +82,7 @@ export async function updateVisitStatus(
 ): Promise<{ error: Error | null }> {
   try {
     const { error } = await supabase
-      .from("visits")
+      .from("service_visits")
       .update({ status })
       .eq("id", visitId);
 

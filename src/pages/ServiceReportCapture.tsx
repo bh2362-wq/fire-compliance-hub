@@ -23,7 +23,7 @@ export default function ServiceReportCapture() {
     (async () => {
       setLoading(true);
       const { data, error: err } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select("*, site:sites(id, name)")
         .eq("id", visitId)
         .maybeSingle();

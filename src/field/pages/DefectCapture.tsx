@@ -22,7 +22,7 @@ export function DefectCapture() {
   const submit = useMutation({
     mutationFn: async () => {
       const { data: user } = await supabase.auth.getUser();
-      const { data: v } = await (supabase as any).from("visits").select("site_id").eq("id", visitId).single();
+      const { data: v } = await (supabase as any).from("service_visits").select("site_id").eq("id", visitId).single();
       if (!v) throw new Error("Visit not found");
 
       let photoUrl: string | null = null;

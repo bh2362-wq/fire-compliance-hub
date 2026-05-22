@@ -59,7 +59,7 @@ const ReconciliationPanel = ({ initialSiteId, initialUploadId, initialVisitId }:
     if (initialVisitId) {
       const loadVisitInfo = async () => {
         const { data } = await supabase
-          .from("visits")
+          .from("service_visits")
           .select("id, visit_type, visit_date, status, site_id, site:sites(name)")
           .eq("id", initialVisitId)
           .maybeSingle();

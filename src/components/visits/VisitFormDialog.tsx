@@ -247,7 +247,7 @@ const VisitFormDialog = ({
       }
 
       const { data: visit, error } = await supabase
-        .from("visits")
+        .from("service_visits")
         .insert({
           site_id: data.site_id,
           visit_date: data.visit_date,

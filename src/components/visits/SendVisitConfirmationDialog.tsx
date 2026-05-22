@@ -57,7 +57,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
           .eq("id", visit.site_id)
           .maybeSingle(),
         supabase
-          .from("visits")
+          .from("service_visits")
           .select("confirmation_sent_at, confirmation_sent_to, client_accepted_at, accepted_by_name")
           .eq("id", visit.id)
           .maybeSingle(),
@@ -88,7 +88,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
       let token = null;
 
       const { data: existingVisit } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select("acceptance_token")
         .eq("id", visit.id)
         .single();
@@ -101,7 +101,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
         token = Array.from(array, b => b.toString(16).padStart(2, "0")).join("");
 
         const { error: tokenError } = await supabase
-          .from("visits")
+          .from("service_visits")
           .update({ acceptance_token: token })
           .eq("id", visit.id);
 
@@ -169,7 +169,7 @@ export function SendVisitConfirmationDialog({ open, onOpenChange, visit, onSucce
       const { data: { user } } = await supabase.auth.getUser();
       const nowIso = new Date().toISOString();
       await supabase
-        .from("visits")
+        .from("service_visits")
         .update({
           confirmation_sent_at: nowIso,
           confirmation_sent_to: email.trim(),

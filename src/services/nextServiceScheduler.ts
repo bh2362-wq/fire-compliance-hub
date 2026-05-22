@@ -62,7 +62,7 @@ export async function scheduleNextServiceFromCert(
   const run = (async (): Promise<ScheduleResult | null> => {
     // ── Check for duplicate in DB ──────────────────────────────────────────
     const { data: existing } = await supabase
-      .from("visits")
+      .from("service_visits")
       .select("id")
       .eq("site_id",    siteId)
       .eq("visit_date", nextServiceDate)

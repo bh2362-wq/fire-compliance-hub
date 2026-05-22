@@ -155,7 +155,7 @@ export default function ServiceDueDashboard() {
 
       // Check if visit already exists
       const { data: existing } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select("id")
         .eq("site_id",    row.siteId)
         .eq("visit_date", row.nextServiceDate)
@@ -168,7 +168,7 @@ export default function ServiceDueDashboard() {
         return;
       }
 
-      const { error } = await supabase.from("visits").insert({
+      const { error } = await supabase.from("service_visits").insert({
         site_id:    row.siteId,
         visit_date: row.nextServiceDate,
         visit_type: "fire",

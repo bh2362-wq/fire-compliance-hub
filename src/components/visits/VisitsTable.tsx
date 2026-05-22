@@ -432,7 +432,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       await supabase.from("qms_ncrs").delete().eq("visit_id", deleteVisit.id);
       await supabase.from("qms_feedback").delete().eq("visit_id", deleteVisit.id);
       const { error } = await supabase
-        .from("visits")
+        .from("service_visits")
         .delete()
         .eq("id", deleteVisit.id);
 
@@ -1016,7 +1016,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                           disabled={visit.status === s.value}
                           onClick={async () => {
                             const { error } = await supabase
-                              .from("visits")
+                              .from("service_visits")
                               .update({ status: s.value })
                               .eq("id", visit.id);
                             if (error) {
@@ -1261,7 +1261,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                       <DropdownMenuItem
                         onClick={async () => {
                           const { error } = await supabase
-                            .from("visits")
+                            .from("service_visits")
                             .update({ status: "cancelled" })
                             .eq("id", visit.id);
                           if (error) {
@@ -1281,7 +1281,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                       <DropdownMenuItem
                         onClick={async () => {
                           const { error } = await supabase
-                            .from("visits")
+                            .from("service_visits")
                             .update({ status: "scheduled" })
                             .eq("id", visit.id);
                           if (error) {
@@ -1361,7 +1361,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                     onClick={async () => {
                       const ids = Array.from(selectedVisitIds);
                       const { error } = await supabase
-                        .from("visits")
+                        .from("service_visits")
                         .update({ status: s.value })
                         .in("id", ids);
                       if (error) {

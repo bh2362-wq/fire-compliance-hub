@@ -210,7 +210,7 @@ export async function getRamsDocuments(): Promise<RamsDocument[]> {
     .select(`
       *,
       site:sites(id, name, address, customer_id, customers(name)),
-      visit:visits(id, visit_date, visit_type),
+      visit:service_visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
     `)
@@ -226,7 +226,7 @@ export async function getRamsDocument(id: string): Promise<RamsDocument | null> 
     .select(`
       *,
       site:sites(id, name, address, customer_id, customers(name)),
-      visit:visits(id, visit_date, visit_type),
+      visit:service_visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
     `)
@@ -244,7 +244,7 @@ export async function getRamsDocumentsBySite(siteId: string): Promise<RamsDocume
     .select(`
       *,
       site:sites(id, name, address, customer_id, customers(name)),
-      visit:visits(id, visit_date, visit_type),
+      visit:service_visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
     `)
@@ -299,7 +299,7 @@ export async function createRamsDocument(
     .select(`
       *,
       site:sites(id, name, address, customer_id, customers(name)),
-      visit:visits(id, visit_date, visit_type),
+      visit:service_visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
     `)
@@ -337,7 +337,7 @@ export async function updateRamsDocument(
     .select(`
       *,
       site:sites(id, name, address, customer_id, customers(name)),
-      visit:visits(id, visit_date, visit_type),
+      visit:service_visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
     `)
@@ -378,7 +378,7 @@ export async function unlockRamsDocument(id: string): Promise<RamsDocument> {
     .select(`
       *,
       site:sites(id, name, address, customer_id, customers(name)),
-      visit:visits(id, visit_date, visit_type),
+      visit:service_visits(id, visit_date, visit_type),
       contract:site_service_contracts(id, service_type),
       template:rams_templates(id, name)
     `)

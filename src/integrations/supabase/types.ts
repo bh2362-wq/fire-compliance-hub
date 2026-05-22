@@ -146,7 +146,7 @@ export type Database = {
             foreignKeyName: "appointments_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -822,7 +822,7 @@ export type Database = {
             foreignKeyName: "customer_email_drafts_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -899,7 +899,7 @@ export type Database = {
             foreignKeyName: "customer_form_submissions_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -1670,7 +1670,7 @@ export type Database = {
             foreignKeyName: "email_logs_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -1781,7 +1781,7 @@ export type Database = {
             foreignKeyName: "file_uploads_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -1881,7 +1881,7 @@ export type Database = {
             foreignKeyName: "issues_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -2133,7 +2133,7 @@ export type Database = {
             foreignKeyName: "parsed_device_tests_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -2954,7 +2954,7 @@ export type Database = {
             foreignKeyName: "qms_feedback_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -3093,7 +3093,7 @@ export type Database = {
             foreignKeyName: "qms_ncrs_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -3612,7 +3612,7 @@ export type Database = {
             foreignKeyName: "quotations_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -3974,7 +3974,7 @@ export type Database = {
             foreignKeyName: "rams_documents_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -4454,7 +4454,7 @@ export type Database = {
             foreignKeyName: "service_reports_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -4743,7 +4743,7 @@ export type Database = {
             foreignKeyName: "site_defects_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -4956,7 +4956,7 @@ export type Database = {
             foreignKeyName: "smart_form_submissions_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -5171,7 +5171,7 @@ export type Database = {
             foreignKeyName: "visit_requirements_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
@@ -5218,12 +5218,12 @@ export type Database = {
             foreignKeyName: "visit_subcontractor_sheets_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]
       }
-      visits: {
+      service_visits: {
         Row: {
           acceptance_token: string | null
           accepted_by_name: string | null
@@ -5518,7 +5518,7 @@ export type Database = {
             foreignKeyName: "xero_invoices_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
-            referencedRelation: "visits"
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
         ]

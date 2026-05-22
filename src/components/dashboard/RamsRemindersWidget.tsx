@@ -29,7 +29,7 @@ export function RamsRemindersWidget() {
         .from("rams_documents")
         .select(`
           id, rams_number, title, status, sent_at, accepted_at,
-          visit:visits(id, visit_date, visit_type),
+          visit:service_visits(id, visit_date, visit_type),
           site:sites(name)
         `)
         .in("status", ["draft", "prepared", "sent"])

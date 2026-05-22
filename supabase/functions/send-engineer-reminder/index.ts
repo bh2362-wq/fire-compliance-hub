@@ -26,7 +26,7 @@ serve(async (req) => {
 
     // Fetch visits scheduled for tomorrow with requirements
     const { data: visits, error: visitError } = await supabase
-      .from("visits")
+      .from("service_visits")
       .select(`
         id, visit_date, visit_type, engineer_id, notes,
         site:sites(name, address, city, postcode)

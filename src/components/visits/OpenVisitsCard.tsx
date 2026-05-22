@@ -73,7 +73,7 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
     setLoading(true);
     try {
       let query = supabase
-        .from("visits")
+        .from("service_visits")
         .select("id, visit_date, visit_type, status, site_id, sites(name, address, city, postcode, contact_name, contact_phone, contact_email)")
         .in("status", ["in_progress", "scheduled", "pending"])
         .order("visit_date", { ascending: true });

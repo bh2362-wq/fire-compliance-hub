@@ -188,7 +188,7 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
       if (data.length > 0) {
         const visitIds = data.map((r) => r.visit_id);
         const { data: visits } = await supabase
-          .from("visits")
+          .from("service_visits")
           .select("id, visit_type, visit_date")
           .in("id", visitIds);
 

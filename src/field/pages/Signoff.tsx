@@ -16,7 +16,7 @@ export function Signoff() {
   const { data: visit } = useQuery({
     queryKey: ["field-visit", visitId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("visits").select(`*, sites:site_id ( name, contact_name, contact_email )`).eq("id", visitId).single();
+      const { data, error } = await (supabase as any).from("service_visits").select(`*, sites:site_id ( name, contact_name, contact_email )`).eq("id", visitId).single();
       if (error) throw error;
       return data;
     },
@@ -84,7 +84,7 @@ export function Signoff() {
       const { error: uploadErr } = await supabase.storage.from("engineer-app").upload(filename, blob, { contentType: "image/png" });
       if (uploadErr) throw uploadErr;
       const { data: pub } = supabase.storage.from("engineer-app").getPublicUrl(filename);
-      const { error } = await (supabase as any).from("visits").update({
+      const { error } = await (supabase as any).from("service_visits").update({
         status: "completed", departed_at: new Date().toISOString(), client_signature_url: pub.publicUrl, client_signed_name: clientName,
       }).eq("id", visitId);
       if (error) throw error;

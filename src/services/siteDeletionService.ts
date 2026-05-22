@@ -26,7 +26,7 @@ export async function fetchSiteDependencies(siteId: string): Promise<SiteDepende
     { count: assetsCount },
     { count: emailCount },
   ] = await Promise.all([
-    supabase.from("visits").select("id, visit_date, visit_type, status").eq("site_id", siteId),
+    supabase.from("service_visits").select("id, visit_date, visit_type, status").eq("site_id", siteId),
     supabase.from("service_reports").select("id, report_number, visit_id").eq("site_id", siteId),
     supabase.from("appointments").select("id, title, appointment_date").eq("site_id", siteId),
     supabase.from("devices").select("*", { count: "exact", head: true }).eq("site_id", siteId),
@@ -96,7 +96,7 @@ export async function forceDeleteSite(siteId: string): Promise<{ error: Error | 
     await supabase.from("file_uploads").delete().eq("site_id", siteId);
 
     // 8. Delete visits
-    await supabase.from("visits").delete().eq("site_id", siteId);
+    await supabase.from("service_visits").delete().eq("site_id", siteId);
 
     // 9. Delete devices
     await supabase.from("devices").delete().eq("site_id", siteId);

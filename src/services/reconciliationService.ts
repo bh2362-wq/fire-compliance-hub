@@ -176,7 +176,7 @@ export async function reconcileDevices(
 
     if (uploadData?.visit_id) {
       await supabase
-        .from("visits")
+        .from("service_visits")
         .update({
           devices_tested: totalTested,
           total_devices: totalInventory,

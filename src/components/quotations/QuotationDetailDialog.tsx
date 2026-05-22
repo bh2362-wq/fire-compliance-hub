@@ -769,7 +769,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
         if (reportLink?.report_id) {
           const { data: report } = await supabase
             .from("service_reports")
-            .select("sharepoint_folder, report_number, visits(visit_date)")
+            .select("sharepoint_folder, report_number, service_visits(visit_date)")
             .eq("id", reportLink.report_id)
             .single();
           if (report?.sharepoint_folder) {
@@ -1041,7 +1041,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
         if (reportData?.report_id) {
           const { data: report } = await supabase
             .from("service_reports")
-            .select("sharepoint_folder, report_number, visits(visit_date)")
+            .select("sharepoint_folder, report_number, service_visits(visit_date)")
             .eq("id", reportData.report_id)
             .single();
           if (report?.sharepoint_folder) {
