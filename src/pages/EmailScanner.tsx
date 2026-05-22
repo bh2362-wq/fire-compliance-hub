@@ -224,6 +224,10 @@ const EmailScanner = () => {
         preview,
       });
       toast.success(`Found ${intents.length} action item${intents.length === 1 ? "" : "s"}`);
+      try {
+        const channel = source.channel ?? "email";
+        localStorage.setItem(`emailScanner.lastSweep.${channel}`, new Date().toISOString());
+      } catch { /* ignore quota */ }
       qc.invalidateQueries({ queryKey: ["email-action-items"] });
       setActiveTab("actions");
     } catch (err) {
