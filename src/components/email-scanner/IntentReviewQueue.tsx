@@ -53,11 +53,28 @@ export function IntentReviewQueue({ onRouteToFlow, sourceEmailId }: Props) {
     },
   });
 
+  const lastEmailSweep = typeof window !== "undefined" ? localStorage.getItem("emailScanner.lastSweep.email") : null;
+  const lastWaSweep    = typeof window !== "undefined" ? localStorage.getItem("emailScanner.lastSweep.whatsapp") : null;
+
   async function handleDismiss(id: string) {
     setBusy(id);
     try {
       await dismissActionItem(id);
-      toast.success("Dismissed");
+      toast.success("Discarded");
+      qc.invalidateQueries({ queryKey: ["email-action-items"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally { setBusy(null); }
+  }
+
+  async function handleBulkDiscardLow() {
+    const targets = items.filter((i) => i.priority === "low" || i.priority === "medium");
+    if (!targets.length) { toast.info("Nothing low/medium priority to discard"); return; }
+    if (!confirm(`Discard ${targets.length} low/medium-priority item${targets.length === 1 ? "" : "s"}?`)) return;
+    setBusy("bulk");
+    try {
+      await Promise.all(targets.map((t) => dismissActionItem(t).catch(() => null).then(() => dismissActionItem(t.id))));
+      toast.success(`Discarded ${targets.length} item${targets.length === 1 ? "" : "s"}`);
       qc.invalidateQueries({ queryKey: ["email-action-items"] });
     } catch (e) {
       toast.error((e as Error).message);
