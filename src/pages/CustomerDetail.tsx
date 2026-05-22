@@ -506,6 +506,36 @@ const CustomerDetail = () => {
           onSuccess={loadData}
         />
       )}
+
+      <AlertDialog open={showInactiveConfirm} onOpenChange={setShowInactiveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark customer as no longer active?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This customer and all {sites.length} linked site
+              {sites.length !== 1 ? "s" : ""} will be hidden from the default
+              Customers and Sites lists so you don't get confused with too many
+              records. Existing visits, reports and invoices are kept and you
+              can re-activate the customer at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={togglingActive}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleToggleActive}
+              disabled={togglingActive}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {togglingActive ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <PowerOff className="w-4 h-4 mr-2" />
+              )}
+              Mark Inactive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
