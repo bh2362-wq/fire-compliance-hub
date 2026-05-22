@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   try {
     const { emailContent, mode, pdfAttachments = [] } = await req.json() as {
       emailContent: string;
-      mode: "quote" | "visit" | "bulk_visits";
+      mode: "quote" | "visit" | "bulk_visits" | "intents";
       pdfAttachments?: PdfAttachment[];
     };
 
@@ -29,9 +29,27 @@ Deno.serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) return err("ANTHROPIC_API_KEY not configured", 500);
 
-    // ── System prompts (unchanged from original) ──────────────────────────────
+    // ── System prompts ────────────────────────────────────────────────────────
 
-    const systemPrompt = mode === "bulk_visits"
+    const intentsPrompt = `You are an AI assistant for a fire safety engineering company (BHO Fire). Analyse the email (and any attached document) and identify EVERY actionable item or important issue. Return a JSON object with a single "intents" array. Each entry has:
+- intent_type: one of "visit" (book a routine service visit), "callout" (urgent emergency attendance), "quote" (request for a quotation/pricing), "meeting" (calendar meeting/site survey/face-to-face), "reminder" (follow-up, deadline, important info to remember), "issue" (complaint, problem, defect to be flagged), "note" (informational only, no action needed but worth recording)
+- priority: "urgent" | "high" | "medium" | "low"  (urgent = same-day callouts, complaints, fire-system out of service; high = within a few days; medium = within 1-2 weeks; low = informational)
+- title: short imperative sentence describing the action (e.g. "Book quarterly service for Acme HQ")
+- summary: 1-2 sentence description of WHY this action is needed, in plain English
+- suggested_date: any date mentioned (YYYY-MM-DD), or null
+- payload: an object with as many of these as can be extracted, used to prefill forms:
+    company_name, contact_name, contact_email, contact_phone,
+    site_name, site_address, site_city, site_postcode,
+    visit_type (one of: quarterly_service, biannual_service, annual_inspection, emergency, remedial, supply_only),
+    description, notes, client_po_number
+- A single email can produce MULTIPLE intents (e.g. a complaint + a request to book a callout = 2 entries). Do not merge them.
+- If the email is purely conversational and has no actionable content, return { "intents": [] }.
+
+Return ONLY valid JSON. Use null for unknown fields.`;
+
+    const systemPrompt = mode === "intents"
+      ? intentsPrompt
+      : mode === "bulk_visits"
       ? `You are an AI assistant for a fire safety engineering company. Analyse the email which contains MULTIPLE jobs/visits for the same customer. Extract:
 - company_name: The customer/company name
 - contact_name: Main contact person
