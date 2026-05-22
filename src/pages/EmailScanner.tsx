@@ -199,23 +199,27 @@ const EmailScanner = () => {
     setActiveTab("scanner");
   }
 
-  async function handleIntentSweep() {
-    if (!emailContent.trim()) { toast.error("Paste an email first"); return; }
+  async function runIntentSweep(
+    content: string,
+    source: { subject?: string; from?: string; channel?: "email" | "whatsapp" } = {},
+    pdfs: { name: string; contentBytes: string }[] = [],
+  ) {
+    if (!content.trim()) { toast.error("Nothing to sweep"); return; }
     setScanning(true);
     setScanMode(null);
     try {
       const MAX_CHARS = 190000;
-      const payload = emailContent.trim().slice(-MAX_CHARS);
+      const payload = content.trim().slice(-MAX_CHARS);
       const { data, error } = await supabase.functions.invoke("scan-email", {
-        body: { emailContent: payload, mode: "intents", pdfAttachments: pendingPdfs },
+        body: { emailContent: payload, mode: "intents", pdfAttachments: pdfs },
       });
       if (error) throw error;
       const intents = (data?.data?.intents ?? []) as ScannedIntent[];
       if (!intents.length) { toast.info("No actionable items detected"); return; }
-      const preview = emailContent.trim().slice(0, 500);
+      const preview = content.trim().slice(0, 500);
       await saveScannedIntents(intents, {
-        subject: lastSourceEmail.subject,
-        from: lastSourceEmail.from,
+        subject: source.subject ?? (source.channel === "whatsapp" ? `WhatsApp: ${source.from || "chat"}` : undefined),
+        from: source.from,
         receivedAt: new Date().toISOString(),
         preview,
       });
@@ -225,6 +229,14 @@ const EmailScanner = () => {
     } catch (err) {
       toast.error((err as Error).message || "Sweep failed");
     } finally { setScanning(false); }
+  }
+
+  async function handleIntentSweep() {
+    await runIntentSweep(
+      emailContent,
+      { subject: lastSourceEmail.subject, from: lastSourceEmail.from, channel: "email" },
+      pendingPdfs,
+    );
   }
 
   function handleQueueRoute(mode: "visit" | "quote", data: ExtractedEmailData) {
@@ -553,9 +565,14 @@ const EmailScanner = () => {
                   <WhatsAppScanner
                     onScanMessage={(content, from) => {
                       setEmailContent(content);
+                      setLastSourceEmail({ subject: `WhatsApp: ${from}`, from });
                       setActiveTab("scanner");
                       toast.success(`WhatsApp from ${from} loaded`);
                     }}
+                    onSweepIntents={(content, from) =>
+                      runIntentSweep(content, { from, channel: "whatsapp" })
+                    }
+                    sweeping={scanning}
                   />
                 </CardContent>
               </Card>

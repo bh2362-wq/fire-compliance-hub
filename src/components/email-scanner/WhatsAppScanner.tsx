@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   MessageCircle, Loader2, RefreshCw, Scan, AlertCircle,
-  CheckCircle2, User, Sparkles, ArrowRight, Upload, FileArchive,
+  CheckCircle2, User, Sparkles, ArrowRight, Upload, FileArchive, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +42,8 @@ interface WaChat {
 
 interface Props {
   onScanMessage: (content: string, from: string) => void;
+  onSweepIntents?: (content: string, from: string) => void | Promise<void>;
+  sweeping?: boolean;
 }
 
 class ExtensionMissingError extends Error {
@@ -111,7 +113,7 @@ function waitForExtensionChats(script: string): Promise<any[]> {
   });
 }
 
-export function WhatsAppScanner({ onScanMessage }: Props) {
+export function WhatsAppScanner({ onScanMessage, onSweepIntents, sweeping }: Props) {
   const [chats, setChats] = useState<WaChat[]>([]);
   const [loading, setLoading] = useState(false);
   const [scanningId, setScanningId] = useState<string | null>(null);
@@ -374,13 +376,24 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
             )}
           </div>
           {rawText.trim() && (
-            <div className="flex gap-2">
-              <Button onClick={handlePasteScan} className="flex-1 gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handlePasteScan} className="flex-1 min-w-[120px] gap-2">
                 <Sparkles className="w-4 h-4" />Smart Quote
               </Button>
-              <Button variant="outline" onClick={() => onScanMessage(rawText, "WhatsApp")} className="flex-1 gap-2">
+              <Button variant="outline" onClick={() => onScanMessage(rawText, "WhatsApp")} className="flex-1 min-w-[120px] gap-2">
                 <Scan className="w-4 h-4" />Book Visit
               </Button>
+              {onSweepIntents && (
+                <Button
+                  variant="secondary"
+                  onClick={() => onSweepIntents(rawText, uploadedName || "WhatsApp chat")}
+                  disabled={sweeping}
+                  className="flex-1 min-w-[140px] gap-2"
+                >
+                  {sweeping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                  Sweep for Actions
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -411,13 +424,24 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
             className="min-h-[160px] text-sm resize-none"
           />
           {rawText.trim() && (
-            <div className="flex gap-2">
-              <Button onClick={handlePasteScan} className="flex-1 gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handlePasteScan} className="flex-1 min-w-[120px] gap-2">
                 <Sparkles className="w-4 h-4" />Smart Quote
               </Button>
-              <Button variant="outline" onClick={() => onScanMessage(rawText, "WhatsApp")} className="flex-1 gap-2">
+              <Button variant="outline" onClick={() => onScanMessage(rawText, "WhatsApp")} className="flex-1 min-w-[120px] gap-2">
                 <Scan className="w-4 h-4" />Book Visit
               </Button>
+              {onSweepIntents && (
+                <Button
+                  variant="secondary"
+                  onClick={() => onSweepIntents(rawText, "WhatsApp paste")}
+                  disabled={sweeping}
+                  className="flex-1 min-w-[140px] gap-2"
+                >
+                  {sweeping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                  Sweep for Actions
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -481,19 +505,40 @@ export function WhatsAppScanner({ onScanMessage }: Props) {
                   <p className="text-[10px] text-muted-foreground truncate mt-0.5">{chat.preview}</p>
                 </div>
 
-                {/* Time + scan */}
+                {/* Time + actions */}
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
                   <span className="text-[10px] text-muted-foreground">{chat.time}</span>
-                  <Button size="sm" variant="outline"
-                    className="h-6 px-2 text-[10px] gap-1"
-                    onClick={() => handleChatScan(chat)}
-                    disabled={scanningId === chat.name}
-                  >
-                    {scanningId === chat.name
-                      ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                      : <Scan className="w-2.5 h-2.5" />}
-                    Scan
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline"
+                      className="h-6 px-2 text-[10px] gap-1"
+                      onClick={() => handleChatScan(chat)}
+                      disabled={scanningId === chat.name}
+                    >
+                      {scanningId === chat.name
+                        ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        : <Scan className="w-2.5 h-2.5" />}
+                      Scan
+                    </Button>
+                    {onSweepIntents && (
+                      <Button size="sm" variant="secondary"
+                        className="h-6 px-2 text-[10px] gap-1"
+                        title="Extract action items from this chat"
+                        onClick={() => {
+                          const content = [
+                            `WhatsApp message from: ${chat.name}`,
+                            `Time: ${chat.time}`,
+                            ``,
+                            chat.preview,
+                          ].join("\n");
+                          onSweepIntents(content, chat.name);
+                        }}
+                        disabled={sweeping}
+                      >
+                        {sweeping ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
+                        Sweep
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
