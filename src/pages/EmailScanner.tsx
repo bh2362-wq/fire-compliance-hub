@@ -195,7 +195,42 @@ const EmailScanner = () => {
   ) {
     setEmailContent(emailBody);
     setPendingPdfs(pdfAttachments || []);
+    setLastSourceEmail({ subject, from });
     setActiveTab("scanner");
+  }
+
+  async function handleIntentSweep() {
+    if (!emailContent.trim()) { toast.error("Paste an email first"); return; }
+    setScanning(true);
+    setScanMode(null);
+    try {
+      const MAX_CHARS = 190000;
+      const payload = emailContent.trim().slice(-MAX_CHARS);
+      const { data, error } = await supabase.functions.invoke("scan-email", {
+        body: { emailContent: payload, mode: "intents", pdfAttachments: pendingPdfs },
+      });
+      if (error) throw error;
+      const intents = (data?.data?.intents ?? []) as ScannedIntent[];
+      if (!intents.length) { toast.info("No actionable items detected"); return; }
+      const preview = emailContent.trim().slice(0, 500);
+      await saveScannedIntents(intents, {
+        subject: lastSourceEmail.subject,
+        from: lastSourceEmail.from,
+        receivedAt: new Date().toISOString(),
+        preview,
+      });
+      toast.success(`Found ${intents.length} action item${intents.length === 1 ? "" : "s"}`);
+      qc.invalidateQueries({ queryKey: ["email-action-items"] });
+      setActiveTab("actions");
+    } catch (err) {
+      toast.error((err as Error).message || "Sweep failed");
+    } finally { setScanning(false); }
+  }
+
+  function handleQueueRoute(mode: "visit" | "quote", data: ExtractedEmailData) {
+    setExtractedData(data);
+    setScanMode(mode);
+    setActiveFlow(mode);
   }
 
   async function handleSupplierPreview(rows: ParsedPriceRow[], sourceName: string) {
