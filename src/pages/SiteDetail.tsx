@@ -13,6 +13,7 @@ import { CustomerRamsRequirementsPanel } from "@/components/rams/CustomerRamsReq
 import SiteCustomerForms from "@/components/customer-forms/SiteCustomerForms";
 import { SiteBafeCertificates } from "@/components/sites/SiteBafeCertificates";
 import { SiteSmartCerts } from "@/components/sites/SiteSmartCerts";
+import { SiteDocuments } from "@/components/documents/SiteDocuments";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
@@ -301,6 +302,11 @@ const SiteDetail = () => {
         {/* Service Reports */}
         <CollapsibleSection title="Service Reports" icon={ClipboardList} defaultOpen={false}>
           <SiteServiceReports siteId={site.id} siteName={site.name} customerName={customer?.name} />
+        </CollapsibleSection>
+
+        {/* Site Documents (manual service sheets, subcontractor reports, etc.) */}
+        <CollapsibleSection title="Site Documents" icon={FileText} defaultOpen={true}>
+          <SiteDocuments siteId={site.id} customerId={customer?.id} />
         </CollapsibleSection>
 
         {/* Customer Forms */}

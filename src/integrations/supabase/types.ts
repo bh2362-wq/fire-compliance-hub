@@ -5467,7 +5467,7 @@ export type Database = {
           id: string
           is_archived: boolean
           issued_by: string | null
-          service_visit_id: string
+          service_visit_id: string | null
           share_with_customer: boolean
           site_id: string
           title: string
@@ -5487,7 +5487,7 @@ export type Database = {
           id?: string
           is_archived?: boolean
           issued_by?: string | null
-          service_visit_id: string
+          service_visit_id?: string | null
           share_with_customer?: boolean
           site_id: string
           title: string
@@ -5507,7 +5507,7 @@ export type Database = {
           id?: string
           is_archived?: boolean
           issued_by?: string | null
-          service_visit_id?: string
+          service_visit_id?: string | null
           share_with_customer?: boolean
           site_id?: string
           title?: string

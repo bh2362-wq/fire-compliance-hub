@@ -44,6 +44,7 @@ import { Visit } from "@/hooks/useVisits";
 import { sendAppointmentUpdatedNotification } from "@/services/notificationService";
 import { SERVICE_TYPES } from "@/services/serviceContractService";
 import SubcontractorSheetsSection from "@/components/visits/SubcontractorSheetsSection";
+import { SiteDocuments } from "@/components/documents/SiteDocuments";
 import { VisitRamsBanner } from "@/components/visits/VisitRamsBanner";
 import { generateSubcontractorReport } from "@/lib/subcontractorReportPdfGenerator";
 import { toast as sonnerToast } from "sonner";
@@ -777,6 +778,19 @@ const VisitEditDialog = ({
                 </Button>
               </div>
             )}
+
+            {/* Site Documents (manual service sheets, attachments) */}
+            <div className="space-y-2 pt-3 border-t">
+              <FormLabel className="text-base flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Documents for this Visit
+              </FormLabel>
+              <SiteDocuments
+                siteId={visit.site_id}
+                serviceVisitId={visit.id}
+                defaultTitlePrefix={visit.visit_type}
+              />
+            </div>
 
             {/* Job Requirements Section */}
             <div className="space-y-3 pt-2 border-t">
