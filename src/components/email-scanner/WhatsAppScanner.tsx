@@ -424,13 +424,24 @@ export function WhatsAppScanner({ onScanMessage, onSweepIntents, sweeping }: Pro
             className="min-h-[160px] text-sm resize-none"
           />
           {rawText.trim() && (
-            <div className="flex gap-2">
-              <Button onClick={handlePasteScan} className="flex-1 gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handlePasteScan} className="flex-1 min-w-[120px] gap-2">
                 <Sparkles className="w-4 h-4" />Smart Quote
               </Button>
-              <Button variant="outline" onClick={() => onScanMessage(rawText, "WhatsApp")} className="flex-1 gap-2">
+              <Button variant="outline" onClick={() => onScanMessage(rawText, "WhatsApp")} className="flex-1 min-w-[120px] gap-2">
                 <Scan className="w-4 h-4" />Book Visit
               </Button>
+              {onSweepIntents && (
+                <Button
+                  variant="secondary"
+                  onClick={() => onSweepIntents(rawText, "WhatsApp paste")}
+                  disabled={sweeping}
+                  className="flex-1 min-w-[140px] gap-2"
+                >
+                  {sweeping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                  Sweep for Actions
+                </Button>
+              )}
             </div>
           )}
         </div>
