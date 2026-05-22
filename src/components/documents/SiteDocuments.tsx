@@ -279,6 +279,7 @@ export function SiteDocuments({
             onClose={() => setEmailDoc(null)}
           />
         </>
+      )}
     </div>
   );
 }
