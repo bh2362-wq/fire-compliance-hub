@@ -1,8 +1,17 @@
 /**
  * AssetMaintenance
- * Fleet-wide view of all assets across all sites.
- * Shows last service date, next due, and compliance status per asset.
- * Click any row → AssetHistoryPanel slide-in with full service history.
+ * Fleet-wide view of every asset across every site — for accountability.
+ *
+ * Sources merged:
+ *   1. site_assets   → panels, ASD, EL, dry risers, gas, intruder, room integrity
+ *   2. devices       → per loop/address device inventory (toggleable, large dataset)
+ *
+ * Organisation aids for a big database:
+ *   • Source filter chips (Systems / Devices / All)
+ *   • Group by Site (collapsible) or flat list
+ *   • Search across item / site / mfr / model / loop / address / zone
+ *   • "Include device inventory" toggle — off by default so the page stays fast,
+ *     load on demand and the devices auto-group by site.
  */
 
 import { useState, useEffect, useMemo } from "react";
@@ -13,15 +22,19 @@ import { AssetHistoryPanel } from "@/components/sites/AssetHistoryPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Server, Wind, Lightbulb, Flame, Droplets, ShieldAlert,
-  Search, ChevronRight, AlertTriangle, CheckCircle2, Clock, Box,
+  Search, ChevronRight, AlertTriangle, CheckCircle2, Clock, Box, Cpu, ChevronDown, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface AssetRow {
@@ -38,6 +51,12 @@ interface AssetRow {
   next_due:         string | null;
   last_cert_ref:    string | null;
   last_cert_status: string | null;
+  // Unified additions
+  source:           "system" | "device";
+  loop?:            string | null;
+  address?:         string | null;
+  zone?:            string | null;
+  device_status?:   string | null; // active/faulty/replaced/inactive
 }
 
 // ── Config ─────────────────────────────────────────────────────────────────────
@@ -51,6 +70,7 @@ const ASSET_TYPE_CONFIG: Record<string, { label: string; Icon: React.FC<any>; co
   gas_suppression:    { label: "Gas Suppression",      Icon: Flame,       color: "text-orange-500" },
   intruder_alarm:     { label: "Intruder Alarm",       Icon: ShieldAlert, color: "text-accent" },
   room_integrity:     { label: "Room Integrity",       Icon: Box,         color: "text-cyan-600" },
+  device:             { label: "Device (loop/address)", Icon: Cpu,        color: "text-muted-foreground" },
 };
 
 const ASSET_FORM_TYPES: Record<string, string[]> = {
@@ -62,31 +82,48 @@ const ASSET_FORM_TYPES: Record<string, string[]> = {
   dry_riser:          ["dry_riser"],
 };
 
-function getStatusInfo(nextDue: string | null, lastServiced: string | null) {
-  if (!lastServiced) return { label: "Never serviced", cls: "vstatus vstatus-overdue", icon: AlertTriangle, days: null };
-  if (!nextDue)      return { label: "Up to date",     cls: "vstatus vstatus-completed", icon: CheckCircle2, days: null };
-  const days = differenceInDays(parseISO(nextDue), new Date());
-  if (days < 0)      return { label: `${Math.abs(days)}d overdue`,  cls: "vstatus vstatus-overdue",    icon: AlertTriangle, days };
-  if (days < 30)     return { label: `Due in ${days}d`,             cls: "vstatus vstatus-inprogress", icon: Clock, days };
-  return               { label: "Up to date",                        cls: "vstatus vstatus-completed", icon: CheckCircle2, days };
+function getStatusInfo(row: AssetRow) {
+  // Device-level rows surface their own status (faulty/replaced/inactive) up-front
+  if (row.source === "device") {
+    const s = (row.device_status || "active").toLowerCase();
+    if (s === "faulty")   return { label: "Faulty",   cls: "vstatus vstatus-overdue",    icon: AlertTriangle };
+    if (s === "replaced") return { label: "Replaced", cls: "vstatus vstatus-completed",  icon: CheckCircle2 };
+    if (s === "inactive") return { label: "Inactive", cls: "vstatus vstatus-inprogress", icon: Clock };
+    return                  { label: "Active",        cls: "vstatus vstatus-completed",  icon: CheckCircle2 };
+  }
+  if (!row.last_serviced) return { label: "Never serviced", cls: "vstatus vstatus-overdue",    icon: AlertTriangle };
+  if (!row.next_due)      return { label: "Up to date",     cls: "vstatus vstatus-completed",  icon: CheckCircle2 };
+  const days = differenceInDays(parseISO(row.next_due), new Date());
+  if (days < 0)           return { label: `${Math.abs(days)}d overdue`, cls: "vstatus vstatus-overdue",    icon: AlertTriangle };
+  if (days < 30)          return { label: `Due in ${days}d`,            cls: "vstatus vstatus-inprogress", icon: Clock };
+  return                    { label: "Up to date",                       cls: "vstatus vstatus-completed",  icon: CheckCircle2 };
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function AssetMaintenance() {
-  const navigate                    = useNavigate();
-  const [assets, setAssets]         = useState<AssetRow[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [selectedAsset, setSelectedAsset] = useState<AssetRow | null>(null);
-  const [panelOpen, setPanelOpen]   = useState(false);
+  const navigate                           = useNavigate();
+  const [assets, setAssets]                = useState<AssetRow[]>([]);
+  const [devices, setDevices]              = useState<AssetRow[]>([]);
+  const [loading, setLoading]              = useState(true);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [includeDevices, setIncludeDevices] = useState(false);
+  const [search, setSearch]                = useState("");
+  const [typeFilter, setTypeFilter]        = useState("all");
+  const [sourceFilter, setSourceFilter]    = useState<"all" | "system" | "device">("all");
+  const [groupBySite, setGroupBySite]      = useState(false);
+  const [collapsedSites, setCollapsedSites] = useState<Set<string>>(new Set());
+  const [selectedAsset, setSelectedAsset]  = useState<AssetRow | null>(null);
+  const [panelOpen, setPanelOpen]          = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadSystems(); }, []);
+  useEffect(() => {
+    if (includeDevices && devices.length === 0) loadDevices();
+    if (includeDevices) setGroupBySite(true);
+  }, [includeDevices]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function load() {
+  async function loadSystems() {
     setLoading(true);
     try {
-      // Fetch all assets with their site names
       const { data: rawAssets, error } = await supabase
         .from("site_assets")
         .select("*, site:sites(id, name)")
@@ -95,9 +132,7 @@ export default function AssetMaintenance() {
 
       if (error) throw error;
 
-      // For each asset type, fetch the most recent completed cert for each site
       const siteIds = [...new Set((rawAssets ?? []).map((a: any) => a.site_id))];
-
       let certMap: Record<string, { completed_at: string; certificate_reference: string; overall_status: string; next_service_date: string }> = {};
 
       if (siteIds.length) {
@@ -108,7 +143,6 @@ export default function AssetMaintenance() {
           .eq("status", "completed")
           .order("completed_at", { ascending: false });
 
-        // Build a map: `${site_id}:${form_type_bucket}` → most recent cert
         (certs ?? []).forEach((c: any) => {
           const p = c.payload ?? {};
           const key = `${c.site_id}:${c.form_type}`;
@@ -125,7 +159,6 @@ export default function AssetMaintenance() {
 
       const rows: AssetRow[] = (rawAssets ?? []).map((a: any) => {
         const formTypes = ASSET_FORM_TYPES[a.asset_type] ?? [];
-        // Find the most recent cert across all relevant form types
         let bestCert: typeof certMap[string] | null = null;
         for (const ft of formTypes) {
           const c = certMap[`${a.site_id}:${ft}`];
@@ -146,6 +179,7 @@ export default function AssetMaintenance() {
           next_due:         bestCert?.next_service_date || null,
           last_cert_ref:    bestCert?.certificate_reference ?? null,
           last_cert_status: bestCert?.overall_status ?? null,
+          source:           "system",
         };
       });
 
@@ -155,80 +189,287 @@ export default function AssetMaintenance() {
     }
   }
 
+  async function loadDevices() {
+    setLoadingDevices(true);
+    try {
+      // Page through devices in chunks to respect the 1000-row PostgREST default.
+      const pageSize = 1000;
+      let from = 0;
+      const all: any[] = [];
+      while (true) {
+        const { data, error } = await supabase
+          .from("devices")
+          .select("id, site_id, loop, address, device_type, location, zone, status, last_tested_at, site:sites(id, name)")
+          .order("site_id")
+          .order("loop")
+          .order("address")
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data?.length) break;
+        all.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+        if (all.length > 25000) break; // safety cap — UI is paginated/grouped, but avoid runaway
+      }
+
+      const rows: AssetRow[] = all.map((d: any) => ({
+        id:               d.id,
+        site_id:          d.site_id,
+        site_name:        (d.site as any)?.name ?? "Unknown site",
+        asset_type:       "device",
+        item_name:        `L${d.loop}/${d.address} · ${d.device_type}`,
+        manufacturer:     null,
+        model:            d.device_type ?? null,
+        serial_number:    null,
+        location:         [d.location, d.zone ? `Zone ${d.zone}` : null].filter(Boolean).join(" · ") || null,
+        last_serviced:    d.last_tested_at ?? null,
+        next_due:         null,
+        last_cert_ref:    null,
+        last_cert_status: null,
+        source:           "device",
+        loop:             d.loop ?? null,
+        address:          d.address ?? null,
+        zone:             d.zone ?? null,
+        device_status:    d.status ?? "active",
+      }));
+
+      setDevices(rows);
+      toast.success(`Loaded ${rows.length.toLocaleString()} device inventory items`);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to load devices");
+    } finally {
+      setLoadingDevices(false);
+    }
+  }
+
+  const combined = useMemo<AssetRow[]>(() => {
+    const out: AssetRow[] = [];
+    if (sourceFilter !== "device") out.push(...assets);
+    if (sourceFilter !== "system" && includeDevices) out.push(...devices);
+    return out;
+  }, [assets, devices, sourceFilter, includeDevices]);
+
   const filtered = useMemo(() => {
-    let out = assets;
-    if (typeFilter !== "all") out = out.filter(a => a.asset_type === typeFilter || (typeFilter === "fire" && a.asset_type === "fire_panel"));
+    let out = combined;
+    if (typeFilter !== "all") {
+      out = out.filter(a => a.asset_type === typeFilter || (typeFilter === "fire" && a.asset_type === "fire_panel"));
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       out = out.filter(a =>
         a.item_name.toLowerCase().includes(q) ||
         a.site_name.toLowerCase().includes(q) ||
         (a.manufacturer?.toLowerCase().includes(q) ?? false) ||
-        (a.model?.toLowerCase().includes(q) ?? false)
+        (a.model?.toLowerCase().includes(q) ?? false) ||
+        (a.location?.toLowerCase().includes(q) ?? false) ||
+        (a.loop?.toLowerCase().includes(q) ?? false) ||
+        (a.address?.toLowerCase().includes(q) ?? false) ||
+        (a.zone?.toLowerCase().includes(q) ?? false)
       );
     }
     return out;
-  }, [assets, typeFilter, search]);
+  }, [combined, typeFilter, search]);
 
-  // Summary counts
-  const overdueCount  = assets.filter(a => a.next_due && isPast(parseISO(a.next_due))).length;
-  const dueSoonCount  = assets.filter(a => {
+  // Group rows by site when requested
+  const groupedBySite = useMemo(() => {
+    if (!groupBySite) return null;
+    const map = new Map<string, { site_id: string; site_name: string; rows: AssetRow[] }>();
+    for (const r of filtered) {
+      const k = r.site_id;
+      const g = map.get(k);
+      if (g) g.rows.push(r);
+      else map.set(k, { site_id: r.site_id, site_name: r.site_name, rows: [r] });
+    }
+    return Array.from(map.values()).sort((a, b) => a.site_name.localeCompare(b.site_name));
+  }, [filtered, groupBySite]);
+
+  function toggleSite(id: string) {
+    setCollapsedSites(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  // Summary counts (across all loaded rows respecting current source filter)
+  const overdueCount  = combined.filter(a => a.next_due && isPast(parseISO(a.next_due))).length;
+  const dueSoonCount  = combined.filter(a => {
     if (!a.next_due || isPast(parseISO(a.next_due))) return false;
     return differenceInDays(parseISO(a.next_due), new Date()) < 30;
   }).length;
+  const faultyDeviceCount = combined.filter(a => a.source === "device" && (a.device_status || "") === "faulty").length;
 
-  const uniqueTypes = [...new Set(assets.map(a => a.asset_type))];
+  const uniqueTypes = [...new Set(combined.map(a => a.asset_type))];
+
+  function handleRowClick(row: AssetRow) {
+    if (row.source === "system") {
+      setSelectedAsset(row);
+      setPanelOpen(true);
+    } else {
+      // Device rows jump to site detail's device inventory section
+      navigate(`/dashboard/sites/${row.site_id}`);
+    }
+  }
+
+  // Render a single asset row (shared by grouped & flat views)
+  const renderRow = (asset: AssetRow) => {
+    const cfg = ASSET_TYPE_CONFIG[asset.asset_type] ?? ASSET_TYPE_CONFIG.device;
+    const Icon = cfg?.Icon ?? Server;
+    const { label, cls } = getStatusInfo(asset);
+    return (
+      <tr
+        key={asset.id}
+        className="border-b border-border last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
+        onClick={() => handleRowClick(asset)}
+      >
+        <td className="px-4 py-2.5">
+          <Icon className={cn("w-4 h-4", cfg?.color ?? "text-muted-foreground")} />
+        </td>
+        <td className="px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-foreground">{asset.item_name}</p>
+            {asset.source === "device" && (
+              <Badge variant="secondary" className="text-[9px] h-4 px-1">device</Badge>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {[asset.manufacturer, asset.model].filter(Boolean).join(" · ")}
+            {asset.location ? ` · ${asset.location}` : ""}
+          </p>
+        </td>
+        {!groupBySite && (
+          <td className="px-4 py-2.5">
+            <button
+              className="text-sm text-primary hover:underline text-left"
+              onClick={e => { e.stopPropagation(); navigate(`/dashboard/sites/${asset.site_id}`); }}
+            >
+              {asset.site_name}
+            </button>
+          </td>
+        )}
+        <td className="px-4 py-2.5 text-sm text-muted-foreground">
+          {asset.last_serviced ? format(parseISO(asset.last_serviced), "dd MMM yyyy") : "—"}
+        </td>
+        <td className="px-4 py-2.5 text-sm">
+          {asset.next_due
+            ? <span className={isPast(parseISO(asset.next_due)) ? "text-destructive font-medium" : ""}>
+                {format(parseISO(asset.next_due), "dd MMM yyyy")}
+              </span>
+            : <span className="text-muted-foreground">—</span>}
+        </td>
+        <td className="px-4 py-2.5">
+          <span className={cls}>{label}</span>
+        </td>
+        <td className="px-4 py-2.5 text-right">
+          {asset.last_cert_ref && (
+            <span className="text-[11px] font-mono text-muted-foreground">{asset.last_cert_ref}</span>
+          )}
+        </td>
+        <td className="px-2">
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <DashboardLayout>
       <div className="p-6 space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="page-title">Asset Maintenance</h1>
-            <p className="page-subtitle">{assets.length} assets across all sites</p>
+            <p className="page-subtitle">
+              {assets.length} systems
+              {includeDevices && ` · ${devices.length.toLocaleString()} devices`}
+              {" "}across {new Set(combined.map(a => a.site_id)).size} sites
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-card">
+              <Switch
+                id="include-devices"
+                checked={includeDevices}
+                onCheckedChange={setIncludeDevices}
+                disabled={loadingDevices}
+              />
+              <Label htmlFor="include-devices" className="text-xs cursor-pointer flex items-center gap-1.5">
+                <Cpu className="w-3.5 h-3.5" />
+                Include device inventory
+                {loadingDevices && <Loader2 className="w-3 h-3 animate-spin" />}
+              </Label>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-card">
+              <Switch id="group-site" checked={groupBySite} onCheckedChange={setGroupBySite} />
+              <Label htmlFor="group-site" className="text-xs cursor-pointer">Group by site</Label>
+            </div>
           </div>
         </div>
 
         {/* Summary stats */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
-            { label: "Total assets",    value: assets.length,  color: "" },
-            { label: "Overdue",         value: overdueCount,   color: overdueCount  > 0 ? "text-destructive" : "" },
-            { label: "Due this month",  value: dueSoonCount,   color: dueSoonCount  > 0 ? "text-warning"     : "" },
-            { label: "Up to date",      value: assets.length - overdueCount - dueSoonCount, color: "text-success" },
+            { label: "Total items",       value: combined.length, color: "" },
+            { label: "Systems",           value: assets.length, color: "" },
+            { label: "Devices",           value: includeDevices ? devices.length : "—", color: "" },
+            { label: "Overdue / Faulty",  value: overdueCount + faultyDeviceCount, color: (overdueCount + faultyDeviceCount) > 0 ? "text-destructive" : "" },
+            { label: "Due this month",    value: dueSoonCount, color: dueSoonCount > 0 ? "text-warning" : "" },
           ].map(s => (
             <div key={s.label} className="bg-card rounded-lg border border-border p-4" style={{ boxShadow: "var(--shadow-card)" }}>
-              <p className={cn("text-2xl font-semibold", s.color)}>{loading ? "—" : s.value}</p>
+              <p className={cn("text-2xl font-semibold", s.color)}>{loading ? "—" : s.value.toLocaleString?.() ?? s.value}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">{s.label}</p>
             </div>
           ))}
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-xs">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search assets or sites…"
+              placeholder="Search item, site, loop, address, zone…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-9 h-9 text-sm"
             />
           </div>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[180px] h-9 text-sm">
+            <SelectTrigger className="w-[200px] h-9 text-sm">
               <SelectValue placeholder="All types" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All asset types</SelectItem>
               {uniqueTypes.map(t => (
-                <SelectItem key={t} value={t}>
-                  {ASSET_TYPE_CONFIG[t]?.label ?? t}
-                </SelectItem>
+                <SelectItem key={t} value={t}>{ASSET_TYPE_CONFIG[t]?.label ?? t}</SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {/* Source chips */}
+          <div className="flex gap-1">
+            {([
+              { v: "all",    l: "All" },
+              { v: "system", l: "Systems" },
+              { v: "device", l: "Devices" },
+            ] as const).map(o => (
+              <button
+                key={o.v}
+                onClick={() => setSourceFilter(o.v)}
+                disabled={o.v === "device" && !includeDevices}
+                className={cn(
+                  "text-[11px] px-2.5 py-1 rounded-full border transition-colors",
+                  sourceFilter === o.v
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:bg-accent/30",
+                  o.v === "device" && !includeDevices && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {o.l}
+              </button>
+            ))}
+          </div>
+          <div className="ml-auto text-[11px] text-muted-foreground">
+            Showing {filtered.length.toLocaleString()} of {combined.length.toLocaleString()}
+          </div>
         </div>
 
         {/* Table */}
@@ -238,7 +479,7 @@ export default function AssetMaintenance() {
               <tr className="border-b border-border bg-muted/30 text-xs font-medium text-muted-foreground">
                 <th className="text-left px-4 py-2.5 w-8"></th>
                 <th className="text-left px-4 py-2.5">Asset</th>
-                <th className="text-left px-4 py-2.5">Site</th>
+                {!groupBySite && <th className="text-left px-4 py-2.5">Site</th>}
                 <th className="text-left px-4 py-2.5">Last serviced</th>
                 <th className="text-left px-4 py-2.5">Next due</th>
                 <th className="text-left px-4 py-2.5">Status</th>
@@ -249,7 +490,7 @@ export default function AssetMaintenance() {
             <tbody>
               {loading && Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="border-b border-border last:border-b-0">
-                  <td colSpan={8} className="px-4 py-3">
+                  <td colSpan={groupBySite ? 7 : 8} className="px-4 py-3">
                     <Skeleton className="h-4 w-full" />
                   </td>
                 </tr>
@@ -257,77 +498,62 @@ export default function AssetMaintenance() {
 
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={groupBySite ? 7 : 8} className="px-4 py-12 text-center text-muted-foreground">
                     <Server className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">No assets found</p>
-                    <p className="text-xs mt-1">Add assets to site records to track maintenance here.</p>
+                    <p className="text-sm">No assets match the current filters</p>
+                    {!includeDevices && (
+                      <p className="text-xs mt-1">
+                        Toggle <strong>Include device inventory</strong> to load every loop/address device.
+                      </p>
+                    )}
                   </td>
                 </tr>
               )}
 
-              {!loading && filtered.map(asset => {
-                const cfg = ASSET_TYPE_CONFIG[asset.asset_type];
-                const Icon = cfg?.Icon ?? Server;
-                const { label, cls, icon: StatusIcon } = getStatusInfo(asset.next_due, asset.last_serviced);
-
+              {/* Grouped view */}
+              {!loading && groupBySite && groupedBySite?.map(g => {
+                const collapsed = collapsedSites.has(g.site_id);
+                const devCount = g.rows.filter(r => r.source === "device").length;
+                const sysCount = g.rows.length - devCount;
                 return (
-                  <tr
-                    key={asset.id}
-                    className="border-b border-border last:border-b-0 hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => { setSelectedAsset(asset); setPanelOpen(true); }}
-                  >
-                    <td className="px-4 py-2.5">
-                      <Icon className={cn("w-4 h-4", cfg?.color ?? "text-muted-foreground")} />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <p className="font-medium text-foreground">{asset.item_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {[asset.manufacturer, asset.model].filter(Boolean).join(" · ")}
-                        {asset.location ? ` · ${asset.location}` : ""}
-                      </p>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <button
-                        className="text-sm text-primary hover:underline text-left"
-                        onClick={e => { e.stopPropagation(); navigate(`/dashboard/sites/${asset.site_id}`); }}
-                      >
-                        {asset.site_name}
-                      </button>
-                    </td>
-                    <td className="px-4 py-2.5 text-sm text-muted-foreground">
-                      {asset.last_serviced
-                        ? format(parseISO(asset.last_serviced), "dd MMM yyyy")
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-2.5 text-sm">
-                      {asset.next_due
-                        ? <span className={asset.next_due && isPast(parseISO(asset.next_due)) ? "text-destructive font-medium" : ""}>
-                            {format(parseISO(asset.next_due), "dd MMM yyyy")}
-                          </span>
-                        : <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className={cls}>{label}</span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      {asset.last_cert_ref && (
-                        <span className="text-[11px] font-mono text-muted-foreground">
-                          {asset.last_cert_ref}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-2">
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    </td>
-                  </tr>
+                  <>
+                    <tr
+                      key={`group-${g.site_id}`}
+                      className="bg-muted/50 hover:bg-muted/60 cursor-pointer border-b border-border"
+                      onClick={() => toggleSite(g.site_id)}
+                    >
+                      <td className="px-2 py-2">
+                        {collapsed
+                          ? <ChevronRight className="w-4 h-4" />
+                          : <ChevronDown className="w-4 h-4" />}
+                      </td>
+                      <td colSpan={groupBySite ? 6 : 7} className="px-4 py-2 text-sm">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            className="font-semibold text-foreground hover:underline"
+                            onClick={e => { e.stopPropagation(); navigate(`/dashboard/sites/${g.site_id}`); }}
+                          >
+                            {g.site_name}
+                          </button>
+                          <Badge variant="outline" className="text-[10px]">{sysCount} systems</Badge>
+                          {devCount > 0 && <Badge variant="outline" className="text-[10px]">{devCount.toLocaleString()} devices</Badge>}
+                        </div>
+                      </td>
+                      <td />
+                    </tr>
+                    {!collapsed && g.rows.map(renderRow)}
+                  </>
                 );
               })}
+
+              {/* Flat view */}
+              {!loading && !groupBySite && filtered.map(renderRow)}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Per-asset history drawer */}
+      {/* Per-asset history drawer (systems only) */}
       <AssetHistoryPanel
         asset={selectedAsset}
         open={panelOpen}
