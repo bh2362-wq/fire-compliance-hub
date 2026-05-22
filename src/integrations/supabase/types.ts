@@ -5454,6 +5454,105 @@ export type Database = {
         }
         Relationships: []
       }
+      visit_documents: {
+        Row: {
+          category: string
+          customer_id: string
+          description: string | null
+          document_date: string
+          file_mime_type: string
+          file_original_name: string
+          file_path: string
+          file_size_bytes: number
+          id: string
+          is_archived: boolean
+          issued_by: string | null
+          service_visit_id: string
+          share_with_customer: boolean
+          site_id: string
+          title: string
+          uploaded_at: string
+          uploaded_by: string
+          version_of_id: string | null
+        }
+        Insert: {
+          category: string
+          customer_id: string
+          description?: string | null
+          document_date: string
+          file_mime_type: string
+          file_original_name: string
+          file_path: string
+          file_size_bytes: number
+          id?: string
+          is_archived?: boolean
+          issued_by?: string | null
+          service_visit_id: string
+          share_with_customer?: boolean
+          site_id: string
+          title: string
+          uploaded_at?: string
+          uploaded_by: string
+          version_of_id?: string | null
+        }
+        Update: {
+          category?: string
+          customer_id?: string
+          description?: string | null
+          document_date?: string
+          file_mime_type?: string
+          file_original_name?: string
+          file_path?: string
+          file_size_bytes?: number
+          id?: string
+          is_archived?: boolean
+          issued_by?: string | null
+          service_visit_id?: string
+          share_with_customer?: boolean
+          site_id?: string
+          title?: string
+          uploaded_at?: string
+          uploaded_by?: string
+          version_of_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_documents_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_documents_service_visit_id_fkey"
+            columns: ["service_visit_id"]
+            isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_documents_service_visit_id_fkey"
+            columns: ["service_visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_documents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_documents_version_of_id_fkey"
+            columns: ["version_of_id"]
+            isOneToOne: false
+            referencedRelation: "visit_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visit_requirements: {
         Row: {
           category: string
