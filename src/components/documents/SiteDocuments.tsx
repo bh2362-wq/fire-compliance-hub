@@ -260,25 +260,24 @@ export function SiteDocuments({
         </div>
       )}
 
-      {resolvedCustomerId && (
-        <>
-          <UploadDialog
-            open={uploadOpen}
-            onOpenChange={setUploadOpen}
-            siteId={siteId}
-            customerId={resolvedCustomerId}
-            serviceVisitId={serviceVisitId ?? null}
-            defaultTitlePrefix={defaultTitlePrefix}
-            onUploaded={load}
-          />
+      <UploadDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        siteId={siteId}
+        customerId={resolvedCustomerId}
+        serviceVisitId={serviceVisitId ?? null}
+        defaultTitlePrefix={defaultTitlePrefix}
+        onUploaded={load}
+        onResolveCustomerId={setResolvedCustomerId}
+      />
 
-          <EmailDialog
-            doc={emailDoc}
-            siteId={siteId}
-            customerId={resolvedCustomerId}
-            onClose={() => setEmailDoc(null)}
-          />
-        </>
+      {resolvedCustomerId && (
+        <EmailDialog
+          doc={emailDoc}
+          siteId={siteId}
+          customerId={resolvedCustomerId}
+          onClose={() => setEmailDoc(null)}
+        />
       )}
     </div>
   );
@@ -295,14 +294,16 @@ function UploadDialog({
   serviceVisitId,
   defaultTitlePrefix,
   onUploaded,
+  onResolveCustomerId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   siteId: string;
-  customerId: string;
+  customerId: string | null;
   serviceVisitId: string | null;
   defaultTitlePrefix?: string;
   onUploaded: () => void;
+  onResolveCustomerId?: (id: string) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
@@ -356,6 +357,18 @@ function UploadDialog({
       const userId = userRes?.user?.id;
       if (!userId) throw new Error("Not authenticated");
 
+      let effectiveCustomerId = customerId;
+      if (!effectiveCustomerId) {
+        const { data: siteRow } = await supabase
+          .from("sites")
+          .select("customer_id")
+          .eq("id", siteId)
+          .maybeSingle();
+        effectiveCustomerId = siteRow?.customer_id ?? null;
+        if (effectiveCustomerId) onResolveCustomerId?.(effectiveCustomerId);
+      }
+      if (!effectiveCustomerId) throw new Error("Site has no linked customer");
+
       const ext = file.name.split(".").pop() || "bin";
       const safeName = sanitize(file.name) || `document.${ext}`;
       const path = `sites/${siteId}/${crypto.randomUUID()}-${safeName}`;
@@ -372,7 +385,7 @@ function UploadDialog({
       // 2. Insert DB row
       const { error: dbErr } = await supabase.from("visit_documents").insert({
         site_id: siteId,
-        customer_id: customerId,
+        customer_id: effectiveCustomerId,
         service_visit_id: serviceVisitId,
         category,
         title: title.trim(),
