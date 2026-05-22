@@ -141,17 +141,49 @@ export function IntentReviewQueue({ onRouteToFlow, sourceEmailId }: Props) {
     );
   }
 
+  const SweepHeader = (
+    <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-2 border-b border-border/60 mb-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Mail className="w-3 h-3" />
+          Email sweep: <span className="font-medium text-foreground">
+            {lastEmailSweep ? `${formatDistanceToNow(new Date(lastEmailSweep))} ago` : "never"}
+          </span>
+        </span>
+        <span className="flex items-center gap-1">
+          <MessageSquare className="w-3 h-3" />
+          WhatsApp sweep: <span className="font-medium text-foreground">
+            {lastWaSweep ? `${formatDistanceToNow(new Date(lastWaSweep))} ago` : "never"}
+          </span>
+        </span>
+        <span>· {items.length} pending</span>
+      </div>
+      {items.length > 0 && (
+        <Button
+          variant="ghost" size="sm" className="h-7 text-[11px] gap-1 text-muted-foreground hover:text-destructive"
+          onClick={handleBulkDiscardLow} disabled={busy === "bulk"}
+        >
+          <Trash2 className="w-3 h-3" />Discard low/medium
+        </Button>
+      )}
+    </div>
+  );
+
   if (items.length === 0) {
     return (
-      <div className="text-center py-10 text-muted-foreground text-sm">
-        <CheckCircle2 className="w-6 h-6 mx-auto mb-1.5 opacity-40" />
-        No pending email action items
+      <div>
+        {SweepHeader}
+        <div className="text-center py-10 text-muted-foreground text-sm">
+          <CheckCircle2 className="w-6 h-6 mx-auto mb-1.5 opacity-40" />
+          No pending action items — items persist here until you action or discard them.
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
+      {SweepHeader}
       {items.map((it) => {
         const meta = INTENT_META[it.intent_type];
         const Icon = meta.icon;
