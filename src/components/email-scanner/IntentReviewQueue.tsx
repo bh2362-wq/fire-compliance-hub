@@ -73,7 +73,7 @@ export function IntentReviewQueue({ onRouteToFlow, sourceEmailId }: Props) {
     if (!confirm(`Discard ${targets.length} low/medium-priority item${targets.length === 1 ? "" : "s"}?`)) return;
     setBusy("bulk");
     try {
-      await Promise.all(targets.map((t) => dismissActionItem(t).catch(() => null).then(() => dismissActionItem(t.id))));
+      await Promise.all(targets.map((t) => dismissActionItem(t.id)));
       toast.success(`Discarded ${targets.length} item${targets.length === 1 ? "" : "s"}`);
       qc.invalidateQueries({ queryKey: ["email-action-items"] });
     } catch (e) {
