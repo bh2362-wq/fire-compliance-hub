@@ -42,6 +42,7 @@ export function CustomersTable({ onEdit, refreshTrigger }: CustomersTableProps) 
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
