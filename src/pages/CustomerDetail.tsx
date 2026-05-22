@@ -223,6 +223,29 @@ const CustomerDetail = () => {
               <Pencil className="w-4 h-4 mr-2" />
               Edit Customer
             </Button>
+            {isInactive ? (
+              <Button
+                variant="outline"
+                onClick={handleToggleActive}
+                disabled={togglingActive}
+              >
+                {togglingActive ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Power className="w-4 h-4 mr-2" />
+                )}
+                Mark as Active
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                onClick={() => setShowInactiveConfirm(true)}
+                disabled={togglingActive}
+              >
+                <PowerOff className="w-4 h-4 mr-2" />
+                No Longer Active
+              </Button>
+            )}
           </div>
         </div>
 
