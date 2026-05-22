@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   Loader2, CalendarClock, Siren, FileText, Calendar as CalendarIcon,
   Bell, AlertTriangle, StickyNote, X, CheckCircle2, ArrowRight,
+  Mail, MessageSquare, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import {
   listPendingActionItems, dismissActionItem, markActioned,
