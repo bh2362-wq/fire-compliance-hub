@@ -357,6 +357,18 @@ function UploadDialog({
       const userId = userRes?.user?.id;
       if (!userId) throw new Error("Not authenticated");
 
+      let effectiveCustomerId = customerId;
+      if (!effectiveCustomerId) {
+        const { data: siteRow } = await supabase
+          .from("sites")
+          .select("customer_id")
+          .eq("id", siteId)
+          .maybeSingle();
+        effectiveCustomerId = siteRow?.customer_id ?? null;
+        if (effectiveCustomerId) onResolveCustomerId?.(effectiveCustomerId);
+      }
+      if (!effectiveCustomerId) throw new Error("Site has no linked customer");
+
       const ext = file.name.split(".").pop() || "bin";
       const safeName = sanitize(file.name) || `document.${ext}`;
       const path = `sites/${siteId}/${crypto.randomUUID()}-${safeName}`;
