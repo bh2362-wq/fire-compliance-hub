@@ -26,9 +26,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Pencil, Trash2, Building2, MapPin, Loader2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Building2, MapPin, Loader2, EyeOff } from "lucide-react";
 import { CustomerWithSiteCount, getCustomers, deleteCustomer } from "@/services/customerService";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface CustomersTableProps {
   onEdit: (customer: CustomerWithSiteCount) => void;
@@ -40,6 +42,7 @@ export function CustomersTable({ onEdit, refreshTrigger }: CustomersTableProps) 
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -94,6 +97,13 @@ export function CustomersTable({ onEdit, refreshTrigger }: CustomersTableProps) 
     );
   }
 
+  const inactiveCount = customers.filter(
+    (c) => (c.status || "active") !== "active"
+  ).length;
+  const visibleCustomers = showInactive
+    ? customers
+    : customers.filter((c) => (c.status || "active") === "active");
+
   if (customers.length === 0) {
     return (
       <div className="text-center py-12">
@@ -106,6 +116,19 @@ export function CustomersTable({ onEdit, refreshTrigger }: CustomersTableProps) 
 
   return (
     <>
+      {inactiveCount > 0 && (
+        <div className="flex items-center justify-end gap-2 mb-3">
+          <EyeOff className="w-4 h-4 text-muted-foreground" />
+          <Label htmlFor="show-inactive-customers" className="text-sm text-muted-foreground cursor-pointer">
+            Show inactive ({inactiveCount})
+          </Label>
+          <Switch
+            id="show-inactive-customers"
+            checked={showInactive}
+            onCheckedChange={setShowInactive}
+          />
+        </div>
+      )}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -119,7 +142,7 @@ export function CustomersTable({ onEdit, refreshTrigger }: CustomersTableProps) 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {customers.map((customer) => (
+            {visibleCustomers.map((customer) => (
               <TableRow
                 key={customer.id}
                 className="cursor-pointer hover:bg-muted/50"

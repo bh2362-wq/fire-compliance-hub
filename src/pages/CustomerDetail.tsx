@@ -27,9 +27,26 @@ import {
   MoreHorizontal,
   Eye,
   Trash2,
+  PowerOff,
+  Power,
 } from "lucide-react";
 import DeleteSiteDialog from "@/components/sites/DeleteSiteDialog";
-import { Customer, getCustomer, getCustomerSites } from "@/services/customerService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Customer,
+  getCustomer,
+  getCustomerSites,
+  setCustomerActiveStatus,
+} from "@/services/customerService";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
 import { CustomerReports } from "@/components/customers/CustomerReports";
@@ -69,6 +86,29 @@ const CustomerDetail = () => {
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
   const [deleteSiteDialogOpen, setDeleteSiteDialogOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
+  const [showInactiveConfirm, setShowInactiveConfirm] = useState(false);
+  const [togglingActive, setTogglingActive] = useState(false);
+
+  const isInactive = (customer?.status || "active") !== "active";
+
+  const handleToggleActive = async () => {
+    if (!customer) return;
+    setTogglingActive(true);
+    const { error } = await setCustomerActiveStatus(customer.id, isInactive);
+    setTogglingActive(false);
+    setShowInactiveConfirm(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({
+      title: isInactive ? "Customer reactivated" : "Customer marked inactive",
+      description: isInactive
+        ? "Customer and all sites are now visible in the default lists again."
+        : "Customer and all linked sites are hidden from the default lists.",
+    });
+    loadData();
+  };
 
   const loadData = async () => {
     if (!id) return;
@@ -183,6 +223,29 @@ const CustomerDetail = () => {
               <Pencil className="w-4 h-4 mr-2" />
               Edit Customer
             </Button>
+            {isInactive ? (
+              <Button
+                variant="outline"
+                onClick={handleToggleActive}
+                disabled={togglingActive}
+              >
+                {togglingActive ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Power className="w-4 h-4 mr-2" />
+                )}
+                Mark as Active
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                onClick={() => setShowInactiveConfirm(true)}
+                disabled={togglingActive}
+              >
+                <PowerOff className="w-4 h-4 mr-2" />
+                No Longer Active
+              </Button>
+            )}
           </div>
         </div>
 
@@ -443,6 +506,36 @@ const CustomerDetail = () => {
           onSuccess={loadData}
         />
       )}
+
+      <AlertDialog open={showInactiveConfirm} onOpenChange={setShowInactiveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark customer as no longer active?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This customer and all {sites.length} linked site
+              {sites.length !== 1 ? "s" : ""} will be hidden from the default
+              Customers and Sites lists so you don't get confused with too many
+              records. Existing visits, reports and invoices are kept and you
+              can re-activate the customer at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={togglingActive}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleToggleActive}
+              disabled={togglingActive}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {togglingActive ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <PowerOff className="w-4 h-4 mr-2" />
+              )}
+              Mark Inactive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

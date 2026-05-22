@@ -178,6 +178,7 @@ const Sites = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("all");
+  const [showInactive, setShowInactive] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
@@ -204,10 +205,15 @@ const Sites = () => {
   useEffect(() => { loadSites(); }, []);
 
   /* Enrich sites with cert status */
-  const enriched: SiteWithCompliance[] = sites.map((s) => {
+  const allEnriched: SiteWithCompliance[] = sites.map((s) => {
     const { status, daysUntilExpiry } = getSiteCertStatus(s.id, bafeCerts);
     return { ...s, certStatus: status, daysUntilExpiry };
   });
+
+  const inactiveCount = allEnriched.filter((s) => s.status === "inactive").length;
+  const enriched = showInactive
+    ? allEnriched
+    : allEnriched.filter((s) => s.status !== "inactive");
 
   /* Filter counts */
   const counts = {
@@ -273,7 +279,7 @@ const Sites = () => {
               className="pl-9 bg-card border-border"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             {filterTabs.map((tab) => (
               <button
                 key={tab.key}
@@ -298,6 +304,23 @@ const Sites = () => {
                 </span>
               </button>
             ))}
+            {inactiveCount > 0 && (
+              <button
+                onClick={() => setShowInactive((v) => !v)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                  showInactive
+                    ? "bg-muted text-foreground border-border"
+                    : "bg-card text-muted-foreground border-border hover:text-foreground"
+                )}
+                title="Toggle inactive sites"
+              >
+                {showInactive ? "Hide" : "Show"} inactive
+                <span className="ml-1.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold bg-muted text-muted-foreground">
+                  {inactiveCount}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 

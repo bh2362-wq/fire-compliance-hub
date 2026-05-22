@@ -144,6 +144,36 @@ export async function getCustomerSites(customerId: string) {
   return { sites: data || [], error };
 }
 
+/**
+ * Mark a customer (and all of its sites) as active or inactive.
+ * Used by the "No longer active" / "Mark as active" toggle on CustomerDetail.
+ * Inactive customers and sites are hidden from the default Customers and Sites lists.
+ */
+export async function setCustomerActiveStatus(
+  customerId: string,
+  active: boolean
+): Promise<{ error: Error | null }> {
+  try {
+    const status = active ? "active" : "inactive";
+
+    const { error: custErr } = await supabase
+      .from("customers")
+      .update({ status })
+      .eq("id", customerId);
+    if (custErr) throw custErr;
+
+    const { error: sitesErr } = await supabase
+      .from("sites")
+      .update({ status })
+      .eq("customer_id", customerId);
+    if (sitesErr) throw sitesErr;
+
+    return { error: null };
+  } catch (error) {
+    return { error: error as Error };
+  }
+}
+
 export async function createXeroContact(contactData: {
   name: string;
   email?: string;
