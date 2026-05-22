@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import { ClipboardList, Camera, Mic, Images, ChevronRight, Clock, WifiOff, Battery, CheckCircle2 } from "lucide-react";
+import { ClipboardList, Camera, Mic, Images, FileText, ChevronRight, Clock, WifiOff, Battery, CheckCircle2 } from "lucide-react";
 
 export function JobDashboard() {
   const { visitId } = useParams<{ visitId: string }>();
@@ -85,6 +85,7 @@ export function JobDashboard() {
         <Tile icon={<Camera className="w-5 h-5" />} label="Raise defect" sub={testCounts?.defects ? `${testCounts.defects} raised` : "Photo-first"} onClick={() => navigate(`/field/job/${visitId}/defect`)} />
       </div>
 
+      <WideTile icon={<FileText className="w-5 h-5" />} label="Attach document" sub="PAVA record, cert, survey, photo" onClick={() => navigate(`/field/job/${visitId}/documents`)} />
       <WideTile icon={<Mic className="w-5 h-5" />} label="Voice note" sub="Tap & hold to record" />
       <WideTile icon={<Images className="w-5 h-5" />} label="Photos" sub="Site, panel, plant room" />
 
