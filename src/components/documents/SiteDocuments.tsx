@@ -385,7 +385,7 @@ function UploadDialog({
       // 2. Insert DB row
       const { error: dbErr } = await supabase.from("visit_documents").insert({
         site_id: siteId,
-        customer_id: customerId,
+        customer_id: effectiveCustomerId,
         service_visit_id: serviceVisitId,
         category,
         title: title.trim(),
