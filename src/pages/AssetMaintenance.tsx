@@ -359,6 +359,11 @@ export default function AssetMaintenance() {
             {[asset.manufacturer, asset.model].filter(Boolean).join(" · ")}
             {asset.location ? ` · ${asset.location}` : ""}
           </p>
+          {asset.extra_details && (
+            <p className="text-[11px] text-muted-foreground/80 mt-0.5 line-clamp-1" title={asset.extra_details}>
+              {asset.extra_details}
+            </p>
+          )}
         </td>
         {!groupBySite && (
           <td className="px-4 py-2.5">
