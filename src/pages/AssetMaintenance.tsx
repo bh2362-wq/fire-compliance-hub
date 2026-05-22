@@ -282,10 +282,12 @@ export default function AssetMaintenance() {
         a.site_name.toLowerCase().includes(q) ||
         (a.manufacturer?.toLowerCase().includes(q) ?? false) ||
         (a.model?.toLowerCase().includes(q) ?? false) ||
+        (a.serial_number?.toLowerCase().includes(q) ?? false) ||
         (a.location?.toLowerCase().includes(q) ?? false) ||
         (a.loop?.toLowerCase().includes(q) ?? false) ||
         (a.address?.toLowerCase().includes(q) ?? false) ||
-        (a.zone?.toLowerCase().includes(q) ?? false)
+        (a.zone?.toLowerCase().includes(q) ?? false) ||
+        (a.extra_details?.toLowerCase().includes(q) ?? false)
       );
     }
     return out;
