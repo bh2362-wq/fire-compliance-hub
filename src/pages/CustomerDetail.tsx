@@ -86,6 +86,29 @@ const CustomerDetail = () => {
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0);
   const [deleteSiteDialogOpen, setDeleteSiteDialogOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
+  const [showInactiveConfirm, setShowInactiveConfirm] = useState(false);
+  const [togglingActive, setTogglingActive] = useState(false);
+
+  const isInactive = (customer?.status || "active") !== "active";
+
+  const handleToggleActive = async () => {
+    if (!customer) return;
+    setTogglingActive(true);
+    const { error } = await setCustomerActiveStatus(customer.id, isInactive);
+    setTogglingActive(false);
+    setShowInactiveConfirm(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({
+      title: isInactive ? "Customer reactivated" : "Customer marked inactive",
+      description: isInactive
+        ? "Customer and all sites are now visible in the default lists again."
+        : "Customer and all linked sites are hidden from the default lists.",
+    });
+    loadData();
+  };
 
   const loadData = async () => {
     if (!id) return;
