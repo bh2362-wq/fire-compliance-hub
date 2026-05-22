@@ -229,11 +229,12 @@ export function IntentReviewQueue({ onRouteToFlow, sourceEmailId }: Props) {
                     {isInfoOnly ? "Done" : isMeeting ? "Schedule" : meta.label}
                   </Button>
                   <Button
-                    variant="ghost" size="sm" className="h-7 w-7 p-0"
+                    variant="outline" size="sm"
+                    className="h-7 text-xs gap-1 text-muted-foreground hover:text-destructive hover:border-destructive/40"
                     onClick={() => handleDismiss(it.id)} disabled={busy === it.id}
-                    aria-label="Dismiss"
+                    aria-label="Discard"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-3 h-3" />Discard
                   </Button>
                 </div>
               </div>
