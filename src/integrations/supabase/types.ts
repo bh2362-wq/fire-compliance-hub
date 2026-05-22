@@ -1607,6 +1607,75 @@ export type Database = {
           },
         ]
       }
+      email_action_items: {
+        Row: {
+          actioned_entity_id: string | null
+          actioned_entity_type: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          intent_type: string
+          notes: string | null
+          priority: string
+          snooze_until: string | null
+          source_email_id: string | null
+          source_from: string | null
+          source_preview: string | null
+          source_received_at: string | null
+          source_subject: string | null
+          status: string
+          suggested_date: string | null
+          suggested_payload: Json
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          actioned_entity_id?: string | null
+          actioned_entity_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          intent_type: string
+          notes?: string | null
+          priority?: string
+          snooze_until?: string | null
+          source_email_id?: string | null
+          source_from?: string | null
+          source_preview?: string | null
+          source_received_at?: string | null
+          source_subject?: string | null
+          status?: string
+          suggested_date?: string | null
+          suggested_payload?: Json
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          actioned_entity_id?: string | null
+          actioned_entity_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          intent_type?: string
+          notes?: string | null
+          priority?: string
+          snooze_until?: string | null
+          source_email_id?: string | null
+          source_from?: string | null
+          source_preview?: string | null
+          source_received_at?: string | null
+          source_subject?: string | null
+          status?: string
+          suggested_date?: string | null
+          suggested_payload?: Json
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_logs: {
         Row: {
           created_at: string
