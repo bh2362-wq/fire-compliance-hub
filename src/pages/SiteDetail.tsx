@@ -304,6 +304,11 @@ const SiteDetail = () => {
           <SiteServiceReports siteId={site.id} siteName={site.name} customerName={customer?.name} />
         </CollapsibleSection>
 
+        {/* Site Documents (manual service sheets, subcontractor reports, etc.) */}
+        <CollapsibleSection title="Site Documents" icon={FileText} defaultOpen={true}>
+          <SiteDocuments siteId={site.id} customerId={customer?.id} />
+        </CollapsibleSection>
+
         {/* Customer Forms */}
         <CollapsibleSection title="Customer Forms" icon={FileSignature} defaultOpen={false}>
           <SiteCustomerForms siteId={site.id} customerId={customer?.id} />
