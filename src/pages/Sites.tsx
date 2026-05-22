@@ -205,10 +205,15 @@ const Sites = () => {
   useEffect(() => { loadSites(); }, []);
 
   /* Enrich sites with cert status */
-  const enriched: SiteWithCompliance[] = sites.map((s) => {
+  const allEnriched: SiteWithCompliance[] = sites.map((s) => {
     const { status, daysUntilExpiry } = getSiteCertStatus(s.id, bafeCerts);
     return { ...s, certStatus: status, daysUntilExpiry };
   });
+
+  const inactiveCount = allEnriched.filter((s) => s.status === "inactive").length;
+  const enriched = showInactive
+    ? allEnriched
+    : allEnriched.filter((s) => s.status !== "inactive");
 
   /* Filter counts */
   const counts = {
