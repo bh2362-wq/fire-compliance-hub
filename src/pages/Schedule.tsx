@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { CalendarHeader, CalendarView } from "@/components/schedule/CalendarHeader";
@@ -22,10 +23,34 @@ const Schedule = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedEngineerId, setSelectedEngineerId] = useState<string | null>(null);
+  const [prefill, setPrefill] = useState<{ title?: string; notes?: string } | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   useCalendarSync();
+
+  // Consume prefill params handed over by the email scanner's "Schedule"
+  // action (?title=&date=&notes=) and open the new-appointment form filled
+  // in. Params are cleared so a refresh doesn't re-open the dialog.
+  useEffect(() => {
+    const title = searchParams.get("title");
+    const date = searchParams.get("date");
+    const notes = searchParams.get("notes");
+    if (!title && !date && !notes) return;
+
+    setSelectedAppointment(null);
+    if (date) {
+      const parsed = new Date(date);
+      if (!isNaN(parsed.getTime())) {
+        setSelectedDate(parsed);
+        setCurrentDate(parsed);
+      }
+    }
+    setPrefill({ title: title || undefined, notes: notes || undefined });
+    setDialogOpen(true);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const dateRange = useMemo(() => {
     let start: Date;
@@ -132,9 +157,14 @@ const Schedule = () => {
 
       <AppointmentFormDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(o) => {
+          setDialogOpen(o);
+          if (!o) setPrefill(null);
+        }}
         appointment={selectedAppointment}
         defaultDate={selectedDate || currentDate}
+        defaultTitle={prefill?.title}
+        defaultNotes={prefill?.notes}
         onSuccess={refetch}
       />
     </DashboardLayout>

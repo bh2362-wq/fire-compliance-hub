@@ -38,6 +38,9 @@ interface AppointmentFormDialogProps {
   onOpenChange: (open: boolean) => void;
   appointment?: Appointment | null;
   defaultDate?: Date;
+  /** Prefill for a new appointment (e.g. from the email scanner). */
+  defaultTitle?: string;
+  defaultNotes?: string;
   onSuccess: () => void;
 }
 
@@ -46,6 +49,8 @@ export function AppointmentFormDialog({
   onOpenChange,
   appointment,
   defaultDate,
+  defaultTitle,
+  defaultNotes,
   onSuccess,
 }: AppointmentFormDialogProps) {
   const { user } = useAuth();
@@ -134,8 +139,8 @@ export function AppointmentFormDialog({
   };
 
   const resetForm = () => {
-    setTitle("");
-    setDescription("");
+    setTitle(defaultTitle || "");
+    setDescription(defaultNotes || "");
     setSiteId("");
     setCustomerId("");
     setEngineerId("");
@@ -290,18 +295,36 @@ export function AppointmentFormDialog({
         visit_type: visitType || null,
       };
 
+      let savedAppointmentId: string;
       if (isEditing && appointment) {
         await updateAppointment(appointment.id, input);
+        savedAppointmentId = appointment.id;
         toast({ title: "Appointment updated" });
         sendAppointmentUpdatedNotification(appointment.id).catch(console.error);
       } else {
         const newAppointment = await createAppointment(input, user.id);
+        savedAppointmentId = newAppointment.id;
         toast({ title: "Job created successfully" });
         sendAppointmentCreatedNotification(newAppointment.id).catch(console.error);
 
         // Auto-create SharePoint folder for the new visit
         if (newAppointment.visit_id && siteId) {
           createSharePointFolder(newAppointment.visit_id, siteId);
+        }
+      }
+
+      // Push to the engineer's Outlook calendar. Best-effort: the
+      // appointment is already saved, so a sync failure only warns —
+      // it must not fail the save.
+      if (engineerId) {
+        const sync = await syncAppointmentToOutlook(savedAppointmentId);
+        if (!sync.success) {
+          toast({
+            title: "Saved — but Outlook sync failed",
+            description:
+              sync.error || "Could not push to the engineer's Outlook calendar.",
+            variant: "destructive",
+          });
         }
       }
 

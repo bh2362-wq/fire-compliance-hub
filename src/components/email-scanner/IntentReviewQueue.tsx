@@ -121,7 +121,7 @@ export function IntentReviewQueue({ onRouteToFlow, sourceEmailId }: Props) {
         });
         window.open(`/dashboard/schedule?${params.toString()}`, "_blank");
         await markActioned(it.id, "schedule", undefined);
-        toast.success("Opened Schedule — finish booking and it'll sync to Outlook");
+        toast.success("Opened Schedule — assign an engineer and it'll sync to their Outlook calendar");
       } else {
         // reminder/issue/note — just acknowledge
         await markActioned(it.id);
