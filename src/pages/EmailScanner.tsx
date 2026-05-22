@@ -20,11 +20,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Mail, FileSpreadsheet, ClipboardList, Sparkles,
   AlertCircle, CheckCircle2, Building2, User, MapPin, Phone,
-  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox, Tag, MessageCircle,
+  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox, Tag, MessageCircle, Wand2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmailScannerQuoteFlow } from "@/components/email-scanner/EmailScannerQuoteFlow";
 import { EmailScannerVisitFlow } from "@/components/email-scanner/EmailScannerVisitFlow";
 import { EmailScannerBulkVisitFlow } from "@/components/email-scanner/EmailScannerBulkVisitFlow";
@@ -35,6 +35,8 @@ import { InboxBrowser } from "@/components/email-scanner/InboxBrowser";
 import { SupplierPriceImport } from "@/components/email-scanner/SupplierPriceImport";
 import { WhatsAppScanner } from "@/components/email-scanner/WhatsAppScanner";
 import { AutoQuoteReview } from "@/components/email-scanner/AutoQuoteReview";
+import { IntentReviewQueue } from "@/components/email-scanner/IntentReviewQueue";
+import { saveScannedIntents, type ScannedIntent } from "@/services/emailActionItemsService";
 import type { SmartQuoteLine } from "@/components/email-scanner/SmartQuoteGenerator";
 
 export interface ExtractedEmailData {
