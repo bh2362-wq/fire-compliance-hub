@@ -779,6 +779,19 @@ const VisitEditDialog = ({
               </div>
             )}
 
+            {/* Site Documents (manual service sheets, attachments) */}
+            <div className="space-y-2 pt-3 border-t">
+              <FormLabel className="text-base flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                Documents for this Visit
+              </FormLabel>
+              <SiteDocuments
+                siteId={visit.site_id}
+                serviceVisitId={visit.id}
+                defaultTitlePrefix={visit.visit_type}
+              />
+            </div>
+
             {/* Job Requirements Section */}
             <div className="space-y-3 pt-2 border-t">
               <FormLabel className="text-base flex items-center gap-2">
