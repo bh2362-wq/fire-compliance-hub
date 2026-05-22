@@ -260,25 +260,26 @@ export function SiteDocuments({
         </div>
       )}
 
-      <UploadDialog
-        open={uploadOpen}
-        onOpenChange={setUploadOpen}
-        siteId={siteId}
-        customerId={customerId}
-        serviceVisitId={serviceVisitId ?? null}
-        defaultTitlePrefix={defaultTitlePrefix}
-        onUploaded={load}
-      />
+      {resolvedCustomerId && (
+        <>
+          <UploadDialog
+            open={uploadOpen}
+            onOpenChange={setUploadOpen}
+            siteId={siteId}
+            customerId={resolvedCustomerId}
+            serviceVisitId={serviceVisitId ?? null}
+            defaultTitlePrefix={defaultTitlePrefix}
+            onUploaded={load}
+          />
 
-      <EmailDialog
-        doc={emailDoc}
-        siteId={siteId}
-        customerId={customerId}
-        onClose={() => setEmailDoc(null)}
-      />
-    </div>
-  );
-}
+          <EmailDialog
+            doc={emailDoc}
+            siteId={siteId}
+            customerId={resolvedCustomerId}
+            onClose={() => setEmailDoc(null)}
+          />
+        </>
+      )}
 
 /* ---------- Upload dialog ---------- */
 
