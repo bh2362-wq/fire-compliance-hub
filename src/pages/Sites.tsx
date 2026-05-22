@@ -279,7 +279,7 @@ const Sites = () => {
               className="pl-9 bg-card border-border"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             {filterTabs.map((tab) => (
               <button
                 key={tab.key}
@@ -304,6 +304,23 @@ const Sites = () => {
                 </span>
               </button>
             ))}
+            {inactiveCount > 0 && (
+              <button
+                onClick={() => setShowInactive((v) => !v)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all",
+                  showInactive
+                    ? "bg-muted text-foreground border-border"
+                    : "bg-card text-muted-foreground border-border hover:text-foreground"
+                )}
+                title="Toggle inactive sites"
+              >
+                {showInactive ? "Hide" : "Show"} inactive
+                <span className="ml-1.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold bg-muted text-muted-foreground">
+                  {inactiveCount}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
