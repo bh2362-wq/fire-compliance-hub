@@ -56,8 +56,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
-import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
-import { getCompanySettings } from "@/services/companySettingsService";
+import { blobToBase64 } from "@/features/quotes/useQuoteGeneration";
 import { EmailQuotationDialog } from "./EmailQuotationDialog";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { QuoteActions } from "@/features/quotes/QuoteActions";
@@ -228,19 +227,6 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [customerCity, setCustomerCity] = useState("");
   const [customerPostcode, setCustomerPostcode] = useState("");
 
-  // PDF column options
-  const [columnOptions, setColumnOptions] = useState<PDFColumnOptions>({
-    showItemNumber: true,
-    showDescription: true,
-    showRegulationRef: false,
-    showPriority: false,
-    showItem: false,
-    showQuantity: true,
-    showUnitPrice: true,
-    showLabour: false,
-    showTotal: true,
-  });
-
   useEffect(() => {
     if (open && quotationId) {
       fetchQuotation();
@@ -315,17 +301,6 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
         merged_from: ((item as any).merged_from ?? null) as MergedFromSnapshot[] | null,
       }));
       setLineItems(mappedItems);
-
-      const parents = mappedItems.filter((i) => !i.parent_id);
-      const hasRegRef = parents.some((i) => i.regulation_reference && i.regulation_reference.trim() !== "");
-      const hasItem = parents.some((i) => i.item_name && i.item_name.trim() !== "");
-      const hasLabour = parents.some((i) => (i.labour_cost || 0) > 0 || i.labour_included);
-      setColumnOptions((prev) => ({
-        ...prev,
-        showRegulationRef: hasRegRef,
-        showItem: hasItem,
-        showLabour: hasLabour,
-      }));
     } catch (error) {
       console.error("Error fetching quotation:", error);
       toast.error("Failed to load quotation");
@@ -752,74 +727,10 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
         }
       }
 
-      toast.success("Quotation saved & ready to resend — SharePoint syncing...");
+      toast.success("Quotation saved");
       setHasChanges(false);
       onUpdate?.();
       fetchQuotation();
-
-      try {
-        const companySettings = await getCompanySettings();
-        const pdfData = buildPDFData();
-        let baseFolderPath: string | null = null;
-        const { data: reportLink } = await supabase
-          .from("quotations")
-          .select("report_id")
-          .eq("id", quotationId)
-          .single();
-        if (reportLink?.report_id) {
-          const { data: report } = await supabase
-            .from("service_reports")
-            .select("sharepoint_folder, report_number, service_visits(visit_date)")
-            .eq("id", reportLink.report_id)
-            .single();
-          if (report?.sharepoint_folder) {
-            const visitDate = (report as any).visits?.visit_date;
-            const reportNum = report.report_number || "DRAFT";
-            const dateStr = visitDate ? format(new Date(visitDate), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
-            baseFolderPath = `${report.sharepoint_folder}/${reportNum}_${dateStr}/Quotations`;
-          }
-        }
-        if (!baseFolderPath) {
-          const { data: siteData } = await supabase
-            .from("sites")
-            .select("sharepoint_folder, name, address")
-            .eq("id", quotation.site_id)
-            .single();
-          if (siteData?.sharepoint_folder) {
-            baseFolderPath = `${siteData.sharepoint_folder}/Quotations`;
-          } else if (siteData && quotation.customers?.name) {
-            const siteLabel = [siteData.name, siteData.address].filter(Boolean).join(" ");
-            const siteFolderPath = `Customers/${quotation.customers.name}/${siteLabel}`;
-            const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
-              body: {
-                folderPath: `${siteFolderPath}/Quotations`,
-                entityType: "folder_only",
-                entityId: quotation.site_id,
-              },
-            });
-            if (!spError && spData?.success) {
-              await supabase.from("sites").update({ sharepoint_folder: siteFolderPath }).eq("id", quotation.site_id);
-              baseFolderPath = `${siteFolderPath}/Quotations`;
-            }
-          }
-        }
-        if (baseFolderPath) {
-          const pdfBase64 = await generateQuotationPDF(pdfData, companySettings || undefined, true, columnOptions);
-          if (pdfBase64) {
-            const pdfFileName = `${quotation.quotation_number} - ${quotation.sites?.name || "Site"}.pdf`;
-            await supabase.functions.invoke("upload-to-sharepoint", {
-              body: {
-                folderPath: baseFolderPath,
-                fileName: pdfFileName,
-                fileBase64: pdfBase64,
-                contentType: "application/pdf",
-              },
-            });
-          }
-        }
-      } catch (spErr) {
-        console.log("SharePoint sync after save skipped:", spErr);
-      }
     } catch (error) {
       console.error("Error saving quotation:", error);
       toast.error("Failed to save quotation");
@@ -827,48 +738,6 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       setSaving(false);
     }
   };
-
-  const buildPDFData = (): QuotationData => ({
-    quotation_number: quotation!.quotation_number,
-    title,
-    summary,
-    total_amount: lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0),
-    valid_until: validUntil,
-    notes,
-    terms,
-    created_at: quotation!.created_at,
-    site: {
-      name: quotation!.sites?.name || "Unknown Site",
-      address: quotation!.sites?.address,
-      city: quotation!.sites?.city,
-      postcode: quotation!.sites?.postcode,
-    },
-    customer: customerName
-      ? {
-          name: customerName,
-          contact_name: customerContactName || null,
-          contact_email: customerContactEmail || null,
-          contact_phone: customerContactPhone || null,
-          address: customerAddress || null,
-          city: customerCity || null,
-          postcode: customerPostcode || null,
-        }
-      : null,
-    line_items: lineItems.map((item) => ({
-      description: item.description,
-      regulation_reference: item.regulation_reference,
-      priority: item.priority,
-      item_name: item.item_name,
-      parent_id: item.parent_id,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      markup_percent: item.markup_percent || 0,
-      labour_cost: item.labour_cost || 0,
-      labour_included: item.labour_included || false,
-      total_price: item.total_price,
-    })),
-    vat_rate: vatRate,
-  });
 
   const lockQuotation = async () => {
     if (!quotation || quotation.locked_at) return;
@@ -917,19 +786,6 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       setUnlocking(false);
     }
   };
-
-  // Convert a Blob to a base64 string (without the data:...;base64, prefix)
-  // so it can be POSTed to the SharePoint upload edge function.
-  const blobToBase64 = (blob: Blob): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        resolve(result.split(",")[1] ?? "");
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
 
   const handleGeneratePDF = async () => {
     if (!quotation) return;
@@ -1618,30 +1474,6 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                     <Label>Terms & Conditions</Label>
                     <Textarea rows={8} value={terms} onChange={(e) => { setTerms(e.target.value); setHasChanges(true); }} className="font-mono text-xs" disabled={isLocked} />
                   </div>
-                  <div>
-                    <Label className="mb-2 block">PDF Columns</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {[
-                        { key: "showItemNumber" as const, label: "Item Number" },
-                        { key: "showDescription" as const, label: "Description" },
-                        { key: "showRegulationRef" as const, label: "Regulation Ref" },
-                        { key: "showPriority" as const, label: "Priority" },
-                        { key: "showItem" as const, label: "Item/Part" },
-                        { key: "showQuantity" as const, label: "Quantity" },
-                        { key: "showUnitPrice" as const, label: "Unit Price" },
-                        { key: "showLabour" as const, label: "Labour" },
-                        { key: "showTotal" as const, label: "Total" },
-                      ].map((opt) => (
-                        <label key={opt.key} className="flex items-center gap-2 text-sm cursor-pointer">
-                          <Checkbox
-                            checked={columnOptions[opt.key]}
-                            onCheckedChange={(checked) => setColumnOptions({ ...columnOptions, [opt.key]: !!checked })}
-                          />
-                          {opt.label}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
                 </TabsContent>
               </Tabs>
             )}
@@ -1698,8 +1530,6 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           }}
           customerEmail={customerContactEmail}
           customerName={customerContactName || customerName}
-          pdfData={buildPDFData()}
-          columnOptions={columnOptions}
           onSuccess={() => {
             onUpdate?.();
           }}
