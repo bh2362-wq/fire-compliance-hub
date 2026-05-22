@@ -31,21 +31,34 @@ Deno.serve(async (req) => {
 
     // ── System prompts ────────────────────────────────────────────────────────
 
-    const intentsPrompt = `You are an AI assistant for a fire safety engineering company (BHO Fire). Analyse the email (and any attached document) and identify EVERY actionable item or important issue. Return a JSON object with a single "intents" array. Each entry has:
-- intent_type: one of "visit" (book a routine service visit), "callout" (urgent emergency attendance), "quote" (request for a quotation/pricing), "meeting" (calendar meeting/site survey/face-to-face), "reminder" (follow-up, deadline, important info to remember), "issue" (complaint, problem, defect to be flagged), "note" (informational only, no action needed but worth recording)
-- priority: "urgent" | "high" | "medium" | "low"  (urgent = same-day callouts, complaints, fire-system out of service; high = within a few days; medium = within 1-2 weeks; low = informational)
-- title: short imperative sentence describing the action (e.g. "Book quarterly service for Acme HQ")
-- summary: 1-2 sentence description of WHY this action is needed, in plain English
-- suggested_date: any date mentioned (YYYY-MM-DD), or null
-- payload: an object with as many of these as can be extracted, used to prefill forms:
-    company_name, contact_name, contact_email, contact_phone,
-    site_name, site_address, site_city, site_postcode,
-    visit_type (one of: quarterly_service, biannual_service, annual_inspection, emergency, remedial, supply_only),
-    description, notes, client_po_number
-- A single email can produce MULTIPLE intents (e.g. a complaint + a request to book a callout = 2 entries). Do not merge them.
-- If the email is purely conversational and has no actionable content, return { "intents": [] }.
+    const today = new Date().toISOString().slice(0, 10);
+    const intentsPrompt = `You are an AI assistant for a fire safety engineering company (BHO Fire). Today's date is ${today}.
+
+You will be given the body of an email OR a WhatsApp/SMS chat transcript. WhatsApp messages are typically prefixed with a timestamp like "[HH:MM, DD/MM/YYYY] Sender Name:" — USE THESE TIMESTAMPS to resolve relative dates such as "today", "tomorrow", "Friday", "next Tuesday", "10am tomorrow". Always convert relative dates into absolute YYYY-MM-DD using the message timestamp as the anchor (NOT today's date, unless no timestamp is present).
+
+Read the ENTIRE thread carefully and identify EVERY actionable item, scheduled event, commitment, or important issue — even small ones buried in casual conversation. Examples that MUST be captured:
+- "10am tomorrow sound test ok Ben" → meeting intent for the sound test at 10:00 on the day after the message timestamp
+- "pre start meeting in for 1pm" / "meeting at 13:00" → meeting intent
+- "James is popping into York house" → meeting/site visit intent
+- "got you booked in at Birchwood Building" → visit/appointment intent (extract the date from surrounding context)
+- "chasing for certs" / "is the mod cert ready for X" → reminder intent (certificate to issue)
+- "will have to pop back in to check it again" → reminder/visit intent (return visit needed)
+- "I'll get mine over as well" → reminder (document to send)
+- Any confirmation of an appointment, sound test, commissioning, handover, debrief, pre-start, site survey, or callback → meeting intent
+- Any complaint, fault, "out of service", or unresolved problem → issue intent
+
+Return a JSON object with a single "intents" array. Each entry has:
+- intent_type: one of "visit" (book a routine service visit), "callout" (urgent emergency attendance), "quote" (request for a quotation/pricing), "meeting" (calendar meeting/sound test/site survey/pre-start/handover/face-to-face/phone debrief), "reminder" (follow-up, deadline, certificate to issue, document to send, info to remember), "issue" (complaint, fault, defect to be flagged), "note" (informational only, no action needed but worth recording)
+- priority: "urgent" | "high" | "medium" | "low"  (urgent = same-day callouts, complaints, fire-system out of service; high = within a few days, confirmed appointments in the next 48h; medium = within 1-2 weeks; low = informational)
+- title: short imperative sentence (e.g. "Sound test at WeWork — 10:00", "Issue mod cert for 197 Kensington", "Pre-start meeting at 24 Monument — 13:00")
+- summary: 1-2 sentence plain-English description quoting the relevant message context
+- suggested_date: absolute date in YYYY-MM-DD resolved from message timestamps, or null. If a time is mentioned, also include it via the payload.notes field (e.g. "10:00", "13:00").
+- payload: object with as many of these as can be extracted: company_name, contact_name, contact_email, contact_phone, site_name, site_address, site_city, site_postcode, visit_type (quarterly_service | biannual_service | annual_inspection | emergency | remedial | supply_only), description, notes (include time-of-day here if mentioned), client_po_number
+- A single thread can produce MANY intents — extract every distinct one. Do NOT merge or summarise.
+- Only return { "intents": [] } if the thread is genuinely 100% conversational with no commitments, appointments, certificates, follow-ups, or issues.
 
 Return ONLY valid JSON. Use null for unknown fields.`;
+
 
     const systemPrompt = mode === "intents"
       ? intentsPrompt
