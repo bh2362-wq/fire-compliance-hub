@@ -415,7 +415,7 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
                   <TableCell className="text-muted-foreground">{device.location || "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{device.zone || "—"}</TableCell>
                   {importColumns.map((column) => (
-                    <TableCell key={column} className="max-w-40 truncate text-muted-foreground">
+                    <TableCell key={column} className="text-muted-foreground whitespace-normal break-words align-top">
                       {String(device.raw_import_data?.[column] ?? "") || "—"}
                     </TableCell>
                   ))}
