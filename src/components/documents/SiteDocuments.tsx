@@ -28,6 +28,8 @@ import {
   FileText,
   Loader2,
   Archive,
+  Eye,
+  Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -74,6 +76,8 @@ interface DocRow {
   uploaded_at: string;
   service_visit_id: string | null;
   share_with_customer: boolean;
+  is_archived: boolean;
+  issued_by: string | null;
 }
 
 const fmtSize = (b: number) =>
@@ -107,6 +111,9 @@ export function SiteDocuments({
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [emailDoc, setEmailDoc] = useState<DocRow | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<DocRow | null>(null);
+  const [editDoc, setEditDoc] = useState<DocRow | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     if (resolvedCustomerId) return;
@@ -125,12 +132,12 @@ export function SiteDocuments({
     let q = supabase
       .from("visit_documents")
       .select(
-        "id,category,title,description,document_date,file_path,file_size_bytes,file_mime_type,file_original_name,uploaded_at,service_visit_id,share_with_customer"
+        "id,category,title,description,issued_by,document_date,file_path,file_size_bytes,file_mime_type,file_original_name,uploaded_at,service_visit_id,share_with_customer,is_archived"
       )
       .eq("site_id", siteId)
-      .eq("is_archived", false)
       .order("document_date", { ascending: false });
 
+    if (!showArchived) q = q.eq("is_archived", false);
     if (serviceVisitId) q = q.eq("service_visit_id", serviceVisitId);
 
     const { data, error } = await q;
@@ -141,7 +148,7 @@ export function SiteDocuments({
       setDocs((data as DocRow[]) || []);
     }
     setLoading(false);
-  }, [siteId, serviceVisitId]);
+  }, [siteId, serviceVisitId, showArchived]);
 
   useEffect(() => {
     load();
@@ -174,14 +181,25 @@ export function SiteDocuments({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-3">
         <p className="text-sm text-muted-foreground">
           {docs.length} document{docs.length === 1 ? "" : "s"}
         </p>
-        <Button size="sm" onClick={() => setUploadOpen(true)}>
-          <Upload className="w-4 h-4 mr-2" />
-          Upload Document
-        </Button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="rounded border-border"
+            />
+            Show archived
+          </label>
+          <Button size="sm" onClick={() => setUploadOpen(true)}>
+            <Upload className="w-4 h-4 mr-2" />
+            Upload Document
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -208,9 +226,21 @@ export function SiteDocuments({
             </thead>
             <tbody>
               {docs.map((d) => (
-                <tr key={d.id} className="border-t border-border hover:bg-muted/30">
+                <tr
+                  key={d.id}
+                  className={`border-t border-border hover:bg-muted/30 ${
+                    d.is_archived ? "opacity-55" : ""
+                  }`}
+                >
                   <td className="p-3">
-                    <div className="font-medium text-foreground">{d.title}</div>
+                    <div className="font-medium text-foreground flex items-center gap-2">
+                      {d.title}
+                      {d.is_archived && (
+                        <Badge variant="outline" className="text-[10px]">
+                          Archived
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground truncate max-w-xs">
                       {d.file_original_name}
                     </div>
@@ -229,10 +259,28 @@ export function SiteDocuments({
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
+                      onClick={() => setPreviewDoc(d)}
+                      title="View"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
                       onClick={() => handleDownload(d)}
                       title="Download"
                     >
                       <Download className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setEditDoc(d)}
+                      title="Edit details"
+                    >
+                      <Pencil className="w-4 h-4" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -243,15 +291,17 @@ export function SiteDocuments({
                     >
                       <Mail className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleArchive(d)}
-                      title="Archive"
-                    >
-                      <Archive className="w-4 h-4" />
-                    </Button>
+                    {!d.is_archived && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleArchive(d)}
+                        title="Archive"
+                      >
+                        <Archive className="w-4 h-4" />
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -279,7 +329,220 @@ export function SiteDocuments({
           onClose={() => setEmailDoc(null)}
         />
       )}
+
+      <PreviewDialog doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+      <EditDialog doc={editDoc} onClose={() => setEditDoc(null)} onSaved={load} />
     </div>
+  );
+}
+
+
+/* ---------- Preview dialog ---------- */
+
+function PreviewDialog({
+  doc,
+  onClose,
+}: {
+  doc: DocRow | null;
+  onClose: () => void;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!doc) {
+      setUrl(null);
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    // Route through the edge function so every view is access-checked and
+    // written to the audit log.
+    supabase.functions
+      .invoke("generate-signed-url", {
+        body: { document_id: doc.id, expires_in_seconds: 600 },
+      })
+      .then(({ data, error: err }) => {
+        if (err || !data?.signed_url) {
+          setError(err?.message ?? "Could not load this document");
+        } else {
+          setUrl(data.signed_url);
+        }
+      })
+      .catch((e) => setError(String(e?.message ?? e)))
+      .finally(() => setLoading(false));
+  }, [doc]);
+
+  const isImage = doc?.file_mime_type?.startsWith("image/");
+  const isPdf = doc?.file_mime_type === "application/pdf";
+
+  return (
+    <Dialog open={!!doc} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{doc?.title}</DialogTitle>
+          <DialogDescription>
+            {doc ? categoryLabel(doc.category) : ""}
+          </DialogDescription>
+        </DialogHeader>
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Loading…
+          </div>
+        ) : error ? (
+          <p className="text-sm text-destructive py-8 text-center">{error}</p>
+        ) : url && isImage ? (
+          <img
+            src={url}
+            alt={doc?.title}
+            className="max-h-[70vh] w-full object-contain rounded"
+          />
+        ) : url && isPdf ? (
+          <iframe
+            src={url}
+            title={doc?.title}
+            className="w-full h-[70vh] rounded border border-border"
+          />
+        ) : url ? (
+          <div className="py-8 text-center space-y-3">
+            <p className="text-sm text-muted-foreground">
+              This file type can't be previewed inline.
+            </p>
+            <Button asChild>
+              <a href={url} target="_blank" rel="noreferrer">
+                <Download className="w-4 h-4 mr-2" />
+                Download {doc?.file_original_name}
+              </a>
+            </Button>
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+/* ---------- Edit metadata dialog ---------- */
+
+function EditDialog({
+  doc,
+  onClose,
+  onSaved,
+}: {
+  doc: DocRow | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("other");
+  const [docDate, setDocDate] = useState("");
+  const [description, setDescription] = useState("");
+  const [issuedBy, setIssuedBy] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (doc) {
+      setTitle(doc.title);
+      setCategory(doc.category);
+      setDocDate(doc.document_date);
+      setDescription(doc.description ?? "");
+      setIssuedBy(doc.issued_by ?? "");
+    }
+  }, [doc]);
+
+  const handleSave = async () => {
+    if (!doc) return;
+    if (!title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase
+      .from("visit_documents")
+      .update({
+        title: title.trim(),
+        category,
+        document_date: docDate,
+        description: description.trim() || null,
+        issued_by: issuedBy.trim() || null,
+      })
+      .eq("id", doc.id);
+    setBusy(false);
+    if (error) {
+      toast.error("Failed to save changes");
+      return;
+    }
+    toast.success("Document updated");
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <Dialog open={!!doc} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit document details</DialogTitle>
+          <DialogDescription>
+            Update the metadata for this document.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div>
+            <Label>Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIES.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Document date</Label>
+            <Input
+              type="date"
+              value={docDate}
+              onChange={(e) => setDocDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Issued by (optional)</Label>
+            <Input
+              value={issuedBy}
+              onChange={(e) => setIssuedBy(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Description (optional)</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={busy}>
+            {busy ? "Saving…" : "Save changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
