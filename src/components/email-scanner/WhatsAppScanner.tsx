@@ -505,19 +505,40 @@ export function WhatsAppScanner({ onScanMessage, onSweepIntents, sweeping }: Pro
                   <p className="text-[10px] text-muted-foreground truncate mt-0.5">{chat.preview}</p>
                 </div>
 
-                {/* Time + scan */}
+                {/* Time + actions */}
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
                   <span className="text-[10px] text-muted-foreground">{chat.time}</span>
-                  <Button size="sm" variant="outline"
-                    className="h-6 px-2 text-[10px] gap-1"
-                    onClick={() => handleChatScan(chat)}
-                    disabled={scanningId === chat.name}
-                  >
-                    {scanningId === chat.name
-                      ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                      : <Scan className="w-2.5 h-2.5" />}
-                    Scan
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline"
+                      className="h-6 px-2 text-[10px] gap-1"
+                      onClick={() => handleChatScan(chat)}
+                      disabled={scanningId === chat.name}
+                    >
+                      {scanningId === chat.name
+                        ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        : <Scan className="w-2.5 h-2.5" />}
+                      Scan
+                    </Button>
+                    {onSweepIntents && (
+                      <Button size="sm" variant="secondary"
+                        className="h-6 px-2 text-[10px] gap-1"
+                        title="Extract action items from this chat"
+                        onClick={() => {
+                          const content = [
+                            `WhatsApp message from: ${chat.name}`,
+                            `Time: ${chat.time}`,
+                            ``,
+                            chat.preview,
+                          ].join("\n");
+                          onSweepIntents(content, chat.name);
+                        }}
+                        disabled={sweeping}
+                      >
+                        {sweeping ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
+                        Sweep
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
