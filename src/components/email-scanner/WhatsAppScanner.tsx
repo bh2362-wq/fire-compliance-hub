@@ -113,7 +113,7 @@ function waitForExtensionChats(script: string): Promise<any[]> {
   });
 }
 
-export function WhatsAppScanner({ onScanMessage }: Props) {
+export function WhatsAppScanner({ onScanMessage, onSweepIntents, sweeping }: Props) {
   const [chats, setChats] = useState<WaChat[]>([]);
   const [loading, setLoading] = useState(false);
   const [scanningId, setScanningId] = useState<string | null>(null);
