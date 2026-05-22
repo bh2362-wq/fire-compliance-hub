@@ -97,6 +97,13 @@ export function CustomersTable({ onEdit, refreshTrigger }: CustomersTableProps) 
     );
   }
 
+  const inactiveCount = customers.filter(
+    (c) => (c.status || "active") !== "active"
+  ).length;
+  const visibleCustomers = showInactive
+    ? customers
+    : customers.filter((c) => (c.status || "active") === "active");
+
   if (customers.length === 0) {
     return (
       <div className="text-center py-12">
@@ -109,6 +116,19 @@ export function CustomersTable({ onEdit, refreshTrigger }: CustomersTableProps) 
 
   return (
     <>
+      {inactiveCount > 0 && (
+        <div className="flex items-center justify-end gap-2 mb-3">
+          <EyeOff className="w-4 h-4 text-muted-foreground" />
+          <Label htmlFor="show-inactive-customers" className="text-sm text-muted-foreground cursor-pointer">
+            Show inactive ({inactiveCount})
+          </Label>
+          <Switch
+            id="show-inactive-customers"
+            checked={showInactive}
+            onCheckedChange={setShowInactive}
+          />
+        </div>
+      )}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -122,7 +142,7 @@ export function CustomersTable({ onEdit, refreshTrigger }: CustomersTableProps) 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {customers.map((customer) => (
+            {visibleCustomers.map((customer) => (
               <TableRow
                 key={customer.id}
                 className="cursor-pointer hover:bg-muted/50"
