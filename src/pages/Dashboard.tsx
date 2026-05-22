@@ -9,6 +9,7 @@ import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { BankReconciliation } from "@/components/xero/BankReconciliation";
 import { ComplianceCalendar, getComplianceAlertCount } from "@/components/dashboard/ComplianceCalendar";
 import { RamsRemindersWidget } from "@/components/dashboard/RamsRemindersWidget";
+import { EmailActionItemsWidget } from "@/components/dashboard/EmailActionItemsWidget";
 import {
   Building2, ClipboardCheck, AlertTriangle, ShieldCheck,
   CreditCard, Award, TrendingUp, ArrowRight
@@ -308,6 +309,10 @@ const Dashboard = () => {
 
         {/* ── RAMS reminders ───────────────────────────────────────────── */}
         <RamsRemindersWidget />
+
+        {/* ── Email action items ───────────────────────────────────────── */}
+        <EmailActionItemsWidget />
+
 
         {/* ── Charts + financial ───────────────────────────────────────── */}
         <div className="grid lg:grid-cols-3 gap-5">

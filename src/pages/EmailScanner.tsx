@@ -20,11 +20,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Mail, FileSpreadsheet, ClipboardList, Sparkles,
   AlertCircle, CheckCircle2, Building2, User, MapPin, Phone,
-  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox, Tag, MessageCircle,
+  AtSign, ListPlus, Globe, BookOpen, ArrowRight, Settings, Inbox, Tag, MessageCircle, Wand2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmailScannerQuoteFlow } from "@/components/email-scanner/EmailScannerQuoteFlow";
 import { EmailScannerVisitFlow } from "@/components/email-scanner/EmailScannerVisitFlow";
 import { EmailScannerBulkVisitFlow } from "@/components/email-scanner/EmailScannerBulkVisitFlow";
@@ -35,6 +35,8 @@ import { InboxBrowser } from "@/components/email-scanner/InboxBrowser";
 import { SupplierPriceImport } from "@/components/email-scanner/SupplierPriceImport";
 import { WhatsAppScanner } from "@/components/email-scanner/WhatsAppScanner";
 import { AutoQuoteReview } from "@/components/email-scanner/AutoQuoteReview";
+import { IntentReviewQueue } from "@/components/email-scanner/IntentReviewQueue";
+import { saveScannedIntents, type ScannedIntent } from "@/services/emailActionItemsService";
 import type { SmartQuoteLine } from "@/components/email-scanner/SmartQuoteGenerator";
 
 export interface ExtractedEmailData {
@@ -75,6 +77,8 @@ const EmailScanner = () => {
   const [activeTab, setActiveTab] = useState("scanner");
   const [pendingPdfs, setPendingPdfs] = useState<{ name: string; contentBytes: string }[]>([]);
   const [supplierPreview, setSupplierPreview] = useState<{ rows: ParsedPriceRow[]; sourceName: string } | null>(null);
+  const [lastSourceEmail, setLastSourceEmail] = useState<{ subject?: string; from?: string }>({});
+  const qc = useQueryClient();
 
   // Load price list
   const { data: priceList = [] } = useQuery({
@@ -191,7 +195,42 @@ const EmailScanner = () => {
   ) {
     setEmailContent(emailBody);
     setPendingPdfs(pdfAttachments || []);
+    setLastSourceEmail({ subject, from });
     setActiveTab("scanner");
+  }
+
+  async function handleIntentSweep() {
+    if (!emailContent.trim()) { toast.error("Paste an email first"); return; }
+    setScanning(true);
+    setScanMode(null);
+    try {
+      const MAX_CHARS = 190000;
+      const payload = emailContent.trim().slice(-MAX_CHARS);
+      const { data, error } = await supabase.functions.invoke("scan-email", {
+        body: { emailContent: payload, mode: "intents", pdfAttachments: pendingPdfs },
+      });
+      if (error) throw error;
+      const intents = (data?.data?.intents ?? []) as ScannedIntent[];
+      if (!intents.length) { toast.info("No actionable items detected"); return; }
+      const preview = emailContent.trim().slice(0, 500);
+      await saveScannedIntents(intents, {
+        subject: lastSourceEmail.subject,
+        from: lastSourceEmail.from,
+        receivedAt: new Date().toISOString(),
+        preview,
+      });
+      toast.success(`Found ${intents.length} action item${intents.length === 1 ? "" : "s"}`);
+      qc.invalidateQueries({ queryKey: ["email-action-items"] });
+      setActiveTab("actions");
+    } catch (err) {
+      toast.error((err as Error).message || "Sweep failed");
+    } finally { setScanning(false); }
+  }
+
+  function handleQueueRoute(mode: "visit" | "quote", data: ExtractedEmailData) {
+    setExtractedData(data);
+    setScanMode(mode);
+    setActiveFlow(mode);
   }
 
   async function handleSupplierPreview(rows: ParsedPriceRow[], sourceName: string) {
@@ -329,11 +368,27 @@ const EmailScanner = () => {
               <TabsTrigger value="autoquote" className="gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />Auto-Quote
               </TabsTrigger>
+              <TabsTrigger value="actions" className="gap-1.5">
+                <Wand2 className="w-3.5 h-3.5" />Action Queue
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="autoquote" className="mt-4">
               <AutoQuoteReview />
             </TabsContent>
+
+            <TabsContent value="actions" className="mt-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Detected actions from emails</CardTitle>
+                  <CardDescription>Bookings, callouts, quotes, meetings, reminders and flagged issues. Click an item to handle it.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <IntentReviewQueue onRouteToFlow={handleQueueRoute} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
 
             {/* ── Scanner tab ── */}
             <TabsContent value="scanner" className="mt-4 space-y-4">
@@ -402,6 +457,15 @@ const EmailScanner = () => {
                       >
                         {scanning && scanMode === null ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tag className="w-3.5 h-3.5" />}
                         Import Prices to Price List
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={handleIntentSweep}
+                        disabled={scanning || !emailContent.trim()}
+                        className="w-full gap-1.5 text-sm"
+                      >
+                        {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                        Sweep for Action Items
                       </Button>
                     </div>
                   </CardContent>
