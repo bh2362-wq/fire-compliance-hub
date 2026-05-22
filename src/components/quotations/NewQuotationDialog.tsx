@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
-import { getCompanySettings } from "@/services/companySettingsService";
 import {
   ResponsiveDialog,
   ResponsiveDialogHeader,
@@ -347,71 +345,9 @@ export function NewQuotationDialog({ open, onOpenChange, onSuccess, prefillLineI
         if (itemsErr) throw itemsErr;
       }
 
-      // Sync to SharePoint in background
-      try {
-        const selectedCustomer = customers.find(c => c.id === customerId);
-        const selectedSite = sites.find(s => s.id === siteId);
-        if (selectedCustomer && selectedSite) {
-          const { data: siteData } = await supabase
-            .from("sites")
-            .select("sharepoint_folder, name, address")
-            .eq("id", siteId)
-            .single();
-
-          let folderPath: string | null = null;
-          if (siteData?.sharepoint_folder) {
-            folderPath = `${siteData.sharepoint_folder}/Quotations`;
-          } else if (siteData) {
-            const { data: spData, error: spError } = await supabase.functions.invoke("sharepoint-create-folder", {
-              body: { siteId: siteId, subPath: "Quotations", entityType: "folder_only", entityId: siteId },
-            });
-            if (!spError && spData?.success) {
-              folderPath = spData.folderPath;
-            }
-          }
-
-          if (folderPath) {
-            const companySettings = await getCompanySettings();
-            const pdfData: QuotationData = {
-              quotation_number: quotationNumber,
-              title: title || "New Quotation",
-              summary,
-              total_amount: subtotal,
-              valid_until: new Date(Date.now() + validDays * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-              notes,
-              terms: terms || null,
-              created_at: new Date().toISOString(),
-              site: { name: selectedSite.name },
-              customer: { name: selectedCustomer.name, contact_name: null, contact_email: null, contact_phone: null, address: null, city: null, postcode: null },
-              line_items: lineItems.filter(i => i.description.trim()).map(item => ({
-                description: item.description, priority: "medium", quantity: item.quantity,
-                unit_price: item.unit_price, markup_percent: item.markup_percent || 0, labour_cost: item.labour_cost, total_price: item.total_price,
-              })),
-              vat_rate: vatRate,
-            };
-            // Auto-detect unused columns
-            const parentItems = pdfData.line_items;
-            const hasLabour = parentItems.some(i => (i.labour_cost || 0) > 0);
-            const autoColumnOptions: PDFColumnOptions = {
-              showItemNumber: true, showDescription: true, showRegulationRef: false,
-              showPriority: false, showItem: false, showQuantity: true,
-              showUnitPrice: true, showLabour: hasLabour, showTotal: true,
-            };
-            const pdfBase64 = await generateQuotationPDF(pdfData, companySettings || undefined, true, autoColumnOptions);
-            if (pdfBase64) {
-              const pdfFileName = `${quotationNumber} - ${selectedSite.name}.pdf`;
-              await supabase.functions.invoke("upload-to-sharepoint", {
-                body: { folderPath, fileName: pdfFileName, fileBase64: pdfBase64, contentType: "application/pdf" },
-              });
-              // Save SharePoint folder to quotation
-              await supabase.from("quotations").update({ sharepoint_folder: folderPath }).eq("id", quotation.id);
-              console.log("New quotation synced to SharePoint:", folderPath);
-            }
-          }
-        }
-      } catch (spErr) {
-        console.log("SharePoint sync for new quotation skipped:", spErr);
-      }
+      // (auto-PDF-on-create SharePoint sync removed — the user now opens the
+      // quotation and clicks Download PDF when they want a SharePoint copy.
+      // That path renders via the master Word template and uploads it.)
 
       toast.success(`Quotation ${quotationNumber} created`);
       onSuccess?.();

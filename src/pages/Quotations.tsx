@@ -63,8 +63,7 @@ import { AcceptQuotationDialog } from "@/components/quotations/AcceptQuotationDi
 import { EmailQuotationDialog } from "@/components/quotations/EmailQuotationDialog";
 import { NewQuotationDialog } from "@/components/quotations/NewQuotationDialog";
 import { DuplicateQuotationDialog } from "@/components/quotations/DuplicateQuotationDialog";
-import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
-import { getCompanySettings } from "@/services/companySettingsService";
+import { fetchQuotationFull, renderQuotePdfBase64 } from "@/features/quotes/useQuoteGeneration";
 
 interface QuotationWithDetails {
   id: string;
@@ -137,8 +136,6 @@ const Quotations = () => {
   const [quotationToAccept, setQuotationToAccept] = useState<QuotationWithDetails | null>(null);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [quotationToEmail, setQuotationToEmail] = useState<QuotationWithDetails | null>(null);
-  const [emailPdfData, setEmailPdfData] = useState<QuotationData | null>(null);
-  const [emailColumnOptions, setEmailColumnOptions] = useState<PDFColumnOptions | null>(null);
   const [uploadingToSharePoint, setUploadingToSharePoint] = useState<string | null>(null);
   const [newQuoteOpen, setNewQuoteOpen] = useState(false);
   const [duplicateSource, setDuplicateSource] = useState<{ id: string; quotation_number: string } | null>(null);
@@ -257,101 +254,9 @@ const Quotations = () => {
     }
   };
 
-  const buildPDFDataForQuotation = async (quotation: QuotationWithDetails): Promise<{ pdfData: QuotationData; columnOptions: PDFColumnOptions } | null> => {
-    try {
-      // Fetch line items
-      const { data: lineItems } = await supabase
-        .from("quotation_line_items")
-        .select("*")
-        .eq("quotation_id", quotation.id)
-        .order("sort_order");
-
-      // Fetch customer if not already loaded
-      let customer = quotation.customers;
-      if (!customer && quotation.sites?.customer_id) {
-        const { data: custData } = await supabase
-          .from("customers")
-          .select("name, contact_name, contact_email, contact_phone, address, city, postcode, quote_email_recipients, email_recipients")
-          .eq("id", quotation.sites.customer_id)
-          .single();
-        customer = custData;
-      }
-
-      const pdfData: QuotationData = {
-        quotation_number: quotation.quotation_number,
-        title: quotation.title || "",
-        summary: quotation.summary || "",
-        total_amount: (lineItems || []).reduce((sum, item) => sum + (item.total_price || 0), 0),
-        valid_until: quotation.valid_until || "",
-        notes: quotation.notes || "",
-        terms: quotation.terms || "",
-        created_at: quotation.created_at,
-        site: {
-          name: quotation.sites?.name || "Unknown Site",
-          address: quotation.sites?.address,
-          city: quotation.sites?.city,
-          postcode: quotation.sites?.postcode,
-        },
-        customer: customer ? {
-          name: customer.name,
-          contact_name: customer.contact_name || null,
-          contact_email: customer.contact_email || null,
-          contact_phone: customer.contact_phone || null,
-          address: customer.address || null,
-          city: customer.city || null,
-          postcode: customer.postcode || null,
-        } : null,
-        line_items: (lineItems || []).map(item => ({
-          description: item.description,
-          regulation_reference: item.regulation_reference,
-          priority: item.priority,
-          item_name: item.item_name,
-          parent_id: item.parent_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          markup_percent: (item as any).markup_percent || 0,
-          labour_cost: item.labour_cost || 0,
-          labour_included: !!(item as any).labour_included,
-          total_price: item.total_price,
-        })),
-        vat_rate: quotation.vat_rate || 20,
-      };
-
-      // Auto-detect which columns have data and hide empty ones
-      const items = pdfData.line_items.filter(i => !i.parent_id);
-      const hasRegRef = items.some(i => i.regulation_reference && i.regulation_reference.trim() !== "");
-      const hasPriority = items.some(i => i.priority && i.priority !== "standard");
-      const hasItem = items.some(i => i.item_name && i.item_name.trim() !== "");
-      const hasLabour = items.some(i => (i.labour_cost || 0) > 0 || i.labour_included);
-
-      const columnOptions: PDFColumnOptions = {
-        showItemNumber: true,
-        showDescription: true,
-        showRegulationRef: hasRegRef,
-        showPriority: false,
-        showItem: hasItem,
-        showQuantity: true,
-        showUnitPrice: true,
-        showLabour: hasLabour,
-        showTotal: true,
-      };
-
-      return { pdfData, columnOptions };
-    } catch (err) {
-      console.error("Error building PDF data:", err);
-      return null;
-    }
-  };
-
-
-  const handleEmailQuotation = async (quotation: QuotationWithDetails) => {
-    const result = await buildPDFDataForQuotation(quotation);
-    if (!result) {
-      toast.error("Failed to prepare quotation for email");
-      return;
-    }
-    setEmailPdfData(result.pdfData);
-    setEmailColumnOptions(result.columnOptions);
+  const handleEmailQuotation = (quotation: QuotationWithDetails) => {
+    // The email dialog fetches the full quotation itself and renders via
+    // the master Word template — no pre-built pdfData needed.
     setQuotationToEmail(quotation);
     setEmailDialogOpen(true);
   };
@@ -359,11 +264,10 @@ const Quotations = () => {
   const handleUploadToSharePoint = async (quotation: QuotationWithDetails) => {
     setUploadingToSharePoint(quotation.id);
     try {
-      const result = await buildPDFDataForQuotation(quotation);
-      if (!result) throw new Error("Failed to build PDF data");
-
-      const companySettings = await getCompanySettings();
-      const pdfBase64 = await generateQuotationPDF(result.pdfData, companySettings || undefined, true, result.columnOptions);
+      // Render via the master Word template so SharePoint copies are
+      // identical to the Download/Email PDFs (was using legacy jsPDF).
+      const full = await fetchQuotationFull(quotation.id);
+      const pdfBase64 = await renderQuotePdfBase64(full);
       if (!pdfBase64) throw new Error("Failed to generate PDF");
 
       // Determine folder path - try report's visit folder first
@@ -909,15 +813,12 @@ const Quotations = () => {
       )}
 
       {/* Email Quotation Dialog */}
-      {quotationToEmail && emailPdfData && (
+      {quotationToEmail && (
         <EmailQuotationDialog
           open={emailDialogOpen}
           onOpenChange={(open) => {
             setEmailDialogOpen(open);
-            if (!open) {
-              setQuotationToEmail(null);
-              setEmailPdfData(null);
-            }
+            if (!open) setQuotationToEmail(null);
           }}
           quotation={{
             id: quotationToEmail.id,
@@ -931,18 +832,6 @@ const Quotations = () => {
           customerEmail={quotationToEmail.customers?.contact_email || ""}
           defaultRecipients={quotationToEmail.customers?.quote_email_recipients || quotationToEmail.customers?.email_recipients || ""}
           customerName={quotationToEmail.customers?.contact_name || quotationToEmail.customers?.name || ""}
-          pdfData={emailPdfData}
-          columnOptions={emailColumnOptions || {
-            showItemNumber: true,
-            showDescription: true,
-            showRegulationRef: false,
-            showPriority: false,
-            showItem: false,
-            showQuantity: true,
-            showUnitPrice: true,
-            showLabour: false,
-            showTotal: true,
-          }}
           onSuccess={() => {
             fetchQuotations();
           }}

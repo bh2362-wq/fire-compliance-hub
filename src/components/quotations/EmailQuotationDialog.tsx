@@ -22,8 +22,7 @@ import { Loader2, Send, Mail, FileText, Link2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { generateQuotationPDF, QuotationData, PDFColumnOptions } from "@/lib/quotationPdfGenerator";
-import { quotationToQuoteInput, type QuotationFull } from "@/features/quotes/useQuoteGeneration";
+import { fetchQuotationFull, renderQuotePdfBase64 } from "@/features/quotes/useQuoteGeneration";
 import { getCompanySettings } from "@/services/companySettingsService";
 import {
   EmailTemplate,
@@ -31,57 +30,6 @@ import {
   getDefaultTemplate,
   applyTemplate,
 } from "@/services/emailTemplateService";
-
-// Generate the email-attached PDF via the master DOCX template path so the
-// recipient sees exactly what "Export to Word" + "Generate PDF" produces.
-// Falls back to the older jsPDF generator only if the DOCX→PDF pipeline
-// fails (e.g. Microsoft Graph conversion outage).
-async function buildEmailPdfBase64(quotationId: string): Promise<string> {
-  const { data: full, error: qErr } = await supabase
-    .from("quotations")
-    .select(
-      `*,
-       customers ( name, contact_name, contact_email, address, city, postcode ),
-       sites ( name, address, city, postcode ),
-       quotation_line_items ( description, quantity, unit_price, total_price, sort_order )`,
-    )
-    .eq("id", quotationId)
-    .single();
-  if (qErr || !full) throw new Error(qErr?.message ?? "Could not load quotation");
-
-  const quote = full as unknown as QuotationFull;
-  // Always regenerate the DOCX for an email send. Reusing latest_docx_path
-  // would silently re-attach a stale render — existing quotes have a cached
-  // DOCX from before whatever template change the engineer is trying to
-  // ship, and the email would then look identical to the old version.
-  const { data: docxRes, error: docxErr } = await supabase.functions.invoke(
-    "generate-quote-docx",
-    { body: quotationToQuoteInput(quote) },
-  );
-  if (docxErr) throw new Error(docxErr.message);
-  const docxPath = (docxRes as { storage_path: string }).storage_path;
-
-  const { data: pdfRes, error: pdfErr } = await supabase.functions.invoke("convert-quote-pdf", {
-    body: { docx_storage_path: docxPath, quotation_id: quotationId },
-  });
-  if (pdfErr) throw new Error(pdfErr.message);
-
-  const signedUrl = (pdfRes as { signed_url: string }).signed_url;
-  const pdfResp = await fetch(signedUrl);
-  if (!pdfResp.ok) throw new Error(`PDF download failed (${pdfResp.status})`);
-  const blob = await pdfResp.blob();
-
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      const idx = result.indexOf(",");
-      resolve(idx >= 0 ? result.slice(idx + 1) : result);
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("base64 encode failed"));
-    reader.readAsDataURL(blob);
-  });
-}
 
 interface ContactSuggestion {
   email: string;
@@ -104,8 +52,6 @@ interface EmailQuotationDialogProps {
   customerEmail: string;
   defaultRecipients?: string;
   customerName?: string;
-  pdfData: QuotationData;
-  columnOptions: PDFColumnOptions;
   onSuccess?: () => void;
 }
 
@@ -116,8 +62,6 @@ export function EmailQuotationDialog({
   customerEmail,
   defaultRecipients,
   customerName,
-  pdfData,
-  columnOptions,
   onSuccess,
 }: EmailQuotationDialogProps) {
   const [sending, setSending] = useState(false);
@@ -249,7 +193,7 @@ export function EmailQuotationDialog({
       setCompanyNameVal(compName);
 
       const variables = {
-        customer_name: customerName || pdfData.customer?.name || "Customer",
+        customer_name: customerName || "Customer",
         site_name: quotation.sites?.name || "Site",
         report_number: quotation.quotation_number,
         report_date: new Date().toISOString().split("T")[0],
@@ -284,7 +228,7 @@ export function EmailQuotationDialog({
     const template = templates.find((t) => t.id === templateId);
     if (template) {
       const variables = {
-        customer_name: customerName || pdfData.customer?.name || "Customer",
+        customer_name: customerName || "Customer",
         site_name: quotation.sites?.name || "Site",
         report_number: quotation.quotation_number,
         report_date: new Date().toISOString().split("T")[0],
@@ -304,24 +248,11 @@ export function EmailQuotationDialog({
 
     setSending(true);
     try {
-      // Render the email attachment from the master DOCX template via the
-      // generate-quote-docx → convert-quote-pdf pipeline (same source as
-      // the "Generate PDF" button), with a fall-back to the legacy jsPDF
-      // generator if Microsoft Graph conversion is unavailable.
-      let pdfBase64: string | void;
-      try {
-        pdfBase64 = await buildEmailPdfBase64(quotation.id);
-      } catch (e) {
-        console.warn("DOCX→PDF pipeline failed, falling back to jsPDF:", e);
-        const companySettings = await getCompanySettings();
-        pdfBase64 = await generateQuotationPDF(
-          pdfData,
-          companySettings || undefined,
-          true,
-          columnOptions,
-        );
-      }
-
+      // Render the email attachment from the master Word template via
+      // generate-quote-docx → convert-quote-pdf so it matches the Download
+      // PDF byte-for-byte. Single source of truth — see renderQuotePdfBase64.
+      const full = await fetchQuotationFull(quotation.id);
+      const pdfBase64 = await renderQuotePdfBase64(full);
       if (!pdfBase64) {
         throw new Error("Failed to generate PDF");
       }
