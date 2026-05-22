@@ -368,11 +368,27 @@ const EmailScanner = () => {
               <TabsTrigger value="autoquote" className="gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />Auto-Quote
               </TabsTrigger>
+              <TabsTrigger value="actions" className="gap-1.5">
+                <Wand2 className="w-3.5 h-3.5" />Action Queue
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="autoquote" className="mt-4">
               <AutoQuoteReview />
             </TabsContent>
+
+            <TabsContent value="actions" className="mt-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Detected actions from emails</CardTitle>
+                  <CardDescription>Bookings, callouts, quotes, meetings, reminders and flagged issues. Click an item to handle it.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <IntentReviewQueue onRouteToFlow={handleQueueRoute} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
 
             {/* ── Scanner tab ── */}
             <TabsContent value="scanner" className="mt-4 space-y-4">
