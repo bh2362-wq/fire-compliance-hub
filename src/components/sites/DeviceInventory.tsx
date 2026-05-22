@@ -126,29 +126,54 @@ const DeviceInventory = ({ siteId, onImportClick }: DeviceInventoryProps) => {
   useEffect(() => {
     const fetchDevices = async () => {
       setLoading(true);
-      const { data, error } = await (supabase as any)
-        .from("devices")
-        .select("id, loop, address, device_type, location, zone, status, last_tested_at, raw_import_data, imported_source_columns")
-        .eq("site_id", siteId)
-        .order("loop", { ascending: true })
-        .order("address", { ascending: true });
-
-      if (!error && data) {
-        setDevices(data);
+      // Page through devices — PostgREST defaults to 1000 rows per request, so search
+      // would otherwise only see the first page of a large site inventory.
+      const pageSize = 1000;
+      let from = 0;
+      const all: Device[] = [];
+      try {
+        while (true) {
+          const { data, error } = await (supabase as any)
+            .from("devices")
+            .select("id, loop, address, device_type, location, zone, status, last_tested_at, raw_import_data, imported_source_columns")
+            .eq("site_id", siteId)
+            .order("loop", { ascending: true })
+            .order("address", { ascending: true })
+            .range(from, from + pageSize - 1);
+          if (error) throw error;
+          if (!data?.length) break;
+          all.push(...(data as Device[]));
+          if (data.length < pageSize) break;
+          from += pageSize;
+          if (all.length > 50000) break; // safety cap
+        }
+        setDevices(all);
+      } catch {
+        // swallow — UI shows empty state
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchDevices();
   }, [siteId]);
 
   const filteredDevices = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return devices.filter((device) => {
-      const matchesSearch =
-        !search ||
-        [device.loop, device.address, device.device_type, device.location, device.zone]
-          .filter(Boolean)
-          .some((field) => field?.toLowerCase().includes(search.toLowerCase()));
+      let matchesSearch = !q;
+      if (q) {
+        const coreFields = [device.loop, device.address, device.device_type, device.location, device.zone, device.status]
+          .filter(Boolean) as string[];
+        if (coreFields.some((f) => f.toLowerCase().includes(q))) {
+          matchesSearch = true;
+        } else if (device.raw_import_data) {
+          // Search every imported column value (label, device number, age, serial, etc.)
+          matchesSearch = Object.values(device.raw_import_data).some(
+            (v) => v != null && String(v).toLowerCase().includes(q),
+          );
+        }
+      }
 
       const matchesLoop = !filters.loop || device.loop === filters.loop;
       const matchesZone = !filters.zone || device.zone === filters.zone;
