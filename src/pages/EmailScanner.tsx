@@ -458,6 +458,15 @@ const EmailScanner = () => {
                         {scanning && scanMode === null ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tag className="w-3.5 h-3.5" />}
                         Import Prices to Price List
                       </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={handleIntentSweep}
+                        disabled={scanning || !emailContent.trim()}
+                        className="w-full gap-1.5 text-sm"
+                      >
+                        {scanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                        Sweep for Action Items
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
