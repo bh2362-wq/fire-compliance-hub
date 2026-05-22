@@ -57,6 +57,8 @@ interface AssetRow {
   address?:         string | null;
   zone?:            string | null;
   device_status?:   string | null; // active/faulty/replaced/inactive
+  raw_import_data?: Record<string, unknown> | null;
+  extra_details?:   string | null; // pre-flattened "key: value · key: value" for search & display
 }
 
 // ── Config ─────────────────────────────────────────────────────────────────────
