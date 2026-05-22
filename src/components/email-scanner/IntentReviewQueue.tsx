@@ -243,7 +243,7 @@ export function IntentReviewQueue({ onRouteToFlow, sourceEmailId }: Props) {
         );
       })}
       <p className="text-[10px] text-muted-foreground text-center pt-2">
-        Need to revisit dismissed items? <Link to="/email-scanner" className="underline">Open the scanner</Link>.
+        Items stay in this queue until you action or discard them. Future email and WhatsApp sweeps add to the list.
       </p>
     </div>
   );
