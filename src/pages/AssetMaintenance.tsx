@@ -57,6 +57,8 @@ interface AssetRow {
   address?:         string | null;
   zone?:            string | null;
   device_status?:   string | null; // active/faulty/replaced/inactive
+  raw_import_data?: Record<string, unknown> | null;
+  extra_details?:   string | null; // pre-flattened "key: value · key: value" for search & display
 }
 
 // ── Config ─────────────────────────────────────────────────────────────────────
@@ -199,7 +201,7 @@ export default function AssetMaintenance() {
       while (true) {
         const { data, error } = await supabase
           .from("devices")
-          .select("id, site_id, loop, address, device_type, location, zone, status, last_tested_at, site:sites(id, name)")
+          .select("id, site_id, loop, address, device_type, location, zone, status, last_tested_at, raw_import_data, imported_source_columns, site:sites(id, name)")
           .order("site_id")
           .order("loop")
           .order("address")
@@ -212,26 +214,45 @@ export default function AssetMaintenance() {
         if (all.length > 25000) break; // safety cap — UI is paginated/grouped, but avoid runaway
       }
 
-      const rows: AssetRow[] = all.map((d: any) => ({
-        id:               d.id,
-        site_id:          d.site_id,
-        site_name:        (d.site as any)?.name ?? "Unknown site",
-        asset_type:       "device",
-        item_name:        `L${d.loop}/${d.address} · ${d.device_type}`,
-        manufacturer:     null,
-        model:            d.device_type ?? null,
-        serial_number:    null,
-        location:         [d.location, d.zone ? `Zone ${d.zone}` : null].filter(Boolean).join(" · ") || null,
-        last_serviced:    d.last_tested_at ?? null,
-        next_due:         null,
-        last_cert_ref:    null,
-        last_cert_status: null,
-        source:           "device",
-        loop:             d.loop ?? null,
-        address:          d.address ?? null,
-        zone:             d.zone ?? null,
-        device_status:    d.status ?? "active",
-      }));
+      const CORE_COLS = new Set(["loop", "address", "type", "device type", "location", "zone", "status"]);
+
+      const rows: AssetRow[] = all.map((d: any) => {
+        const raw = (d.raw_import_data ?? {}) as Record<string, unknown>;
+        // Pull "label" / "device number" / "age" / "serial" etc out for display + search
+        const extras = Object.entries(raw)
+          .filter(([k, v]) => v != null && String(v).trim() !== "" && !CORE_COLS.has(k.toLowerCase()))
+          .map(([k, v]) => `${k}: ${String(v)}`)
+          .join(" · ");
+
+        // Try to pick a useful label-ish field from the import to enrich item_name
+        const labelKey = Object.keys(raw).find((k) => /label|device\s*no|device\s*number|tag/i.test(k));
+        const labelVal = labelKey ? String(raw[labelKey] ?? "").trim() : "";
+
+        return {
+          id:               d.id,
+          site_id:          d.site_id,
+          site_name:        (d.site as any)?.name ?? "Unknown site",
+          asset_type:       "device",
+          item_name:        labelVal
+            ? `L${d.loop}/${d.address} · ${d.device_type}${labelVal ? ` · ${labelVal}` : ""}`
+            : `L${d.loop}/${d.address} · ${d.device_type}`,
+          manufacturer:     null,
+          model:            d.device_type ?? null,
+          serial_number:    null,
+          location:         [d.location, d.zone ? `Zone ${d.zone}` : null].filter(Boolean).join(" · ") || null,
+          last_serviced:    d.last_tested_at ?? null,
+          next_due:         null,
+          last_cert_ref:    null,
+          last_cert_status: null,
+          source:           "device",
+          loop:             d.loop ?? null,
+          address:          d.address ?? null,
+          zone:             d.zone ?? null,
+          device_status:    d.status ?? "active",
+          raw_import_data:  raw,
+          extra_details:    extras || null,
+        };
+      });
 
       setDevices(rows);
       toast.success(`Loaded ${rows.length.toLocaleString()} device inventory items`);
@@ -261,10 +282,12 @@ export default function AssetMaintenance() {
         a.site_name.toLowerCase().includes(q) ||
         (a.manufacturer?.toLowerCase().includes(q) ?? false) ||
         (a.model?.toLowerCase().includes(q) ?? false) ||
+        (a.serial_number?.toLowerCase().includes(q) ?? false) ||
         (a.location?.toLowerCase().includes(q) ?? false) ||
         (a.loop?.toLowerCase().includes(q) ?? false) ||
         (a.address?.toLowerCase().includes(q) ?? false) ||
-        (a.zone?.toLowerCase().includes(q) ?? false)
+        (a.zone?.toLowerCase().includes(q) ?? false) ||
+        (a.extra_details?.toLowerCase().includes(q) ?? false)
       );
     }
     return out;
@@ -336,6 +359,11 @@ export default function AssetMaintenance() {
             {[asset.manufacturer, asset.model].filter(Boolean).join(" · ")}
             {asset.location ? ` · ${asset.location}` : ""}
           </p>
+          {asset.extra_details && (
+            <p className="text-[11px] text-muted-foreground/80 mt-0.5 line-clamp-1" title={asset.extra_details}>
+              {asset.extra_details}
+            </p>
+          )}
         </td>
         {!groupBySite && (
           <td className="px-4 py-2.5">
