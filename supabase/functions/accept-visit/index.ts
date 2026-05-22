@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       }
 
       const { data: visit, error } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select(`
           id, visit_date, visit_type, status, notes,
           client_accepted_at, accepted_by_name, client_po_number,
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
 
       // Check visit exists and hasn't been accepted
       const { data: visit, error: fetchError } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select("id, status, client_accepted_at")
         .eq("acceptance_token", token)
         .single();
@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
 
       // Update visit with client acceptance
       const { error: updateError } = await supabase
-        .from("visits")
+        .from("service_visits")
         .update({
           status: "confirmed",
           accepted_by_name: safeName,

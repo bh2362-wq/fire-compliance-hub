@@ -819,7 +819,7 @@ export function WorkReportDialog({
       if (complete) {
         // Mark the visit as completed
         await supabase
-          .from("visits")
+          .from("service_visits")
           .update({ status: "completed" })
           .eq("id", visit.id);
           
@@ -842,7 +842,7 @@ export function WorkReportDialog({
       } else {
         // Mark the visit as completed when report is saved
         await supabase
-          .from("visits")
+          .from("service_visits")
           .update({ status: "completed" })
           .eq("id", visit.id);
 
@@ -926,7 +926,7 @@ export function WorkReportDialog({
 
       // Mark the visit as completed
       const { error: visitError } = await supabase
-        .from("visits")
+        .from("service_visits")
         .update({ status: "completed" })
         .eq("id", visit.id);
 

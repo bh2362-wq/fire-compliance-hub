@@ -208,7 +208,7 @@ export default function ImportClientPODialog({ open, onOpenChange, onSuccess }: 
 
       // Create visit with awaiting_scheduling status
       const { data: visit, error: visitError } = await supabase
-        .from("visits")
+        .from("service_visits")
         .insert({
           site_id: siteId,
           visit_type: visitType,

@@ -267,7 +267,7 @@ export const EmailScannerBulkVisitFlow = ({ data, onBack }: Props) => {
         if (fullDescription) notesData.user_notes = fullDescription;
 
         const { data: visit, error: visitErr } = await supabase
-          .from("visits")
+          .from("service_visits")
           .insert({
             site_id: siteId,
             visit_date: row.visit_date!,

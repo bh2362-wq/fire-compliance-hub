@@ -32,7 +32,7 @@ const SiteReconciliationHistory = ({ siteId }: SiteReconciliationHistoryProps) =
     const fetchVisits = async () => {
       setLoading(true);
       const { data, error } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select(
           "id, visit_date, visit_type, status, devices_tested, total_devices, coverage_percentage, issues_count"
         )

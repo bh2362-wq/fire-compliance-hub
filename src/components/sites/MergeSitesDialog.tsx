@@ -59,7 +59,7 @@ export const MergeSitesDialog = ({ open, onOpenChange, sourceSiteId, sourceSiteN
     if (!sourceId) { setCounts(null); return; }
     const fetchCounts = async () => {
       const [v, d, r] = await Promise.all([
-        supabase.from("visits").select("id", { count: "exact", head: true }).eq("site_id", sourceId),
+        supabase.from("service_visits").select("id", { count: "exact", head: true }).eq("site_id", sourceId),
         supabase.from("devices").select("id", { count: "exact", head: true }).eq("site_id", sourceId),
         supabase.from("service_reports").select("id", { count: "exact", head: true }).eq("site_id", sourceId),
       ]);
@@ -86,7 +86,7 @@ export const MergeSitesDialog = ({ open, onOpenChange, sourceSiteId, sourceSiteN
       };
 
       const tables = [
-        "visits", "devices", "service_reports", "appointments",
+        "service_visits", "devices", "service_reports", "appointments",
         "file_uploads", "issues", "email_logs", "customer_form_submissions",
         "customer_rams_requirements", "site_service_contracts", "site_assets", "rams_documents",
       ];

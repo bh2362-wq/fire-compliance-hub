@@ -12,7 +12,7 @@ export function SiteBriefing() {
     queryKey: ["field-visit", visitId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("visits")
+        .from("service_visits")
         .select(`*, sites:site_id ( * ), service_reports ( id, created_at, summary )`)
         .eq("id", visitId)
         .single();
@@ -38,7 +38,7 @@ export function SiteBriefing() {
       } catch {}
 
       const { error } = await (supabase as any)
-        .from("visits")
+        .from("service_visits")
         .update({
           status: "in_progress",
           arrived_at: new Date().toISOString(),

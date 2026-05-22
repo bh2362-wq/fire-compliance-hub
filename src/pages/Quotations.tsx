@@ -197,14 +197,14 @@ const Quotations = () => {
   const handleRevokeAcceptance = async (quotationId: string) => {
     try {
       const { data: linkedVisits } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select("id")
         .eq("quotation_id", quotationId);
 
       if (linkedVisits && linkedVisits.length > 0) {
         for (const visit of linkedVisits) {
           await supabase.from("appointments").delete().eq("visit_id", visit.id);
-          await supabase.from("visits").delete().eq("id", visit.id);
+          await supabase.from("service_visits").delete().eq("id", visit.id);
         }
       }
 
@@ -372,7 +372,7 @@ const Quotations = () => {
       if (quotation.report_id) {
         const { data: report } = await supabase
           .from("service_reports")
-          .select("sharepoint_folder, report_number, visits(visit_date)")
+          .select("sharepoint_folder, report_number, service_visits(visit_date)")
           .eq("id", quotation.report_id)
           .single();
 

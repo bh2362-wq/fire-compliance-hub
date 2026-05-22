@@ -27,7 +27,7 @@ export function useCalendarSync() {
 
       // Get all open visits
       const { data: visits, error: vErr } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select("id, visit_date, visit_type, status, engineer_id, site_id, site:sites(id, name)")
         .in("status", ["scheduled", "in_progress", "pending_review"]);
 
@@ -123,7 +123,7 @@ export function useCalendarSync() {
 
       const visitIds = staleApts.map((a: any) => a.visit_id);
       const { data: completedVisits } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select("id")
         .in("id", visitIds)
         .in("status", ["completed", "invoiced", "cancelled"]);

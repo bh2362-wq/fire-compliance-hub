@@ -34,7 +34,7 @@ const QuickActions = () => {
 
       // Fetch visits needing action (not completed/cancelled/invoiced)
       const { data: visits } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select(`
           id, visit_date, visit_type, status,
           sites(name, customer_id, customers(name))

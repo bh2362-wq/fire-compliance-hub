@@ -27,7 +27,7 @@ export function DeviceTesting() {
   const { data: visit } = useQuery({
     queryKey: ["field-visit-min", visitId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("visits").select("id, site_id").eq("id", visitId).single();
+      const { data, error } = await (supabase as any).from("service_visits").select("id, site_id").eq("id", visitId).single();
       if (error) throw error;
       return data;
     },

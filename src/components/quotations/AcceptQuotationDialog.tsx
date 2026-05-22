@@ -139,7 +139,7 @@ export function AcceptQuotationDialog({
       });
 
       const { data: visit, error: visitError } = await supabase
-        .from("visits")
+        .from("service_visits")
         .insert({
           site_id: quotation.site_id,
           visit_date: visitDate,

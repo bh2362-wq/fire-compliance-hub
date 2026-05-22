@@ -402,7 +402,7 @@ export function ManualInvoiceDialog({
       } else {
         // Create a visit record for invoice tracking
         const { data: visit, error: visitError } = await supabase
-          .from("visits")
+          .from("service_visits")
           .insert({
             site_id: selectedSite,
             visit_type: serviceType,

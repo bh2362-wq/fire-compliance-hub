@@ -176,7 +176,7 @@ export function CustomerReports({ customerId, customerName, siteIds }: CustomerR
       if (transformedData.length > 0) {
         const visitIds = transformedData.map((r: any) => r.visit_id);
         const [visitsResult, invoicesResult, spResult] = await Promise.all([
-          supabase.from("visits").select("id, visit_type, visit_date").in("id", visitIds),
+          supabase.from("service_visits").select("id, visit_type, visit_date").in("id", visitIds),
           supabase.from("xero_invoices").select("visit_id, xero_invoice_number, status").in("visit_id", visitIds),
           supabase.from("sites").select("id, name, sharepoint_folder").in("id", siteIds),
         ]);

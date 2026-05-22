@@ -186,7 +186,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Fetch visit data if needed
     if (body.visitId && !customerEmail) {
       const { data: visit, error } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select(`
           *,
           site:sites(id, name, address, customer_id)

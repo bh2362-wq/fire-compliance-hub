@@ -71,7 +71,7 @@ const RoutePlanner = () => {
       setLoading(true);
       const [visitsRes, settingsRes] = await Promise.all([
         supabase
-          .from("visits")
+          .from("service_visits")
           .select("id, visit_date, visit_type, status, estimated_hours, site:sites(id, name, postcode)")
           .in("status", ["scheduled", "in_progress", "pending"])
           .order("visit_date", { ascending: true }),

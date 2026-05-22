@@ -10,13 +10,13 @@ export function JobComplete() {
   const { data } = useQuery({
     queryKey: ["field-complete", visitId],
     queryFn: async () => {
-      const { data: visit, error } = await (supabase as any).from("visits").select(`*, sites:site_id ( name )`).eq("id", visitId).single();
+      const { data: visit, error } = await (supabase as any).from("service_visits").select(`*, sites:site_id ( name )`).eq("id", visitId).single();
       if (error) throw error;
       const { count: tested } = await (supabase as any).from("parsed_device_tests").select("*", { count: "exact", head: true }).eq("visit_id", visitId);
       const { count: defects } = await (supabase as any).from("site_defects").select("*", { count: "exact", head: true }).eq("visit_id", visitId);
       const { data: user } = await supabase.auth.getUser();
       const today = new Date().toISOString().slice(0, 10);
-      const { data: nextJobs } = await (supabase as any).from("visits").select(`id, visit_type, sites:site_id ( name, postcode )`).eq("engineer_id", user.user?.id).eq("visit_date", today).neq("status", "completed").neq("id", visitId).limit(1);
+      const { data: nextJobs } = await (supabase as any).from("service_visits").select(`id, visit_type, sites:site_id ( name, postcode )`).eq("engineer_id", user.user?.id).eq("visit_date", today).neq("status", "completed").neq("id", visitId).limit(1);
       const mins = visit.arrived_at && visit.departed_at ? Math.round((new Date(visit.departed_at).getTime() - new Date(visit.arrived_at).getTime()) / 60000) : 0;
       return { visit, tested: tested ?? 0, defects: defects ?? 0, nextJob: nextJobs?.[0], mins };
     },

@@ -372,7 +372,7 @@ const VisitEditDialog = ({
 
     try {
       const { error } = await supabase
-        .from("visits")
+        .from("service_visits")
         .update({
           visit_date: data.visit_date,
           visit_type: data.visit_type,

@@ -46,7 +46,7 @@ const VisitSelector = ({
 
     setLoading(true);
     const { data, error } = await supabase
-      .from("visits")
+      .from("service_visits")
       .select("id, visit_date, visit_type, status")
       .eq("site_id", siteId)
       .order("visit_date", { ascending: false })

@@ -59,7 +59,7 @@ export const ReassignVisitDialog = ({ open, onOpenChange, visitId, currentSiteId
     }
     setSaving(true);
     const { error } = await supabase
-      .from("visits")
+      .from("service_visits")
       .update({ site_id: selectedSiteId })
       .eq("id", visitId);
 

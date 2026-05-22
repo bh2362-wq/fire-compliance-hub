@@ -30,7 +30,7 @@ export function Today() {
       if (!user.user) throw new Error("Not authenticated");
       const today = format(new Date(), "yyyy-MM-dd");
       const { data, error } = await (supabase as any)
-        .from("visits")
+        .from("service_visits")
         .select(`id, visit_date, visit_type, status, devices_tested, total_devices, sites:site_id ( id, name, address, city, postcode )`)
         .eq("engineer_id", user.user.id)
         .eq("visit_date", today)

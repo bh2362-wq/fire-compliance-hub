@@ -73,7 +73,7 @@ export function LinkExistingCertDialog({ visit, open, onOpenChange, onLinked }: 
 
       if (closeVisit) {
         const { error: visitErr } = await supabase
-          .from("visits")
+          .from("service_visits")
           .update({ status: "completed" })
           .eq("id", visit.id);
         if (visitErr) throw visitErr;

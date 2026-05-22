@@ -82,7 +82,7 @@ export function RamsJobSelectorDialog({
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("visits")
+        .from("service_visits")
         .select("id, visit_date, visit_type, status, notes")
         .eq("site_id", siteId)
         .in("status", ["in_progress", "scheduled", "pending"])

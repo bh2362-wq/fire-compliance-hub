@@ -124,7 +124,7 @@ export async function generateVisitsFromContract(
 
   // Find existing visits for this site of the same type on these dates
   const { data: existing, error: existErr } = await supabase
-    .from("visits")
+    .from("service_visits")
     .select("visit_date")
     .eq("site_id", contract.site_id)
     .eq("visit_type", visitType)
@@ -149,7 +149,7 @@ export async function generateVisitsFromContract(
       : "Auto-generated from service contract.",
   }));
 
-  const { error: insErr } = await supabase.from("visits").insert(rows);
+  const { error: insErr } = await supabase.from("service_visits").insert(rows);
   if (insErr) throw insErr;
 
   return { created: toCreate.length, skipped: dates.length - toCreate.length };

@@ -12,7 +12,7 @@ export function JobDashboard() {
   const { data: visit } = useQuery({
     queryKey: ["field-visit", visitId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).from("visits").select(`*, sites:site_id ( name )`).eq("id", visitId).single();
+      const { data, error } = await (supabase as any).from("service_visits").select(`*, sites:site_id ( name )`).eq("id", visitId).single();
       if (error) throw error;
       return data;
     },

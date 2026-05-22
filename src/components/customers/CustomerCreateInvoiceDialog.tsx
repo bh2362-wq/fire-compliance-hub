@@ -347,7 +347,7 @@ export function CustomerCreateInvoiceDialog({
       // Only create a visit for service types that require one (not supply_only)
       if (serviceType !== "supply_only") {
         const { data: visit, error: visitError } = await supabase
-          .from("visits")
+          .from("service_visits")
           .insert({
             site_id: selectedSite,
             visit_type: serviceType,
@@ -368,7 +368,7 @@ export function CustomerCreateInvoiceDialog({
       if (!visitId) {
         // Create a supply-only pseudo-visit for invoice tracking
         const { data: supplyVisit, error: supplyError } = await supabase
-          .from("visits")
+          .from("service_visits")
           .insert({
             site_id: selectedSite,
             visit_type: "supply_only",
