@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   MessageCircle, Loader2, RefreshCw, Scan, AlertCircle,
-  CheckCircle2, User, Sparkles, ArrowRight, Upload, FileArchive,
+  CheckCircle2, User, Sparkles, ArrowRight, Upload, FileArchive, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
