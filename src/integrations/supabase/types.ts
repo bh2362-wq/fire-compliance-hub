@@ -146,6 +146,13 @@ export type Database = {
             foreignKeyName: "appointments_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
             referencedColumns: ["id"]
           },
@@ -822,6 +829,13 @@ export type Database = {
             foreignKeyName: "customer_email_drafts_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_email_drafts_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
             referencedColumns: ["id"]
           },
@@ -893,6 +907,13 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "customer_form_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_form_submissions_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
           {
@@ -1670,6 +1691,13 @@ export type Database = {
             foreignKeyName: "email_logs_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
             referencedColumns: ["id"]
           },
@@ -1791,6 +1819,13 @@ export type Database = {
             foreignKeyName: "file_uploads_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_uploads_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
             referencedColumns: ["id"]
           },
@@ -1885,6 +1920,13 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
           {
@@ -2137,6 +2179,13 @@ export type Database = {
             columns: ["upload_id"]
             isOneToOne: false
             referencedRelation: "file_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parsed_device_tests_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
           {
@@ -2967,6 +3016,13 @@ export type Database = {
             foreignKeyName: "qms_feedback_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qms_feedback_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
             referencedColumns: ["id"]
           },
@@ -3100,6 +3156,13 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qms_ncrs_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
           {
@@ -3625,6 +3688,13 @@ export type Database = {
             foreignKeyName: "quotations_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
             referencedColumns: ["id"]
           },
@@ -3981,6 +4051,13 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "rams_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rams_documents_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
           {
@@ -4551,7 +4628,144 @@ export type Database = {
             foreignKeyName: "service_reports_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_reports_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_visits: {
+        Row: {
+          acceptance_token: string | null
+          accepted_by_name: string | null
+          appointment_time: string | null
+          arrival_lat: number | null
+          arrival_lng: number | null
+          arrived_at: string | null
+          client_accepted_at: string | null
+          client_po_file_url: string | null
+          client_po_number: string | null
+          client_signature_url: string | null
+          client_signed_name: string | null
+          confirmation_sent_at: string | null
+          confirmation_sent_by: string | null
+          confirmation_sent_to: string | null
+          coverage_percentage: number | null
+          created_at: string
+          departed_at: string | null
+          devices_tested: number | null
+          engineer_id: string | null
+          engineer_notes: string | null
+          estimated_hours: number | null
+          id: string
+          issues_count: number | null
+          job_number: string | null
+          notes: string | null
+          quotation_id: string | null
+          quoted_price: number | null
+          site_id: string
+          status: string | null
+          total_devices: number | null
+          updated_at: string
+          visit_date: string
+          visit_type: string
+        }
+        Insert: {
+          acceptance_token?: string | null
+          accepted_by_name?: string | null
+          appointment_time?: string | null
+          arrival_lat?: number | null
+          arrival_lng?: number | null
+          arrived_at?: string | null
+          client_accepted_at?: string | null
+          client_po_file_url?: string | null
+          client_po_number?: string | null
+          client_signature_url?: string | null
+          client_signed_name?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_sent_to?: string | null
+          coverage_percentage?: number | null
+          created_at?: string
+          departed_at?: string | null
+          devices_tested?: number | null
+          engineer_id?: string | null
+          engineer_notes?: string | null
+          estimated_hours?: number | null
+          id?: string
+          issues_count?: number | null
+          job_number?: string | null
+          notes?: string | null
+          quotation_id?: string | null
+          quoted_price?: number | null
+          site_id: string
+          status?: string | null
+          total_devices?: number | null
+          updated_at?: string
+          visit_date?: string
+          visit_type: string
+        }
+        Update: {
+          acceptance_token?: string | null
+          accepted_by_name?: string | null
+          appointment_time?: string | null
+          arrival_lat?: number | null
+          arrival_lng?: number | null
+          arrived_at?: string | null
+          client_accepted_at?: string | null
+          client_po_file_url?: string | null
+          client_po_number?: string | null
+          client_signature_url?: string | null
+          client_signed_name?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_sent_to?: string | null
+          coverage_percentage?: number | null
+          created_at?: string
+          departed_at?: string | null
+          devices_tested?: number | null
+          engineer_id?: string | null
+          engineer_notes?: string | null
+          estimated_hours?: number | null
+          id?: string
+          issues_count?: number | null
+          job_number?: string | null
+          notes?: string | null
+          quotation_id?: string | null
+          quoted_price?: number | null
+          site_id?: string
+          status?: string | null
+          total_devices?: number | null
+          updated_at?: string
+          visit_date?: string
+          visit_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visits_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "visits_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -4840,6 +5054,13 @@ export type Database = {
             foreignKeyName: "site_defects_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_defects_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
             referencedColumns: ["id"]
           },
@@ -5047,6 +5268,13 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_form_submissions_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
           {
@@ -5268,6 +5496,13 @@ export type Database = {
             foreignKeyName: "visit_requirements_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_requirements_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
             referencedColumns: ["id"]
           },
@@ -5315,137 +5550,14 @@ export type Database = {
             foreignKeyName: "visit_subcontractor_sheets_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_subcontractor_sheets_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      visits: {
-        Row: {
-          acceptance_token: string | null
-          accepted_by_name: string | null
-          appointment_time: string | null
-          arrival_lat: number | null
-          arrival_lng: number | null
-          arrived_at: string | null
-          client_accepted_at: string | null
-          client_po_file_url: string | null
-          client_po_number: string | null
-          client_signature_url: string | null
-          client_signed_name: string | null
-          confirmation_sent_at: string | null
-          confirmation_sent_by: string | null
-          confirmation_sent_to: string | null
-          coverage_percentage: number | null
-          created_at: string
-          departed_at: string | null
-          devices_tested: number | null
-          engineer_id: string | null
-          engineer_notes: string | null
-          estimated_hours: number | null
-          id: string
-          issues_count: number | null
-          job_number: string | null
-          notes: string | null
-          quotation_id: string | null
-          quoted_price: number | null
-          site_id: string
-          status: string | null
-          total_devices: number | null
-          updated_at: string
-          visit_date: string
-          visit_type: string
-        }
-        Insert: {
-          acceptance_token?: string | null
-          accepted_by_name?: string | null
-          appointment_time?: string | null
-          arrival_lat?: number | null
-          arrival_lng?: number | null
-          arrived_at?: string | null
-          client_accepted_at?: string | null
-          client_po_file_url?: string | null
-          client_po_number?: string | null
-          client_signature_url?: string | null
-          client_signed_name?: string | null
-          confirmation_sent_at?: string | null
-          confirmation_sent_by?: string | null
-          confirmation_sent_to?: string | null
-          coverage_percentage?: number | null
-          created_at?: string
-          departed_at?: string | null
-          devices_tested?: number | null
-          engineer_id?: string | null
-          engineer_notes?: string | null
-          estimated_hours?: number | null
-          id?: string
-          issues_count?: number | null
-          job_number?: string | null
-          notes?: string | null
-          quotation_id?: string | null
-          quoted_price?: number | null
-          site_id: string
-          status?: string | null
-          total_devices?: number | null
-          updated_at?: string
-          visit_date?: string
-          visit_type: string
-        }
-        Update: {
-          acceptance_token?: string | null
-          accepted_by_name?: string | null
-          appointment_time?: string | null
-          arrival_lat?: number | null
-          arrival_lng?: number | null
-          arrived_at?: string | null
-          client_accepted_at?: string | null
-          client_po_file_url?: string | null
-          client_po_number?: string | null
-          client_signature_url?: string | null
-          client_signed_name?: string | null
-          confirmation_sent_at?: string | null
-          confirmation_sent_by?: string | null
-          confirmation_sent_to?: string | null
-          coverage_percentage?: number | null
-          created_at?: string
-          departed_at?: string | null
-          devices_tested?: number | null
-          engineer_id?: string | null
-          engineer_notes?: string | null
-          estimated_hours?: number | null
-          id?: string
-          issues_count?: number | null
-          job_number?: string | null
-          notes?: string | null
-          quotation_id?: string | null
-          quoted_price?: number | null
-          site_id?: string
-          status?: string | null
-          total_devices?: number | null
-          updated_at?: string
-          visit_date?: string
-          visit_type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "visits_engineer_id_fkey"
-            columns: ["engineer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "visits_quotation_id_fkey"
-            columns: ["quotation_id"]
-            isOneToOne: false
-            referencedRelation: "quotations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visits_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -5615,6 +5727,13 @@ export type Database = {
             foreignKeyName: "xero_invoices_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xero_invoices_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
             referencedRelation: "visits"
             referencedColumns: ["id"]
           },
@@ -5642,6 +5761,136 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      visits: {
+        Row: {
+          acceptance_token: string | null
+          accepted_by_name: string | null
+          appointment_time: string | null
+          arrival_lat: number | null
+          arrival_lng: number | null
+          arrived_at: string | null
+          client_accepted_at: string | null
+          client_po_file_url: string | null
+          client_po_number: string | null
+          client_signature_url: string | null
+          client_signed_name: string | null
+          confirmation_sent_at: string | null
+          confirmation_sent_by: string | null
+          confirmation_sent_to: string | null
+          coverage_percentage: number | null
+          created_at: string | null
+          departed_at: string | null
+          devices_tested: number | null
+          engineer_id: string | null
+          engineer_notes: string | null
+          estimated_hours: number | null
+          id: string | null
+          issues_count: number | null
+          job_number: string | null
+          notes: string | null
+          quotation_id: string | null
+          quoted_price: number | null
+          site_id: string | null
+          status: string | null
+          total_devices: number | null
+          updated_at: string | null
+          visit_date: string | null
+          visit_type: string | null
+        }
+        Insert: {
+          acceptance_token?: string | null
+          accepted_by_name?: string | null
+          appointment_time?: string | null
+          arrival_lat?: number | null
+          arrival_lng?: number | null
+          arrived_at?: string | null
+          client_accepted_at?: string | null
+          client_po_file_url?: string | null
+          client_po_number?: string | null
+          client_signature_url?: string | null
+          client_signed_name?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_sent_to?: string | null
+          coverage_percentage?: number | null
+          created_at?: string | null
+          departed_at?: string | null
+          devices_tested?: number | null
+          engineer_id?: string | null
+          engineer_notes?: string | null
+          estimated_hours?: number | null
+          id?: string | null
+          issues_count?: number | null
+          job_number?: string | null
+          notes?: string | null
+          quotation_id?: string | null
+          quoted_price?: number | null
+          site_id?: string | null
+          status?: string | null
+          total_devices?: number | null
+          updated_at?: string | null
+          visit_date?: string | null
+          visit_type?: string | null
+        }
+        Update: {
+          acceptance_token?: string | null
+          accepted_by_name?: string | null
+          appointment_time?: string | null
+          arrival_lat?: number | null
+          arrival_lng?: number | null
+          arrived_at?: string | null
+          client_accepted_at?: string | null
+          client_po_file_url?: string | null
+          client_po_number?: string | null
+          client_signature_url?: string | null
+          client_signed_name?: string | null
+          confirmation_sent_at?: string | null
+          confirmation_sent_by?: string | null
+          confirmation_sent_to?: string | null
+          coverage_percentage?: number | null
+          created_at?: string | null
+          departed_at?: string | null
+          devices_tested?: number | null
+          engineer_id?: string | null
+          engineer_notes?: string | null
+          estimated_hours?: number | null
+          id?: string | null
+          issues_count?: number | null
+          job_number?: string | null
+          notes?: string | null
+          quotation_id?: string | null
+          quoted_price?: number | null
+          site_id?: string | null
+          status?: string | null
+          total_devices?: number | null
+          updated_at?: string | null
+          visit_date?: string | null
+          visit_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visits_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "visits_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       xero_connections_safe: {
         Row: {
