@@ -565,9 +565,14 @@ const EmailScanner = () => {
                   <WhatsAppScanner
                     onScanMessage={(content, from) => {
                       setEmailContent(content);
+                      setLastSourceEmail({ subject: `WhatsApp: ${from}`, from });
                       setActiveTab("scanner");
                       toast.success(`WhatsApp from ${from} loaded`);
                     }}
+                    onSweepIntents={(content, from) =>
+                      runIntentSweep(content, { from, channel: "whatsapp" })
+                    }
+                    sweeping={scanning}
                   />
                 </CardContent>
               </Card>
