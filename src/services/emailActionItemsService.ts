@@ -74,11 +74,11 @@ export async function saveScannedIntents(intents: ScannedIntent[], source: Sourc
     title: i.title,
     summary: i.summary ?? null,
     suggested_date: i.suggested_date || null,
-    suggested_payload: (i.payload ?? {}) as IntentPayload,
+    suggested_payload: ((i.payload ?? {}) as unknown) as never,
     status: "pending" as IntentStatus,
     created_by: userId,
   }));
-  const { data, error } = await supabase.from("email_action_items").insert(rows).select();
+  const { data, error } = await supabase.from("email_action_items").insert(rows as never).select();
   if (error) throw error;
   return data as unknown as EmailActionItemRow[];
 }
@@ -96,7 +96,7 @@ export async function listPendingActionItems(limit = 100) {
 }
 
 export async function updateActionItem(id: string, patch: Partial<EmailActionItemRow>) {
-  const { error } = await supabase.from("email_action_items").update(patch).eq("id", id);
+  const { error } = await supabase.from("email_action_items").update(patch as never).eq("id", id);
   if (error) throw error;
 }
 
