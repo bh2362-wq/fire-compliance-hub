@@ -53,7 +53,8 @@ const ACCEPT =
 
 interface SiteDocumentsProps {
   siteId: string;
-  customerId: string;
+  /** Optional - if omitted, resolved from the site row */
+  customerId?: string | null;
   /** Optional - filter and pin uploads to a specific visit */
   serviceVisitId?: string | null;
   /** Optional - default title prefix (e.g. visit type) */
