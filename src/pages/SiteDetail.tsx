@@ -13,6 +13,7 @@ import { CustomerRamsRequirementsPanel } from "@/components/rams/CustomerRamsReq
 import SiteCustomerForms from "@/components/customer-forms/SiteCustomerForms";
 import { SiteBafeCertificates } from "@/components/sites/SiteBafeCertificates";
 import { SiteSmartCerts } from "@/components/sites/SiteSmartCerts";
+import { SiteDocuments } from "@/components/documents/SiteDocuments";
 import { OpenVisitsCard } from "@/components/visits/OpenVisitsCard";
 import DeviceImportDialog from "@/components/sites/DeviceImportDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
