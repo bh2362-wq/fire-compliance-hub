@@ -294,14 +294,16 @@ function UploadDialog({
   serviceVisitId,
   defaultTitlePrefix,
   onUploaded,
+  onResolveCustomerId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   siteId: string;
-  customerId: string;
+  customerId: string | null;
   serviceVisitId: string | null;
   defaultTitlePrefix?: string;
   onUploaded: () => void;
+  onResolveCustomerId?: (id: string) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
