@@ -34,24 +34,24 @@ export type BatteryTestUpdate = Partial<
 
 export async function listBatteryTests(serviceReportId: string): Promise<BatteryTest[]> {
   const { data, error } = await supabase
-    .from("service_report_battery_tests" as never)
+    .from("service_report_battery_tests")
     .select("*")
     .eq("service_report_id", serviceReportId)
     .order("created_at", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as unknown as BatteryTest[];
+  return (data ?? []) as BatteryTest[];
 }
 
 export async function createBatteryTest(input: BatteryTestInsert): Promise<BatteryTest> {
   const { data, error } = await supabase
-    .from("service_report_battery_tests" as never)
-    .insert(input as never)
+    .from("service_report_battery_tests")
+    .insert(input)
     .select()
     .single();
 
   if (error) throw error;
-  return data as unknown as BatteryTest;
+  return data as BatteryTest;
 }
 
 export async function updateBatteryTest(
@@ -59,19 +59,19 @@ export async function updateBatteryTest(
   updates: BatteryTestUpdate,
 ): Promise<BatteryTest> {
   const { data, error } = await supabase
-    .from("service_report_battery_tests" as never)
-    .update(updates as never)
+    .from("service_report_battery_tests")
+    .update(updates)
     .eq("id", id)
     .select()
     .single();
 
   if (error) throw error;
-  return data as unknown as BatteryTest;
+  return data as BatteryTest;
 }
 
 export async function deleteBatteryTest(id: string): Promise<void> {
   const { error } = await supabase
-    .from("service_report_battery_tests" as never)
+    .from("service_report_battery_tests")
     .delete()
     .eq("id", id);
 
