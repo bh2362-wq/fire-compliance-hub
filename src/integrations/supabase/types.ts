@@ -149,13 +149,6 @@ export type Database = {
             referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "appointments_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
         ]
       }
       audit_logs: {
@@ -284,6 +277,132 @@ export type Database = {
             columns: ["quotation_id"]
             isOneToOne: false
             referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cause_effect_matrices: {
+        Row: {
+          id: string
+          is_archived: boolean
+          legend: string | null
+          notes: string | null
+          site_id: string
+          source_file_name: string | null
+          source_file_path: string | null
+          title: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          id?: string
+          is_archived?: boolean
+          legend?: string | null
+          notes?: string | null
+          site_id: string
+          source_file_name?: string | null
+          source_file_path?: string | null
+          title: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          id?: string
+          is_archived?: boolean
+          legend?: string | null
+          notes?: string | null
+          site_id?: string
+          source_file_name?: string | null
+          source_file_path?: string | null
+          title?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cause_effect_matrices_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cause_effect_outputs: {
+        Row: {
+          code: string
+          id: string
+          identification: string | null
+          matrix_id: string
+          ordinal: number
+          panel_location: string | null
+        }
+        Insert: {
+          code: string
+          id?: string
+          identification?: string | null
+          matrix_id: string
+          ordinal: number
+          panel_location?: string | null
+        }
+        Update: {
+          code?: string
+          id?: string
+          identification?: string | null
+          matrix_id?: string
+          ordinal?: number
+          panel_location?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cause_effect_outputs_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "cause_effect_matrices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cause_effect_rules: {
+        Row: {
+          actions: Json
+          id: string
+          matrix_id: string
+          notes: string | null
+          ordinal: number
+          ref: string | null
+          trigger_device: string | null
+          trigger_location: string | null
+          trigger_type: string | null
+        }
+        Insert: {
+          actions?: Json
+          id?: string
+          matrix_id: string
+          notes?: string | null
+          ordinal: number
+          ref?: string | null
+          trigger_device?: string | null
+          trigger_location?: string | null
+          trigger_type?: string | null
+        }
+        Update: {
+          actions?: Json
+          id?: string
+          matrix_id?: string
+          notes?: string | null
+          ordinal?: number
+          ref?: string | null
+          trigger_device?: string | null
+          trigger_location?: string | null
+          trigger_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cause_effect_rules_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "cause_effect_matrices"
             referencedColumns: ["id"]
           },
         ]
@@ -832,13 +951,6 @@ export type Database = {
             referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "customer_email_drafts_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
         ]
       }
       customer_form_submissions: {
@@ -914,13 +1026,6 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "service_visits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customer_form_submissions_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
             referencedColumns: ["id"]
           },
         ]
@@ -1763,13 +1868,6 @@ export type Database = {
             referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "email_logs_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
         ]
       }
       email_templates: {
@@ -1891,13 +1989,6 @@ export type Database = {
             referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "file_uploads_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
         ]
       }
       gdpr_consent_records: {
@@ -1996,13 +2087,6 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "service_visits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issues_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
             referencedColumns: ["id"]
           },
         ]
@@ -2255,13 +2339,6 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "service_visits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "parsed_device_tests_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
             referencedColumns: ["id"]
           },
         ]
@@ -3088,13 +3165,6 @@ export type Database = {
             referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "qms_feedback_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
         ]
       }
       qms_management_reviews: {
@@ -3232,13 +3302,6 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "service_visits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "qms_ncrs_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
             referencedColumns: ["id"]
           },
         ]
@@ -3760,13 +3823,6 @@ export type Database = {
             referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "quotations_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
         ]
       }
       quotes: {
@@ -4127,13 +4183,6 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "service_visits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rams_documents_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
             referencedColumns: ["id"]
           },
         ]
@@ -4557,6 +4606,7 @@ export type Database = {
           arrival_time: string | null
           checklist: Json
           client_name: string | null
+          client_sign_date: string | null
           client_sign_name: string | null
           client_sign_position: string | null
           client_signature: string | null
@@ -4566,6 +4616,7 @@ export type Database = {
           departure_time: string | null
           devices_count: number | null
           engineer_name: string | null
+          engineer_sign_date: string | null
           engineer_signature: string | null
           id: string
           invoiced: boolean | null
@@ -4573,6 +4624,7 @@ export type Database = {
           mileage_miles: number | null
           next_service_due: string | null
           notes: string | null
+          outstanding_works: string | null
           panel_id: string | null
           panel_location: string | null
           panel_manufacturer: string | null
@@ -4599,6 +4651,7 @@ export type Database = {
           arrival_time?: string | null
           checklist?: Json
           client_name?: string | null
+          client_sign_date?: string | null
           client_sign_name?: string | null
           client_sign_position?: string | null
           client_signature?: string | null
@@ -4608,6 +4661,7 @@ export type Database = {
           departure_time?: string | null
           devices_count?: number | null
           engineer_name?: string | null
+          engineer_sign_date?: string | null
           engineer_signature?: string | null
           id?: string
           invoiced?: boolean | null
@@ -4615,6 +4669,7 @@ export type Database = {
           mileage_miles?: number | null
           next_service_due?: string | null
           notes?: string | null
+          outstanding_works?: string | null
           panel_id?: string | null
           panel_location?: string | null
           panel_manufacturer?: string | null
@@ -4641,6 +4696,7 @@ export type Database = {
           arrival_time?: string | null
           checklist?: Json
           client_name?: string | null
+          client_sign_date?: string | null
           client_sign_name?: string | null
           client_sign_position?: string | null
           client_signature?: string | null
@@ -4650,6 +4706,7 @@ export type Database = {
           departure_time?: string | null
           devices_count?: number | null
           engineer_name?: string | null
+          engineer_sign_date?: string | null
           engineer_signature?: string | null
           id?: string
           invoiced?: boolean | null
@@ -4657,6 +4714,7 @@ export type Database = {
           mileage_miles?: number | null
           next_service_due?: string | null
           notes?: string | null
+          outstanding_works?: string | null
           panel_id?: string | null
           panel_location?: string | null
           panel_manufacturer?: string | null
@@ -4700,28 +4758,26 @@ export type Database = {
             referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "service_reports_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
         ]
       }
       service_visits: {
         Row: {
           acceptance_token: string | null
           accepted_by_name: string | null
+          affected_loops: string[] | null
+          affected_zones: string[] | null
           appointment_time: string | null
+          arc_notified_at: string | null
           arrival_lat: number | null
           arrival_lng: number | null
           arrived_at: string | null
+          call_received_at: string | null
           client_accepted_at: string | null
           client_po_file_url: string | null
           client_po_number: string | null
           client_signature_url: string | null
           client_signed_name: string | null
+          commercial_classification: string | null
           confirmation_sent_at: string | null
           confirmation_sent_by: string | null
           confirmation_sent_to: string | null
@@ -4729,15 +4785,20 @@ export type Database = {
           created_at: string
           departed_at: string | null
           devices_tested: number | null
+          engineer_assigned_at: string | null
           engineer_id: string | null
           engineer_notes: string | null
           estimated_hours: number | null
+          fault_details: Json | null
           id: string
           issues_count: number | null
           job_number: string | null
           notes: string | null
+          priority: string | null
           quotation_id: string | null
           quoted_price: number | null
+          report_method: string | null
+          reported_by: string | null
           site_id: string
           status: string | null
           total_devices: number | null
@@ -4748,15 +4809,20 @@ export type Database = {
         Insert: {
           acceptance_token?: string | null
           accepted_by_name?: string | null
+          affected_loops?: string[] | null
+          affected_zones?: string[] | null
           appointment_time?: string | null
+          arc_notified_at?: string | null
           arrival_lat?: number | null
           arrival_lng?: number | null
           arrived_at?: string | null
+          call_received_at?: string | null
           client_accepted_at?: string | null
           client_po_file_url?: string | null
           client_po_number?: string | null
           client_signature_url?: string | null
           client_signed_name?: string | null
+          commercial_classification?: string | null
           confirmation_sent_at?: string | null
           confirmation_sent_by?: string | null
           confirmation_sent_to?: string | null
@@ -4764,15 +4830,20 @@ export type Database = {
           created_at?: string
           departed_at?: string | null
           devices_tested?: number | null
+          engineer_assigned_at?: string | null
           engineer_id?: string | null
           engineer_notes?: string | null
           estimated_hours?: number | null
+          fault_details?: Json | null
           id?: string
           issues_count?: number | null
           job_number?: string | null
           notes?: string | null
+          priority?: string | null
           quotation_id?: string | null
           quoted_price?: number | null
+          report_method?: string | null
+          reported_by?: string | null
           site_id: string
           status?: string | null
           total_devices?: number | null
@@ -4783,15 +4854,20 @@ export type Database = {
         Update: {
           acceptance_token?: string | null
           accepted_by_name?: string | null
+          affected_loops?: string[] | null
+          affected_zones?: string[] | null
           appointment_time?: string | null
+          arc_notified_at?: string | null
           arrival_lat?: number | null
           arrival_lng?: number | null
           arrived_at?: string | null
+          call_received_at?: string | null
           client_accepted_at?: string | null
           client_po_file_url?: string | null
           client_po_number?: string | null
           client_signature_url?: string | null
           client_signed_name?: string | null
+          commercial_classification?: string | null
           confirmation_sent_at?: string | null
           confirmation_sent_by?: string | null
           confirmation_sent_to?: string | null
@@ -4799,15 +4875,20 @@ export type Database = {
           created_at?: string
           departed_at?: string | null
           devices_tested?: number | null
+          engineer_assigned_at?: string | null
           engineer_id?: string | null
           engineer_notes?: string | null
           estimated_hours?: number | null
+          fault_details?: Json | null
           id?: string
           issues_count?: number | null
           job_number?: string | null
           notes?: string | null
+          priority?: string | null
           quotation_id?: string | null
           quoted_price?: number | null
+          report_method?: string | null
+          reported_by?: string | null
           site_id?: string
           status?: string | null
           total_devices?: number | null
@@ -5126,13 +5207,6 @@ export type Database = {
             referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "site_defects_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
         ]
       }
       site_service_contracts: {
@@ -5195,6 +5269,12 @@ export type Database = {
         Row: {
           access_notes: string | null
           address: string | null
+          arc_connected: boolean | null
+          areas_covered: string | null
+          areas_not_covered: string | null
+          bs5839_category: string | null
+          building_type: string | null
+          cable_type: string | null
           city: string | null
           contact_email: string | null
           contact_name: string | null
@@ -5204,18 +5284,32 @@ export type Database = {
           gate_code: string | null
           id: string
           name: string
+          num_devices: number | null
+          num_loops: number | null
+          num_zones: number | null
+          occupancy_type: string | null
+          panel_make_model: string | null
+          panel_software_version: string | null
           parking_notes: string | null
           portal_token: string | null
           postcode: string | null
+          psu_capacity_ah: number | null
           sharepoint_folder: string | null
           sharepoint_url: string | null
           status: string | null
           total_devices: number | null
           updated_at: string
+          year_installed: number | null
         }
         Insert: {
           access_notes?: string | null
           address?: string | null
+          arc_connected?: boolean | null
+          areas_covered?: string | null
+          areas_not_covered?: string | null
+          bs5839_category?: string | null
+          building_type?: string | null
+          cable_type?: string | null
           city?: string | null
           contact_email?: string | null
           contact_name?: string | null
@@ -5225,18 +5319,32 @@ export type Database = {
           gate_code?: string | null
           id?: string
           name: string
+          num_devices?: number | null
+          num_loops?: number | null
+          num_zones?: number | null
+          occupancy_type?: string | null
+          panel_make_model?: string | null
+          panel_software_version?: string | null
           parking_notes?: string | null
           portal_token?: string | null
           postcode?: string | null
+          psu_capacity_ah?: number | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
           status?: string | null
           total_devices?: number | null
           updated_at?: string
+          year_installed?: number | null
         }
         Update: {
           access_notes?: string | null
           address?: string | null
+          arc_connected?: boolean | null
+          areas_covered?: string | null
+          areas_not_covered?: string | null
+          bs5839_category?: string | null
+          building_type?: string | null
+          cable_type?: string | null
           city?: string | null
           contact_email?: string | null
           contact_name?: string | null
@@ -5246,14 +5354,22 @@ export type Database = {
           gate_code?: string | null
           id?: string
           name?: string
+          num_devices?: number | null
+          num_loops?: number | null
+          num_zones?: number | null
+          occupancy_type?: string | null
+          panel_make_model?: string | null
+          panel_software_version?: string | null
           parking_notes?: string | null
           portal_token?: string | null
           postcode?: string | null
+          psu_capacity_ah?: number | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
           status?: string | null
           total_devices?: number | null
           updated_at?: string
+          year_installed?: number | null
         }
         Relationships: [
           {
@@ -5344,13 +5460,6 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "service_visits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "smart_form_submissions_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
             referencedColumns: ["id"]
           },
         ]
@@ -5600,13 +5709,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "visit_documents_service_visit_id_fkey"
-            columns: ["service_visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "visit_documents_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -5667,13 +5769,6 @@ export type Database = {
             referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "visit_requirements_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
         ]
       }
       visit_subcontractor_sheets: {
@@ -5719,13 +5814,6 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "service_visits"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visit_subcontractor_sheets_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
             referencedColumns: ["id"]
           },
         ]
@@ -5898,13 +5986,6 @@ export type Database = {
             referencedRelation: "service_visits"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "xero_invoices_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
         ]
       }
     }
@@ -5929,136 +6010,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
-      }
-      visits: {
-        Row: {
-          acceptance_token: string | null
-          accepted_by_name: string | null
-          appointment_time: string | null
-          arrival_lat: number | null
-          arrival_lng: number | null
-          arrived_at: string | null
-          client_accepted_at: string | null
-          client_po_file_url: string | null
-          client_po_number: string | null
-          client_signature_url: string | null
-          client_signed_name: string | null
-          confirmation_sent_at: string | null
-          confirmation_sent_by: string | null
-          confirmation_sent_to: string | null
-          coverage_percentage: number | null
-          created_at: string | null
-          departed_at: string | null
-          devices_tested: number | null
-          engineer_id: string | null
-          engineer_notes: string | null
-          estimated_hours: number | null
-          id: string | null
-          issues_count: number | null
-          job_number: string | null
-          notes: string | null
-          quotation_id: string | null
-          quoted_price: number | null
-          site_id: string | null
-          status: string | null
-          total_devices: number | null
-          updated_at: string | null
-          visit_date: string | null
-          visit_type: string | null
-        }
-        Insert: {
-          acceptance_token?: string | null
-          accepted_by_name?: string | null
-          appointment_time?: string | null
-          arrival_lat?: number | null
-          arrival_lng?: number | null
-          arrived_at?: string | null
-          client_accepted_at?: string | null
-          client_po_file_url?: string | null
-          client_po_number?: string | null
-          client_signature_url?: string | null
-          client_signed_name?: string | null
-          confirmation_sent_at?: string | null
-          confirmation_sent_by?: string | null
-          confirmation_sent_to?: string | null
-          coverage_percentage?: number | null
-          created_at?: string | null
-          departed_at?: string | null
-          devices_tested?: number | null
-          engineer_id?: string | null
-          engineer_notes?: string | null
-          estimated_hours?: number | null
-          id?: string | null
-          issues_count?: number | null
-          job_number?: string | null
-          notes?: string | null
-          quotation_id?: string | null
-          quoted_price?: number | null
-          site_id?: string | null
-          status?: string | null
-          total_devices?: number | null
-          updated_at?: string | null
-          visit_date?: string | null
-          visit_type?: string | null
-        }
-        Update: {
-          acceptance_token?: string | null
-          accepted_by_name?: string | null
-          appointment_time?: string | null
-          arrival_lat?: number | null
-          arrival_lng?: number | null
-          arrived_at?: string | null
-          client_accepted_at?: string | null
-          client_po_file_url?: string | null
-          client_po_number?: string | null
-          client_signature_url?: string | null
-          client_signed_name?: string | null
-          confirmation_sent_at?: string | null
-          confirmation_sent_by?: string | null
-          confirmation_sent_to?: string | null
-          coverage_percentage?: number | null
-          created_at?: string | null
-          departed_at?: string | null
-          devices_tested?: number | null
-          engineer_id?: string | null
-          engineer_notes?: string | null
-          estimated_hours?: number | null
-          id?: string | null
-          issues_count?: number | null
-          job_number?: string | null
-          notes?: string | null
-          quotation_id?: string | null
-          quoted_price?: number | null
-          site_id?: string | null
-          status?: string | null
-          total_devices?: number | null
-          updated_at?: string | null
-          visit_date?: string | null
-          visit_type?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "visits_engineer_id_fkey"
-            columns: ["engineer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
-            foreignKeyName: "visits_quotation_id_fkey"
-            columns: ["quotation_id"]
-            isOneToOne: false
-            referencedRelation: "quotations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "visits_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       xero_connections_safe: {
         Row: {
