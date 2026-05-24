@@ -121,7 +121,9 @@ export function CaptureWizard({ visit, userId, onCompleted }: Props) {
 
       <main className="px-4 pt-4">
         {stepIdx === 0 && <StartStep visit={visit} report={report} onPatch={patchScalars} />}
-        {stepIdx === 1 && <SystemStep report={report} onPatch={patchScalars} />}
+        {stepIdx === 1 && (
+          <SystemStep report={report} onPatch={patchScalars} siteId={visit.site_id} />
+        )}
         {stepIdx === 2 && (
           <ChecklistStep checklist={report.checklist} onChange={patchChecklist} />
         )}
