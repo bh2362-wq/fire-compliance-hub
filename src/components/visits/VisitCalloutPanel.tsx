@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { FileDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   VisitCallout,
@@ -21,6 +21,8 @@ import {
   getVisitCallout,
   updateVisitCallout,
 } from "@/services/visitCalloutService";
+import { buildCalloutReportInput } from "@/services/calloutReportService";
+import { generateCalloutReportPDF } from "@/lib/calloutReportPdfGenerator";
 
 interface Props {
   visitId: string;
@@ -66,6 +68,7 @@ export function VisitCalloutPanel({ visitId }: Props) {
   const [fault, setFault] = useState<FaultDetails>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -303,8 +306,36 @@ export function VisitCalloutPanel({ visitId }: Props) {
         </Field>
       </section>
 
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving}>
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={async () => {
+            setGenerating(true);
+            try {
+              const input = await buildCalloutReportInput(visitId);
+              await generateCalloutReportPDF(input);
+              toast.success("Callout Report downloaded");
+            } catch (e) {
+              toast.error((e as Error).message || "Could not generate PDF");
+            } finally {
+              setGenerating(false);
+            }
+          }}
+          disabled={generating || saving}
+        >
+          {generating ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              Generating…
+            </>
+          ) : (
+            <>
+              <FileDown className="w-4 h-4 mr-1" />
+              Generate Callout Report PDF
+            </>
+          )}
+        </Button>
+        <Button onClick={handleSave} disabled={saving || generating}>
           {saving ? "Saving…" : "Save callout details"}
         </Button>
       </div>
