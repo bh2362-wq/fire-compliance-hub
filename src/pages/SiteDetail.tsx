@@ -7,6 +7,7 @@ import SiteReconciliationHistory from "@/components/sites/SiteReconciliationHist
 import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
 import { SiteServiceReports } from "@/components/sites/SiteServiceReports";
 import { SiteAssets } from "@/components/sites/SiteAssets";
+import { SiteSystemInfoPanel } from "@/components/sites/SiteSystemInfoPanel";
 import { PortalLinkButton } from "@/components/sites/PortalLinkButton";
 import { SiteRamsDocuments } from "@/components/sites/SiteRamsDocuments";
 import { CustomerRamsRequirementsPanel } from "@/components/rams/CustomerRamsRequirementsPanel";
@@ -24,7 +25,7 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye, FileSignature, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye, FileSignature, ShieldCheck, Gauge } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -260,6 +261,11 @@ const SiteDetail = () => {
             </p>
           </div>
         </div>
+
+        {/* System Information — sites is canonical for panel/category/zones/devices/ARC */}
+        <CollapsibleSection title="System Information" icon={Gauge} defaultOpen={true}>
+          <SiteSystemInfoPanel siteId={site.id} />
+        </CollapsibleSection>
 
         {/* BS 5839-1 Certificates */}
         <CollapsibleSection title="BS 5839-1 Certificates" icon={ShieldCheck} defaultOpen={true}>
