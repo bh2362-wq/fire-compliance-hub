@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Json } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
+
+type ServiceReportInsert = Database["public"]["Tables"]["service_reports"]["Insert"];
 
 // BS 5839-1:2025 Fire Detection & Fire Alarm Inspection & Servicing Checklist
 // Based on BAFE SP203-1 Clause 9.8 & BS5839-1:2025 Clause 45
@@ -479,7 +481,7 @@ export async function getServiceReport(visitId: string): Promise<ServiceReport |
   return {
     ...data,
     checklist: (data.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-  } as unknown as ServiceReport;
+  } as ServiceReport;
 }
 
 export async function createServiceReport(
@@ -505,7 +507,7 @@ export async function createServiceReport(
     }
   }
 
-  const insertData: Record<string, unknown> = {
+  const insertData: ServiceReportInsert = {
     visit_id: visitId,
     site_id: siteId,
     created_by: userId,
@@ -524,7 +526,7 @@ export async function createServiceReport(
 
   const { data, error } = await supabase
     .from("service_reports")
-    .insert(insertData as never)
+    .insert(insertData)
     .select()
     .single();
 
@@ -532,7 +534,7 @@ export async function createServiceReport(
   return {
     ...data,
     checklist: (data.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-  } as unknown as ServiceReport;
+  } as ServiceReport;
 }
 
 // Assign a report number to an existing report (call when completing/finalizing)
@@ -585,7 +587,7 @@ export async function updateServiceReport(
   return {
     ...data,
     checklist: (data.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-  } as unknown as ServiceReport;
+  } as ServiceReport;
 }
 
 export async function getSiteServiceReports(siteId: string): Promise<ServiceReport[]> {
@@ -599,5 +601,5 @@ export async function getSiteServiceReports(siteId: string): Promise<ServiceRepo
   return (data || []).map((d) => ({
     ...d,
     checklist: (d.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-  })) as unknown as ServiceReport[];
+  })) as ServiceReport[];
 }

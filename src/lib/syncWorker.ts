@@ -57,10 +57,10 @@ async function applyMutation(m: QueuedMutation): Promise<void> {
       await updateServiceReport(m.reportId, m.updates);
       return;
     case "defect-create":
-      await createDefect({ ...m.payload, id: m.id } as never);
+      await createDefect({ ...m.payload, id: m.id });
       return;
     case "battery-create":
-      await createBatteryTest({ id: m.id, ...m.payload } as never);
+      await createBatteryTest({ id: m.id, ...m.payload });
       return;
   }
 }
@@ -74,7 +74,7 @@ async function uploadPhoto(p: QueuedPhoto): Promise<void> {
 
   // Record in file_uploads so the report generator and dashboards can find it.
   const { data: userData } = await supabase.auth.getUser();
-  const insertPayload: Record<string, unknown> = {
+  const { error: insErr } = await supabase.from("file_uploads").insert({
     visit_id: p.visitId,
     site_id: p.siteId,
     uploaded_by: userData.user?.id ?? null,
@@ -83,10 +83,7 @@ async function uploadPhoto(p: QueuedPhoto): Promise<void> {
     file_size: p.blob.size,
     storage_path: path,
     defect_id: p.defectId,
-  };
-  const { error: insErr } = await supabase
-    .from("file_uploads")
-    .insert(insertPayload as never);
+  });
   if (insErr) throw insErr;
 }
 

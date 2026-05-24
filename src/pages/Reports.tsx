@@ -529,7 +529,7 @@ const Reports = () => {
         data.map((r) => ({
           ...r,
           checklist: (r.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-        })) as unknown as ReportWithSite[]
+        })) as ReportWithSite[]
       );
     }
     setLoading(false);

@@ -84,13 +84,13 @@ export async function listVisitDocuments(
   serviceVisitId: string,
 ): Promise<VisitDocument[]> {
   const { data, error } = await supabase
-    .from("visit_documents" as never)
+    .from("visit_documents")
     .select("*")
     .eq("service_visit_id", serviceVisitId)
     .eq("is_archived", false)
     .order("uploaded_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as unknown as VisitDocument[];
+  return (data ?? []) as VisitDocument[];
 }
 
 export async function uploadVisitDocument(
@@ -133,8 +133,8 @@ export async function uploadVisitDocument(
   };
 
   const { data, error } = await supabase
-    .from("visit_documents" as never)
-    .insert(row as never)
+    .from("visit_documents")
+    .insert(row)
     .select()
     .single();
 
@@ -143,5 +143,5 @@ export async function uploadVisitDocument(
     await supabase.storage.from(BUCKET).remove([path]).catch(() => {});
     throw error;
   }
-  return data as unknown as VisitDocument;
+  return data as VisitDocument;
 }
