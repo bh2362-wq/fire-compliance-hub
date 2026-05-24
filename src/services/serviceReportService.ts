@@ -187,6 +187,9 @@ export interface ServiceReport {
   client_sign_name: string | null;
   client_sign_position: string | null;
   panel_id: string | null;
+  outstanding_works: string | null;
+  engineer_sign_date: string | null;
+  client_sign_date: string | null;
 }
 
 export const getDefaultChecklist = (): BS5839Checklist => ({

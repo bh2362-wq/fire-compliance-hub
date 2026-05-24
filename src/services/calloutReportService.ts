@@ -54,11 +54,12 @@ export async function buildCalloutReportInput(
   if (!visitData) throw new Error("Visit not found");
 
   // Optional companion service_report — provides system_status, parts,
-  // and the captured signatures if the engineer has completed it.
+  // outstanding works, and the captured signatures + their dates if the
+  // engineer has completed it.
   const { data: reportData } = await supabase
     .from("service_reports")
     .select(
-      "system_status, parts_used, engineer_signature, engineer_name, client_signature, client_name",
+      "system_status, parts_used, outstanding_works, engineer_signature, engineer_name, engineer_sign_date, client_signature, client_name, client_sign_date",
     )
     .eq("visit_id", visitId)
     .maybeSingle();
@@ -137,12 +138,12 @@ export async function buildCalloutReportInput(
 
     systemStatus: reportData?.system_status ?? null,
     partsUsed: reportData?.parts_used ?? null,
-    outstandingWorks: null, // no dedicated column yet — schema follow-up
+    outstandingWorks: reportData?.outstanding_works ?? null,
 
     engineerSignature: reportData?.engineer_signature ?? null,
-    engineerSignDate: null,
+    engineerSignDate: reportData?.engineer_sign_date ?? null,
     clientSignature: reportData?.client_signature ?? null,
     clientName: reportData?.client_name ?? null,
-    clientSignDate: null,
+    clientSignDate: reportData?.client_sign_date ?? null,
   };
 }

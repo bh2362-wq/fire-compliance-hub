@@ -4557,6 +4557,7 @@ export type Database = {
           arrival_time: string | null
           checklist: Json
           client_name: string | null
+          client_sign_date: string | null
           client_sign_name: string | null
           client_sign_position: string | null
           client_signature: string | null
@@ -4566,6 +4567,7 @@ export type Database = {
           departure_time: string | null
           devices_count: number | null
           engineer_name: string | null
+          engineer_sign_date: string | null
           engineer_signature: string | null
           id: string
           invoiced: boolean | null
@@ -4573,6 +4575,7 @@ export type Database = {
           mileage_miles: number | null
           next_service_due: string | null
           notes: string | null
+          outstanding_works: string | null
           panel_id: string | null
           panel_location: string | null
           panel_manufacturer: string | null
@@ -4599,6 +4602,7 @@ export type Database = {
           arrival_time?: string | null
           checklist?: Json
           client_name?: string | null
+          client_sign_date?: string | null
           client_sign_name?: string | null
           client_sign_position?: string | null
           client_signature?: string | null
@@ -4608,6 +4612,7 @@ export type Database = {
           departure_time?: string | null
           devices_count?: number | null
           engineer_name?: string | null
+          engineer_sign_date?: string | null
           engineer_signature?: string | null
           id?: string
           invoiced?: boolean | null
@@ -4615,6 +4620,7 @@ export type Database = {
           mileage_miles?: number | null
           next_service_due?: string | null
           notes?: string | null
+          outstanding_works?: string | null
           panel_id?: string | null
           panel_location?: string | null
           panel_manufacturer?: string | null
@@ -4641,6 +4647,7 @@ export type Database = {
           arrival_time?: string | null
           checklist?: Json
           client_name?: string | null
+          client_sign_date?: string | null
           client_sign_name?: string | null
           client_sign_position?: string | null
           client_signature?: string | null
@@ -4650,6 +4657,7 @@ export type Database = {
           departure_time?: string | null
           devices_count?: number | null
           engineer_name?: string | null
+          engineer_sign_date?: string | null
           engineer_signature?: string | null
           id?: string
           invoiced?: boolean | null
@@ -4657,6 +4665,7 @@ export type Database = {
           mileage_miles?: number | null
           next_service_due?: string | null
           notes?: string | null
+          outstanding_works?: string | null
           panel_id?: string | null
           panel_location?: string | null
           panel_manufacturer?: string | null

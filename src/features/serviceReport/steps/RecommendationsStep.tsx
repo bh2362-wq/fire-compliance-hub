@@ -33,6 +33,16 @@ export function RecommendationsStep({ report, onPatch }: Props) {
       </div>
 
       <div>
+        <Label className="text-xs">Outstanding works</Label>
+        <Textarea
+          value={report.outstanding_works ?? ""}
+          onChange={(e) => onPatch({ outstanding_works: e.target.value || null })}
+          rows={4}
+          placeholder="Work that could not be completed on this visit and needs a follow-up (parts on order, access denied, defects to quote, etc.)."
+        />
+      </div>
+
+      <div>
         <Label className="text-xs">Next service due</Label>
         <Input
           type="date"

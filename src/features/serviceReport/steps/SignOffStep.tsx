@@ -42,7 +42,10 @@ export function SignOffStep({ report, onPatch, onComplete, completing }: Props) 
         setSavedDefault(stored);
         // If no engineer sig yet on this report but a default exists, preload it.
         if (stored && !report.engineer_signature) {
-          onPatch({ engineer_signature: stored });
+          onPatch({
+            engineer_signature: stored,
+            engineer_sign_date: new Date().toISOString(),
+          });
         }
       } catch {
         // Ignore — column may not be present yet (migration not applied).
@@ -56,7 +59,7 @@ export function SignOffStep({ report, onPatch, onComplete, completing }: Props) 
   const clientAbsent = report.client_signature === ABSENT_MARKER;
 
   const handleUseDefault = () => {
-    if (savedDefault) onPatch({ engineer_signature: savedDefault });
+    if (savedDefault) patchEngineerSig(savedDefault);
   };
 
   const handleSaveAsDefault = async () => {
@@ -79,10 +82,24 @@ export function SignOffStep({ report, onPatch, onComplete, completing }: Props) 
 
   const toggleClientAbsent = (absent: boolean) => {
     if (absent) {
-      onPatch({ client_signature: ABSENT_MARKER });
+      onPatch({ client_signature: ABSENT_MARKER, client_sign_date: null });
     } else {
-      onPatch({ client_signature: null });
+      onPatch({ client_signature: null, client_sign_date: null });
     }
+  };
+
+  const patchEngineerSig = (v: string | null) => {
+    onPatch({
+      engineer_signature: v,
+      engineer_sign_date: isDataUrlSig(v) ? new Date().toISOString() : null,
+    });
+  };
+
+  const patchClientSig = (v: string | null) => {
+    onPatch({
+      client_signature: v,
+      client_sign_date: isDataUrlSig(v) ? new Date().toISOString() : null,
+    });
   };
 
   const engineerSigOk = isDataUrlSig(report.engineer_signature);
@@ -125,7 +142,7 @@ export function SignOffStep({ report, onPatch, onComplete, completing }: Props) 
         <SignaturePad
           label="Engineer signature"
           value={report.engineer_signature ?? ""}
-          onChange={(v) => onPatch({ engineer_signature: v || null })}
+          onChange={(v) => patchEngineerSig(v || null)}
         />
 
         <div className="flex flex-wrap gap-2">
@@ -192,7 +209,7 @@ export function SignOffStep({ report, onPatch, onComplete, completing }: Props) 
             <SignaturePad
               label="Client signature"
               value={isDataUrlSig(report.client_signature) ? (report.client_signature as string) : ""}
-              onChange={(v) => onPatch({ client_signature: v || null })}
+              onChange={(v) => patchClientSig(v || null)}
             />
           </>
         )}
