@@ -46,6 +46,7 @@ import { SERVICE_TYPES } from "@/services/serviceContractService";
 import SubcontractorSheetsSection from "@/components/visits/SubcontractorSheetsSection";
 import { SiteDocuments } from "@/components/documents/SiteDocuments";
 import { VisitCalloutPanel } from "@/components/visits/VisitCalloutPanel";
+import { RecommendedReportCard } from "@/components/visits/RecommendedReportCard";
 import { VisitRamsBanner } from "@/components/visits/VisitRamsBanner";
 import { generateSubcontractorReport } from "@/lib/subcontractorReportPdfGenerator";
 import { toast as sonnerToast } from "sonner";
@@ -478,6 +479,15 @@ const VisitEditDialog = ({
         </DialogHeader>
 
         <VisitRamsBanner visitId={visit.id} />
+
+        {/* Visit-type-driven recommendation: maintenance → Service Report,
+            reactive → Callout Report, install → Modification Certificate. */}
+        <RecommendedReportCard
+          visitId={visit.id}
+          visitType={visit.visit_type ?? null}
+          siteId={visit.site_id}
+          customerId={null}
+        />
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
