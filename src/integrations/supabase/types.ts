@@ -288,6 +288,132 @@ export type Database = {
           },
         ]
       }
+      cause_effect_matrices: {
+        Row: {
+          id: string
+          is_archived: boolean
+          legend: string | null
+          notes: string | null
+          site_id: string
+          source_file_name: string | null
+          source_file_path: string | null
+          title: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          id?: string
+          is_archived?: boolean
+          legend?: string | null
+          notes?: string | null
+          site_id: string
+          source_file_name?: string | null
+          source_file_path?: string | null
+          title: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          id?: string
+          is_archived?: boolean
+          legend?: string | null
+          notes?: string | null
+          site_id?: string
+          source_file_name?: string | null
+          source_file_path?: string | null
+          title?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cause_effect_matrices_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cause_effect_outputs: {
+        Row: {
+          code: string
+          id: string
+          identification: string | null
+          matrix_id: string
+          ordinal: number
+          panel_location: string | null
+        }
+        Insert: {
+          code: string
+          id?: string
+          identification?: string | null
+          matrix_id: string
+          ordinal: number
+          panel_location?: string | null
+        }
+        Update: {
+          code?: string
+          id?: string
+          identification?: string | null
+          matrix_id?: string
+          ordinal?: number
+          panel_location?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cause_effect_outputs_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "cause_effect_matrices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cause_effect_rules: {
+        Row: {
+          actions: Json
+          id: string
+          matrix_id: string
+          notes: string | null
+          ordinal: number
+          ref: string | null
+          trigger_device: string | null
+          trigger_location: string | null
+          trigger_type: string | null
+        }
+        Insert: {
+          actions?: Json
+          id?: string
+          matrix_id: string
+          notes?: string | null
+          ordinal: number
+          ref?: string | null
+          trigger_device?: string | null
+          trigger_location?: string | null
+          trigger_type?: string | null
+        }
+        Update: {
+          actions?: Json
+          id?: string
+          matrix_id?: string
+          notes?: string | null
+          ordinal?: number
+          ref?: string | null
+          trigger_device?: string | null
+          trigger_location?: string | null
+          trigger_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cause_effect_rules_matrix_id_fkey"
+            columns: ["matrix_id"]
+            isOneToOne: false
+            referencedRelation: "cause_effect_matrices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           address: string | null
@@ -5202,67 +5328,175 @@ export type Database = {
       }
       sites: {
         Row: {
+          access_hours: string | null
           access_notes: string | null
           address: string | null
+          arc_account_ref: string | null
+          arc_connected: boolean | null
+          arc_provider: string | null
+          areas_covered: string | null
+          areas_not_covered: string | null
+          bs5839_category: string | null
+          building_type: string | null
+          cable_type: string | null
           city: string | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
           created_at: string
           customer_id: string | null
+          duty_holder_email: string | null
+          duty_holder_name: string | null
+          duty_holder_phone: string | null
+          duty_holder_role: string | null
           gate_code: string | null
+          has_pava: boolean | null
           id: string
           name: string
+          num_detectors: number | null
+          num_devices: number | null
+          num_loops: number | null
+          num_manual_call_points: number | null
+          num_sounders: number | null
+          num_zones: number | null
+          occupancy_type: string | null
+          panel_make_model: string | null
+          panel_software_version: string | null
           parking_notes: string | null
+          pava_bs_en_54_16_compliant: boolean | null
+          pava_bs_en_54_24_compliant: boolean | null
+          pava_fa_interface_method: string | null
+          pava_has_backup_amplifier: boolean | null
+          pava_make: string | null
+          pava_model: string | null
+          pava_network_topology: string | null
+          pava_num_circuits: number | null
+          pava_num_loudspeakers: number | null
+          pava_num_zones: number | null
+          pava_software_version: string | null
           portal_token: string | null
           postcode: string | null
+          psu_capacity_ah: number | null
           sharepoint_folder: string | null
           sharepoint_url: string | null
           status: string | null
           total_devices: number | null
           updated_at: string
+          year_installed: number | null
         }
         Insert: {
+          access_hours?: string | null
           access_notes?: string | null
           address?: string | null
+          arc_account_ref?: string | null
+          arc_connected?: boolean | null
+          arc_provider?: string | null
+          areas_covered?: string | null
+          areas_not_covered?: string | null
+          bs5839_category?: string | null
+          building_type?: string | null
+          cable_type?: string | null
           city?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
           customer_id?: string | null
+          duty_holder_email?: string | null
+          duty_holder_name?: string | null
+          duty_holder_phone?: string | null
+          duty_holder_role?: string | null
           gate_code?: string | null
+          has_pava?: boolean | null
           id?: string
           name: string
+          num_detectors?: number | null
+          num_devices?: number | null
+          num_loops?: number | null
+          num_manual_call_points?: number | null
+          num_sounders?: number | null
+          num_zones?: number | null
+          occupancy_type?: string | null
+          panel_make_model?: string | null
+          panel_software_version?: string | null
           parking_notes?: string | null
+          pava_bs_en_54_16_compliant?: boolean | null
+          pava_bs_en_54_24_compliant?: boolean | null
+          pava_fa_interface_method?: string | null
+          pava_has_backup_amplifier?: boolean | null
+          pava_make?: string | null
+          pava_model?: string | null
+          pava_network_topology?: string | null
+          pava_num_circuits?: number | null
+          pava_num_loudspeakers?: number | null
+          pava_num_zones?: number | null
+          pava_software_version?: string | null
           portal_token?: string | null
           postcode?: string | null
+          psu_capacity_ah?: number | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
           status?: string | null
           total_devices?: number | null
           updated_at?: string
+          year_installed?: number | null
         }
         Update: {
+          access_hours?: string | null
           access_notes?: string | null
           address?: string | null
+          arc_account_ref?: string | null
+          arc_connected?: boolean | null
+          arc_provider?: string | null
+          areas_covered?: string | null
+          areas_not_covered?: string | null
+          bs5839_category?: string | null
+          building_type?: string | null
+          cable_type?: string | null
           city?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
           customer_id?: string | null
+          duty_holder_email?: string | null
+          duty_holder_name?: string | null
+          duty_holder_phone?: string | null
+          duty_holder_role?: string | null
           gate_code?: string | null
+          has_pava?: boolean | null
           id?: string
           name?: string
+          num_detectors?: number | null
+          num_devices?: number | null
+          num_loops?: number | null
+          num_manual_call_points?: number | null
+          num_sounders?: number | null
+          num_zones?: number | null
+          occupancy_type?: string | null
+          panel_make_model?: string | null
+          panel_software_version?: string | null
           parking_notes?: string | null
+          pava_bs_en_54_16_compliant?: boolean | null
+          pava_bs_en_54_24_compliant?: boolean | null
+          pava_fa_interface_method?: string | null
+          pava_has_backup_amplifier?: boolean | null
+          pava_make?: string | null
+          pava_model?: string | null
+          pava_network_topology?: string | null
+          pava_num_circuits?: number | null
+          pava_num_loudspeakers?: number | null
+          pava_num_zones?: number | null
+          pava_software_version?: string | null
           portal_token?: string | null
           postcode?: string | null
+          psu_capacity_ah?: number | null
           sharepoint_folder?: string | null
           sharepoint_url?: string | null
           status?: string | null
           total_devices?: number | null
           updated_at?: string
+          year_installed?: number | null
         }
         Relationships: [
           {

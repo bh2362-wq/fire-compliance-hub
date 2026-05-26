@@ -34,7 +34,13 @@ export interface SiteSystemInfo {
   num_zones: number | null;
   num_loops: number | null;
   num_devices: number | null;
+  // Device-level counts (added 2026-05-26 — sites schema augment)
+  num_manual_call_points: number | null;
+  num_sounders: number | null;
+  num_detectors: number | null;
   arc_connected: boolean | null;
+  arc_provider: string | null;
+  arc_account_ref: string | null;
   cable_type: CableType | null;
   psu_capacity_ah: number | null;
   panel_software_version: string | null;
@@ -42,13 +48,40 @@ export interface SiteSystemInfo {
   areas_not_covered: string | null;
   building_type: string | null;
   occupancy_type: string | null;
+  access_hours: string | null;
+  // Duty Holder / Responsible Person
+  duty_holder_name: string | null;
+  duty_holder_role: string | null;
+  duty_holder_email: string | null;
+  duty_holder_phone: string | null;
+  // PAVA (voice alarm). Gated by has_pava in the UI; all fields nullable.
+  has_pava: boolean | null;
+  pava_make: string | null;
+  pava_model: string | null;
+  pava_software_version: string | null;
+  pava_bs_en_54_16_compliant: boolean | null;
+  pava_bs_en_54_24_compliant: boolean | null;
+  pava_num_zones: number | null;
+  pava_num_loudspeakers: number | null;
+  pava_num_circuits: number | null;
+  pava_fa_interface_method: string | null;
+  pava_network_topology: string | null;
+  pava_has_backup_amplifier: boolean | null;
 }
 
 const SELECT_COLS =
   "panel_make_model,bs5839_category,year_installed," +
-  "num_zones,num_loops,num_devices,arc_connected," +
+  "num_zones,num_loops,num_devices," +
+  "num_manual_call_points,num_sounders,num_detectors," +
+  "arc_connected,arc_provider,arc_account_ref," +
   "cable_type,psu_capacity_ah,panel_software_version," +
-  "areas_covered,areas_not_covered,building_type,occupancy_type";
+  "areas_covered,areas_not_covered,building_type,occupancy_type," +
+  "access_hours," +
+  "duty_holder_name,duty_holder_role,duty_holder_email,duty_holder_phone," +
+  "has_pava,pava_make,pava_model,pava_software_version," +
+  "pava_bs_en_54_16_compliant,pava_bs_en_54_24_compliant," +
+  "pava_num_zones,pava_num_loudspeakers,pava_num_circuits," +
+  "pava_fa_interface_method,pava_network_topology,pava_has_backup_amplifier";
 
 export async function getSiteSystemInfo(
   siteId: string,
