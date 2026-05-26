@@ -7,6 +7,7 @@ import SiteReconciliationHistory from "@/components/sites/SiteReconciliationHist
 import { SiteServiceContracts } from "@/components/sites/SiteServiceContracts";
 import { SiteServiceReports } from "@/components/sites/SiteServiceReports";
 import { SiteAssets } from "@/components/sites/SiteAssets";
+import { CauseEffectMatricesPanel } from "@/components/sites/CauseEffectMatricesPanel";
 import { SiteSystemInfoPanel } from "@/components/sites/SiteSystemInfoPanel";
 import { PortalLinkButton } from "@/components/sites/PortalLinkButton";
 import { SiteRamsDocuments } from "@/components/sites/SiteRamsDocuments";
@@ -25,7 +26,7 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye, FileSignature, ShieldCheck, Gauge } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Mail, Phone, User, Pencil, Plus, Users, HardHat, Server, FileText, Cpu, Upload, GitCompare, ClipboardList, MoreHorizontal, Trash2, Eye, FileSignature, ShieldCheck, Gauge, Workflow } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -283,6 +284,11 @@ const SiteDetail = () => {
         {/* Site Assets */}
         <CollapsibleSection title="Site Assets" icon={Server} defaultOpen={false}>
           <SiteAssets siteId={site.id} />
+        </CollapsibleSection>
+
+        {/* Cause & Effect Matrices */}
+        <CollapsibleSection title="Cause & Effect Matrices" icon={Workflow} defaultOpen={false}>
+          <CauseEffectMatricesPanel siteId={site.id} />
         </CollapsibleSection>
 
         {/* Service Contracts */}
