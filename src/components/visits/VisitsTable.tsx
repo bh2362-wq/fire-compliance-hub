@@ -1504,6 +1504,13 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             
             // If report exists, use its type directly - skip the selector
             if (existingReportType) {
+              // BS 5839 → navigate to wizard
+              if (existingReportType === "bs5839") {
+                const visitId = previewVisit.id;
+                setReportVisit(null);
+                navigate(`/dashboard/visits/${visitId}/service-report/capture`);
+                return;
+              }
               setReportType(existingReportType);
               // If ASD, load assets
               if (existingReportType === "asd") {
@@ -1562,7 +1569,10 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                     return;
                   }
                 } else if (assetType === "fire_panel") {
-                  setReportType("bs5839");
+                  // BS 5839 → navigate to wizard
+                  const visitId = previewVisit.id;
+                  setReportVisit(null);
+                  navigate(`/dashboard/visits/${visitId}/service-report/capture`);
                   return;
                 }
               } catch {
@@ -1579,6 +1589,15 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         open={showReportTypeSelector}
         onOpenChange={setShowReportTypeSelector}
         onSelect={(type, asdAssets, disabledRefugeAssets) => {
+          // BS 5839 → navigate to the new capture wizard instead of opening
+          // the legacy ServiceReportDialog.
+          if (type === "bs5839" && reportVisit) {
+            const visitId = reportVisit.id;
+            setShowReportTypeSelector(false);
+            setReportVisit(null);
+            navigate(`/dashboard/visits/${visitId}/service-report/capture`);
+            return;
+          }
           setReportType(type);
           if (asdAssets && asdAssets.length > 0) {
             setSelectedAsdAssets(asdAssets);
