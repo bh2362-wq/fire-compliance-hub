@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -106,6 +107,7 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
   const [reports, setReports] = useState<ServiceReport[]>([]);
   const [visitMap, setVisitMap] = useState<Record<string, VisitInfo>>({});
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
+  const navigate = useNavigate();
   const [siteInfo, setSiteInfo] = useState<SiteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -229,10 +231,11 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
   }, [siteId]);
 
   const handleViewReport = async (report: ServiceReport) => {
-    setSelectedReport(report);
-    
-    // Auto-detect report type from data
+    // BS 5839 service reports get the new wizard; ASD and Work still use
+    // legacy modal dialogs because the wizard doesn't model their fields.
+    // (Once those disciplines have their own wizards, route them too.)
     if (isASDReport(report)) {
+      setSelectedReport(report);
       // Load ASD assets for the dialog
       try {
         const parsed = JSON.parse(report.notes || "{}");
@@ -256,11 +259,25 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
         setAsdAssets([]);
       }
       setDialogType("asd");
-    } else if (isWorkReport(report)) {
-      setDialogType("work");
-    } else {
-      setDialogType("bs5839");
+      return;
     }
+
+    if (isWorkReport(report)) {
+      setSelectedReport(report);
+      setDialogType("work");
+      return;
+    }
+
+    // BS 5839 (default) → navigate to the new capture wizard, which loads
+    // the existing draft via useServiceReportDraft.
+    if (report.visit_id) {
+      navigate(`/dashboard/visits/${report.visit_id}/service-report/capture`);
+      return;
+    }
+
+    // Fallback: report somehow has no visit_id — keep the legacy modal.
+    setSelectedReport(report);
+    setDialogType("bs5839");
   };
 
   const handleDownloadPDF = async (report: ServiceReport) => {
