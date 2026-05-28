@@ -30,6 +30,7 @@ interface Device {
   zone: string | null;
   device_type: string | null;
   location: string | null;
+  raw_import_data: Record<string, unknown> | null;
 }
 
 interface TestRecord {
@@ -63,6 +64,48 @@ function normalize(raw: string | null | undefined): Result {
   return "untested";
 }
 
+// Brentside (and probably others) imported devices with the location text
+// living in a free-form CSV column like "Description" rather than mapped
+// into the normalised `location` field. Look at raw_import_data when the
+// normalised location is empty, trying common header names first, then
+// falling back to whichever non-core column has a long enough value to
+// be a description.
+const LOCATION_LIKE_KEYS = [
+  "location",
+  "description",
+  "desc",
+  "address description",
+  "address text",
+  "label",
+  "text",
+  "detail",
+  "details",
+  "fitting",
+  "fitting description",
+];
+const CORE_KEYS = new Set(["loop", "address", "type", "device type", "zone", "status", "id"]);
+
+function deviceLabel(device: Device): string | null {
+  if (device.location && device.location.trim()) return device.location.trim();
+  const raw = device.raw_import_data;
+  if (!raw || typeof raw !== "object") return null;
+  // Try known keys first (case-insensitive).
+  const lower: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v === "string" && v.trim()) lower[k.toLowerCase().trim()] = v.trim();
+  }
+  for (const key of LOCATION_LIKE_KEYS) {
+    if (lower[key]) return lower[key];
+  }
+  // Fall back to the longest non-core string value.
+  let best: string | null = null;
+  for (const [k, v] of Object.entries(lower)) {
+    if (CORE_KEYS.has(k)) continue;
+    if (!best || v.length > best.length) best = v;
+  }
+  return best;
+}
+
 export function DevicesStep({ visitId, siteId }: Props) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -81,7 +124,7 @@ export function DevicesStep({ visitId, siteId }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("devices")
-        .select("id, loop, address, zone, device_type, location")
+        .select("id, loop, address, zone, device_type, location, raw_import_data")
         .eq("site_id", siteId)
         .order("loop")
         .order("address");
@@ -138,7 +181,10 @@ export function DevicesStep({ visitId, siteId }: Props) {
       if (zoneFilter && d.zone !== zoneFilter) return false;
       if (hideTested && lookupTest(d)) return false;
       if (term) {
-        const hay = `${d.loop ?? ""} ${d.address ?? ""} ${d.device_type ?? ""} ${d.location ?? ""} ${d.zone ?? ""}`.toLowerCase();
+        const rawValues = d.raw_import_data && typeof d.raw_import_data === "object"
+          ? Object.values(d.raw_import_data).filter((v): v is string => typeof v === "string").join(" ")
+          : "";
+        const hay = `${d.loop ?? ""} ${d.address ?? ""} ${d.device_type ?? ""} ${d.location ?? ""} ${d.zone ?? ""} ${rawValues}`.toLowerCase();
         if (!hay.includes(term)) return false;
       }
       return true;
@@ -482,30 +528,28 @@ function DeviceCard({
         }}
       >
         <div className="min-w-0 flex-1 pr-2">
-          {/* Primary line: location (engineer's main locator) + device type.
-              Falls back to the address+type if no location was imported. */}
-          <p className="text-sm font-medium truncate">
-            {device.location ? (
-              <>
-                {device.location}
+          {/* Primary line: the device's location / description from the
+              imported inventory (falling back to raw_import_data when the
+              normalised location column is empty), plus the device type. */}
+          {(() => {
+            const label = deviceLabel(device);
+            return (
+              <p className="text-sm font-medium truncate">
+                {label ?? `${device.loop ? `L${device.loop}/` : ""}${device.address ?? "?"}`}
                 <span className="text-muted-foreground font-normal"> · {device.device_type ?? "Device"}</span>
-              </>
-            ) : (
-              <>
-                {device.loop ? `L${device.loop}/` : ""}{device.address ?? "?"}
-                <span className="text-muted-foreground font-normal"> · {device.device_type ?? "Device"}</span>
-              </>
-            )}
-          </p>
-          {/* Secondary line: device identifier (loop/address) and zone, so the
-              engineer always sees both when location is the headline. */}
+              </p>
+            );
+          })()}
+          {/* Secondary line: always show loop/address + Zone X so the
+              engineer can pinpoint the device on the panel regardless of
+              whether the headline came from location data. */}
           <p className="text-[11px] text-muted-foreground truncate">
             {[
-              device.location && device.address ? `${device.loop ? `L${device.loop}/` : ""}${device.address}` : null,
+              `${device.loop ? `L${device.loop}/` : ""}${device.address ?? "?"}`,
               device.zone ? `Zone ${device.zone}` : null,
             ]
               .filter(Boolean)
-              .join(" · ") || "No location recorded"}
+              .join(" · ")}
           </p>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
