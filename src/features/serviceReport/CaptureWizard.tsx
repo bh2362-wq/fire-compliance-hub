@@ -7,14 +7,11 @@ import { Visit } from "@/hooks/useVisits";
 import { ServiceReport, BS5839Checklist } from "@/services/serviceReportService";
 import { useServiceReportDraft } from "./useServiceReportDraft";
 import { OfflineBadge } from "./OfflineBadge";
-import { StartStep } from "./steps/StartStep";
 import { SystemStep } from "./steps/SystemStep";
+import { DevicesStep } from "./steps/DevicesStep";
 import { ChecklistStep } from "./steps/ChecklistStep";
-import { BatteryStep } from "./steps/BatteryStep";
-import { DefectsStep } from "./steps/DefectsStep";
-import { MaterialsStep } from "./steps/MaterialsStep";
+import { FindingsStep } from "./steps/FindingsStep";
 import { DepartureStep } from "./steps/DepartureStep";
-import { RecommendationsStep } from "./steps/RecommendationsStep";
 import { SignOffStep } from "./steps/SignOffStep";
 
 interface Props {
@@ -24,14 +21,11 @@ interface Props {
 }
 
 const STEP_LABELS = [
-  "Start",
   "System",
+  "Devices",
   "Checklist",
-  "Battery",
-  "Defects",
-  "Materials",
+  "Findings",
   "Departure",
-  "Recommendations",
   "Sign-off",
 ];
 
@@ -120,21 +114,24 @@ export function CaptureWizard({ visit, userId, onCompleted }: Props) {
       </header>
 
       <main className="px-4 pt-4">
-        {stepIdx === 0 && <StartStep visit={visit} report={report} onPatch={patchScalars} />}
-        {stepIdx === 1 && (
-          <SystemStep report={report} onPatch={patchScalars} siteId={visit.site_id} />
+        {stepIdx === 0 && (
+          <SystemStep visit={visit} report={report} onPatch={patchScalars} siteId={visit.site_id} />
         )}
+        {stepIdx === 1 && <DevicesStep visitId={visit.id} siteId={visit.site_id} />}
         {stepIdx === 2 && (
           <ChecklistStep checklist={report.checklist} onChange={patchChecklist} />
         )}
-        {stepIdx === 3 && <BatteryStep reportId={report.id} />}
-        {stepIdx === 4 && (
-          <DefectsStep siteId={visit.site_id} visitId={visit.id} reportId={report.id} />
+        {stepIdx === 3 && (
+          <FindingsStep
+            report={report}
+            onPatch={patchScalars}
+            siteId={visit.site_id}
+            visitId={visit.id}
+            reportId={report.id}
+          />
         )}
-        {stepIdx === 5 && <MaterialsStep report={report} onPatch={patchScalars} />}
-        {stepIdx === 6 && <DepartureStep report={report} onPatch={patchScalars} />}
-        {stepIdx === 7 && <RecommendationsStep report={report} onPatch={patchScalars} />}
-        {stepIdx === 8 && (
+        {stepIdx === 4 && <DepartureStep report={report} onPatch={patchScalars} />}
+        {stepIdx === 5 && (
           <SignOffStep
             report={report}
             onPatch={patchScalars}

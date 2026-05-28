@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -94,11 +95,33 @@ export function SignOffStep({ report, onPatch, onComplete, completing }: Props) 
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold">Sign-off</h3>
+        <h3 className="text-base font-semibold">Recommendations &amp; sign-off</h3>
         <p className="text-xs text-muted-foreground">
-          Both signatures use BS 5839-1 compliant canvas capture.
+          Summarise findings, set the next service date, then capture both signatures.
         </p>
       </div>
+
+      {/* ── Recommendations & next service ──────────────────────────── */}
+      <section className="space-y-3 rounded-lg border bg-card p-3">
+        <h4 className="text-sm font-medium">Recommendations</h4>
+        <div>
+          <Label className="text-xs">Summary for the client</Label>
+          <Textarea
+            value={report.recommendations ?? ""}
+            onChange={(e) => onPatch({ recommendations: e.target.value || null })}
+            rows={4}
+            placeholder="2–4 sentences summarising findings, referencing BS 5839-1:2025 clauses where relevant."
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Next service due</Label>
+          <Input
+            type="date"
+            value={report.next_service_due ?? ""}
+            onChange={(e) => onPatch({ next_service_due: e.target.value || null })}
+          />
+        </div>
+      </section>
 
       {/* ── Engineer block ──────────────────────────────────────────── */}
       <section className="space-y-3 rounded-lg border bg-card p-3">
@@ -209,7 +232,7 @@ export function SignOffStep({ report, onPatch, onComplete, completing }: Props) 
         </Button>
         {!canComplete && (
           <ul className="text-xs text-muted-foreground mt-2 space-y-0.5">
-            {!report.system_status && <li>• Departure status missing (Step 7)</li>}
+            {!report.system_status && <li>• Departure status missing (Step 5)</li>}
             {!engineerSigOk && <li>• Engineer signature required</li>}
             {!clientSigOk && <li>• Client signature required (or mark client absent)</li>}
             {!clientDetailsOk && <li>• Client signing name required</li>}
