@@ -812,6 +812,14 @@ const Reports = () => {
                   if ((report.report_number || "").startsWith("JOB-")) reportType = "job";
                 }
 
+                // BS 5839 service reports → navigate to the new capture
+                // wizard. Legacy ServiceReportDialog is kept only as a
+                // fallback when the report has no visit_id to navigate to.
+                if (reportType === "bs5839" && report.visit_id) {
+                  navigate(`/dashboard/visits/${report.visit_id}/service-report/capture`);
+                  return;
+                }
+
                 if (reportType === "asd") {
                   // Load ASD assets for this site
                   const { data: assets } = await supabase
@@ -820,7 +828,7 @@ const Reports = () => {
                     .eq("site_id", report.site_id)
                     .eq("asset_type", "asd")
                     .order("created_at", { ascending: true });
-                  
+
                   setAsdAssets(assets || []);
                   setDisabledRefugeAssets([]);
                 } else if (reportType === "disabled_refuge") {
@@ -831,7 +839,7 @@ const Reports = () => {
                     .eq("site_id", report.site_id)
                     .eq("asset_type", "disabled_refuge")
                     .order("created_at", { ascending: true });
-                  
+
                   setDisabledRefugeAssets(assets || []);
                   setAsdAssets([]);
                 } else {

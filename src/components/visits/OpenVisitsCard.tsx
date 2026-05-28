@@ -114,7 +114,7 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
       onVisitClick(visit.id);
     } else {
       setSelectedVisit(visit);
-      
+
       // For remedial and emergency visits, go directly to Work Report (job sheet only)
       if (visit.visit_type === "remedial" || visit.visit_type === "emergency") {
         setReportType("work");
@@ -126,6 +126,16 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
   };
 
   const handleReportTypeSelect = (type: "bs5839" | "work" | "asd", asdAssets?: ASDAsset[]) => {
+    // BS 5839 service reports go to the new capture wizard — the legacy
+    // ServiceReportDialog stays in the codebase only for back-compat with
+    // surfaces that haven't migrated yet.
+    if (type === "bs5839" && selectedVisit) {
+      const visitId = selectedVisit.id;
+      setShowReportTypeSelector(false);
+      setSelectedVisit(null);
+      navigate(`/dashboard/visits/${visitId}/service-report/capture`);
+      return;
+    }
     setReportType(type);
     if (asdAssets && asdAssets.length > 0) {
       setSelectedAsdAssets(asdAssets);
