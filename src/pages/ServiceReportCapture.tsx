@@ -17,15 +17,23 @@ export default function ServiceReportCapture() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Reject obviously-malformed visit ids before sending them to the DB.
+  // Without this guard, hitting the page with the literal route param
+  // (e.g. opening the URL pattern from preview tooling) surfaces the
+  // Postgres uuid syntax error, which is confusing.
+  const visitIdValid =
+    !!visitId &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(visitId);
+
   useEffect(() => {
-    if (!visitId) return;
+    if (!visitIdValid) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       const { data, error: err } = await supabase
         .from("service_visits")
         .select("*, site:sites(id, name)")
-        .eq("id", visitId)
+        .eq("id", visitId!)
         .maybeSingle();
       if (cancelled) return;
       if (err || !data) {
@@ -39,7 +47,22 @@ export default function ServiceReportCapture() {
     return () => {
       cancelled = true;
     };
-  }, [visitId]);
+  }, [visitId, visitIdValid]);
+
+  if (!visitIdValid) {
+    return (
+      <div className="max-w-md mx-auto p-6 text-center space-y-4">
+        <p className="text-sm font-medium">This service report URL is malformed.</p>
+        <p className="text-xs text-muted-foreground">
+          Open a service report from the Visits page (clipboard icon on a row) or the
+          site's Service Reports list — don't navigate to the route pattern directly.
+        </p>
+        <Button onClick={() => navigate("/dashboard/visits")} variant="outline">
+          Go to Visits
+        </Button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
