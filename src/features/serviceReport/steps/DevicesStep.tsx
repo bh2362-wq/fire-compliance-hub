@@ -163,6 +163,9 @@ export function DevicesStep({ visitId, siteId }: Props) {
     setBusy(device.id);
     try {
       const { data: userData } = await supabase.auth.getUser();
+      // Match the table's CHECK constraint exactly: passed | fault | untested | unknown.
+      // Internally the UI uses "failed" for clarity, but the DB stores "fault".
+      const dbStatus = status === "failed" ? "fault" : "passed";
       const { error } = await (supabase as any).from("parsed_device_tests").insert({
         visit_id: visitId,
         device_id: device.id,
@@ -170,7 +173,7 @@ export function DevicesStep({ visitId, siteId }: Props) {
         address: device.address,
         device_type: device.device_type,
         location: device.location,
-        status,
+        status: dbStatus,
         fail_reason: failReason ?? null,
         engineer_id: userData.user?.id ?? null,
         tested_at: new Date().toISOString(),
@@ -181,9 +184,18 @@ export function DevicesStep({ visitId, siteId }: Props) {
       void (supabase as any).rpc("increment_visit_tested", { vid: visitId }).then(() => {}, () => {});
       qc.invalidateQueries({ queryKey: ["sr-tests", visitId] });
     } catch (err) {
+      // Supabase PostgrestError isn't an Error subclass, so `.message`
+      // needs digging out by hand — otherwise `String(err)` ends up as
+      // "[object Object]" in the toast.
+      const message =
+        err instanceof Error
+          ? err.message
+          : err && typeof err === "object" && "message" in err && typeof (err as { message?: unknown }).message === "string"
+            ? (err as { message: string }).message
+            : JSON.stringify(err);
       toast({
         title: "Couldn't record test",
-        description: err instanceof Error ? err.message : String(err),
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -470,11 +482,30 @@ function DeviceCard({
         }}
       >
         <div className="min-w-0 flex-1 pr-2">
+          {/* Primary line: location (engineer's main locator) + device type.
+              Falls back to the address+type if no location was imported. */}
           <p className="text-sm font-medium truncate">
-            {device.loop ? `L${device.loop}/` : ""}{device.address ?? "?"} · {device.device_type ?? "Device"}
+            {device.location ? (
+              <>
+                {device.location}
+                <span className="text-muted-foreground font-normal"> · {device.device_type ?? "Device"}</span>
+              </>
+            ) : (
+              <>
+                {device.loop ? `L${device.loop}/` : ""}{device.address ?? "?"}
+                <span className="text-muted-foreground font-normal"> · {device.device_type ?? "Device"}</span>
+              </>
+            )}
           </p>
+          {/* Secondary line: device identifier (loop/address) and zone, so the
+              engineer always sees both when location is the headline. */}
           <p className="text-[11px] text-muted-foreground truncate">
-            {device.location ?? device.zone ?? "—"}
+            {[
+              device.location && device.address ? `${device.loop ? `L${device.loop}/` : ""}${device.address}` : null,
+              device.zone ? `Zone ${device.zone}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "No location recorded"}
           </p>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
