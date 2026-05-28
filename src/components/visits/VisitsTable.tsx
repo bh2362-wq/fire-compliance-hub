@@ -53,7 +53,7 @@ import { VisitRequirementsDialog } from "./VisitRequirementsDialog";
 import { VisitRequirementsBadges } from "./VisitRequirementsBadges";
 import { SendVisitConfirmationDialog } from "./SendVisitConfirmationDialog";
 import { BulkEmailJobsDialog } from "./BulkEmailJobsDialog";
-import { getVisitTypeLabel } from "@/constants/visitTypes";
+import { getVisitTypeLabel, SERVICE_FREQUENCY_TYPES } from "@/constants/visitTypes";
 import JobProgressTracker from "./JobProgressTracker";
 import PurchaseOrderFormDialog from "@/components/purchase-orders/PurchaseOrderFormDialog";
 import { fetchActiveSubcontractors, Subcontractor } from "@/services/subcontractorService";
@@ -853,6 +853,21 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
     return "vstatus vstatus-hold";
   };
 
+  // Decide whether clicking "Open Report" / "Create Report" should jump
+  // straight to the new BS 5839 capture wizard or fall through to the
+  // preview dialog (which still routes ASD / Work / Disabled-Refuge to
+  // their legacy modals). Routine fire-alarm service visits go direct;
+  // anything else uses the preview dialog where the report-type
+  // detection lives.
+  const openReportForVisit = (visit: Visit) => {
+    const isBs5839 = SERVICE_FREQUENCY_TYPES.some((t) => t.value === visit.visit_type);
+    if (isBs5839) {
+      navigate(`/dashboard/visits/${visit.id}/service-report/capture`);
+      return;
+    }
+    setPreviewVisit(visit);
+  };
+
   const renderVisitRow = (visit: Visit, isInvoiced: boolean = false) => {
     const invoiceInfo = invoiceMap[visit.id];
     const reportInfo = reportMap[visit.id];
@@ -970,7 +985,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => setPreviewVisit(visit)}
+                  onClick={() => openReportForVisit(visit)}
                 >
                   <ClipboardCheck className="w-3.5 h-3.5" />
                 </Button>
@@ -986,7 +1001,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => setPreviewVisit(visit)}>
+                <DropdownMenuItem onClick={() => openReportForVisit(visit)}>
                   <ClipboardCheck className="w-4 h-4 mr-2" />
                   {reportInfo?.id ? "Open Report" : "Create Report"}
                 </DropdownMenuItem>
