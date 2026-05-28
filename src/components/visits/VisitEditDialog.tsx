@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Loader2, Pencil, Upload, FileText, X, Server, Wind, Flame, Box, PanelTop, Accessibility, Lightbulb, ShieldAlert, Phone, Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Check, UserCog, FileDown, Siren } from "lucide-react";
+import { Loader2, Pencil, Upload, FileText, X, Server, Wind, Flame, Box, PanelTop, Accessibility, Lightbulb, ShieldAlert, Phone, Plus, Trash2, Package, Wrench, Cpu, HelpCircle, Check, UserCog, FileDown, Siren, ClipboardCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -48,6 +48,7 @@ import { SiteDocuments } from "@/components/documents/SiteDocuments";
 import { VisitCalloutPanel } from "@/components/visits/VisitCalloutPanel";
 import { RecommendedReportCard } from "@/components/visits/RecommendedReportCard";
 import { VisitRamsBanner } from "@/components/visits/VisitRamsBanner";
+import { VisitDeviceAccountability } from "@/components/visits/VisitDeviceAccountability";
 import { generateSubcontractorReport } from "@/lib/subcontractorReportPdfGenerator";
 import { toast as sonnerToast } from "sonner";
 
@@ -812,6 +813,17 @@ const VisitEditDialog = ({
                 serviceVisitId={visit.id}
                 defaultTitlePrefix={visit.visit_type}
               />
+            </div>
+
+            {/* Device accountability — per-device test status for this visit.
+                Engineers tick in the field; this surface lets the office
+                reconcile from panel-log uploads or tick devices off manually. */}
+            <div className="space-y-2 pt-3 border-t">
+              <FormLabel className="text-base flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4" />
+                Device Accountability
+              </FormLabel>
+              <VisitDeviceAccountability visitId={visit.id} siteId={visit.site_id} />
             </div>
 
             {/* Job Requirements Section */}
