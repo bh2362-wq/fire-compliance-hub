@@ -5,7 +5,13 @@ import { ChevronLeft, ChevronRight, Loader2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Visit } from "@/hooks/useVisits";
 import { OfflineBadge } from "@/features/serviceReport/OfflineBadge";
+import { DevicesStep } from "@/features/serviceReport/steps/DevicesStep";
 import { useCauseEffectTestDraft } from "./useCauseEffectTestDraft";
+import { CauseEffectSystemStep } from "./steps/CauseEffectSystemStep";
+import { OutputFunctionsStep } from "./steps/OutputFunctionsStep";
+import { AudibilityStep } from "./steps/AudibilityStep";
+import { FindingsRemedialsStep } from "./steps/FindingsRemedialsStep";
+import { CauseEffectSignOffStep } from "./steps/CauseEffectSignOffStep";
 
 interface Props {
   visit: Visit;
@@ -22,15 +28,6 @@ const STEP_LABELS = [
   "Sign-off",
 ];
 
-/**
- * Skeleton wizard for the Cause & Effect + Audibility test report.
- *
- * Chrome mirrors the BS 5839 wizard (sticky progress header, fixed
- * footer with Back/Next, auto-save indicator) so engineers don't have
- * to relearn the navigation. Each step is currently a placeholder
- * describing what will go there — the actual capture UIs land in PR 2
- * once this scaffolding is merged and deployed.
- */
 export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
   const { toast } = useToast();
   const { report, loading, saving, patch, error } = useCauseEffectTestDraft(
@@ -64,11 +61,10 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
     }
   };
 
-  // Error has to be checked before the loading/!report gate — when the
-  // draft fetch errors (e.g. the ce_audibility_reports migration hasn't
-  // been applied on prod yet) `loading` flips back to false but `report`
-  // stays null, so the previous `loading || !report` check would show an
-  // endless spinner and hide the actual reason.
+  // Error before spinner gate — when the draft fetch errors (e.g. the
+  // ce_audibility_reports migration hasn't been applied on this env yet)
+  // `loading` flips back to false but `report` stays null. The previous
+  // `loading || !report` ordering hid the error behind an endless spinner.
   if (error) {
     const detail = error.message || String(error);
     const looksLikeMissingTable = /relation .*ce_audibility_reports.* does not exist|does not exist.*ce_audibility_reports/i.test(detail);
@@ -94,6 +90,11 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
     );
   }
 
+  // Adapter so steps with focused signatures still go through `patch`.
+  const patchScalars = (updates: Parameters<typeof patch>[0]) => {
+    void patch(updates);
+  };
+
   return (
     <div className="max-w-2xl mx-auto pb-24">
       <header className="sticky top-0 z-20 bg-background border-b -mx-4 px-4 pt-3 pb-2">
@@ -115,83 +116,25 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
 
       <main className="px-4 pt-4">
         {stepIdx === 0 && (
-          <PlaceholderStep
-            title="System & visit"
-            description={
-              <>
-                Will mirror the BS 5839 System step — site, visit type, panel
-                make/model, zones, devices, ARC connection, BS 5839 category
-                — all pre-filled from <code>sites</code> where the value
-                already exists. The category drop-down (L1/L2/L3/L4/L5/M)
-                lives here too.
-              </>
-            }
+          <CauseEffectSystemStep
+            visit={visit}
+            report={report}
+            onPatch={patchScalars}
+            siteId={visit.site_id}
           />
         )}
-        {stepIdx === 1 && (
-          <PlaceholderStep
-            title="Cause & effect devices tested"
-            description={
-              <>
-                Reuses <code>parsed_device_tests</code>. Engineer ticks each
-                zone's representative device with the time it was activated;
-                rows align with the §3.2 table on the printed report.
-              </>
-            }
-          />
-        )}
-        {stepIdx === 2 && (
-          <PlaceholderStep
-            title="Output functions verified"
-            description={
-              <>
-                Seeded with the standard rows from §3.3 (Alarm Sounders, VADs,
-                Fire Brigade Signal, ARC, Fire Door Releases, HVAC Shutdown,
-                Smoke Control, Lift Homing, EM Lock Releases), each with
-                Pass/Fail/N/A + free-text actual response. Writes to{" "}
-                <code>ce_output_checks</code>.
-              </>
-            }
-          />
-        )}
-        {stepIdx === 3 && (
-          <PlaceholderStep
-            title="Audibility readings"
-            description={
-              <>
-                Sound-level meter free-text (make/model, serial, calibration
-                due), then an add-row table of measurements: location, floor,
-                ambient dB, alarm dB, required dB (defaults to 65, 75 for
-                sleeping accommodation). Auto-computes Pass/Fail. Writes to{" "}
-                <code>ce_audibility_readings</code>.
-              </>
-            }
-          />
-        )}
+        {stepIdx === 1 && <DevicesStep visitId={visit.id} siteId={visit.site_id} />}
+        {stepIdx === 2 && <OutputFunctionsStep reportId={report.id} />}
+        {stepIdx === 3 && <AudibilityStep report={report} onPatch={patchScalars} reportId={report.id} />}
         {stepIdx === 4 && (
-          <PlaceholderStep
-            title="Findings & remedial works"
-            description={
-              <>
-                Combines §5 (C&amp;E issues, audibility issues, general
-                observations) and §6 (remedial work rows with priority,
-                description, location, estimated cost). Critical issues can
-                promote into <code>site_defects</code>.
-              </>
-            }
-          />
+          <FindingsRemedialsStep report={report} onPatch={patchScalars} reportId={report.id} />
         )}
         {stepIdx === 5 && (
-          <PlaceholderStep
-            title="Compliance &amp; sign-off"
-            description={
-              <>
-                Single compliance toggle (BS 5839-1:2017), recommendations,
-                next-test-due date, engineer + client signatures (canvas).
-                Complete button promotes <code>status</code> to{" "}
-                <code>completed</code>.
-              </>
-            }
+          <CauseEffectSignOffStep
+            report={report}
+            onPatch={patchScalars}
+            onComplete={handleComplete}
+            completing={completing}
           />
         )}
       </main>
@@ -207,7 +150,7 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
             <ChevronLeft className="mr-1 h-4 w-4" />
             Back
           </Button>
-          {stepIdx < STEP_LABELS.length - 1 ? (
+          {stepIdx < STEP_LABELS.length - 1 && (
             <Button
               onClick={() => setStepIdx((i) => Math.min(STEP_LABELS.length - 1, i + 1))}
               className="flex-1"
@@ -215,33 +158,9 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
               Next
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
-          ) : (
-            <Button onClick={handleComplete} disabled={completing} className="flex-1">
-              {completing ? "Completing…" : "Complete (skeleton)"}
-            </Button>
           )}
         </div>
       </footer>
-    </div>
-  );
-}
-
-function PlaceholderStep({
-  title,
-  description,
-}: {
-  title: string;
-  description: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="text-base font-semibold">{title}</h3>
-        <p className="text-xs text-muted-foreground">Placeholder — filled in next PR.</p>
-      </div>
-      <div className="rounded-lg border border-dashed bg-muted/30 p-4 text-sm leading-relaxed">
-        {description}
-      </div>
     </div>
   );
 }
