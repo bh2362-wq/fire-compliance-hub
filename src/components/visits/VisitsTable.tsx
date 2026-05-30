@@ -74,6 +74,7 @@ import { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
 import { toast as sonnerToast } from "sonner";
 import { LinkExistingCertDialog } from "./LinkExistingCertDialog";
+import { SiteLink, CustomerLink } from "@/components/common/EntityLinks";
 
 interface ASDAsset {
   id: string;
