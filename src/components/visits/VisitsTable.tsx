@@ -1510,7 +1510,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             </Collapsible>
           );
         });
-        });
       })()}
 
       {/* Invoiced Visits — kept visible so reports can still be added/edited after invoicing */}
