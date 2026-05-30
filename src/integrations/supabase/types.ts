@@ -407,6 +407,319 @@ export type Database = {
           },
         ]
       }
+      ce_audibility_readings: {
+        Row: {
+          alarm_db: number | null
+          ambient_db: number | null
+          created_at: string
+          floor: string | null
+          id: string
+          location: string
+          notes: string | null
+          ordinal: number
+          report_id: string
+          required_db: number | null
+          result: string | null
+        }
+        Insert: {
+          alarm_db?: number | null
+          ambient_db?: number | null
+          created_at?: string
+          floor?: string | null
+          id?: string
+          location: string
+          notes?: string | null
+          ordinal: number
+          report_id: string
+          required_db?: number | null
+          result?: string | null
+        }
+        Update: {
+          alarm_db?: number | null
+          ambient_db?: number | null
+          created_at?: string
+          floor?: string | null
+          id?: string
+          location?: string
+          notes?: string | null
+          ordinal?: number
+          report_id?: string
+          required_db?: number | null
+          result?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ce_audibility_readings_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "ce_audibility_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ce_audibility_reports: {
+        Row: {
+          bs5839_compliant: boolean | null
+          client_name: string | null
+          client_sign_name: string | null
+          client_sign_position: string | null
+          client_signature: string | null
+          created_at: string
+          created_by: string | null
+          engineer_name: string | null
+          engineer_signature: string | null
+          general_observations: string | null
+          id: string
+          next_service_due: string | null
+          notes: string | null
+          remedial_timeframe: string | null
+          report_date: string | null
+          report_number: string | null
+          site_id: string
+          sound_meter_cal_due: string | null
+          sound_meter_cal_on_file: boolean | null
+          sound_meter_make_model: string | null
+          sound_meter_serial: string | null
+          status: string
+          updated_at: string
+          visit_id: string
+        }
+        Insert: {
+          bs5839_compliant?: boolean | null
+          client_name?: string | null
+          client_sign_name?: string | null
+          client_sign_position?: string | null
+          client_signature?: string | null
+          created_at?: string
+          created_by?: string | null
+          engineer_name?: string | null
+          engineer_signature?: string | null
+          general_observations?: string | null
+          id?: string
+          next_service_due?: string | null
+          notes?: string | null
+          remedial_timeframe?: string | null
+          report_date?: string | null
+          report_number?: string | null
+          site_id: string
+          sound_meter_cal_due?: string | null
+          sound_meter_cal_on_file?: boolean | null
+          sound_meter_make_model?: string | null
+          sound_meter_serial?: string | null
+          status?: string
+          updated_at?: string
+          visit_id: string
+        }
+        Update: {
+          bs5839_compliant?: boolean | null
+          client_name?: string | null
+          client_sign_name?: string | null
+          client_sign_position?: string | null
+          client_signature?: string | null
+          created_at?: string
+          created_by?: string | null
+          engineer_name?: string | null
+          engineer_signature?: string | null
+          general_observations?: string | null
+          id?: string
+          next_service_due?: string | null
+          notes?: string | null
+          remedial_timeframe?: string | null
+          report_date?: string | null
+          report_number?: string | null
+          site_id?: string
+          sound_meter_cal_due?: string | null
+          sound_meter_cal_on_file?: boolean | null
+          sound_meter_make_model?: string | null
+          sound_meter_serial?: string | null
+          status?: string
+          updated_at?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ce_audibility_reports_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ce_audibility_reports_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: true
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ce_issues: {
+        Row: {
+          action_required: string | null
+          created_at: string
+          description: string | null
+          id: string
+          kind: string
+          location: string | null
+          measured_db: number | null
+          report_id: string
+          required_db: number | null
+          severity: string | null
+        }
+        Insert: {
+          action_required?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind: string
+          location?: string | null
+          measured_db?: number | null
+          report_id: string
+          required_db?: number | null
+          severity?: string | null
+        }
+        Update: {
+          action_required?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          location?: string | null
+          measured_db?: number | null
+          report_id?: string
+          required_db?: number | null
+          severity?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ce_issues_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "ce_audibility_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ce_output_checks: {
+        Row: {
+          actual: string | null
+          created_at: string
+          expected: string | null
+          function_name: string
+          id: string
+          ordinal: number
+          report_id: string
+          result: string | null
+        }
+        Insert: {
+          actual?: string | null
+          created_at?: string
+          expected?: string | null
+          function_name: string
+          id?: string
+          ordinal: number
+          report_id: string
+          result?: string | null
+        }
+        Update: {
+          actual?: string | null
+          created_at?: string
+          expected?: string | null
+          function_name?: string
+          id?: string
+          ordinal?: number
+          report_id?: string
+          result?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ce_output_checks_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "ce_audibility_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ce_remedials: {
+        Row: {
+          created_at: string
+          description: string | null
+          estimated_cost: number | null
+          id: string
+          location: string | null
+          priority: string | null
+          report_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          estimated_cost?: number | null
+          id?: string
+          location?: string | null
+          priority?: string | null
+          report_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          estimated_cost?: number | null
+          id?: string
+          location?: string | null
+          priority?: string | null
+          report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ce_remedials_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "ce_audibility_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ce_stage_tests: {
+        Row: {
+          areas_activated: string | null
+          created_at: string
+          delay_time: string | null
+          id: string
+          ordinal: number
+          report_id: string
+          result: string | null
+          stage_name: string
+        }
+        Insert: {
+          areas_activated?: string | null
+          created_at?: string
+          delay_time?: string | null
+          id?: string
+          ordinal: number
+          report_id: string
+          result?: string | null
+          stage_name: string
+        }
+        Update: {
+          areas_activated?: string | null
+          created_at?: string
+          delay_time?: string | null
+          id?: string
+          ordinal?: number
+          report_id?: string
+          result?: string | null
+          stage_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ce_stage_tests_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "ce_audibility_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           address: string | null
