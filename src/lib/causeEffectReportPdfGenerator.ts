@@ -157,6 +157,7 @@ export async function generateCauseEffectReportPDF(
   const logo = await loadLogo();
   const { report, site, visit, outputs, stages, readings, issues, remedials, deviceTests } = bundle;
 
+  const { customer } = bundle;
   let y = header(doc, pageWidth, logo);
 
   // === Title row ===
@@ -176,7 +177,17 @@ export async function generateCauseEffectReportPDF(
   doc.text(formatDate(report.report_date), pageWidth - MARGIN, y + 10, { align: "right" });
   y += 16;
 
-  // === Header block (Job / Date / Engineer / Client / Site) ===
+  // === Header block (Job / Date / Engineer / Customer / Site) ===
+  // Prefer the customer row's name when the engineer left the field
+  // blank in the wizard — falls through to client_name then to "—".
+  const customerLine =
+    report.client_name?.trim() || customer?.name || "—";
+  const customerContactLine = customer
+    ? [customer.contact_name, customer.contact_email, customer.contact_phone]
+        .filter(Boolean)
+        .join(" · ") || null
+    : null;
+
   autoTable(doc, {
     startY: y,
     theme: "plain",
@@ -189,13 +200,22 @@ export async function generateCauseEffectReportPDF(
     },
     body: [
       ["Job Reference:", visit.job_number ?? "—", "Date of Visit:", formatDate(visit.visit_date)],
-      ["Engineer:", report.engineer_name ?? "—", "Client:", report.client_name ?? "—"],
+      ["Engineer:", report.engineer_name ?? "—", "Customer:", customerLine],
+      ...(customerContactLine ? [["", "", "Contact:", customerContactLine]] : []),
       [
         "Site:",
         site.name,
         "Address:",
         [site.address, site.city, site.postcode].filter(Boolean).join(", ") || "—",
       ],
+      ...(site.contact_name || site.contact_phone || site.contact_email
+        ? [[
+            "Site contact:",
+            [site.contact_name, site.contact_phone, site.contact_email].filter(Boolean).join(" · "),
+            "",
+            "",
+          ]]
+        : []),
     ],
   });
   y = lastY(doc) + 4;
@@ -429,11 +449,15 @@ export async function generateCauseEffectReportPDF(
     y = lastY(doc) + 3;
   }
 
-  if (report.general_observations) {
-    y = subHeading(doc, "5.3 General observations", y);
-    y = bodyText(doc, report.general_observations, y, pageWidth);
-    y += 3;
-  }
+  y = subHeading(doc, "5.3 General observations", y);
+  y = bodyText(
+    doc,
+    report.general_observations?.trim() || "— None recorded —",
+    y,
+    pageWidth,
+    report.general_observations ? undefined : { italic: true },
+  );
+  y += 3;
 
   // === §6 Remedial works ===
   y = pageBreakIfNeeded(doc, y, pageHeight, pageWidth, logo, 30);
@@ -487,6 +511,14 @@ export async function generateCauseEffectReportPDF(
   // === §8 Recommendations ===
   y = pageBreakIfNeeded(doc, y, pageHeight, pageWidth, logo, 25);
   y = sectionHeading(doc, "8. Recommendations", y, pageWidth);
+  // Engineer's free-text summary first, then the standing bullets, then
+  // any visit-specific timeframes. Putting the engineer's words at the
+  // top makes the section read like a covering note rather than a
+  // checklist.
+  if (report.notes?.trim()) {
+    y = bodyText(doc, report.notes.trim(), y, pageWidth);
+    y += 2;
+  }
   const recoLines: string[] = [];
   if (report.remedial_timeframe) {
     recoLines.push(`• All remedial works should be completed within ${report.remedial_timeframe}.`);
@@ -496,7 +528,6 @@ export async function generateCauseEffectReportPDF(
   }
   recoLines.push("• Cause & effect testing to be repeated annually.");
   recoLines.push("• Full audibility re-test recommended following any building alterations.");
-  if (report.notes) recoLines.push(report.notes);
   y = bodyText(doc, recoLines.join("\n"), y, pageWidth);
   y += 4;
 

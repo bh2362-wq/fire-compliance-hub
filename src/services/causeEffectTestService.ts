@@ -69,11 +69,21 @@ export interface CauseEffectSiteInfo {
   postcode: string | null;
   contact_name: string | null;
   contact_phone: string | null;
+  contact_email: string | null;
   panel_make_model: string | null;
   bs5839_category: string | null;
   num_zones: number | null;
   num_devices: number | null;
   arc_connected: boolean | null;
+  customer_id: string | null;
+}
+
+export interface CauseEffectCustomerInfo {
+  id: string;
+  name: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
 }
 
 export interface CauseEffectVisitInfo {
@@ -86,6 +96,7 @@ export interface CauseEffectVisitInfo {
 export interface CauseEffectReportBundle {
   report: CauseEffectTestReport;
   site: CauseEffectSiteInfo;
+  customer: CauseEffectCustomerInfo | null;
   visit: CauseEffectVisitInfo;
   outputs: CauseEffectOutputCheck[];
   stages: CauseEffectStageTest[];
@@ -114,7 +125,7 @@ export async function loadCauseEffectReportBundle(
   const [siteRes, visitRes, outRes, stgRes, audRes, issRes, remRes, dtRes] = await Promise.all([
     (supabase as any)
       .from("sites")
-      .select("id, name, address, city, postcode, contact_name, contact_phone, panel_make_model, bs5839_category, num_zones, num_devices, arc_connected")
+      .select("id, name, address, city, postcode, contact_name, contact_phone, contact_email, panel_make_model, bs5839_category, num_zones, num_devices, arc_connected, customer_id")
       .eq("id", report.site_id)
       .single(),
     (supabase as any)
@@ -154,9 +165,25 @@ export async function loadCauseEffectReportBundle(
       .order("tested_at", { ascending: true }),
   ]);
 
+  // Second-stage customer lookup — only when the site has a customer linked.
+  // Kept as a separate await so the parallel batch above doesn't have to
+  // wait on it, and the bundle still resolves cleanly when the site is
+  // an orphan.
+  const site = siteRes.data as CauseEffectSiteInfo;
+  let customer: CauseEffectCustomerInfo | null = null;
+  if (site?.customer_id) {
+    const { data } = await (supabase as any)
+      .from("customers")
+      .select("id, name, contact_name, contact_email, contact_phone")
+      .eq("id", site.customer_id)
+      .maybeSingle();
+    customer = (data as CauseEffectCustomerInfo) ?? null;
+  }
+
   return {
     report: report as CauseEffectTestReport,
-    site: siteRes.data as CauseEffectSiteInfo,
+    site,
+    customer,
     visit: visitRes.data as CauseEffectVisitInfo,
     outputs: (outRes.data ?? []) as CauseEffectOutputCheck[],
     stages: (stgRes.data ?? []) as CauseEffectStageTest[],
