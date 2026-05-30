@@ -1029,6 +1029,12 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   <ClipboardCheck className="w-4 h-4 mr-2" />
                   {reportInfo?.id ? "Open Report" : "Create Report"}
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate(`/dashboard/visits/${visit.id}/cause-effect-test/capture`)}
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Cause &amp; Effect Test
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate(`/dashboard/sites/${visit.site_id}`)}>
                   <Eye className="w-4 h-4 mr-2" />
