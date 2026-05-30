@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { SwipeRow } from "../components/SwipeRow";
 import { useOfflineQueue } from "../hooks/useOfflineQueue";
 import { ChevronDown, X, Camera } from "lucide-react";
+import { ensureManualTicksUploadId } from "@/services/uploadService";
 
 interface Device {
   id: string;
@@ -60,6 +61,7 @@ export function DeviceTesting() {
       // The parsed_device_tests CHECK constraint accepts
       // passed|fault|untested|unknown — translate the UI's pass/fail.
       const dbStatus = params.status === "fail" ? "fault" : "passed";
+      const uploadId = await ensureManualTicksUploadId(visitId!, visit?.site_id);
       const payload = {
         visit_id: visitId!,
         device_id: params.device.id,
@@ -73,6 +75,7 @@ export function DeviceTesting() {
         tested_at: new Date().toISOString(),
         source: "engineer_app",
         matched: true,
+        upload_id: uploadId,
       };
       if (!navigator.onLine) {
         enqueue({ table: "parsed_device_tests", payload });

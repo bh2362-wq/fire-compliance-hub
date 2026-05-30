@@ -3,8 +3,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SignaturePad } from "@/components/ui/signature-pad";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, FileDown } from "lucide-react";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import type { CauseEffectTestReport } from "../useCauseEffectTestDraft";
+import { loadCauseEffectReportBundle } from "@/services/causeEffectTestService";
+import { generateCauseEffectReportPDF } from "@/lib/causeEffectReportPdfGenerator";
 
 interface Props {
   report: CauseEffectTestReport;
@@ -18,10 +22,28 @@ function isDataUrlSig(value: string | null): boolean {
 }
 
 export function CauseEffectSignOffStep({ report, onPatch, onComplete, completing }: Props) {
+  const { toast } = useToast();
+  const [downloading, setDownloading] = useState(false);
   const engineerSigOk = isDataUrlSig(report.engineer_signature);
   const clientSigOk = isDataUrlSig(report.client_signature);
   const complianceSet = report.bs5839_compliant !== null && report.bs5839_compliant !== undefined;
   const canComplete = engineerSigOk && clientSigOk && complianceSet;
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const bundle = await loadCauseEffectReportBundle(report.id);
+      await generateCauseEffectReportPDF(bundle);
+    } catch (e) {
+      toast({
+        title: "Couldn't generate PDF",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -145,7 +167,7 @@ export function CauseEffectSignOffStep({ report, onPatch, onComplete, completing
         />
       </section>
 
-      <div className="pt-2">
+      <div className="pt-2 space-y-2">
         <Button onClick={onComplete} disabled={!canComplete || completing} className="w-full" size="lg">
           {completing ? (
             <>
@@ -153,6 +175,23 @@ export function CauseEffectSignOffStep({ report, onPatch, onComplete, completing
             </>
           ) : (
             "Complete C&E test report"
+          )}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={handleDownload}
+          disabled={downloading}
+        >
+          {downloading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Building PDF…
+            </>
+          ) : (
+            <>
+              <FileDown className="w-4 h-4 mr-2" /> Download PDF
+            </>
           )}
         </Button>
         {!canComplete && (
