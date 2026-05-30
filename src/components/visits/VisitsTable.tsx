@@ -190,7 +190,7 @@ const STATUS_GROUP_ORDER = [
   'pending_review',
 ];
 
-const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitialVisitOpened }: VisitsTableProps) => {
+const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitialVisitOpened, viewMode = 'active' }: VisitsTableProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
