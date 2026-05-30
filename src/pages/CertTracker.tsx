@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { generateServiceReport as generateBS5839CertificatePDF } from "@/lib/serviceReportGenerator";
+import { SiteLink } from "@/components/common/EntityLinks";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
