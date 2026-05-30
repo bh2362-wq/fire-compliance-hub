@@ -251,6 +251,12 @@ export function InboxBrowser({ onScanEmail }: Props) {
             </Button>
           )}
         </div>
+        {aiLoading && (
+          <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Reading matching emails &amp; quotations…
+          </p>
+        )}
 
         {aiResult && (
           <div className="space-y-2 pt-1">
