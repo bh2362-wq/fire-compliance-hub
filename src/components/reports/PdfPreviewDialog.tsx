@@ -189,10 +189,49 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
             panels = parsed.panel_checklists;
           }
         } catch {}
+        // Pull the extras the new wizard records to other tables so the
+        // preview matches the engineer's actual capture (defects from
+        // site_defects, device ticks from parsed_device_tests, customer
+        // via sites.customer_id).
+        const visitId = report.visit_id;
+        const siteId = report.site_id;
+        const [defectsRes, devicesRes, customerRow] = await Promise.all([
+          visitId
+            ? supabase
+                .from("site_defects")
+                .select("description, location, category, status")
+                .eq("visit_id", visitId)
+                .then((r) => r.data ?? [])
+            : Promise.resolve([]),
+          visitId
+            ? supabase
+                .from("parsed_device_tests")
+                .select("loop, address, device_type, location, status, tested_at, fail_reason")
+                .eq("visit_id", visitId)
+                .order("tested_at", { ascending: true })
+                .then((r) => r.data ?? [])
+            : Promise.resolve([]),
+          (async () => {
+            if (!siteId) return null;
+            const { data: siteRow } = await supabase
+              .from("sites")
+              .select("customer_id")
+              .eq("id", siteId)
+              .maybeSingle();
+            if (!siteRow?.customer_id) return null;
+            const { data: c } = await supabase
+              .from("customers")
+              .select("name, contact_name, contact_email, contact_phone")
+              .eq("id", siteRow.customer_id)
+              .maybeSingle();
+            return c ?? null;
+          })(),
+        ]);
         base64 = generateServiceReportPDF(
           report as any, siteInfo,
           { visit_type: visit?.visit_type || "", visit_date: visit?.visit_date || report.report_date },
-          panels, signatures, true
+          panels, signatures, true,
+          { defects: defectsRes, deviceTests: devicesRes, customer: customerRow },
         ) as string;
       }
 
