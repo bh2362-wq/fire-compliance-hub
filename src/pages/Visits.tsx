@@ -207,6 +207,7 @@ const Visits = () => {
             onRefresh={refetch}
             initialEditVisitId={initialVisitId || undefined}
             onInitialVisitOpened={handleVisitOpened}
+            viewMode={statusFilter === "invoiced" ? "invoiced" : "active"}
           />
         </div>
       </div>
