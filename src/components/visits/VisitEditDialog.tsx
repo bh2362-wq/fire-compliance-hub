@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -172,6 +173,7 @@ const VisitEditDialog = ({
   const [storedAssetType, setStoredAssetType] = useState("general");
   
   // Engineer state
+  const navigate = useNavigate();
   const [engineers, setEngineers] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
   const [selectedEngineerId, setSelectedEngineerId] = useState(visit.engineer_id || "");
   
@@ -489,6 +491,22 @@ const VisitEditDialog = ({
           siteId={visit.site_id}
           customerId={null}
         />
+
+        {/* Separate launcher for the annual Cause & Effect + Audibility
+            test report — it's BS 5839 annual-only and quite different in
+            shape from the routine service-report recommendation, so it
+            sits as its own action rather than inside the
+            recommend-by-visit-type card. */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-2"
+          onClick={() => navigate(`/dashboard/visits/${visit.id}/cause-effect-test/capture`)}
+        >
+          <ClipboardCheck className="w-4 h-4" />
+          Cause &amp; Effect + Audibility Test
+        </Button>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
