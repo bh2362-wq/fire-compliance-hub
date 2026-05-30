@@ -39,6 +39,7 @@ interface QuoteRow {
   customer_name:    string | null;
   customer_email:   string | null;
   site_id:          string;
+  customer_id:      string | null;
 }
 
 type FilterTab = "all" | "open" | "won" | "lost";
