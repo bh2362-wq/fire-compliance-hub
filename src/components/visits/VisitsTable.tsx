@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown, Sparkles, ShieldCheck, Zap, Wind, Droplets, Link2, Tag } from "lucide-react";
+import { Calendar, Building2, Eye, GitCompare, FileText, ClipboardCheck, Trash2, Loader2, Pencil, Mail, MoreVertical, CalendarPlus, CalendarDays, XCircle, Package, Send, RotateCcw, ArrowRight, CheckSquare, Truck, ChevronDown, Sparkles, ShieldCheck, Zap, Wind, Droplets, Link2, Tag, AlertTriangle } from "lucide-react";
 import { ClassifyJobDialog } from "@/components/cost-intelligence/ClassifyJobDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -926,13 +926,37 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         </td>
         {/* Status — consistent badge */}
         <td className="px-2 py-2">
-          {isInvoiced && invoiceInfo?.xero_invoice_number ? (
-            <span className="vstatus vstatus-completed">#{invoiceInfo.xero_invoice_number}</span>
-          ) : (
-            <span className={getStatusClass(visit.status || "")}>
-              {displayStatus.label}
-            </span>
-          )}
+          <div className="flex items-center gap-1 flex-wrap">
+            {isInvoiced && invoiceInfo?.xero_invoice_number ? (
+              <span className="vstatus vstatus-completed">#{invoiceInfo.xero_invoice_number}</span>
+            ) : (
+              <span className={getStatusClass(visit.status || "")}>
+                {displayStatus.label}
+              </span>
+            )}
+            {/* "No report" pill — surfaces completed/invoiced visits where
+                the service report was never filed, so they're discoverable
+                from the row instead of vanishing into the Invoiced section.
+                Click jumps straight into the capture wizard for BS 5839
+                service-frequency visits, or the preview path otherwise
+                (same routing as the row's Open Report button). */}
+            {!reportInfo?.id &&
+              (isInvoiced || visit.status === "completed" || visit.status === "pending_review") &&
+              visit.status !== "cancelled" && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openReportForVisit(visit);
+                  }}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border border-destructive/30 bg-destructive/8 text-destructive hover:bg-destructive/15 transition-colors"
+                  title="No service report filed — click to create one"
+                >
+                  <AlertTriangle className="w-2.5 h-2.5" />
+                  No report
+                </button>
+              )}
+          </div>
         </td>
         {/* Description */}
         <td className="px-2 py-2">
