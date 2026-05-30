@@ -437,7 +437,7 @@ const Quotations = () => {
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
-                        {quotation.sites?.name} — {quotation.customers?.name}
+                        <SiteLink id={quotation.site_id} name={quotation.sites?.name} /> — <CustomerLink id={(quotation as any).customer_id} name={quotation.customers?.name} />
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {quotation.title || "Remedial works"}
