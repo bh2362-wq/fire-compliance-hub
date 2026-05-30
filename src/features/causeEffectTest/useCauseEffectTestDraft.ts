@@ -84,7 +84,18 @@ export function useCauseEffectTestDraft(visitId: string, siteId: string, userId:
       if (insErr) throw insErr;
       setReport(created as CauseEffectTestReport);
     } catch (e) {
-      setError(e as Error);
+      console.error("ce_audibility_reports fetch-or-create failed:", e);
+      // Supabase PostgrestError isn't a real Error subclass — wrap so
+      // the .message dig-out in the wizard catches a usable string.
+      const err =
+        e instanceof Error
+          ? e
+          : new Error(
+              e && typeof e === "object" && "message" in e && typeof (e as { message?: unknown }).message === "string"
+                ? (e as { message: string }).message
+                : JSON.stringify(e),
+            );
+      setError(err);
     } finally {
       setLoading(false);
     }

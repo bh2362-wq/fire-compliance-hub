@@ -64,20 +64,32 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
     }
   };
 
-  if (loading || !report) {
+  // Error has to be checked before the loading/!report gate — when the
+  // draft fetch errors (e.g. the ce_audibility_reports migration hasn't
+  // been applied on prod yet) `loading` flips back to false but `report`
+  // stays null, so the previous `loading || !report` check would show an
+  // endless spinner and hide the actual reason.
+  if (error) {
+    const detail = error.message || String(error);
+    const looksLikeMissingTable = /relation .*ce_audibility_reports.* does not exist|does not exist.*ce_audibility_reports/i.test(detail);
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="max-w-md mx-auto p-6 text-center space-y-4">
+        <p className="text-sm font-medium text-destructive">Couldn't open the C&amp;E test draft.</p>
+        <p className="text-xs text-muted-foreground break-words">{detail}</p>
+        {looksLikeMissingTable && (
+          <p className="text-xs text-muted-foreground">
+            The <code>ce_audibility_reports</code> tables need to be migrated on this
+            environment first. Run the latest Supabase migration, then reload.
+          </p>
+        )}
       </div>
     );
   }
 
-  if (error) {
+  if (loading || !report) {
     return (
-      <div className="max-w-md mx-auto p-6 text-center space-y-4">
-        <p className="text-sm text-destructive">
-          Couldn't load draft: {error.message}
-        </p>
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
