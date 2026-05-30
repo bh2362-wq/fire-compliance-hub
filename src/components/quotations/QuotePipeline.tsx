@@ -81,7 +81,7 @@ export default function QuotePipeline() {
         .select(`
           id, quotation_number, status, title, total_amount,
           valid_until, created_at, locked_at,
-          sites:site_id(id, name, customer:customers(name, contact_email))
+          sites:site_id(id, name, customer_id, customer:customers(id, name, contact_email))
         `)
         .order("created_at", { ascending: false })
         .limit(200);
