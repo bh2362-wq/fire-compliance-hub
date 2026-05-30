@@ -106,16 +106,24 @@ serve(async (req) => {
     const listRes = await fetch(listUrl, { headers: auth });
     if (!listRes.ok) throw new Error(`Graph search failed: ${await listRes.text()}`);
     const listData = await listRes.json();
-    const hits: any[] = (listData.value || []).slice(0, 8);
+    const hits: any[] = (listData.value || []).slice(0, 10);
 
-    // Fetch bodies (top 5)
+    // Fetch bodies for ALL hits — previously capped at 5, which meant the
+    // synthesised answer was based on preview snippets for the rest and
+    // engineers got "the emails don't state the figure" answers when the
+    // figure was sitting in email #6's body. 10 × 6000 chars is safely
+    // inside Gemini Flash's input window.
+    const BODY_CHARS = 6000;
     const bodies = await Promise.all(
-      hits.slice(0, 5).map(async (m) => {
+      hits.map(async (m) => {
         try {
-          const r = await fetch(`${GRAPH}/users/${DEFAULT_MAILBOX}/messages/${m.id}?$select=id,body`, { headers: auth });
+          const r = await fetch(
+            `${GRAPH}/users/${DEFAULT_MAILBOX}/messages/${m.id}?$select=id,body`,
+            { headers: auth },
+          );
           if (!r.ok) return "";
           const d = await r.json();
-          return stripHtml(d.body?.content || "").slice(0, 3000);
+          return stripHtml(d.body?.content || "").slice(0, BODY_CHARS);
         } catch { return ""; }
       }),
     );
@@ -130,6 +138,19 @@ serve(async (req) => {
       body: bodies[i] || "",
       hasAttachments: !!m.hasAttachments,
     }));
+
+    // Extract any QUO-style quotation numbers that appear in subjects or
+    // bodies — these are usually the cheapest, most accurate way to find
+    // the actual quoted figure in the database.
+    const quoNumberSet = new Set<string>();
+    const quoPattern = /\bQUO[-\s]?\d{3,6}\b/gi;
+    for (const e of emailCitations) {
+      for (const haystack of [e.subject, e.body, e.preview]) {
+        const matches = haystack.match(quoPattern);
+        if (matches) matches.forEach((m) => quoNumberSet.add(m.toUpperCase().replace(/[-\s]/g, "")));
+      }
+    }
+    const quoNumbers = [...quoNumberSet];
 
     // ── 3. Local DB lookup: quotations whose site / customer name matches ───
     const supabase = createClient(
@@ -160,19 +181,49 @@ serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(20);
 
+    // Look up quotations directly by any QUO numbers we spotted in the
+    // emails. Normalises away the dash so QUO-3527 / QUO03527 / QUO 03527
+    // all hit the same row regardless of how the quotation_number was
+    // stored.
+    let quotesByNumber: any[] = [];
+    if (quoNumbers.length > 0) {
+      const orConds = quoNumbers
+        .flatMap((n) => {
+          // Generate a few common variants of the same number so we
+          // tolerate sloppy formatting in the stored field.
+          const digits = n.replace(/\D/g, "");
+          return [
+            `quotation_number.ilike.%${n}%`,
+            `quotation_number.ilike.%${digits}%`,
+          ];
+        })
+        .join(",");
+      const { data } = await supabase
+        .from("quotations")
+        .select("id, quotation_number, title, total_amount, status, created_at, sites(name), customers(name)")
+        .or(orConds)
+        .limit(20);
+      quotesByNumber = data || [];
+    }
+
     const quoteMap = new Map<string, any>();
-    for (const q of [...(quotes || []), ...(quotesBySite || []), ...(quotesByCust || [])]) {
+    // Direct-number matches go in first so they win the synthesis-prompt
+    // ranking even when the title/site search also returns the row.
+    for (const q of [...quotesByNumber, ...(quotes || []), ...(quotesBySite || []), ...(quotesByCust || [])]) {
       if (q && !quoteMap.has(q.id)) quoteMap.set(q.id, q);
     }
     const quotations = Array.from(quoteMap.values()).slice(0, 15);
 
     // ── 4. AI synthesis ─────────────────────────────────────────────────────
+    // Pass the full extracted body to the LLM (already capped at BODY_CHARS
+    // when fetched). Previously truncated to 1200 here, which lost figures
+    // sitting in the second/third paragraph of quote follow-ups.
     const emailContext = emailCitations
       .map((e, i) => `EMAIL[${i + 1}]
 From: ${e.fromName} <${e.from}>
 Date: ${e.date}
 Subject: ${e.subject}
-Body: ${(e.body || e.preview).slice(0, 1200)}`)
+Body: ${e.body || e.preview || "(no body)"}`)
       .join("\n\n---\n\n") || "(no emails found)";
 
     const quoteContext = quotations.length
@@ -183,23 +234,31 @@ Body: ${(e.body || e.preview).slice(0, 1200)}`)
           .join("\n")
       : "(no matching quotations in database)";
 
+    const numberHint = quoNumbers.length > 0
+      ? `Quotation numbers referenced in the emails: ${quoNumbers.join(", ")}. The database rows above already include these where they exist — when the user asks about a price/figure for one of these jobs, lead with the matching total_amount from the database row, then add context from the emails.`
+      : "";
+
     const answer = await callLovableAI([
       {
         role: "system",
         content:
-          "You are BHO Fire's inbox assistant. Answer the user's question using ONLY the provided email excerpts and quotation database rows. " +
-          "Be concise (max 4 sentences). " +
-          "When quoting figures, cite the source as [EMAIL n] or quotation number (QUO-xxxxx). " +
-          "If the data does not contain the answer, say so plainly — do not invent numbers.",
+          "You are BHO Fire's inbox assistant. Answer the user's question using the provided email bodies and quotation database rows. " +
+          "Always try to give a direct, concrete answer — when the user asks 'how much did we quote', lead with the £ figure from the quotation row that matches the job/site, then briefly cite where it came from. " +
+          "Be concise (3-5 sentences). " +
+          "Cite figures with [EMAIL n] or the quotation number (QUO-xxxxx). " +
+          "If the data genuinely does not contain the answer, say what the closest information IS (the most recent revised cost request, the LOI signed, etc.) — don't just say 'the emails don't say'. " +
+          "Never invent numbers.",
       },
       {
         role: "user",
         content: `Question: ${query}
 
+${numberHint}
+
 — Matching quotations from database —
 ${quoteContext}
 
-— Matching emails from inbox —
+— Matching emails from inbox (full bodies, up to ${BODY_CHARS} chars each) —
 ${emailContext}`,
       },
     ]);
