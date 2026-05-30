@@ -1510,6 +1510,60 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
             </Collapsible>
           );
         });
+        });
+      })()}
+
+      {/* Invoiced Visits — kept visible so reports can still be added/edited after invoicing */}
+      {invoicedVisits.length > 0 && (() => {
+        const totalCost = invoicedVisits.reduce((sum, v) => sum + (v.quoted_price || 0), 0);
+        const uniqueSites = new Set(invoicedVisits.map((v) => v.site?.name)).size;
+        const missingReport = invoicedVisits.filter((v) => !reportMap[v.id]).length;
+        return (
+          <Collapsible defaultOpen={viewMode === 'invoiced'}>
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
+              <CollapsibleTrigger className="w-full px-4 py-2 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer">
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline" className={statusConfig.invoiced.className}>
+                    Invoiced
+                  </Badge>
+                  <span className="text-sm font-medium text-foreground">
+                    {invoicedVisits.length} job{invoicedVisits.length !== 1 ? 's' : ''}
+                  </span>
+                  {missingReport > 0 && (
+                    <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-[10px]">
+                      {missingReport} missing report{missingReport !== 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>{uniqueSites} site{uniqueSites !== 1 ? 's' : ''}</span>
+                  {totalCost > 0 && <span>£{totalCost.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</span>}
+                  <ChevronDown className="w-4 h-4 transition-transform duration-200" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/50 text-xs font-medium text-muted-foreground border-t border-b border-border">
+                        <th className="px-2 py-1.5 text-left w-8"></th>
+                        <th className="px-2 py-1.5 text-left">Site</th>
+                        <th className="px-2 py-1.5 text-left">Type</th>
+                        <th className="px-2 py-1.5 text-left">Date</th>
+                        <th className="px-2 py-1.5 text-left">Status</th>
+                        <th className="px-2 py-1.5 text-left">Description</th>
+                        <th className="px-2 py-1.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoicedVisits.map((visit) => renderVisitRow(visit, true))}
+                    </tbody>
+                  </table>
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+        );
       })()}
 
       {invoiceVisit && (
