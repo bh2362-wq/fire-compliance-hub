@@ -225,6 +225,16 @@ export function DevicesStep({ visitId, siteId }: Props) {
     setBusy(device.id);
     try {
       const { data: userData } = await supabase.auth.getUser();
+      // engineer_id references profiles(id), not auth.users(id) — look up profile.
+      let engineerProfileId: string | null = null;
+      if (userData.user?.id) {
+        const { data: prof } = await (supabase as any)
+          .from("profiles")
+          .select("id")
+          .eq("user_id", userData.user.id)
+          .maybeSingle();
+        engineerProfileId = prof?.id ?? null;
+      }
       // Match the table's CHECK constraint exactly: passed | fault | untested | unknown.
       // Internally the UI uses "failed" for clarity, but the DB stores "fault".
       const dbStatus = status === "failed" ? "fault" : "passed";
@@ -241,7 +251,7 @@ export function DevicesStep({ visitId, siteId }: Props) {
         location: device.location,
         status: dbStatus,
         fail_reason: failReason ?? null,
-        engineer_id: userData.user?.id ?? null,
+        engineer_id: engineerProfileId,
         tested_at: new Date().toISOString(),
         source: "service_report_capture",
         matched: true,
