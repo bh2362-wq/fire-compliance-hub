@@ -101,6 +101,7 @@ export default function QuotePipeline() {
         customer_name:    q.sites?.customer?.name || null,
         customer_email:   q.sites?.customer?.contact_email || null,
         site_id:          q.sites?.id || "",
+        customer_id:      q.sites?.customer?.id || q.sites?.customer_id || null,
       }));
 
       setQuotes(rows);
