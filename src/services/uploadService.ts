@@ -99,41 +99,48 @@ const MANUAL_TICKS_FILENAME = "__manual_ticks__";
 
 /**
  * Ensure there is a single synthetic file_uploads row for this visit that
- * the per-device tick inserts can reference. Returns the row's id on
- * success or null if the row couldn't be created (in which case callers
- * fall back to inserting with upload_id = null and hope the constraint
- * has already been relaxed).
+ * the per-device tick inserts can reference. Throws on failure rather
+ * than returning null so the calling tick path surfaces the real
+ * underlying reason (RLS, FK, etc.) instead of silently re-hitting the
+ * NOT NULL constraint on parsed_device_tests.upload_id.
  */
 export async function ensureManualTicksUploadId(
   visitId: string,
   siteId?: string,
-): Promise<string | null> {
-  try {
-    const { data: existing } = await supabase
-      .from("file_uploads")
-      .select("id")
-      .eq("visit_id", visitId)
-      .eq("file_name", MANUAL_TICKS_FILENAME)
-      .maybeSingle();
-    if (existing?.id) return existing.id as string;
-
-    const { data: user } = await supabase.auth.getUser();
-    const { data: created, error } = await supabase
-      .from("file_uploads")
-      .insert({
-        visit_id: visitId,
-        site_id: siteId ?? null,
-        uploaded_by: user?.user?.id ?? null,
-        file_name: MANUAL_TICKS_FILENAME,
-        file_type: "manual",
-      })
-      .select("id")
-      .single();
-    if (error || !created) return null;
-    return created.id as string;
-  } catch {
-    return null;
+): Promise<string> {
+  // Look for an existing row first.
+  const { data: existing, error: selErr } = await supabase
+    .from("file_uploads")
+    .select("id")
+    .eq("visit_id", visitId)
+    .eq("file_name", MANUAL_TICKS_FILENAME)
+    .maybeSingle();
+  if (selErr) {
+    console.error("[ensureManualTicksUploadId] select failed:", selErr);
+    throw new Error(`Couldn't look up manual-ticks upload row: ${selErr.message}`);
   }
+  if (existing?.id) return existing.id as string;
+
+  // Create one.
+  const { data: user } = await supabase.auth.getUser();
+  const { data: created, error: insErr } = await supabase
+    .from("file_uploads")
+    .insert({
+      visit_id: visitId,
+      site_id: siteId ?? null,
+      uploaded_by: user?.user?.id ?? null,
+      file_name: MANUAL_TICKS_FILENAME,
+      file_type: "manual",
+    })
+    .select("id")
+    .single();
+  if (insErr || !created) {
+    console.error("[ensureManualTicksUploadId] insert failed:", insErr);
+    throw new Error(
+      `Couldn't create manual-ticks upload row: ${insErr?.message ?? "unknown error"}`,
+    );
+  }
+  return created.id as string;
 }
 
 export async function getUploadHistory(options?: {
