@@ -261,9 +261,11 @@ export default function QuotePipeline() {
                         </p>
                       </td>
                       <td className="px-3 py-3">
-                        <p className="font-medium text-[#1a1a1a]">{q.site_name}</p>
+                        <SiteLink id={q.site_id} name={q.site_name} className="font-medium text-[#1a1a1a]" />
                         {q.customer_name && (
-                          <p className="text-[11px] text-[#5f6368]">{q.customer_name}</p>
+                          <div className="text-[11px] text-[#5f6368]">
+                            <CustomerLink id={q.customer_id} name={q.customer_name} />
+                          </div>
                         )}
                       </td>
                       <td className="px-3 py-3 max-w-[160px]">
