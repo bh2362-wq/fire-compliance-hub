@@ -109,6 +109,8 @@ interface VisitsTableProps {
   onRefresh?: () => void;
   initialEditVisitId?: string;
   onInitialVisitOpened?: () => void;
+  /** 'invoiced' hides active groups and shows only the invoiced jobs (with their report status). */
+  viewMode?: 'active' | 'invoiced';
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
