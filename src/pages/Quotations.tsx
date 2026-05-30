@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import QuotePipeline from "@/components/quotations/QuotePipeline";
+import { SiteLink, CustomerLink } from "@/components/common/EntityLinks";
 import {
   Select,
   SelectContent,
@@ -437,7 +438,7 @@ const Quotations = () => {
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
-                        {quotation.sites?.name} — {quotation.customers?.name}
+                        <SiteLink id={quotation.site_id} name={quotation.sites?.name} /> — <CustomerLink id={(quotation as any).customer_id} name={quotation.customers?.name} />
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {quotation.title || "Remedial works"}
@@ -556,7 +557,7 @@ const Quotations = () => {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Building2 className="w-4 h-4" />
-                            {quotation.sites?.name || "Unknown Site"}
+                            <SiteLink id={quotation.site_id} name={quotation.sites?.name} />
                           </span>
                           <span className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" />

@@ -74,6 +74,7 @@ import { AIRamsResult } from "@/components/rams/RamsJobSelectorDialog";
 import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
 import { toast as sonnerToast } from "sonner";
 import { LinkExistingCertDialog } from "./LinkExistingCertDialog";
+import { SiteLink, CustomerLink } from "@/components/common/EntityLinks";
 
 interface ASDAsset {
   id: string;
@@ -908,9 +909,11 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         {/* Site */}
         <td className="px-2 py-2">
           <div className="min-w-0">
-            <p className="font-medium text-foreground text-sm truncate max-w-[200px]">
-              {visit.site?.name || "Unknown Site"}
-            </p>
+            <SiteLink
+              id={visit.site_id}
+              name={visit.site?.name}
+              className="font-medium text-foreground text-sm truncate max-w-[200px] inline-block align-bottom"
+            />
             {(visit as any).customer_name && (
               <p className="text-xs text-muted-foreground truncate max-w-[200px]">{(visit as any).customer_name}</p>
             )}

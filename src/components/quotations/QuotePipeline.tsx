@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDialog";
+import { SiteLink, CustomerLink } from "@/components/common/EntityLinks";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface QuoteRow {
@@ -39,6 +40,7 @@ interface QuoteRow {
   customer_name:    string | null;
   customer_email:   string | null;
   site_id:          string;
+  customer_id:      string | null;
 }
 
 type FilterTab = "all" | "open" | "won" | "lost";
@@ -80,7 +82,7 @@ export default function QuotePipeline() {
         .select(`
           id, quotation_number, status, title, total_amount,
           valid_until, created_at, locked_at,
-          sites:site_id(id, name, customer:customers(name, contact_email))
+          sites:site_id(id, name, customer_id, customer:customers(id, name, contact_email))
         `)
         .order("created_at", { ascending: false })
         .limit(200);
@@ -100,6 +102,7 @@ export default function QuotePipeline() {
         customer_name:    q.sites?.customer?.name || null,
         customer_email:   q.sites?.customer?.contact_email || null,
         site_id:          q.sites?.id || "",
+        customer_id:      q.sites?.customer?.id || q.sites?.customer_id || null,
       }));
 
       setQuotes(rows);
@@ -259,9 +262,11 @@ export default function QuotePipeline() {
                         </p>
                       </td>
                       <td className="px-3 py-3">
-                        <p className="font-medium text-[#1a1a1a]">{q.site_name}</p>
+                        <SiteLink id={q.site_id} name={q.site_name} className="font-medium text-[#1a1a1a]" />
                         {q.customer_name && (
-                          <p className="text-[11px] text-[#5f6368]">{q.customer_name}</p>
+                          <div className="text-[11px] text-[#5f6368]">
+                            <CustomerLink id={q.customer_id} name={q.customer_name} />
+                          </div>
                         )}
                       </td>
                       <td className="px-3 py-3 max-w-[160px]">

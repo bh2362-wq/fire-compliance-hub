@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { generateServiceReport as generateBS5839CertificatePDF } from "@/lib/serviceReportGenerator";
+import { SiteLink } from "@/components/common/EntityLinks";
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
@@ -367,13 +368,13 @@ export default function CertTracker() {
                   return (
                     <tr key={row.site_id}
                       className="border-b border-border/60 hover:bg-muted/30 transition-colors cursor-pointer last:border-0"
-                      onClick={() => navigate(`/sites/${row.site_id}`)}>
+                      onClick={() => navigate(`/dashboard/sites/${row.site_id}`)}>
 
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
                           {allFa && <Lock className="w-3 h-3 text-green-600 flex-shrink-0" />}
                           <div>
-                            <p className="font-semibold text-sm">{row.site_name}</p>
+                            <SiteLink id={row.site_id} name={row.site_name} className="font-semibold text-sm" />
                             {row.site_address && (
                               <p className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[200px]">
                                 {row.site_address}
