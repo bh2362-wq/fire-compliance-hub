@@ -557,7 +557,7 @@ const Quotations = () => {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Building2 className="w-4 h-4" />
-                            {quotation.sites?.name || "Unknown Site"}
+                            <SiteLink id={quotation.site_id} name={quotation.sites?.name} />
                           </span>
                           <span className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" />
