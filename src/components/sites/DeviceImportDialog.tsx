@@ -35,6 +35,7 @@ import { BulkReplaceMap as DialogBulkReplaceMap } from "./ColumnMappingDialog";
 import { useToast } from "@/hooks/use-toast";
 import ColumnMappingDialog from "./ColumnMappingDialog";
 import { parsePDF } from "@/lib/parsers/pdfParser";
+import { parseGentVigilonPdf } from "@/lib/parsers/gentVigilonParser";
 import * as XLSX from "xlsx";
 
 // Gent device type code mappings
@@ -217,8 +218,30 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
       if (isPdf) {
         // Handle PDF files - no column mapping needed
         setIsPdfFile(true);
+
+        // Try the Gent Vigilon device-labels report parser first — it
+        // matches the BRENT*CUR.cfg-style printout exactly and extracts
+        // location text the generic edge-function parser misses. Returns
+        // null when the PDF header doesn't match, in which case we fall
+        // back to the generic edge-function parser.
+        const gentResult = await parseGentVigilonPdf(file).catch((e) => {
+          console.warn("Gent Vigilon parse failed, will fall back:", e);
+          return null;
+        });
+
+        if (gentResult && gentResult.devices.length > 0) {
+          setParsedDevices(gentResult.devices);
+          setParseErrors(gentResult.warnings.slice(0, 20));
+          toast({
+            title: "Gent Vigilon report detected",
+            description: `${gentResult.devices.length} devices parsed (${gentResult.channelLinesAttached} channel descriptions attached).`,
+          });
+          setLoading(false);
+          return;
+        }
+
         const result = await parsePDF(file);
-        
+
         if (result.success && result.devices.length > 0) {
           // Convert parsed PDF devices to DeviceImport format
           const devices: DeviceImport[] = result.devices.map((d) => ({
@@ -228,7 +251,7 @@ const DeviceImportDialog = ({ open, onOpenChange, site, onSuccess }: DeviceImpor
             location: d.location || undefined,
             zone: d.rawData?.zone ? String(d.rawData.zone) : undefined,
           }));
-          
+
           setParsedDevices(devices);
           setParseErrors(result.errors || []);
         } else {
