@@ -23,7 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Check, X, Search, ClipboardCheck } from "lucide-react";
 import { parseCSV, parseTXT, type ParseResult } from "@/lib/parsers/csvParser";
 import { parsePDF } from "@/lib/parsers/pdfParser";
-import { saveFileUpload } from "@/services/uploadService";
+import { saveFileUpload, ensureManualTicksUploadId } from "@/services/uploadService";
 
 interface Device {
   id: string;
@@ -173,6 +173,7 @@ export function VisitDeviceAccountability({ visitId, siteId }: VisitDeviceAccoun
       // Match the table's CHECK constraint (passed | fault | untested | unknown).
       // UI uses "failed" internally but the DB stores "fault".
       const dbStatus = status === "failed" ? "fault" : "passed";
+      const uploadId = await ensureManualTicksUploadId(visitId, siteId);
       const payload = {
         visit_id: visitId,
         device_id: device.id,
@@ -186,6 +187,7 @@ export function VisitDeviceAccountability({ visitId, siteId }: VisitDeviceAccoun
         tested_at: new Date().toISOString(),
         source: "manual_office",
         matched: true,
+        upload_id: uploadId,
       };
       const { error } = await (supabase as any).from("parsed_device_tests").insert(payload);
       if (error) throw error;

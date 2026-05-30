@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Check, X, Search, ArrowLeftRight } from "lucide-react";
 import { parseCSV, parseTXT, type ParseResult } from "@/lib/parsers/csvParser";
 import { parsePDF } from "@/lib/parsers/pdfParser";
-import { saveFileUpload } from "@/services/uploadService";
+import { saveFileUpload, ensureManualTicksUploadId } from "@/services/uploadService";
 
 interface Props {
   visitId: string;
@@ -228,6 +228,10 @@ export function DevicesStep({ visitId, siteId }: Props) {
       // Match the table's CHECK constraint exactly: passed | fault | untested | unknown.
       // Internally the UI uses "failed" for clarity, but the DB stores "fault".
       const dbStatus = status === "failed" ? "fault" : "passed";
+      // Ensure a synthetic file_uploads row exists so the upload_id
+      // NOT NULL constraint is satisfied on envs where the relaxing
+      // migration hasn't applied. One row per visit, reused across ticks.
+      const uploadId = await ensureManualTicksUploadId(visitId, siteId);
       const { error } = await (supabase as any).from("parsed_device_tests").insert({
         visit_id: visitId,
         device_id: device.id,
@@ -241,6 +245,7 @@ export function DevicesStep({ visitId, siteId }: Props) {
         tested_at: new Date().toISOString(),
         source: "service_report_capture",
         matched: true,
+        upload_id: uploadId,
       });
       if (error) throw error;
 
