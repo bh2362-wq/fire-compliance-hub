@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import QuotePipeline from "@/components/quotations/QuotePipeline";
+import { SiteLink, CustomerLink } from "@/components/common/EntityLinks";
 import {
   Select,
   SelectContent,
