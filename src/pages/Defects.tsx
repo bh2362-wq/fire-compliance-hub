@@ -275,8 +275,10 @@ export default function Defects() {
                       </TableCell>
                       <TableCell><DefectCategoryBadge category={d.category} /></TableCell>
                       <TableCell>
-                        <div className="font-medium">{d.site?.name || "—"}</div>
-                        <div className="text-xs text-muted-foreground">{d.site?.customers?.name || ""}</div>
+                        <SiteLink id={d.site?.id || d.site_id} name={d.site?.name} className="font-medium" fallback="—" />
+                        <div className="text-xs text-muted-foreground">
+                          <CustomerLink id={d.site?.customer_id} name={d.site?.customers?.name} fallback="" />
+                        </div>
                       </TableCell>
                       <TableCell className="max-w-md">
                         <div className="line-clamp-2 text-sm">{d.description}</div>
