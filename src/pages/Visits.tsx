@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface Site { id: string; name: string; }
-type StatusFilter = "all" | "scheduled" | "in_progress" | "completed" | "open";
+type StatusFilter = "all" | "scheduled" | "in_progress" | "completed" | "open" | "invoiced";
 
 const Visits = () => {
   const [searchParams, setSearchParams] = useSearchParams();
