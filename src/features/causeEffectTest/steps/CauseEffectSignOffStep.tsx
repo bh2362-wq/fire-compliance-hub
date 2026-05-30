@@ -4,8 +4,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { CheckCircle2, XCircle, Loader2, FileDown } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import type { CauseEffectTestReport } from "../useCauseEffectTestDraft";
 import { loadCauseEffectReportBundle } from "@/services/causeEffectTestService";
 import { generateCauseEffectReportPDF } from "@/lib/causeEffectReportPdfGenerator";
@@ -28,6 +29,29 @@ export function CauseEffectSignOffStep({ report, onPatch, onComplete, completing
   const clientSigOk = isDataUrlSig(report.client_signature);
   const complianceSet = report.bs5839_compliant !== null && report.bs5839_compliant !== undefined;
   const canComplete = engineerSigOk && clientSigOk && complianceSet;
+
+  // Structured context for the AI rewriter so the polished summary
+  // actually references the facts of this test (compliance state,
+  // remedial timeframe, next service date, sound-meter info) rather
+  // than producing a generic paragraph.
+  const aiContext = useMemo(() => {
+    const lines: string[] = [
+      "Report type: BS 5839-1:2017 Cause & Effect + Audibility Test.",
+    ];
+    if (report.bs5839_compliant === true) lines.push("Compliance outcome: COMPLIES.");
+    else if (report.bs5839_compliant === false) lines.push("Compliance outcome: DOES NOT COMPLY.");
+    if (report.remedial_timeframe) lines.push(`Remedial works timeframe: ${report.remedial_timeframe}.`);
+    if (report.next_service_due) lines.push(`Next routine test due: ${report.next_service_due}.`);
+    if (report.sound_meter_make_model) lines.push(`Sound meter used: ${report.sound_meter_make_model}.`);
+    if (report.general_observations) lines.push(`General observations: ${report.general_observations}`);
+    return lines.join("\n");
+  }, [
+    report.bs5839_compliant,
+    report.remedial_timeframe,
+    report.next_service_due,
+    report.sound_meter_make_model,
+    report.general_observations,
+  ]);
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -124,12 +148,25 @@ export function CauseEffectSignOffStep({ report, onPatch, onComplete, completing
             />
           </div>
         </div>
-        <Textarea
-          rows={3}
-          value={report.notes ?? ""}
-          onChange={(e) => onPatch({ notes: e.target.value || null })}
-          placeholder="Other recommendations / notes"
-        />
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Summary for the client
+            </Label>
+            <AIRewriteButton
+              text={report.notes ?? ""}
+              type="recommendations"
+              onRewrite={(v) => onPatch({ notes: v || null })}
+              context={aiContext}
+            />
+          </div>
+          <Textarea
+            rows={4}
+            value={report.notes ?? ""}
+            onChange={(e) => onPatch({ notes: e.target.value || null })}
+            placeholder="2–4 sentences summarising findings, referencing BS 5839-1:2017 clauses where relevant. Type a rough draft then tap Improve with AI."
+          />
+        </div>
       </section>
 
       {/* Engineer signature */}

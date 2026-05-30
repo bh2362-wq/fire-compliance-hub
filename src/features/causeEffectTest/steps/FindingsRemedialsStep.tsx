@@ -13,6 +13,7 @@ import {
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import type { CauseEffectTestReport } from "../useCauseEffectTestDraft";
 
 interface Props {
@@ -259,12 +260,19 @@ export function FindingsRemedialsStep({ report, onPatch, reportId }: Props) {
 
       {/* General observations */}
       <section className="space-y-2 pt-2 border-t">
-        <Label className="text-sm font-medium">General observations</Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label className="text-sm font-medium">General observations</Label>
+          <AIRewriteButton
+            text={report.general_observations ?? ""}
+            type="comments"
+            onRewrite={(v) => onPatch({ general_observations: v || null })}
+          />
+        </div>
         <Textarea
           rows={3}
           value={report.general_observations ?? ""}
           onChange={(e) => onPatch({ general_observations: e.target.value || null })}
-          placeholder="Anything else worth noting from the test"
+          placeholder="Anything else worth noting from the test — type a rough draft then tap Improve with AI."
         />
       </section>
 
