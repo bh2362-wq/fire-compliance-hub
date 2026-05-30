@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { QuotationDetailDialog } from "@/components/quotations/QuotationDetailDialog";
+import { SiteLink, CustomerLink } from "@/components/common/EntityLinks";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface QuoteRow {
