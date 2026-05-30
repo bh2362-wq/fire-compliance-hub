@@ -392,7 +392,45 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
         } catch {
           // Notes parsing failed, use empty signatures
         }
-        generateServiceReportPDF(report, siteInfo, visit, panels, signatures);
+
+        // Fetch the extras the generator now renders: structured
+        // defects from site_defects, device ticks from
+        // parsed_device_tests, customer via sites.customer_id. Each
+        // is independent — a failure on one shouldn't block the
+        // whole PDF.
+        const [defectsRes, devicesRes, customerRow] = await Promise.all([
+          supabase
+            .from("site_defects")
+            .select("description, location, category, status")
+            .eq("visit_id", report.visit_id)
+            .then((r) => r.data ?? []),
+          supabase
+            .from("parsed_device_tests")
+            .select("loop, address, device_type, location, status, tested_at, fail_reason")
+            .eq("visit_id", report.visit_id)
+            .order("tested_at", { ascending: true })
+            .then((r) => r.data ?? []),
+          (async () => {
+            const { data: siteRow } = await supabase
+              .from("sites")
+              .select("customer_id")
+              .eq("id", siteId)
+              .maybeSingle();
+            if (!siteRow?.customer_id) return null;
+            const { data: c } = await supabase
+              .from("customers")
+              .select("name, contact_name, contact_email, contact_phone")
+              .eq("id", siteRow.customer_id)
+              .maybeSingle();
+            return c ?? null;
+          })(),
+        ]);
+
+        generateServiceReportPDF(report, siteInfo, visit, panels, signatures, undefined, {
+          defects: defectsRes,
+          deviceTests: devicesRes,
+          customer: customerRow,
+        });
       }
       toast.success("PDF downloaded");
     } catch (error) {

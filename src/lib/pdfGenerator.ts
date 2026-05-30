@@ -218,13 +218,43 @@ interface ServiceReportSignatures {
   customerSignTime?: string;
 }
 
+// Optional extras the caller can pass so the PDF includes data that the
+// service_reports row doesn't carry on its own. Engineers were getting a
+// sparse PDF because the new wizard writes defects to site_defects and
+// per-device ticks to parsed_device_tests, while the generator only
+// looked at report.defects_found and never queried tick data.
+export interface ServiceReportExtras {
+  defects?: Array<{
+    description: string;
+    location?: string | null;
+    category?: number | null;
+    status?: string | null;
+  }>;
+  deviceTests?: Array<{
+    loop: string | null;
+    address: string | null;
+    device_type: string | null;
+    location: string | null;
+    status: string;
+    tested_at: string | null;
+    fail_reason: string | null;
+  }>;
+  customer?: {
+    name: string;
+    contact_name: string | null;
+    contact_email: string | null;
+    contact_phone: string | null;
+  } | null;
+}
+
 export function generateServiceReportPDF(
   report: ServiceReport,
   site: SiteInfo,
   visit: VisitInfo,
   panels?: PanelChecklistData[],
   signatures?: ServiceReportSignatures,
-  returnBase64?: boolean
+  returnBase64?: boolean,
+  extras?: ServiceReportExtras,
 ): string | void {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -646,9 +676,102 @@ export function generateServiceReportPDF(
 
   yPos += 18;
 
-  // === Notes/Defects (if any, compact) ===
+  // === Customer (when bundled by the caller) ===
+  // Surfaces the customer linked to the site so the report doesn't fall
+  // back to whatever the engineer typed in client_name. Rendered before
+  // notes so it sits in the contextual header band.
+  if (extras?.customer) {
+    if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COLORS.red);
+    doc.text("Customer:", margin, yPos);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.charcoal);
+    const c = extras.customer;
+    const customerLines = [
+      c.name,
+      [c.contact_name, c.contact_phone, c.contact_email].filter(Boolean).join(" · "),
+    ].filter(Boolean);
+    doc.text(customerLines, margin + 25, yPos);
+    yPos += customerLines.length * 4 + 5;
+  }
+
+  // === Defects (structured rows from site_defects + free-text fallback) ===
+  // The new BS 5839 wizard writes each defect to its own site_defects
+  // row rather than dumping a paragraph into report.defects_found.
+  // Prefer the structured rows when present; fall back to the legacy
+  // free-text so older reports still print their notes.
+  if (extras?.defects && extras.defects.length > 0) {
+    if (yPos > pageHeight - 40) { doc.addPage(); yPos = 20; }
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COLORS.red);
+    doc.text(`Defects raised (${extras.defects.length}):`, margin, yPos);
+    yPos += 5;
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Cat", "Description", "Location", "Status"]],
+      body: extras.defects.map((d) => [
+        d.category != null ? String(d.category) : "—",
+        d.description,
+        d.location ?? "—",
+        d.status ?? "open",
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: COLORS.charcoal, textColor: COLORS.white, fontSize: 8, fontStyle: "bold" },
+      styles: { fontSize: 8, cellPadding: 1.5, textColor: COLORS.charcoal, lineColor: COLORS.borderGrey },
+      columnStyles: { 0: { halign: "center", cellWidth: 12 } },
+      margin: { left: margin, right: margin },
+    });
+    yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  }
+
+  // === Devices tested table ===
+  // Pulled from parsed_device_tests by the caller — wasn't on the report
+  // row at all and was the biggest "where did my work go?" gap.
+  if (extras?.deviceTests && extras.deviceTests.length > 0) {
+    if (yPos > pageHeight - 40) { doc.addPage(); yPos = 20; }
+    const passed = extras.deviceTests.filter((d) => d.status === "passed" || d.status === "pass").length;
+    const failed = extras.deviceTests.filter((d) => d.status === "fault" || d.status === "fail").length;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COLORS.red);
+    doc.text(
+      `Devices tested (${extras.deviceTests.length} · ${passed} pass / ${failed} fail):`,
+      margin,
+      yPos,
+    );
+    yPos += 5;
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Loop/Addr", "Type", "Location", "Time", "Result"]],
+      body: extras.deviceTests.map((d) => [
+        `${d.loop ? `L${d.loop}/` : ""}${d.address ?? "—"}`,
+        d.device_type ?? "—",
+        [d.location, d.fail_reason].filter(Boolean).join(" · ") || "—",
+        d.tested_at ? format(new Date(d.tested_at), "HH:mm") : "—",
+        d.status === "passed" || d.status === "pass"
+          ? "PASS"
+          : d.status === "fault" || d.status === "fail"
+            ? "FAIL"
+            : "—",
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: COLORS.charcoal, textColor: COLORS.white, fontSize: 8, fontStyle: "bold" },
+      styles: { fontSize: 7.5, cellPadding: 1.3, textColor: COLORS.charcoal, lineColor: COLORS.borderGrey },
+      columnStyles: { 4: { halign: "center", cellWidth: 14, fontStyle: "bold" } },
+      margin: { left: margin, right: margin },
+    });
+    yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+  }
+
+  // === Notes / Recommendations / Work Done (existing free-text on the report) ===
   const notesItems = [
-    { label: "Defects", text: report.defects_found },
+    // Skip the free-text defects field if we already rendered structured rows.
+    ...(extras?.defects && extras.defects.length > 0
+      ? []
+      : [{ label: "Defects", text: report.defects_found }]),
     { label: "Recommendations", text: report.recommendations },
     { label: "Work Done", text: report.work_carried_out },
   ].filter((n) => n.text && n.text.trim());
@@ -663,8 +786,11 @@ export function generateServiceReportPDF(
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...COLORS.charcoal);
       const lines = doc.splitTextToSize(note.text!, contentWidth - 2);
-      doc.text(lines.slice(0, 2), margin, yPos + 5);
-      yPos += Math.min(lines.length, 2) * 4 + 8;
+      // Allow more lines than the old 2-line cap — engineers were losing
+      // recommendations to the truncation.
+      const maxLines = 8;
+      doc.text(lines.slice(0, maxLines), margin, yPos + 5);
+      yPos += Math.min(lines.length, maxLines) * 4 + 8;
     });
   }
 
