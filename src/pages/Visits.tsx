@@ -63,6 +63,7 @@ const Visits = () => {
     scheduled:   visits.filter((v) => v.status === "scheduled").length,
     in_progress: visits.filter((v) => v.status === "in_progress").length,
     completed:   visits.filter((v) => v.status === "completed").length,
+    invoiced:    visits.filter((v) => v.status === "invoiced").length,
     open:        visits.filter((v) => ["scheduled","in_progress","pending_review"].includes(v.status)).length,
   }), [visits]);
 
@@ -72,6 +73,7 @@ const Visits = () => {
     { key: "in_progress", label: "In Progress" },
     { key: "open",        label: "Open" },
     { key: "completed",   label: "Completed" },
+    { key: "invoiced",    label: "Invoiced" },
   ];
 
   const openCount = counts.open;
@@ -80,6 +82,10 @@ const Visits = () => {
     if (statusFilter === "all") return visits;
     if (statusFilter === "open") {
       return visits.filter((v) => ["scheduled", "in_progress", "pending_review"].includes(v.status));
+    }
+    if (statusFilter === "invoiced") {
+      // VisitsTable owns the xero-linked detection; pass all visits and let it surface the invoiced group
+      return visits;
     }
     return visits.filter((v) => v.status === statusFilter);
   }, [visits, statusFilter]);
