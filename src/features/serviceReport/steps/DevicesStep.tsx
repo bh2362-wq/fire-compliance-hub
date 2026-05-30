@@ -85,22 +85,38 @@ const LOCATION_LIKE_KEYS = [
 ];
 const CORE_KEYS = new Set(["loop", "address", "type", "device type", "zone", "status", "id"]);
 
+// Real location descriptions contain prose (e.g. "GROUND FLOOR STAIR 1").
+// Bare numbers or single tokens like "1", "MCP", "L1" are addresses, type
+// codes, or loop labels that shouldn't headline the row.
+function isLikelyDescription(v: string): boolean {
+  const t = v.trim();
+  if (t.length < 3) return false;
+  if (!/[a-zA-Z]{2,}/.test(t)) return false; // require ≥2 consecutive letters
+  if (/^[A-Z0-9]{1,6}$/.test(t)) return false; // short all-caps codes like MCP, S4MV
+  return true;
+}
+
 function deviceLabel(device: Device): string | null {
-  if (device.location && device.location.trim()) return device.location.trim();
+  if (device.location && isLikelyDescription(device.location)) {
+    return device.location.trim();
+  }
   const raw = device.raw_import_data;
   if (!raw || typeof raw !== "object") return null;
-  // Try known keys first (case-insensitive).
+  // Lowercase keys to match LOCATION_LIKE_KEYS / CORE_KEYS case-insensitively.
   const lower: Record<string, string> = {};
   for (const [k, v] of Object.entries(raw)) {
     if (typeof v === "string" && v.trim()) lower[k.toLowerCase().trim()] = v.trim();
   }
+  // Try known description keys first, but only accept prose-shaped values.
   for (const key of LOCATION_LIKE_KEYS) {
-    if (lower[key]) return lower[key];
+    const v = lower[key];
+    if (v && isLikelyDescription(v)) return v;
   }
-  // Fall back to the longest non-core string value.
+  // Fall back to the longest non-core string value, prose-shaped only.
   let best: string | null = null;
   for (const [k, v] of Object.entries(lower)) {
     if (CORE_KEYS.has(k)) continue;
+    if (!isLikelyDescription(v)) continue;
     if (!best || v.length > best.length) best = v;
   }
   return best;
