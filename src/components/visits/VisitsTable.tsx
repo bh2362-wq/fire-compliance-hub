@@ -1442,8 +1442,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         </div>
       )}
 
-      {/* Active Visits - Grouped by Status */}
-      {activeVisits.length > 0 && (() => {
+      {/* Active Visits - Grouped by Status (hidden in invoiced-only view) */}
+      {viewMode !== 'invoiced' && activeVisits.length > 0 && (() => {
         // Group visits by status
         const grouped: Record<string, Visit[]> = {};
         activeVisits.forEach((visit) => {
