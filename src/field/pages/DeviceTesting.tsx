@@ -57,6 +57,9 @@ export function DeviceTesting() {
   const recordTest = useMutation({
     mutationFn: async (params: { device: Device; status: "pass" | "fail"; failReason?: string }) => {
       const { data: user } = await supabase.auth.getUser();
+      // The parsed_device_tests CHECK constraint accepts
+      // passed|fault|untested|unknown — translate the UI's pass/fail.
+      const dbStatus = params.status === "fail" ? "fault" : "passed";
       const payload = {
         visit_id: visitId!,
         device_id: params.device.id,
@@ -64,7 +67,7 @@ export function DeviceTesting() {
         address: params.device.address,
         device_type: params.device.device_type,
         location: params.device.location,
-        status: params.status,
+        status: dbStatus,
         fail_reason: params.failReason ?? null,
         engineer_id: user.user?.id,
         tested_at: new Date().toISOString(),
@@ -77,6 +80,19 @@ export function DeviceTesting() {
       }
       const { error } = await (supabase as any).from("parsed_device_tests").insert(payload);
       if (error) enqueue({ table: "parsed_device_tests", payload });
+
+      // Reflect on the device row so the Inventory and other readers see
+      // last_tested_at / faulty status update without waiting for the
+      // visit's parsed_device_tests aggregation.
+      void (supabase as any)
+        .from("devices")
+        .update({
+          last_tested_at: new Date().toISOString(),
+          ...(params.status === "fail" ? { status: "faulty" } : {}),
+        })
+        .eq("id", params.device.id)
+        .then(() => {}, (e: unknown) => console.warn("devices update failed:", e));
+
       await (supabase as any).rpc("increment_visit_tested", { vid: visitId });
     },
     onSuccess: () => {
@@ -126,7 +142,14 @@ export function DeviceTesting() {
           primary={`${d.loop ? `L${d.loop}/` : ""}${d.address ?? "?"} · ${d.device_type ?? "Device"}`}
           secondary={d.location ?? d.zone ?? ""}
           hasHistory={tested?.has(d.id)}
-          lastResult={(tested?.get(d.id) as "pass" | "fail") ?? null}
+          lastResult={(() => {
+            const s = tested?.get(d.id);
+            if (!s) return null;
+            const v = s.toLowerCase();
+            if (v.startsWith("fail") || v.startsWith("fault")) return "fail";
+            if (v.startsWith("pass")) return "pass";
+            return null;
+          })()}
           onPass={() => recordTest.mutate({ device: d, status: "pass" })}
           onFail={() => setFailModal(d)}
         />

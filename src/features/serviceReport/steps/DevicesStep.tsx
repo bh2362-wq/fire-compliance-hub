@@ -243,6 +243,27 @@ export function DevicesStep({ visitId, siteId }: Props) {
         matched: true,
       });
       if (error) throw error;
+
+      // Bump the device's last_tested_at and (for failed devices) flag
+      // the row as faulty so the Inventory column and every other surface
+      // that reads from `devices` reflects what just happened. Fire-and-
+      // forget — the test record is already saved and the wizard's own
+      // progress bar updates from parsed_device_tests, so a write here
+      // shouldn't block the engineer's next tap.
+      void (supabase as any)
+        .from("devices")
+        .update({
+          last_tested_at: new Date().toISOString(),
+          ...(status === "failed" ? { status: "faulty" } : {}),
+        })
+        .eq("id", device.id)
+        .then(
+          () => {
+            qc.invalidateQueries({ queryKey: ["sr-devices", siteId] });
+          },
+          (e: unknown) => console.warn("devices.last_tested_at update failed:", e),
+        );
+
       void (supabase as any).rpc("increment_visit_tested", { vid: visitId }).then(() => {}, () => {});
       qc.invalidateQueries({ queryKey: ["sr-tests", visitId] });
     } catch (err) {

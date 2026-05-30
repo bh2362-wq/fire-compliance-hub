@@ -170,6 +170,9 @@ export function VisitDeviceAccountability({ visitId, siteId }: VisitDeviceAccoun
     setBusy(device.id);
     try {
       const { data: userData } = await supabase.auth.getUser();
+      // Match the table's CHECK constraint (passed | fault | untested | unknown).
+      // UI uses "failed" internally but the DB stores "fault".
+      const dbStatus = status === "failed" ? "fault" : "passed";
       const payload = {
         visit_id: visitId,
         device_id: device.id,
@@ -177,7 +180,7 @@ export function VisitDeviceAccountability({ visitId, siteId }: VisitDeviceAccoun
         address: device.address,
         device_type: device.device_type,
         location: device.location,
-        status,
+        status: dbStatus,
         fail_reason: failReason ?? null,
         engineer_id: userData.user?.id ?? null,
         tested_at: new Date().toISOString(),
@@ -186,6 +189,18 @@ export function VisitDeviceAccountability({ visitId, siteId }: VisitDeviceAccoun
       };
       const { error } = await (supabase as any).from("parsed_device_tests").insert(payload);
       if (error) throw error;
+
+      // Reflect the tick on the device row so the Inventory and any other
+      // surface reading from `devices` stays in sync.
+      void (supabase as any)
+        .from("devices")
+        .update({
+          last_tested_at: new Date().toISOString(),
+          ...(status === "failed" ? { status: "faulty" } : {}),
+        })
+        .eq("id", device.id)
+        .then(() => {}, (e: unknown) => console.warn("devices update failed:", e));
+
       await (supabase as any).rpc("increment_visit_tested", { vid: visitId }).then(() => {}, () => {});
       qc.invalidateQueries({ queryKey: ["visit-accountability-tests", visitId] });
     } catch (err) {
