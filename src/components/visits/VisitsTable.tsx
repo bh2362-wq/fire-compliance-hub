@@ -37,7 +37,6 @@ import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
-import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 import { DisabledRefugeReportDialog } from "@/components/reports/DisabledRefugeReportDialog";
@@ -1726,19 +1725,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         />
       )}
 
-      {reportVisit && reportType === "bs5839" && (
-        <ServiceReportDialog
-          open={!!reportVisit && reportType === "bs5839"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setReportVisit(null);
-              setReportType(null);
-            }
-          }}
-          visit={{ ...reportVisit, sites: reportVisit.site }}
-          onSuccess={onRefresh}
-        />
-      )}
+      {/* BS5839 dialog removed — all bs5839 picks route to the
+          wizard via openReportForVisit / ReportTypeSelector. */}
 
       {reportVisit && reportType === "asd" && selectedAsdAssets.length > 0 && (
         <ASDReportDialog

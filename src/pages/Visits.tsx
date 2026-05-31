@@ -65,6 +65,7 @@ const Visits = () => {
     completed:   visits.filter((v) => v.status === "completed").length,
     invoiced:    visits.filter((v) => v.status === "invoiced").length,
     open:        visits.filter((v) => ["scheduled","in_progress","pending_review"].includes(v.status)).length,
+    invoiced:    visits.filter((v) => v.status === "invoiced").length,
   }), [visits]);
 
   const statusTabs: { key: StatusFilter; label: string }[] = [

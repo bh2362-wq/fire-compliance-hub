@@ -521,7 +521,7 @@ export function ReportPreviewDialog({
                 const parsedNotes = parseReportNotes(report.notes);
                 const checklist = report.checklist as Record<string, unknown>;
                 
-                // Get data from either notes (WorkReportDialog) or checklist (ServiceReportDialog)
+                // Get data from either notes (WorkReportDialog) or the wizard checklist
                 const workCompleted = parsedNotes.workCompleted || checklist?.workCompleted || report.status === "completed" || report.status === "locked";
                 const startTime = parsedNotes.startTime ?? checklist?.arrivalTime;
                 const finishTime = parsedNotes.finishTime ?? checklist?.departureTime;
