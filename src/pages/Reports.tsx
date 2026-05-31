@@ -862,7 +862,25 @@ const Reports = () => {
                 // Not JSON, not an ASD report
               }
 
+              // A visit booked as "cause_and_effect" should always open the
+              // C&E wizard, not the BS 5839 service-report form — even if
+              // no ce_audibility_reports row exists yet (the wizard fetch-
+              // or-creates the draft on first open).
+              const isCauseEffectVisit =
+                report.visits?.visit_type === "cause_and_effect";
+
               const handleViewReport = async () => {
+                // C&E visit overrides everything below — always go to the
+                // C&E capture wizard.
+                if (isCauseEffectVisit) {
+                  if (report.visit_id) {
+                    navigate(`/dashboard/visits/${report.visit_id}/cause-effect-test/capture`);
+                  } else {
+                    toast.error("This report isn't linked to a visit — open it from the visit instead.");
+                  }
+                  return;
+                }
+
                 // Detect report type from notes
                 let reportType = "bs5839";
                 try {
@@ -925,10 +943,16 @@ const Reports = () => {
                     <div className="flex items-start gap-4">
                       <div className={cn(
                         "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
-                        isAsdReport ? "bg-secondary/10" : "bg-primary/10"
+                        isAsdReport
+                          ? "bg-secondary/10"
+                          : isCauseEffectVisit
+                            ? "bg-secondary/10"
+                            : "bg-primary/10"
                       )}>
                         {isAsdReport ? (
                           <Wind className="w-6 h-6 text-secondary" />
+                        ) : isCauseEffectVisit ? (
+                          <Volume2 className="w-6 h-6 text-secondary" />
                         ) : (
                           <FileText className="w-6 h-6 text-primary" />
                         )}
@@ -941,6 +965,11 @@ const Reports = () => {
                           {isAsdReport && (
                             <Badge variant="secondary" className="text-xs">
                               ASD
+                            </Badge>
+                          )}
+                          {isCauseEffectVisit && (
+                            <Badge variant="secondary" className="text-xs">
+                              Cause &amp; Effect
                             </Badge>
                           )}
                           <Badge variant="outline" className={status.className}>
