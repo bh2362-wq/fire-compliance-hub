@@ -46,6 +46,10 @@ interface SiteInfo {
   contact_name?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
+  // BS 5839 category — canonical on sites.bs5839_category. When
+  // populated, takes precedence over the legacy report.system_type
+  // lookup for the Category line in the System block.
+  bs5839_category?: string | null;
 }
 
 interface VisitInfo {
@@ -393,7 +397,16 @@ export function generateServiceReportPDF(
     doc.setFont("helvetica", "bold");
     doc.text("SYSTEM", margin + 3, yPos + 5);
 
-    const sysTypeLabel = SYSTEM_TYPES.find((t) => t.value === report.system_type)?.label || report.system_type || "-";
+    // Category prefers the augmented sites.bs5839_category (set via the
+    // wizard's Step 1 dropdown or the Site → System Information panel).
+    // Falls back to the legacy report.system_type lookup so older
+    // service reports that pre-date the category column still print
+    // their system-type label.
+    const sysTypeLabel =
+      site.bs5839_category?.trim() ||
+      SYSTEM_TYPES.find((t) => t.value === report.system_type)?.label ||
+      report.system_type ||
+      "-";
     const sysInfo = [
       [`Panel: ${report.panel_manufacturer || "-"} ${report.panel_model || ""}`.trim()],
       [`Location: ${report.panel_location || "-"}`],
@@ -427,7 +440,11 @@ export function generateServiceReportPDF(
     doc.setFont("helvetica", "bold");
     doc.text(`FIRE PANELS (${panels.length})`, margin + 3, yPos + 5);
 
-    const sysTypeLabel = SYSTEM_TYPES.find((t) => t.value === report.system_type)?.label || report.system_type || "-";
+    const sysTypeLabel =
+      site.bs5839_category?.trim() ||
+      SYSTEM_TYPES.find((t) => t.value === report.system_type)?.label ||
+      report.system_type ||
+      "-";
     doc.text(`System Category: ${sysTypeLabel}`, pageWidth - margin - 3, yPos + 5, { align: "right" });
 
     doc.setFontSize(8);

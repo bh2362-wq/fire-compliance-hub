@@ -167,7 +167,7 @@ const Reports = () => {
       // Fetch full report data for PDF generation
       const { data: fullReport } = await supabase
         .from("service_reports")
-        .select(`*, sites:site_id(name, address, city, postcode, contact_name, contact_phone, contact_email)`)
+        .select(`*, sites:site_id(name, address, city, postcode, contact_name, contact_phone, contact_email, bs5839_category)`)
         .eq("id", report.id)
         .single();
 
@@ -182,6 +182,7 @@ const Reports = () => {
         contact_name: site?.contact_name,
         contact_phone: site?.contact_phone,
         contact_email: site?.contact_email,
+        bs5839_category: site?.bs5839_category,
       };
       const visit = report.visits || { visit_type: "", visit_date: fullReport.report_date };
 
@@ -319,7 +320,7 @@ const Reports = () => {
       .from("service_reports")
       .select(`
         *,
-        sites:site_id(name, address, city, postcode, contact_name, contact_phone, contact_email, customers(name, client_signature))
+        sites:site_id(name, address, city, postcode, contact_name, contact_phone, contact_email, bs5839_category, customers(name, client_signature))
       `)
       .eq("id", reportToEmail.id)
       .single();
@@ -337,6 +338,7 @@ const Reports = () => {
       contact_name: site?.contact_name,
       contact_phone: site?.contact_phone,
       contact_email: site?.contact_email,
+      bs5839_category: site?.bs5839_category,
     };
 
     const visitInfo = {

@@ -178,10 +178,11 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
       const data = await getSiteServiceReports(siteId);
       setReports(data);
 
-      // Fetch site info for PDF generation
-      const { data: site } = await supabase
+      // Fetch site info for PDF generation. bs5839_category is the
+      // canonical home for the System block's Category line.
+      const { data: site } = await (supabase as any)
         .from("sites")
-        .select("name, address, city, postcode, contact_name, contact_phone, contact_email")
+        .select("name, address, city, postcode, contact_name, contact_phone, contact_email, bs5839_category")
         .eq("id", siteId)
         .maybeSingle();
       

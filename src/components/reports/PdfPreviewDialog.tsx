@@ -70,7 +70,7 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
         .from("service_reports")
         .select(`
           *,
-          sites:site_id(name, address, city, postcode, contact_name, contact_phone, contact_email),
+          sites:site_id(name, address, city, postcode, contact_name, contact_phone, contact_email, bs5839_category),
           visits:visit_id(visit_type, visit_date)
         `)
         .eq("id", reportId)
@@ -88,6 +88,7 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
         contact_name: site?.contact_name,
         contact_phone: site?.contact_phone,
         contact_email: site?.contact_email,
+        bs5839_category: site?.bs5839_category,
       };
 
       const reportType = getReportType(report.notes);
