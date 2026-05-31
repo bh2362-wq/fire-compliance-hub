@@ -7,6 +7,7 @@ import { FileText, AlertTriangle, CheckCircle2, Eye, Download, Wind, RefreshCw, 
 import { PdfPreviewDialog } from "@/components/reports/PdfPreviewDialog";
 import { format } from "date-fns";
 import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportService";
+import { parseAbsentMarker } from "@/lib/clientSignatureMarker";
 import { InvoiceStatusBadge } from "@/components/reports/InvoiceStatusBadge";
 import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
@@ -376,12 +377,19 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
         let panels = undefined;
         try {
           const parsed = JSON.parse(report.notes || "{}");
+          // Decode the structured "absent" marker the wizard stores in
+          // client_signature so the PDF renders the chosen reason
+          // (Verbally briefed / Not on site / Other) instead of just a
+          // blank signature box.
+          const absent = parseAbsentMarker(report.client_signature);
           signatures = {
             engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
             engineerSignDate: parsed.engineerSignDate || "",
             engineerSignTime: parsed.engineerSignTime || "",
-            customerNotPresent: parsed.customerNotPresent || false,
-            customerSignature: report.client_signature || parsed.customerSignature || "",
+            customerNotPresent: absent.absent || parsed.customerNotPresent || false,
+            customerAbsentReason: absent.reason ?? undefined,
+            customerAbsentNote: absent.note ?? undefined,
+            customerSignature: absent.absent ? "" : (report.client_signature || parsed.customerSignature || ""),
             customerSignDate: parsed.customerSignDate || "",
             customerSignTime: parsed.customerSignTime || "",
           };

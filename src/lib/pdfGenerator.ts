@@ -213,10 +213,20 @@ interface ServiceReportSignatures {
   engineerSignDate?: string;
   engineerSignTime?: string;
   customerNotPresent?: boolean;
+  // Why the customer didn't sign — decoded from client_signature's
+  // structured marker (e.g. "absent:verbally_briefed") by the caller.
+  customerAbsentReason?: "verbally_briefed" | "not_on_site" | "other" | string;
+  customerAbsentNote?: string | null;
   customerSignature?: string;
   customerSignDate?: string;
   customerSignTime?: string;
 }
+
+const ABSENT_REASON_LABELS: Record<string, string> = {
+  verbally_briefed: "Verbally briefed",
+  not_on_site: "Not on site",
+  other: "Other",
+};
 
 // Optional extras the caller can pass so the PDF includes data that the
 // service_reports row doesn't carry on its own. Engineers were getting a
@@ -745,12 +755,11 @@ export function generateServiceReportPDF(
     yPos += 5;
     autoTable(doc, {
       startY: yPos,
-      head: [["Loop/Addr", "Type", "Location", "Time", "Result"]],
+      head: [["Loop/Addr", "Type", "Location", "Result"]],
       body: extras.deviceTests.map((d) => [
         `${d.loop ? `L${d.loop}/` : ""}${d.address ?? "—"}`,
         d.device_type ?? "—",
         [d.location, d.fail_reason].filter(Boolean).join(" · ") || "—",
-        d.tested_at ? format(new Date(d.tested_at), "HH:mm") : "—",
         d.status === "passed" || d.status === "pass"
           ? "PASS"
           : d.status === "fault" || d.status === "fail"
@@ -760,7 +769,7 @@ export function generateServiceReportPDF(
       theme: "grid",
       headStyles: { fillColor: COLORS.charcoal, textColor: COLORS.white, fontSize: 8, fontStyle: "bold" },
       styles: { fontSize: 7.5, cellPadding: 1.3, textColor: COLORS.charcoal, lineColor: COLORS.borderGrey },
-      columnStyles: { 4: { halign: "center", cellWidth: 14, fontStyle: "bold" } },
+      columnStyles: { 3: { halign: "center", cellWidth: 14, fontStyle: "bold" } },
       margin: { left: margin, right: margin },
     });
     yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
@@ -867,22 +876,54 @@ export function generateServiceReportPDF(
   doc.text("CLIENT", custX + 2, yPos + 4);
   
   if (signatures?.customerNotPresent) {
-    // Customer not present
+    // Customer not present — render the structured reason the engineer
+    // picked in the wizard (Verbally briefed / Not on site / Other).
+    // Falls back to the original "Customer was not available" message
+    // when older reports were ticked off without a reason.
+    const reasonKey = signatures?.customerAbsentReason;
+    const reasonLabel =
+      reasonKey && ABSENT_REASON_LABELS[reasonKey]
+        ? ABSENT_REASON_LABELS[reasonKey]
+        : "Not signed";
+
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...COLORS.mediumGrey);
-    doc.text("Not Present", custX + 18, yPos + 4);
-    
-    // Message area
+    doc.text(reasonLabel, custX + 18, yPos + 4);
+
+    // Tick-box panel (always-listed reasons; the engineer's choice is
+    // ticked). Sits inside the signature area so the printed report
+    // reads like the customer ticked a box on a paper form.
     const custSigY = yPos + 7;
     doc.setFillColor(250, 245, 235);
     doc.rect(custX + 1, custSigY, sigWidth - 2, sigAreaHeight, "F");
-    
-    doc.setFontSize(9);
-    doc.setTextColor(...COLORS.mediumGrey);
-    doc.text("Customer was not available", custX + sigWidth / 2, custSigY + sigAreaHeight / 2 - 1, { align: "center" });
-    doc.text("to sign off on this work.", custX + sigWidth / 2, custSigY + sigAreaHeight / 2 + 4, { align: "center" });
-    
+
+    const boxX = custX + 4;
+    let boxY = custSigY + 4;
+    const lineH = 5;
+    doc.setFontSize(8);
+    const options: Array<{ key: string; label: string }> = [
+      { key: "verbally_briefed", label: "Verbally briefed" },
+      { key: "not_on_site", label: "Not on site" },
+      { key: "other", label: signatures?.customerAbsentNote?.trim() || "Other" },
+    ];
+    for (const opt of options) {
+      const ticked = reasonKey === opt.key;
+      doc.setDrawColor(...COLORS.charcoal);
+      doc.setLineWidth(0.3);
+      doc.rect(boxX, boxY - 3, 3, 3);
+      if (ticked) {
+        doc.setFillColor(...COLORS.charcoal);
+        doc.rect(boxX, boxY - 3, 3, 3, "F");
+      }
+      doc.setTextColor(...(ticked ? COLORS.charcoal : COLORS.mediumGrey));
+      doc.setFont("helvetica", ticked ? "bold" : "normal");
+      doc.text(opt.label, boxX + 5, boxY);
+      boxY += lineH;
+    }
+
     doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.mediumGrey);
     doc.text("Signed by engineer only", custX + 2, yPos + sigBoxHeight + 4);
   } else {
     doc.setFont("helvetica", "normal");
