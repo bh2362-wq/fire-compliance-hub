@@ -107,16 +107,21 @@ export function useCauseEffectTestDraft(visitId: string, siteId: string, userId:
 
   const patch = useCallback(
     async (updates: Partial<CauseEffectTestReport>) => {
-      if (!report) return;
+      const id = report?.id;
+      if (!id) return;
       setSaving(true);
-      // Optimistic local update so the form stays responsive.
-      setReport({ ...report, ...updates } as CauseEffectTestReport);
+      // Functional setState — when two patches fire in the same tick
+      // (e.g. typing the client name and signing the pad before React
+      // commits a re-render), a non-functional `{ ...report, ...updates }`
+      // would build from the stale closure snapshot and the second call
+      // would wipe the first. Composing onto `prev` keeps both changes.
+      setReport((prev) => (prev ? { ...prev, ...updates } : prev));
       const op = (async () => {
         try {
           const { error: updErr } = await (supabase as any)
             .from("ce_audibility_reports")
             .update(updates)
-            .eq("id", report.id);
+            .eq("id", id);
           if (updErr) throw updErr;
         } catch (e) {
           setError(e as Error);
@@ -127,7 +132,7 @@ export function useCauseEffectTestDraft(visitId: string, siteId: string, userId:
       inFlight.current = op;
       return op;
     },
-    [report],
+    [report?.id],
   );
 
   return { report, loading, saving, error, patch, refetch: fetchOrCreate };
