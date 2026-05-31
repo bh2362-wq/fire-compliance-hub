@@ -61,6 +61,7 @@ import { generateCauseEffectReportPDF } from "@/lib/causeEffectReportPdfGenerato
 import { loadCauseEffectReportBundle } from "@/services/causeEffectTestService";
 import { GenerateQuotationDialog } from "@/components/quotations/GenerateQuotationDialog";
 import { PdfPreviewDialog } from "@/components/reports/PdfPreviewDialog";
+import { ChangeReportSiteDialog } from "@/components/reports/ChangeReportSiteDialog";
 
 interface AssetInfo {
   id: string;
@@ -170,6 +171,12 @@ const Reports = () => {
   const [reportForQuotation, setReportForQuotation] = useState<ReportWithSite | null>(null);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
+  const [changeSiteTarget, setChangeSiteTarget] = useState<{
+    kind: "service" | "ce";
+    id: string;
+    siteId: string | null;
+    siteName: string | null;
+  } | null>(null);
   const [uploadingToSharePoint, setUploadingToSharePoint] = useState<string | null>(null);
 
   const sanitizeName = (name: string) => name.replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
@@ -845,7 +852,19 @@ const Reports = () => {
               // render them with their own simplified row, then narrow the
               // type and fall through to the service-report rendering.
               if (report._kind === "ce") {
-                return <CauseEffectReportRow key={report.id} report={report} navigate={navigate} />;
+                return (
+                  <CauseEffectReportRow
+                    key={report.id}
+                    report={report}
+                    navigate={navigate}
+                    onChangeSite={() => setChangeSiteTarget({
+                      kind: "ce",
+                      id: report.id,
+                      siteId: report.site_id ?? null,
+                      siteName: report.sites?.name ?? null,
+                    })}
+                  />
+                );
               }
               const status = statusConfig[report.status] || statusConfig.draft;
               const condition = report.system_condition
@@ -1075,6 +1094,17 @@ const Reports = () => {
                           >
                             <FilePen className="w-4 h-4 mr-2" />
                             Edit Report
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setChangeSiteTarget({
+                              kind: "service",
+                              id: report.id,
+                              siteId: report.site_id ?? null,
+                              siteName: report.sites?.name ?? null,
+                            })}
+                          >
+                            <Building2 className="w-4 h-4 mr-2" />
+                            Change Site / Customer
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleEmailReport(report)}
@@ -1462,6 +1492,16 @@ const Reports = () => {
           reportId={pdfPreviewReportId}
         />
       )}
+
+      <ChangeReportSiteDialog
+        open={!!changeSiteTarget}
+        onOpenChange={(open) => { if (!open) setChangeSiteTarget(null); }}
+        reportKind={changeSiteTarget?.kind ?? "service"}
+        reportId={changeSiteTarget?.id ?? null}
+        currentSiteId={changeSiteTarget?.siteId ?? null}
+        currentSiteName={changeSiteTarget?.siteName ?? null}
+        onSuccess={fetchReports}
+      />
     </DashboardLayout>
   );
 };
@@ -1474,9 +1514,11 @@ export default Reports;
 function CauseEffectReportRow({
   report,
   navigate,
+  onChangeSite,
 }: {
   report: CeReportRow;
   navigate: ReturnType<typeof useNavigate>;
+  onChangeSite: () => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   const status = statusConfig[report.status ?? "draft"] || statusConfig.draft;
@@ -1549,6 +1591,19 @@ function CauseEffectReportRow({
             <FilePen className="w-4 h-4 mr-1" />
             Open
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onChangeSite}>
+                <Building2 className="w-4 h-4 mr-2" />
+                Change Site / Customer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>
