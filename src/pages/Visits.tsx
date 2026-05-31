@@ -16,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface Site { id: string; name: string; }
-type StatusFilter = "all" | "scheduled" | "in_progress" | "completed" | "open";
+type StatusFilter = "all" | "scheduled" | "in_progress" | "completed" | "open" | "invoiced";
 
 const Visits = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -64,6 +64,7 @@ const Visits = () => {
     in_progress: visits.filter((v) => v.status === "in_progress").length,
     completed:   visits.filter((v) => v.status === "completed").length,
     open:        visits.filter((v) => ["scheduled","in_progress","pending_review"].includes(v.status)).length,
+    invoiced:    visits.filter((v) => v.status === "invoiced").length,
   }), [visits]);
 
   const statusTabs: { key: StatusFilter; label: string }[] = [
@@ -72,6 +73,7 @@ const Visits = () => {
     { key: "in_progress", label: "In Progress" },
     { key: "open",        label: "Open" },
     { key: "completed",   label: "Completed" },
+    { key: "invoiced",    label: "Invoiced" },
   ];
 
   const openCount = counts.open;
