@@ -197,12 +197,22 @@ export function CauseEffectSystemStep({ visit, report, onPatch, siteId }: Props)
         </div>
       </div>
 
-      {/* BS 5839 category */}
+      {/* BS 5839 category — immediate write, no debounce, so the engineer's
+          pick survives stepping forward before the 1s debounced
+          write-back fires. */}
       <div>
         <Label className="text-xs">BS 5839 category</Label>
         <Select
           value={info?.bs5839_category ?? ""}
-          onValueChange={(v) => setInfo((prev) => (prev ? { ...prev, bs5839_category: v as any } : prev))}
+          onValueChange={(v) => {
+            const next = v as any;
+            setInfo((prev) => (prev ? { ...prev, bs5839_category: next } : prev));
+            if (siteId) {
+              updateSiteSystemInfo(siteId, { bs5839_category: next }).catch((e) =>
+                console.warn("BS 5839 category write-back failed:", e),
+              );
+            }
+          }}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select category (L1 / L2 / … / M)" />
