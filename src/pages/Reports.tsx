@@ -869,6 +869,40 @@ const Reports = () => {
               const isCauseEffectVisit =
                 report.visits?.visit_type === "cause_and_effect";
 
+              // For C&E visits, the eye-icon "View Report" must render the
+              // C&E PDF — not the BS 5839 service-report one. Look up the
+              // ce_audibility_reports row by visit_id and run the C&E
+              // generator. If no row exists yet, point the engineer at the
+              // wizard to capture it.
+              const handleViewReportPdf = async () => {
+                if (!isCauseEffectVisit) {
+                  setPdfPreviewReportId(report.id);
+                  setPdfPreviewOpen(true);
+                  return;
+                }
+                if (!report.visit_id) {
+                  toast.error("This report isn't linked to a visit.");
+                  return;
+                }
+                try {
+                  const { data: ceRow, error: ceErr } = await (supabase as any)
+                    .from("ce_audibility_reports")
+                    .select("id")
+                    .eq("visit_id", report.visit_id)
+                    .maybeSingle();
+                  if (ceErr) throw ceErr;
+                  if (!ceRow) {
+                    toast.error("No C&E data captured yet — click Edit Report to start.");
+                    return;
+                  }
+                  const bundle = await loadCauseEffectReportBundle(ceRow.id);
+                  await generateCauseEffectReportPDF(bundle);
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : "Failed to generate PDF";
+                  toast.error(`Couldn't generate C&E PDF: ${msg}`);
+                }
+              };
+
               const handleViewReport = async () => {
                 // C&E visit overrides everything below — always go to the
                 // C&E capture wizard.
@@ -1024,10 +1058,7 @@ const Reports = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setPdfPreviewReportId(report.id);
-                          setPdfPreviewOpen(true);
-                        }}
+                        onClick={handleViewReportPdf}
                       >
                         <Eye className="w-4 h-4 mr-1" />
                         View Report
