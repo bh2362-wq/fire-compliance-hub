@@ -32,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2, Copy } from "lucide-react";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2, Copy, Volume2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import {
@@ -57,6 +57,8 @@ import { DisabledRefugeReportDialog } from "@/components/reports/DisabledRefugeR
 import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
+import { generateCauseEffectReportPDF } from "@/lib/causeEffectReportPdfGenerator";
+import { loadCauseEffectReportBundle } from "@/services/causeEffectTestService";
 import { GenerateQuotationDialog } from "@/components/quotations/GenerateQuotationDialog";
 import { PdfPreviewDialog } from "@/components/reports/PdfPreviewDialog";
 
@@ -69,9 +71,32 @@ interface AssetInfo {
 }
 
 interface ReportWithSite extends ServiceReport {
+  _kind?: "service";
   sites: { name: string; customers?: { name: string } | null } | null;
   visits: { visit_type: string; visit_date: string; client_po_number?: string | null } | null;
 }
+
+// C&E + Audibility test reports live in their own ce_audibility_reports
+// table, but the user expects them in the same Reports list. Discriminated
+// against ReportWithSite via `_kind` — every row in the unified list has
+// a `_kind`, so the renderer can branch without `instanceof`.
+interface CeReportRow {
+  _kind: "ce";
+  id: string;
+  visit_id: string;
+  site_id: string;
+  report_number: string | null;
+  report_date: string | null;
+  status: "draft" | "completed" | string | null;
+  engineer_name: string | null;
+  created_at: string;
+  sites: { name: string; customers?: { name: string } | null } | null;
+  visits: { visit_type: string; visit_date: string } | null;
+}
+
+type UnifiedReportRow =
+  | (ReportWithSite & { _kind: "service" })
+  | CeReportRow;
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   completed: {
@@ -108,7 +133,7 @@ const conditionConfig: Record<string, { label: string; icon: typeof CheckCircle2
 
 const Reports = () => {
   const navigate = useNavigate();
-  const [reports, setReports] = useState<ReportWithSite[]>([]);
+  const [reports, setReports] = useState<UnifiedReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -516,23 +541,54 @@ const Reports = () => {
 
   const fetchReports = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("service_reports")
-      .select(`
-        *,
-        sites:site_id(name, address, customers:customer_id(name)),
-        visits:visit_id(visit_type, visit_date, client_po_number)
-      `)
-      .order("created_at", { ascending: false });
+    // Fetch service reports and C&E reports in parallel — they live in
+    // separate tables but the user expects to see both on this page.
+    const [serviceRes, ceRes] = await Promise.all([
+      supabase
+        .from("service_reports")
+        .select(`
+          *,
+          sites:site_id(name, address, customers:customer_id(name)),
+          visits:visit_id(visit_type, visit_date, client_po_number)
+        `)
+        .order("created_at", { ascending: false }),
+      (supabase as any)
+        .from("ce_audibility_reports")
+        .select(`
+          id, visit_id, site_id, report_number, report_date, status,
+          engineer_name, created_at,
+          sites:site_id(name, address, customers:customer_id(name)),
+          visits:visit_id(visit_type, visit_date)
+        `)
+        .order("created_at", { ascending: false }),
+    ]);
 
-    if (!error && data) {
-      setReports(
-        data.map((r) => ({
-          ...r,
-          checklist: (r.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-        })) as ReportWithSite[]
-      );
-    }
+    const serviceRows: UnifiedReportRow[] =
+      !serviceRes.error && serviceRes.data
+        ? serviceRes.data.map((r) => ({
+            ...r,
+            _kind: "service" as const,
+            checklist: (r.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
+          })) as UnifiedReportRow[]
+        : [];
+
+    // Tolerate the C&E table being unmigrated on an older env — just
+    // surface the service reports rather than blanking the whole page.
+    const ceRows: UnifiedReportRow[] =
+      !ceRes.error && Array.isArray(ceRes.data)
+        ? (ceRes.data as Array<Omit<CeReportRow, "_kind">>).map((r) => ({
+            ...r,
+            _kind: "ce" as const,
+          }))
+        : [];
+
+    const merged = [...serviceRows, ...ceRows].sort((a, b) => {
+      const ad = a._kind === "service" ? (a.created_at ?? "") : a.created_at;
+      const bd = b._kind === "service" ? (b.created_at ?? "") : b.created_at;
+      return bd.localeCompare(ad);
+    });
+
+    setReports(merged);
     setLoading(false);
   };
 
@@ -785,6 +841,12 @@ const Reports = () => {
         ) : (
           <div className="bg-card rounded-xl border border-border divide-y divide-border">
             {filteredReports.map((report) => {
+              // C&E + Audibility test reports live in a separate table —
+              // render them with their own simplified row, then narrow the
+              // type and fall through to the service-report rendering.
+              if (report._kind === "ce") {
+                return <CauseEffectReportRow key={report.id} report={report} navigate={navigate} />;
+              }
               const status = statusConfig[report.status] || statusConfig.draft;
               const condition = report.system_condition
                 ? conditionConfig[report.system_condition]
@@ -1345,3 +1407,90 @@ const Reports = () => {
 };
 
 export default Reports;
+
+/* --------------------------------------------------------------------- */
+/* C&E + Audibility report row                                            */
+/* --------------------------------------------------------------------- */
+function CauseEffectReportRow({
+  report,
+  navigate,
+}: {
+  report: CeReportRow;
+  navigate: ReturnType<typeof useNavigate>;
+}) {
+  const [downloading, setDownloading] = useState(false);
+  const status = statusConfig[report.status ?? "draft"] || statusConfig.draft;
+
+  const handleOpen = () => {
+    if (!report.visit_id) {
+      toast.error("This C&E report isn't linked to a visit — open from the visit instead.");
+      return;
+    }
+    navigate(`/dashboard/visits/${report.visit_id}/cause-effect-test/capture`);
+  };
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const bundle = await loadCauseEffectReportBundle(report.id);
+      await generateCauseEffectReportPDF(bundle);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to generate PDF";
+      toast.error(`Couldn't generate C&E PDF: ${msg}`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="p-6 hover:bg-muted/30 transition-colors">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-secondary/10">
+            <Volume2 className="w-6 h-6 text-secondary" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-foreground">
+                {report.sites?.name || "Unknown Site"}
+              </h3>
+              <Badge variant="secondary" className="text-xs">Cause &amp; Effect</Badge>
+              <Badge variant="outline" className={status.className}>{status.label}</Badge>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              {report.report_date && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {format(new Date(report.report_date), "MMM d, yyyy")}
+                </span>
+              )}
+              {report.visits && (
+                <span className="capitalize">{report.visits.visit_type.replace(/_/g, " ")}</span>
+              )}
+              {report.engineer_name && <span>Engineer: {report.engineer_name}</span>}
+              {report.report_number && <span>#{report.report_number}</span>}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(`/dashboard/sites/${report.site_id}`)}
+          >
+            <Building2 className="w-4 h-4 mr-1" />
+            Site
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
+            {downloading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Eye className="w-4 h-4 mr-1" />}
+            View Report
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleOpen}>
+            <FilePen className="w-4 h-4 mr-1" />
+            Open
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
