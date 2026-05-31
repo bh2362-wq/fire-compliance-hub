@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
@@ -117,6 +117,60 @@ export function FindingsRemedialsStep({ report, onPatch, reportId }: Props) {
     setRemedials((prev) => prev.filter((r) => r.id !== row.id));
     const { error } = await (supabase as any).from("ce_remedials").delete().eq("id", row.id);
     if (error) toast({ title: "Couldn't remove remedial", description: error.message, variant: "destructive" });
+  };
+
+  // Turn each Findings issue into a draft remedial: action_required becomes
+  // the description (falling back to "Address: <issue>" when the engineer
+  // left it blank), severity maps to priority. Skips issues that already
+  // have a matching remedial so re-clicking the button doesn't dupe.
+  const [generating, setGenerating] = useState(false);
+  const generateFromIssues = async () => {
+    if (issues.length === 0) return;
+    setGenerating(true);
+    try {
+      const existingKeys = new Set(
+        remedials.map((r) => `${(r.description ?? "").trim().toLowerCase()}|${(r.location ?? "").trim().toLowerCase()}`),
+      );
+      const rows = issues
+        .map((i) => {
+          const description = i.action_required?.trim()
+            ? i.action_required.trim()
+            : i.description?.trim()
+              ? `Address: ${i.description.trim()}`
+              : null;
+          if (!description) return null;
+          const key = `${description.toLowerCase()}|${(i.location ?? "").trim().toLowerCase()}`;
+          if (existingKeys.has(key)) return null;
+          return {
+            report_id: reportId,
+            description,
+            location: i.location,
+            priority: i.severity === "critical" ? "urgent" : "routine",
+            estimated_cost: null as number | null,
+          };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+
+      if (rows.length === 0) {
+        toast({ title: "Nothing to add", description: "All issues already have a matching remedial." });
+        return;
+      }
+
+      const { data, error } = await (supabase as any)
+        .from("ce_remedials")
+        .insert(rows)
+        .select("*");
+
+      if (error || !data) {
+        toast({ title: "Couldn't generate remedials", description: error?.message ?? "", variant: "destructive" });
+        return;
+      }
+
+      setRemedials((prev) => [...prev, ...(data as Remedial[])]);
+      toast({ title: `Added ${data.length} remedial${data.length === 1 ? "" : "s"} from issues` });
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const ceIssues = issues.filter((i) => i.kind === "cause_effect");
@@ -278,14 +332,37 @@ export function FindingsRemedialsStep({ report, onPatch, reportId }: Props) {
 
       {/* Remedials */}
       <section className="space-y-2 pt-2 border-t">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <Label className="text-sm font-medium">Remedial works required</Label>
-          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={addRemedial}>
-            <Plus className="w-3.5 h-3.5 mr-1" /> Add
-          </Button>
+          <div className="flex items-center gap-1">
+            {issues.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={generateFromIssues}
+                disabled={generating}
+                title="Create remedial entries from each Findings issue"
+              >
+                {generating ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Wand2 className="w-3.5 h-3.5 mr-1" />
+                )}
+                Generate from issues
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={addRemedial}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add
+            </Button>
+          </div>
         </div>
         {remedials.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">No remedial works required — system is compliant.</p>
+          <p className="text-xs text-muted-foreground italic">
+            {issues.length > 0
+              ? "No remedials yet — tap “Generate from issues” to draft one per issue, then refine."
+              : "No remedial works required — system is compliant."}
+          </p>
         ) : (
           <>
             {remedials.map((row) => (

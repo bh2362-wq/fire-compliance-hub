@@ -862,7 +862,59 @@ const Reports = () => {
                 // Not JSON, not an ASD report
               }
 
+              // A visit booked as "cause_and_effect" should always open the
+              // C&E wizard, not the BS 5839 service-report form — even if
+              // no ce_audibility_reports row exists yet (the wizard fetch-
+              // or-creates the draft on first open).
+              const isCauseEffectVisit =
+                report.visits?.visit_type === "cause_and_effect";
+
+              // For C&E visits, the eye-icon "View Report" must render the
+              // C&E PDF — not the BS 5839 service-report one. Look up the
+              // ce_audibility_reports row by visit_id and run the C&E
+              // generator. If no row exists yet, point the engineer at the
+              // wizard to capture it.
+              const handleViewReportPdf = async () => {
+                if (!isCauseEffectVisit) {
+                  setPdfPreviewReportId(report.id);
+                  setPdfPreviewOpen(true);
+                  return;
+                }
+                if (!report.visit_id) {
+                  toast.error("This report isn't linked to a visit.");
+                  return;
+                }
+                try {
+                  const { data: ceRow, error: ceErr } = await (supabase as any)
+                    .from("ce_audibility_reports")
+                    .select("id")
+                    .eq("visit_id", report.visit_id)
+                    .maybeSingle();
+                  if (ceErr) throw ceErr;
+                  if (!ceRow) {
+                    toast.error("No C&E data captured yet — click Edit Report to start.");
+                    return;
+                  }
+                  const bundle = await loadCauseEffectReportBundle(ceRow.id);
+                  await generateCauseEffectReportPDF(bundle);
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : "Failed to generate PDF";
+                  toast.error(`Couldn't generate C&E PDF: ${msg}`);
+                }
+              };
+
               const handleViewReport = async () => {
+                // C&E visit overrides everything below — always go to the
+                // C&E capture wizard.
+                if (isCauseEffectVisit) {
+                  if (report.visit_id) {
+                    navigate(`/dashboard/visits/${report.visit_id}/cause-effect-test/capture`);
+                  } else {
+                    toast.error("This report isn't linked to a visit — open it from the visit instead.");
+                  }
+                  return;
+                }
+
                 // Detect report type from notes
                 let reportType = "bs5839";
                 try {
@@ -925,10 +977,16 @@ const Reports = () => {
                     <div className="flex items-start gap-4">
                       <div className={cn(
                         "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
-                        isAsdReport ? "bg-secondary/10" : "bg-primary/10"
+                        isAsdReport
+                          ? "bg-secondary/10"
+                          : isCauseEffectVisit
+                            ? "bg-secondary/10"
+                            : "bg-primary/10"
                       )}>
                         {isAsdReport ? (
                           <Wind className="w-6 h-6 text-secondary" />
+                        ) : isCauseEffectVisit ? (
+                          <Volume2 className="w-6 h-6 text-secondary" />
                         ) : (
                           <FileText className="w-6 h-6 text-primary" />
                         )}
@@ -941,6 +999,11 @@ const Reports = () => {
                           {isAsdReport && (
                             <Badge variant="secondary" className="text-xs">
                               ASD
+                            </Badge>
+                          )}
+                          {isCauseEffectVisit && (
+                            <Badge variant="secondary" className="text-xs">
+                              Cause &amp; Effect
                             </Badge>
                           )}
                           <Badge variant="outline" className={status.className}>
@@ -995,10 +1058,7 @@ const Reports = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setPdfPreviewReportId(report.id);
-                          setPdfPreviewOpen(true);
-                        }}
+                        onClick={handleViewReportPdf}
                       >
                         <Eye className="w-4 h-4 mr-1" />
                         View Report
