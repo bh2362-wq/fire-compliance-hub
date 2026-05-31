@@ -403,10 +403,11 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
 
         // Fetch the extras the generator now renders: structured
         // defects from site_defects, device ticks from
-        // parsed_device_tests, customer via sites.customer_id. Each
-        // is independent — a failure on one shouldn't block the
-        // whole PDF.
-        const [defectsRes, devicesRes, customerRow] = await Promise.all([
+        // parsed_device_tests, customer via sites.customer_id, plus
+        // the new template-prefill fields (duty holder + ARC details)
+        // straight off the sites row. Each is independent — a failure
+        // on one shouldn't block the whole PDF.
+        const [defectsRes, devicesRes, siteExtraRes] = await Promise.all([
           supabase
             .from("site_defects")
             .select("description, location, category, status")
@@ -419,25 +420,46 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
             .order("tested_at", { ascending: true })
             .then((r) => r.data ?? []),
           (async () => {
-            const { data: siteRow } = await supabase
+            const { data: siteRow } = await (supabase as any)
               .from("sites")
-              .select("customer_id")
+              .select("customer_id, duty_holder_name, duty_holder_role, duty_holder_email, duty_holder_phone, arc_provider, arc_account_ref, arc_connected, access_hours")
               .eq("id", siteId)
               .maybeSingle();
-            if (!siteRow?.customer_id) return null;
-            const { data: c } = await supabase
-              .from("customers")
-              .select("name, contact_name, contact_email, contact_phone")
-              .eq("id", siteRow.customer_id)
-              .maybeSingle();
-            return c ?? null;
+            let customer: { name: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null } | null = null;
+            if (siteRow?.customer_id) {
+              const { data: c } = await supabase
+                .from("customers")
+                .select("name, contact_name, contact_email, contact_phone")
+                .eq("id", siteRow.customer_id)
+                .maybeSingle();
+              customer = c ?? null;
+            }
+            return { siteRow, customer };
           })(),
         ]);
+
+        const customerRow = siteExtraRes.customer;
+        const siteRow = siteExtraRes.siteRow;
 
         generateServiceReportPDF(report, siteInfo, visit, panels, signatures, undefined, {
           defects: defectsRes,
           deviceTests: devicesRes,
           customer: customerRow,
+          dutyHolder: siteRow && (siteRow.duty_holder_name || siteRow.duty_holder_email)
+            ? {
+                name: siteRow.duty_holder_name ?? null,
+                role: siteRow.duty_holder_role ?? null,
+                email: siteRow.duty_holder_email ?? null,
+                phone: siteRow.duty_holder_phone ?? null,
+              }
+            : null,
+          arc: siteRow?.arc_connected
+            ? {
+                provider: siteRow.arc_provider ?? null,
+                accountRef: siteRow.arc_account_ref ?? null,
+              }
+            : null,
+          accessHours: siteRow?.access_hours ?? null,
         });
       }
       toast.success("PDF downloaded");

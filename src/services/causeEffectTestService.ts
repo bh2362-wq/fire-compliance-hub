@@ -76,6 +76,16 @@ export interface CauseEffectSiteInfo {
   num_devices: number | null;
   arc_connected: boolean | null;
   customer_id: string | null;
+  // Augmented from the sites template-prefill migration. Populated by
+  // the Site → System Information panel and rendered on the report
+  // header band so the engineer doesn't have to re-type them each visit.
+  duty_holder_name: string | null;
+  duty_holder_role: string | null;
+  duty_holder_email: string | null;
+  duty_holder_phone: string | null;
+  arc_provider: string | null;
+  arc_account_ref: string | null;
+  access_hours: string | null;
 }
 
 export interface CauseEffectCustomerInfo {
@@ -125,7 +135,18 @@ export async function loadCauseEffectReportBundle(
   const [siteRes, visitRes, outRes, stgRes, audRes, issRes, remRes, dtRes] = await Promise.all([
     (supabase as any)
       .from("sites")
-      .select("id, name, address, city, postcode, contact_name, contact_phone, contact_email, panel_make_model, bs5839_category, num_zones, num_devices, arc_connected, customer_id")
+      .select(
+        [
+          "id", "name", "address", "city", "postcode",
+          "contact_name", "contact_phone", "contact_email",
+          "panel_make_model", "bs5839_category",
+          "num_zones", "num_devices",
+          "arc_connected", "arc_provider", "arc_account_ref",
+          "customer_id",
+          "duty_holder_name", "duty_holder_role", "duty_holder_email", "duty_holder_phone",
+          "access_hours",
+        ].join(","),
+      )
       .eq("id", report.site_id)
       .single(),
     (supabase as any)

@@ -199,7 +199,7 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
         // via sites.customer_id).
         const visitId = report.visit_id;
         const siteId = report.site_id;
-        const [defectsRes, devicesRes, customerRow] = await Promise.all([
+        const [defectsRes, devicesRes, siteExtraRes] = await Promise.all([
           visitId
             ? supabase
                 .from("site_defects")
@@ -216,26 +216,50 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
                 .then((r) => r.data ?? [])
             : Promise.resolve([]),
           (async () => {
-            if (!siteId) return null;
-            const { data: siteRow } = await supabase
+            if (!siteId) return { siteRow: null as any, customer: null };
+            const { data: siteRow } = await (supabase as any)
               .from("sites")
-              .select("customer_id")
+              .select("customer_id, duty_holder_name, duty_holder_role, duty_holder_email, duty_holder_phone, arc_provider, arc_account_ref, arc_connected, access_hours")
               .eq("id", siteId)
               .maybeSingle();
-            if (!siteRow?.customer_id) return null;
-            const { data: c } = await supabase
-              .from("customers")
-              .select("name, contact_name, contact_email, contact_phone")
-              .eq("id", siteRow.customer_id)
-              .maybeSingle();
-            return c ?? null;
+            let customer: { name: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null } | null = null;
+            if (siteRow?.customer_id) {
+              const { data: c } = await supabase
+                .from("customers")
+                .select("name, contact_name, contact_email, contact_phone")
+                .eq("id", siteRow.customer_id)
+                .maybeSingle();
+              customer = c ?? null;
+            }
+            return { siteRow, customer };
           })(),
         ]);
+        const customerRow = siteExtraRes.customer;
+        const siteRow = siteExtraRes.siteRow;
         base64 = generateServiceReportPDF(
           report as any, siteInfo,
           { visit_type: visit?.visit_type || "", visit_date: visit?.visit_date || report.report_date },
           panels, signatures, true,
-          { defects: defectsRes, deviceTests: devicesRes, customer: customerRow },
+          {
+            defects: defectsRes,
+            deviceTests: devicesRes,
+            customer: customerRow,
+            dutyHolder: siteRow && (siteRow.duty_holder_name || siteRow.duty_holder_email)
+              ? {
+                  name: siteRow.duty_holder_name ?? null,
+                  role: siteRow.duty_holder_role ?? null,
+                  email: siteRow.duty_holder_email ?? null,
+                  phone: siteRow.duty_holder_phone ?? null,
+                }
+              : null,
+            arc: siteRow?.arc_connected
+              ? {
+                  provider: siteRow.arc_provider ?? null,
+                  accountRef: siteRow.arc_account_ref ?? null,
+                }
+              : null,
+            accessHours: siteRow?.access_hours ?? null,
+          },
         ) as string;
       }
 
