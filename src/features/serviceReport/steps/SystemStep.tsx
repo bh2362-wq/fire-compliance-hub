@@ -118,6 +118,11 @@ export function SystemStep({ visit, report, onPatch, siteId }: Props) {
   }, [siteId]);
 
   // Write back to sites whenever the engineer-confirmed values settle.
+  // Debounced 1s so per-keystroke typing on panel make/model doesn't
+  // hammer the table. NB: bs5839_category is handled separately (immediate
+  // write on the dropdown onValueChange) so it doesn't get lost when the
+  // engineer picks then immediately clicks Next — the debounce timer
+  // would be cleared on unmount before it fires.
   useEffect(() => {
     if (!siteId) return;
     const handle = setTimeout(() => {
@@ -127,7 +132,6 @@ export function SystemStep({ visit, report, onPatch, siteId }: Props) {
       if (report.zones_count != null) sitesPatch.num_zones = report.zones_count;
       if (report.devices_count != null) sitesPatch.num_devices = report.devices_count;
       if (report.arc_connected != null) sitesPatch.arc_connected = report.arc_connected;
-      if (category) sitesPatch.bs5839_category = category;
       if (Object.keys(sitesPatch).length === 0) return;
       updateSiteSystemInfo(siteId, sitesPatch).catch((e) =>
         console.warn("sites system-info write-back failed:", e),
@@ -141,8 +145,20 @@ export function SystemStep({ visit, report, onPatch, siteId }: Props) {
     report.zones_count,
     report.devices_count,
     report.arc_connected,
-    category,
   ]);
+
+  // Immediate, no-debounce write for the BS 5839 category. Engineers
+  // routinely pick a value and click Next within a second; the
+  // debounced effect above would cancel before firing. Local state
+  // mirrors the new value so the dropdown reflects the choice while
+  // the network request settles.
+  const handleCategoryChange = (next: Bs5839Category | null) => {
+    setCategory(next);
+    if (!siteId) return;
+    updateSiteSystemInfo(siteId, { bs5839_category: next }).catch((e) =>
+      console.warn("BS 5839 category write-back failed:", e),
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -247,7 +263,7 @@ export function SystemStep({ visit, report, onPatch, siteId }: Props) {
         <Label className="text-sm font-medium">BS 5839 category</Label>
         <Select
           value={category ?? "__none"}
-          onValueChange={(v) => setCategory(v === "__none" ? null : (v as Bs5839Category))}
+          onValueChange={(v) => handleCategoryChange(v === "__none" ? null : (v as Bs5839Category))}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select category (L1 / L2 / … / M)" />
