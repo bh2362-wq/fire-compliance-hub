@@ -216,6 +216,35 @@ export async function generateCauseEffectReportPDF(
             "",
           ]]
         : []),
+      // Sites schema augmentation — render the responsible person on
+      // the header band when populated. Two-line collapse keeps the
+      // table tight.
+      ...(site.duty_holder_name || site.duty_holder_email
+        ? [[
+            "Responsible person:",
+            [site.duty_holder_name, site.duty_holder_role].filter(Boolean).join(" · "),
+            "Contact:",
+            [site.duty_holder_phone, site.duty_holder_email].filter(Boolean).join(" · ") || "—",
+          ]]
+        : []),
+      // ARC provider line (only when the system is ARC-monitored).
+      ...(site.arc_connected && (site.arc_provider || site.arc_account_ref)
+        ? [[
+            "ARC:",
+            [site.arc_provider, site.arc_account_ref].filter(Boolean).join(" · "),
+            "",
+            "",
+          ]]
+        : []),
+      // Access hours when captured.
+      ...(site.access_hours?.trim()
+        ? [[
+            "Access hours:",
+            site.access_hours.trim(),
+            "",
+            "",
+          ]]
+        : []),
     ],
   });
   y = lastY(doc) + 4;

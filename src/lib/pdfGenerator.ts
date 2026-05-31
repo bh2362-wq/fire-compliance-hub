@@ -233,6 +233,11 @@ const ABSENT_REASON_LABELS: Record<string, string> = {
 // sparse PDF because the new wizard writes defects to site_defects and
 // per-device ticks to parsed_device_tests, while the generator only
 // looked at report.defects_found and never queried tick data.
+//
+// The dutyHolder + arc + accessHours blocks come from the sites schema
+// augmentation (migration 20260531120000_sites_template_fields) — when
+// populated they print in the header band so the customer can see who
+// the responsible person is and which ARC the system is monitored by.
 export interface ServiceReportExtras {
   defects?: Array<{
     description: string;
@@ -255,6 +260,17 @@ export interface ServiceReportExtras {
     contact_email: string | null;
     contact_phone: string | null;
   } | null;
+  dutyHolder?: {
+    name: string | null;
+    role: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
+  arc?: {
+    provider: string | null;
+    accountRef: string | null;
+  } | null;
+  accessHours?: string | null;
 }
 
 export function generateServiceReportPDF(
@@ -705,6 +721,58 @@ export function generateServiceReportPDF(
     ].filter(Boolean);
     doc.text(customerLines, margin + 25, yPos);
     yPos += customerLines.length * 4 + 5;
+  }
+
+  // === Duty holder / Responsible person (sites schema augmentation) ===
+  // Populated via the Site → System Information panel. Engineers fill
+  // this in once per site and every report it appears on uses it.
+  if (extras?.dutyHolder && (extras.dutyHolder.name || extras.dutyHolder.email)) {
+    if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COLORS.red);
+    doc.text("Responsible person:", margin, yPos);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.charcoal);
+    const dh = extras.dutyHolder;
+    const dhLines = [
+      [dh.name, dh.role].filter(Boolean).join(" · "),
+      [dh.phone, dh.email].filter(Boolean).join(" · "),
+    ].filter((s) => s.length > 0);
+    doc.text(dhLines, margin + 38, yPos);
+    yPos += dhLines.length * 4 + 5;
+  }
+
+  // === ARC (provider + account ref) ===
+  // Rendered alongside the system-status badge area in the contextual
+  // header. Skipped when ARC isn't connected — engineers typically only
+  // populate provider/ref on monitored sites.
+  if (extras?.arc && (extras.arc.provider || extras.arc.accountRef)) {
+    if (yPos > pageHeight - 25) { doc.addPage(); yPos = 20; }
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COLORS.red);
+    doc.text("ARC:", margin, yPos);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.charcoal);
+    const arcText = [extras.arc.provider, extras.arc.accountRef]
+      .filter(Boolean)
+      .join(" · ");
+    doc.text(arcText, margin + 14, yPos);
+    yPos += 6;
+  }
+
+  // === Access hours (only when site has been captured with them) ===
+  if (extras?.accessHours?.trim()) {
+    if (yPos > pageHeight - 25) { doc.addPage(); yPos = 20; }
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COLORS.red);
+    doc.text("Access hours:", margin, yPos);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COLORS.charcoal);
+    doc.text(extras.accessHours.trim(), margin + 28, yPos);
+    yPos += 6;
   }
 
   // === Defects (structured rows from site_defects + free-text fallback) ===
