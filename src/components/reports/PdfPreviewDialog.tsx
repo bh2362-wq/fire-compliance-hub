@@ -15,6 +15,7 @@ import {
   generateDisabledRefugeReportPDF,
 } from "@/lib/pdfGenerator";
 import { toast } from "sonner";
+import { parseAbsentMarker } from "@/lib/clientSignatureMarker";
 
 interface PdfPreviewDialogProps {
   open: boolean;
@@ -178,11 +179,14 @@ export function PdfPreviewDialog({ open, onOpenChange, reportId }: PdfPreviewDia
         let panels = undefined;
         try {
           const parsed = JSON.parse(report.notes || "{}");
+          const absent = parseAbsentMarker(report.client_signature);
           signatures = {
             engineerSignature: report.engineer_signature || parsed.engineerSignature || "",
             engineerSignDate: parsed.engineerSignDate || "", engineerSignTime: parsed.engineerSignTime || "",
-            customerNotPresent: parsed.customerNotPresent || false,
-            customerSignature: report.client_signature || parsed.customerSignature || "",
+            customerNotPresent: absent.absent || parsed.customerNotPresent || false,
+            customerAbsentReason: absent.reason ?? undefined,
+            customerAbsentNote: absent.note ?? undefined,
+            customerSignature: absent.absent ? "" : (report.client_signature || parsed.customerSignature || ""),
             customerSignDate: parsed.customerSignDate || "", customerSignTime: parsed.customerSignTime || "",
           };
           if (parsed.multi_panel && Array.isArray(parsed.panel_checklists)) {
