@@ -63,7 +63,6 @@ const Visits = () => {
     scheduled:   visits.filter((v) => v.status === "scheduled").length,
     in_progress: visits.filter((v) => v.status === "in_progress").length,
     completed:   visits.filter((v) => v.status === "completed").length,
-    invoiced:    visits.filter((v) => v.status === "invoiced").length,
     open:        visits.filter((v) => ["scheduled","in_progress","pending_review"].includes(v.status)).length,
     invoiced:    visits.filter((v) => v.status === "invoiced").length,
   }), [visits]);
