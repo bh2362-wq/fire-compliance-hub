@@ -821,13 +821,23 @@ export function generateServiceReportPDF(
       yPos,
     );
     yPos += 5;
+    // Brentside's device import (and probably others) stored the bare
+    // address in the location column, so a naive render produces
+    // "L1/1  Manual Call Point  1" with the "1" duplicating the
+    // address. Only treat the location as prose when it actually
+    // contains some letters — otherwise render the fail reason on its
+    // own, or "—".
+    const isProse = (s: string | null | undefined): s is string =>
+      typeof s === "string" && /[a-zA-Z]{2,}/.test(s) && s.trim().length >= 3;
     autoTable(doc, {
       startY: yPos,
       head: [["Loop/Addr", "Type", "Location", "Result"]],
       body: extras.deviceTests.map((d) => [
         `${d.loop ? `L${d.loop}/` : ""}${d.address ?? "—"}`,
         d.device_type ?? "—",
-        [d.location, d.fail_reason].filter(Boolean).join(" · ") || "—",
+        [isProse(d.location) ? d.location : null, d.fail_reason]
+          .filter(Boolean)
+          .join(" · ") || "—",
         d.status === "passed" || d.status === "pass"
           ? "PASS"
           : d.status === "fault" || d.status === "fail"

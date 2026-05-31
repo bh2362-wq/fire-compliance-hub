@@ -2,13 +2,22 @@ import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Sparkles } from "lucide-react";
 import { Visit } from "@/hooks/useVisits";
 import { ServiceReport } from "@/services/serviceReportService";
 import {
+  BS5839_CATEGORIES,
   composePanelMakeModel,
   getSiteSystemInfo,
   updateSiteSystemInfo,
+  type Bs5839Category,
   type SiteSystemInfo,
 } from "@/services/siteSystemInfoService";
 
@@ -39,6 +48,11 @@ function splitPanelMakeModel(combined: string | null): { make: string | null; mo
 export function SystemStep({ visit, report, onPatch, siteId }: Props) {
   const [prefilled, setPrefilled] = useState<string[]>([]);
   const [siteInfoLoading, setSiteInfoLoading] = useState(true);
+  // bs5839_category lives only on the sites row (not on service_reports),
+  // so we hold it as local state here and write it back to sites
+  // directly. Keeps the engineer's confirmation inline with the other
+  // system fields instead of forcing a trip back to Site → System Info.
+  const [category, setCategory] = useState<Bs5839Category | null>(null);
 
   // Read existing site system-info once on mount; pre-fill any report fields
   // that are still null. Engineer-typed values win — we never overwrite.
@@ -78,9 +92,15 @@ export function SystemStep({ visit, report, onPatch, siteId }: Props) {
           patch.arc_connected = info.arc_connected;
           filled.push("ARC connection");
         }
+        if (info.bs5839_category) {
+          setCategory(info.bs5839_category);
+          filled.push("BS 5839 category");
+        }
 
         if (Object.keys(patch).length > 0) {
           onPatch(patch);
+        }
+        if (filled.length > 0) {
           setPrefilled(filled);
         }
       } catch (e) {
@@ -107,6 +127,7 @@ export function SystemStep({ visit, report, onPatch, siteId }: Props) {
       if (report.zones_count != null) sitesPatch.num_zones = report.zones_count;
       if (report.devices_count != null) sitesPatch.num_devices = report.devices_count;
       if (report.arc_connected != null) sitesPatch.arc_connected = report.arc_connected;
+      if (category) sitesPatch.bs5839_category = category;
       if (Object.keys(sitesPatch).length === 0) return;
       updateSiteSystemInfo(siteId, sitesPatch).catch((e) =>
         console.warn("sites system-info write-back failed:", e),
@@ -120,6 +141,7 @@ export function SystemStep({ visit, report, onPatch, siteId }: Props) {
     report.zones_count,
     report.devices_count,
     report.arc_connected,
+    category,
   ]);
 
   return (
@@ -215,6 +237,28 @@ export function SystemStep({ visit, report, onPatch, siteId }: Props) {
             placeholder="e.g. Main reception"
           />
         </div>
+      </div>
+
+      {/* BS 5839 category — lives on sites, written back on change. The
+          PDF's System block reads this directly; previously the wizard
+          had no way to set it from inside the service-report flow so
+          the field rendered as "Category: —" on every printout. */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">BS 5839 category</Label>
+        <Select
+          value={category ?? "__none"}
+          onValueChange={(v) => setCategory(v === "__none" ? null : (v as Bs5839Category))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select category (L1 / L2 / … / M)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none">— Not set —</SelectItem>
+            {BS5839_CATEGORIES.map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* System size */}
