@@ -1,9 +1,7 @@
-import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   BS5839Checklist,
   CHECKLIST_LABELS,
@@ -60,12 +58,11 @@ interface Props {
 }
 
 export function ChecklistStep({ checklist, onChange, disabled }: Props) {
-  const [sectionIdx, setSectionIdx] = useState(0);
-  const sectionKey = SECTION_ORDER[sectionIdx];
-  const sectionItems = useMemo(
-    () => Object.entries(CHECKLIST_LABELS[sectionKey] ?? {}),
-    [sectionKey],
-  );
+  // All 17 sections are rendered in one scrollable list now — the
+  // previous in-step Previous/Next navigator meant engineers reached
+  // section 14, hit the wizard's main Next, and never saw sections
+  // 15 (Logbook), 16 (Certification) or 17 (Post inspection).
+  // Section-by-section nav was hiding work that needs doing.
 
   // Overall completion: how many of the boolean items have a recorded value.
   const { completed, total } = useMemo(() => {
@@ -85,7 +82,7 @@ export function ChecklistStep({ checklist, onChange, disabled }: Props) {
     return { completed: done, total: count };
   }, [checklist]);
 
-  const setBool = (itemKey: string, value: boolean | "na") => {
+  const setBool = (sectionKey: keyof BS5839Checklist, itemKey: string, value: boolean | "na") => {
     const section = (checklist[sectionKey] ?? {}) as Record<string, unknown>;
     const next: BS5839Checklist = {
       ...checklist,
@@ -94,7 +91,7 @@ export function ChecklistStep({ checklist, onChange, disabled }: Props) {
     onChange(next);
   };
 
-  const setSpecial = (itemKey: string, value: string | number | null) => {
+  const setSpecial = (sectionKey: keyof BS5839Checklist, itemKey: string, value: string | number | null) => {
     const section = (checklist[sectionKey] ?? {}) as Record<string, unknown>;
     const next: BS5839Checklist = {
       ...checklist,
@@ -104,91 +101,78 @@ export function ChecklistStep({ checklist, onChange, disabled }: Props) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="sticky top-0 z-10 bg-background pb-3 pt-1 -mx-4 px-4 border-b">
         <p className="text-xs text-muted-foreground">
-          Section {sectionIdx + 1} of {SECTION_ORDER.length} · {completed}/{total} items recorded
+          {completed}/{total} items recorded across all {SECTION_ORDER.length} sections
         </p>
-        <h3 className="text-base font-semibold mt-1">{SECTION_LABELS[sectionKey]}</h3>
         <Progress value={(completed / Math.max(1, total)) * 100} className="mt-2 h-1.5" />
       </div>
 
-      <div className="space-y-3">
-        {sectionItems.map(([itemKey, label]) => {
-          const path = `${sectionKey}.${itemKey}`;
-          const special = NON_BOOLEAN_ITEMS[path];
-          const section = (checklist[sectionKey] ?? {}) as Record<string, unknown>;
-          const rawValue = section[itemKey];
+      {SECTION_ORDER.map((sectionKey) => {
+        const sectionItems = Object.entries(CHECKLIST_LABELS[sectionKey] ?? {});
+        const section = (checklist[sectionKey] ?? {}) as Record<string, unknown>;
+        return (
+          <section key={sectionKey} className="space-y-3">
+            <h3 className="text-base font-semibold sticky top-[68px] bg-background py-1 -mx-4 px-4 z-[5] border-b">
+              {SECTION_LABELS[sectionKey]}
+            </h3>
+            {sectionItems.map(([itemKey, label]) => {
+              const path = `${sectionKey}.${itemKey}`;
+              const special = NON_BOOLEAN_ITEMS[path];
+              const rawValue = section[itemKey];
 
-          if (special === "text") {
-            return (
-              <div key={itemKey} className="rounded-lg border bg-card p-3 space-y-2">
-                <Label className="text-sm leading-snug">{label}</Label>
-                <Input
-                  inputMode="decimal"
-                  value={(rawValue as string | null) ?? ""}
-                  onChange={(e) => setSpecial(itemKey, e.target.value || null)}
-                  placeholder="e.g. 27.4V"
-                  disabled={disabled}
-                />
-              </div>
-            );
-          }
-          if (special === "number") {
-            return (
-              <div key={itemKey} className="rounded-lg border bg-card p-3 space-y-2">
-                <Label className="text-sm leading-snug">{label}</Label>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  value={rawValue == null ? "" : String(rawValue)}
-                  onChange={(e) =>
-                    setSpecial(itemKey, e.target.value === "" ? null : Number(e.target.value))
+              if (special === "text") {
+                return (
+                  <div key={itemKey} className="rounded-lg border bg-card p-3 space-y-2">
+                    <Label className="text-sm leading-snug">{label}</Label>
+                    <Input
+                      inputMode="decimal"
+                      value={(rawValue as string | null) ?? ""}
+                      onChange={(e) => setSpecial(sectionKey, itemKey, e.target.value || null)}
+                      placeholder="e.g. 27.4V"
+                      disabled={disabled}
+                    />
+                  </div>
+                );
+              }
+              if (special === "number") {
+                return (
+                  <div key={itemKey} className="rounded-lg border bg-card p-3 space-y-2">
+                    <Label className="text-sm leading-snug">{label}</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      value={rawValue == null ? "" : String(rawValue)}
+                      onChange={(e) =>
+                        setSpecial(sectionKey, itemKey, e.target.value === "" ? null : Number(e.target.value))
+                      }
+                      disabled={disabled}
+                    />
+                  </div>
+                );
+              }
+
+              // Default: Yes/No/NA tile.
+              const boolValue = rawValue as boolean | null | undefined;
+              // Distinguish recorded N/A (null) from "not yet touched" (undefined).
+              const isRecordedNa = boolValue === null && Object.prototype.hasOwnProperty.call(section, itemKey);
+
+              return (
+                <ChecklistTile
+                  key={itemKey}
+                  label={label}
+                  value={isRecordedNa ? "na" : tileValueFromBool(boolValue ?? null)}
+                  onChange={(t) =>
+                    setBool(sectionKey, itemKey, boolFromTile(t) === null ? "na" : (boolFromTile(t) as boolean))
                   }
                   disabled={disabled}
                 />
-              </div>
-            );
-          }
-
-          // Default: Yes/No/NA tile.
-          const boolValue = rawValue as boolean | null | undefined;
-          const tileValue: TileValue | null =
-            boolValue === true ? "yes" : boolValue === false ? "no" : boolValue === null ? null : null;
-          // Distinguish recorded N/A (null) from "not yet touched" (undefined).
-          const isRecordedNa = boolValue === null && Object.prototype.hasOwnProperty.call(section, itemKey);
-
-          return (
-            <ChecklistTile
-              key={itemKey}
-              label={label}
-              value={isRecordedNa ? "na" : tileValueFromBool(boolValue ?? null)}
-              onChange={(t) => setBool(itemKey, boolFromTile(t) === null ? "na" : (boolFromTile(t) as boolean))}
-              disabled={disabled}
-            />
-          );
-        })}
-      </div>
-
-      <div className="flex justify-between gap-3 pt-2">
-        <Button
-          variant="outline"
-          onClick={() => setSectionIdx((i) => Math.max(0, i - 1))}
-          disabled={sectionIdx === 0}
-          className="flex-1"
-        >
-          <ChevronLeft className="mr-1 h-4 w-4" />
-          Previous section
-        </Button>
-        <Button
-          onClick={() => setSectionIdx((i) => Math.min(SECTION_ORDER.length - 1, i + 1))}
-          disabled={sectionIdx === SECTION_ORDER.length - 1}
-          className="flex-1"
-        >
-          Next section
-          <ChevronRight className="ml-1 h-4 w-4" />
-        </Button>
-      </div>
+              );
+            })}
+          </section>
+        );
+      })}
     </div>
   );
 }
