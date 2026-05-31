@@ -9,7 +9,6 @@ import { ClipboardList, Calendar, MapPin, ArrowRight, AlertCircle } from "lucide
 import { supabase } from "@/integrations/supabase/client";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
-import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 
 interface OpenVisit {
@@ -269,27 +268,9 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
         />
       )}
 
-      {/* BS5839 Report Dialog */}
-      {selectedVisit && reportType === "bs5839" && (
-        <ServiceReportDialog
-          open={!!selectedVisit && reportType === "bs5839"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedVisit(null);
-              setReportType(null);
-            }
-          }}
-          visit={{
-            id: selectedVisit.id,
-            visit_type: selectedVisit.visit_type,
-            visit_date: selectedVisit.visit_date,
-            site_id: selectedVisit.site_id,
-            sites: selectedVisit.sites,
-          }}
-          onSuccess={handleReportSuccess}
-          showCompleteVisit
-        />
-      )}
+      {/* BS5839 Report Dialog removed — wizard-only flow now.
+          handleReportTypeSelect navigates to the capture wizard for
+          bs5839 picks; this branch is no longer reachable. */}
 
       {/* ASD Report Dialog */}
       {selectedVisit && reportType === "asd" && selectedAsdAssets.length > 0 && (

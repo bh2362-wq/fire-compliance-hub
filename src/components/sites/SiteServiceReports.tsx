@@ -9,7 +9,6 @@ import { format } from "date-fns";
 import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportService";
 import { parseAbsentMarker } from "@/lib/clientSignatureMarker";
 import { InvoiceStatusBadge } from "@/components/reports/InvoiceStatusBadge";
-import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
@@ -113,7 +112,7 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ServiceReport | null>(null);
-  const [dialogType, setDialogType] = useState<"work" | "bs5839" | "asd" | null>(null);
+  const [dialogType, setDialogType] = useState<"work" | "asd" | null>(null);
   const [asdAssets, setAsdAssets] = useState<ASDAsset[]>([]);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
@@ -277,9 +276,10 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
       return;
     }
 
-    // Fallback: report somehow has no visit_id — keep the legacy modal.
-    setSelectedReport(report);
-    setDialogType("bs5839");
+    // Orphan report (no linked visit) — rare. Surface clearly rather
+    // than opening the legacy ServiceReportDialog modal (deleted in
+    // the wizard-only consolidation pass).
+    toast.error("This report isn't linked to a visit — open it from the visit instead.");
   };
 
   const handleDownloadPDF = async (report: ServiceReport) => {
@@ -648,26 +648,8 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
         />
       )}
 
-      {/* BS5839 Report Dialog */}
-      {selectedReport && dialogType === "bs5839" && (
-        <ServiceReportDialog
-          open={!!selectedReport && dialogType === "bs5839"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedReport(null);
-              setDialogType(null);
-            }
-          }}
-          visit={{
-            id: selectedReport.visit_id,
-            visit_type: visitMap[selectedReport.visit_id]?.visit_type || "",
-            visit_date: visitMap[selectedReport.visit_id]?.visit_date || selectedReport.report_date,
-            site_id: siteId,
-            sites: siteName ? { name: siteName } : null,
-          }}
-          onSuccess={fetchReports}
-        />
-      )}
+      {/* BS5839 Report Dialog removed — wizard-only flow now.
+          Orphan-report fallback is a toast in handleViewReport. */}
 
       {/* ASD Report Dialog */}
       {selectedReport && dialogType === "asd" && (

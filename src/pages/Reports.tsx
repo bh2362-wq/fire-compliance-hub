@@ -50,7 +50,6 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ServiceReport, BS5839Checklist, getDefaultChecklist } from "@/services/serviceReportService";
-import { ServiceReportDialog } from "@/components/reports/ServiceReportDialog";
 import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -815,10 +814,14 @@ const Reports = () => {
                 }
 
                 // BS 5839 service reports → navigate to the new capture
-                // wizard. Legacy ServiceReportDialog is kept only as a
-                // fallback when the report has no visit_id to navigate to.
-                if (reportType === "bs5839" && report.visit_id) {
-                  navigate(`/dashboard/visits/${report.visit_id}/service-report/capture`);
+                // wizard. Orphan-report fallback (no visit_id) shows a
+                // toast — legacy ServiceReportDialog has been deleted.
+                if (reportType === "bs5839") {
+                  if (report.visit_id) {
+                    navigate(`/dashboard/visits/${report.visit_id}/service-report/capture`);
+                  } else {
+                    toast.error("This report isn't linked to a visit — open it from the visit instead.");
+                  }
                   return;
                 }
 
@@ -1144,20 +1147,9 @@ const Reports = () => {
           );
         }
 
-        return (
-          <ServiceReportDialog
-            open={!!selectedReport}
-            onOpenChange={(open) => !open && setSelectedReport(null)}
-            visit={{
-              id: selectedReport.visit_id,
-              visit_type: selectedReport.visits?.visit_type || "",
-              visit_date: selectedReport.visits?.visit_date || selectedReport.report_date,
-              site_id: selectedReport.site_id,
-              sites: selectedReport.sites,
-            }}
-            onSuccess={fetchReports}
-          />
-        );
+        // BS5839 reports now flow through the wizard route via
+        // handleViewReport — this fallback branch is unreachable.
+        return null;
       })()}
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
