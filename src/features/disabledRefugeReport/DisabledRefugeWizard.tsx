@@ -36,6 +36,10 @@ export function DisabledRefugeWizard({ visit, assets, userId, onCompleted }: Pro
   );
   const [stepIdx, setStepIdx] = useState(0);
   const [completing, setCompleting] = useState(false);
+  // All useState calls must sit ABOVE the early-return gates below —
+  // otherwise React sees more hooks on render N than render N-1 and the
+  // wizard crashes with "Rendered fewer hooks than expected".
+  const [pasteOpen, setPasteOpen] = useState(false);
 
   if (error) {
     return (
@@ -53,8 +57,6 @@ export function DisabledRefugeWizard({ visit, assets, userId, onCompleted }: Pro
   const patchScalars = (updates: Partial<DisabledRefugeDraft>) => {
     void patch(updates);
   };
-
-  const [pasteOpen, setPasteOpen] = useState(false);
 
   const handleComplete = async () => {
     setCompleting(true);

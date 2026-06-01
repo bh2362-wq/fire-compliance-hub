@@ -56,6 +56,10 @@ export function CaptureWizard({ visit, userId, onCompleted }: Props) {
   );
   const [stepIdx, setStepIdx] = useState(0);
   const [completing, setCompleting] = useState(false);
+  // All useState calls must sit ABOVE the early-return gates below —
+  // otherwise React sees more hooks on render N than render N-1 and the
+  // wizard crashes with "Rendered fewer hooks than expected".
+  const [pasteOpen, setPasteOpen] = useState(false);
 
   const aiQuoteEnabled = isAiQuoteEnabled();
 
@@ -166,9 +170,6 @@ export function CaptureWizard({ visit, userId, onCompleted }: Props) {
   const patchChecklist = (next: BS5839Checklist) => {
     void patch({ checklist: next });
   };
-
-  // Paste-AI-notes dialog state.
-  const [pasteOpen, setPasteOpen] = useState(false);
 
   return (
     <>
