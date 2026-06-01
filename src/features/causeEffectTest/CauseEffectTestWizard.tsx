@@ -87,7 +87,6 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
     void patch(updates);
   };
 
-  const [pasteOpen, setPasteOpen] = useState(false);
 
   return (
     <>
