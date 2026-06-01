@@ -14,6 +14,7 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer,
   ImageRun,
   PageOrientation,
   Packer,
@@ -26,6 +27,7 @@ import {
   VerticalAlign,
   WidthType,
 } from "https://esm.sh/docx@8.5.0";
+
 
 // ──────────────────────────────────────────────────────────────────────
 // Branding constants — kept here rather than imported from src/ so the
