@@ -845,7 +845,7 @@ async function buildDocx(bundle: Bundle, supabase: any): Promise<Uint8Array> {
             size: { orientation: PageOrientation.PORTRAIT },
           },
         },
-        footers: { default: { children: [buildPageFooter()] } as any },
+        footers: { default: new Footer({ children: [buildPageFooter()] }) },
         children: sectionChildren,
       },
     ],
