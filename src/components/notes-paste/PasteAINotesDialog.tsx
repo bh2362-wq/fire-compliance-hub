@@ -9,6 +9,7 @@ import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { DefectCategory } from "@/services/defectService";
+import { getCachedExtraction, hashExtractionInput, setCachedExtraction } from "./extractionCache";
 
 export type PasteReportType = "bs5839" | "asd" | "drm" | "work" | "ce";
 
@@ -160,6 +161,29 @@ export function PasteAINotesDialog({
       toast({ title: "Paste a bit more", description: "Need at least a couple of sentences for the AI to work with.", variant: "destructive" });
       return;
     }
+
+    // Cache check — same notes_text + same report_type → reuse the prior
+    // AI output. Saves a Claude call AND gives instant feedback when the
+    // engineer pastes the same thing twice (apply failed, retried, etc).
+    const cacheHash = hashExtractionInput(reportType, text);
+    const cached = getCachedExtraction<ExtractOutput>(cacheHash);
+    if (cached) {
+      setExtracted(cached);
+      setDefectsSelected((cached.defects ?? []).map(() => true));
+      const cachedDefaults: Partial<Record<keyof ExtractedFields, boolean>> = {};
+      for (const k of Object.keys(FIELD_LABELS) as Array<keyof ExtractedFields>) {
+        const v = cached.fields?.[k];
+        if (typeof v === "string" && v.trim().length > 0) cachedDefaults[k] = true;
+      }
+      setFieldsSelected(cachedDefaults);
+      setStage("review");
+      toast({
+        title: "Reused previous extraction",
+        description: "Same notes as before — loaded the cached AI result instead of re-calling.",
+      });
+      return;
+    }
+
     setStage("extracting");
     try {
       const { data, error } = await supabase.functions.invoke("extract-report-notes", {
@@ -167,15 +191,18 @@ export function PasteAINotesDialog({
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
-      setExtracted(data as ExtractOutput);
-      setDefectsSelected(((data.defects ?? []) as ExtractedDefect[]).map(() => true));
+      const output = data as ExtractOutput;
+      setExtracted(output);
+      setDefectsSelected(((output.defects ?? []) as ExtractedDefect[]).map(() => true));
       const fieldDefaults: Partial<Record<keyof ExtractedFields, boolean>> = {};
       for (const k of Object.keys(FIELD_LABELS) as Array<keyof ExtractedFields>) {
-        const v = (data.fields as ExtractedFields)?.[k];
+        const v = (output.fields as ExtractedFields)?.[k];
         if (typeof v === "string" && v.trim().length > 0) fieldDefaults[k] = true;
       }
       setFieldsSelected(fieldDefaults);
       setStage("review");
+      // Cache for next time.
+      setCachedExtraction(cacheHash, output);
     } catch (e) {
       toast({ title: "Extraction failed", description: (e as Error).message, variant: "destructive" });
       setStage("paste");
