@@ -36,6 +36,7 @@ import {
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
 import { ReportPreviewDialog } from "@/components/reports/ReportPreviewDialog";
@@ -175,6 +176,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [invoiceVisit, setInvoiceVisit] = useState<Visit | null>(null);
   const [invoiceContactId, setInvoiceContactId] = useState<string | null>(null);
   const [reportVisit, setReportVisit] = useState<Visit | null>(null);
@@ -1007,10 +1009,160 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => openReportForVisit(visit)}>
-                  <ClipboardCheck className="w-4 h-4 mr-2" />
-                  {reportInfo?.id ? "Open Report" : "Create Report"}
-                </DropdownMenuItem>
+                {renderRowMenuItems(visit, reportInfo, isInvoiced)}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  // Mobile card variant of renderVisitRow. Same handlers, same menu —
+  // just a vertical layout with a 44px primary action and a 44px overflow
+  // menu trigger that engineers can actually thumb. Whole card is tappable
+  // to open the report (the most-common action).
+  const renderVisitCard = (visit: Visit, isInvoiced: boolean = false) => {
+    const invoiceInfo = invoiceMap[visit.id];
+    const reportInfo = reportMap[visit.id];
+    const displayStatus =
+      isInvoiced && invoiceInfo?.xero_invoice_number
+        ? statusConfig.invoiced
+        : statusConfig[visit.status || "in_progress"] || statusConfig.in_progress;
+    const canIssueCert = !isInvoiced && ["completed","in_progress","pending_review"].includes(visit.status || "");
+    void canIssueCert; // surfaced via the menu rather than a dedicated card button
+
+    let notesPreview = "";
+    try {
+      const parsed = JSON.parse(visit.notes || "{}");
+      notesPreview = parsed.user_notes || "";
+    } catch { /* ignore */ }
+
+    const selected = selectedVisitIds.has(visit.id);
+
+    return (
+      <div
+        key={visit.id}
+        className={`relative border-b border-border last:border-b-0 ${getVRowClass(visit.visit_type || "")} ${selected ? "bg-primary/5" : ""}`}
+      >
+        {/* Whole-card tap target → open report. Sits under the
+            interactive controls (z-0) so dropdown / checkbox clicks aren't
+            swallowed. */}
+        <button
+          type="button"
+          onClick={() => openReportForVisit(visit)}
+          aria-label={reportInfo?.id ? "Open report" : "Create report"}
+          className="absolute inset-0 z-0"
+        />
+
+        <div className="relative z-10 px-4 py-3 space-y-2 pointer-events-none">
+          <div className="flex items-start justify-between gap-3 pointer-events-auto">
+            <div className="flex items-start gap-2 min-w-0 flex-1">
+              <Checkbox
+                checked={selected}
+                onCheckedChange={(checked) => {
+                  setSelectedVisitIds((prev) => {
+                    const next = new Set(prev);
+                    if (checked) next.add(visit.id);
+                    else next.delete(visit.id);
+                    return next;
+                  });
+                }}
+                className="mt-1 h-5 w-5"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="min-w-0">
+                <SiteLink
+                  id={visit.site_id}
+                  name={visit.site?.name}
+                  className="font-semibold text-foreground text-[15px] block truncate"
+                />
+                {(visit as any).customer_name && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {(visit as any).customer_name}
+                  </p>
+                )}
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 mt-1">
+              {format(new Date(visit.visit_date), "dd MMM yy")}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap pointer-events-none">
+            <span className={`text-xs font-medium ${getVTypeClass(visit.visit_type || "")}`}>
+              {getVisitTypeLabel(visit.visit_type)}
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            {isInvoiced && invoiceInfo?.xero_invoice_number ? (
+              <span className="vstatus vstatus-completed">#{invoiceInfo.xero_invoice_number}</span>
+            ) : (
+              <span className={getStatusClass(visit.status || "")}>
+                {displayStatus.label}
+              </span>
+            )}
+            {!reportInfo?.id &&
+              (isInvoiced || visit.status === "completed" || visit.status === "pending_review") &&
+              visit.status !== "cancelled" && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); openReportForVisit(visit); }}
+                  className="pointer-events-auto inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border border-destructive/30 bg-destructive/8 text-destructive hover:bg-destructive/15"
+                >
+                  <AlertTriangle className="w-2.5 h-2.5" />
+                  No report
+                </button>
+              )}
+          </div>
+
+          {notesPreview && (
+            <p className="text-xs text-muted-foreground line-clamp-2 pointer-events-none">
+              {notesPreview}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2 pt-1 pointer-events-auto">
+            <Button
+              size="sm"
+              className="flex-1 h-11 text-sm font-medium"
+              onClick={(e) => { e.stopPropagation(); openReportForVisit(visit); }}
+            >
+              <ClipboardCheck className="w-4 h-4 mr-2" />
+              {reportInfo?.id ? "Open report" : "Create report"}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="More actions"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {renderRowMenuItems(visit, reportInfo, isInvoiced)}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // The shared dropdown content used by both the desktop row's overflow
+  // menu and the mobile card's overflow menu. Closes over every relevant
+  // setter / handler in the component body — keeping it inline (vs. a
+  // module-level helper) avoids prop-drilling ~25 deps.
+  function renderRowMenuItems(visit: Visit, reportInfo: ReportInfo | undefined, isInvoiced: boolean) {
+    return (
+      <>
+        <DropdownMenuItem onClick={() => openReportForVisit(visit)}>
+          <ClipboardCheck className="w-4 h-4 mr-2" />
+          {reportInfo?.id ? "Open Report" : "Create Report"}
+        </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate(`/dashboard/visits/${visit.id}/cause-effect-test/capture`)}
                 >
@@ -1332,13 +1484,9 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                     </DropdownMenuItem>
                   </>
                 )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </td>
-      </tr>
+      </>
     );
-  };
+  }
 
   if (activeVisits.length === 0 && invoicedVisits.length === 0) {
     return (
@@ -1473,24 +1621,30 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-muted/50 text-xs font-medium text-muted-foreground border-t border-b border-border">
-                          <th className="px-2 py-1.5 text-left w-8"></th>
-                          <th className="px-2 py-1.5 text-left">Site</th>
-                          <th className="px-2 py-1.5 text-left">Type</th>
-                          <th className="px-2 py-1.5 text-left">Date</th>
-                          <th className="px-2 py-1.5 text-left">Status</th>
-                          <th className="px-2 py-1.5 text-left">Description</th>
-                          <th className="px-2 py-1.5 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.visits.map((visit) => renderVisitRow(visit, false))}
-                      </tbody>
-                    </table>
-                  </div>
+                  {isMobile ? (
+                    <div className="divide-y divide-border">
+                      {group.visits.map((visit) => renderVisitCard(visit, false))}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/50 text-xs font-medium text-muted-foreground border-t border-b border-border">
+                            <th className="px-2 py-1.5 text-left w-8"></th>
+                            <th className="px-2 py-1.5 text-left">Site</th>
+                            <th className="px-2 py-1.5 text-left">Type</th>
+                            <th className="px-2 py-1.5 text-left">Date</th>
+                            <th className="px-2 py-1.5 text-left">Status</th>
+                            <th className="px-2 py-1.5 text-left">Description</th>
+                            <th className="px-2 py-1.5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.visits.map((visit) => renderVisitRow(visit, false))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </CollapsibleContent>
               </div>
             </Collapsible>
@@ -1527,24 +1681,30 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-muted/50 text-xs font-medium text-muted-foreground border-t border-b border-border">
-                        <th className="px-2 py-1.5 text-left w-8"></th>
-                        <th className="px-2 py-1.5 text-left">Site</th>
-                        <th className="px-2 py-1.5 text-left">Type</th>
-                        <th className="px-2 py-1.5 text-left">Date</th>
-                        <th className="px-2 py-1.5 text-left">Status</th>
-                        <th className="px-2 py-1.5 text-left">Description</th>
-                        <th className="px-2 py-1.5 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoicedVisits.map((visit) => renderVisitRow(visit, true))}
-                    </tbody>
-                  </table>
-                </div>
+                {isMobile ? (
+                  <div className="divide-y divide-border">
+                    {invoicedVisits.map((visit) => renderVisitCard(visit, true))}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted/50 text-xs font-medium text-muted-foreground border-t border-b border-border">
+                          <th className="px-2 py-1.5 text-left w-8"></th>
+                          <th className="px-2 py-1.5 text-left">Site</th>
+                          <th className="px-2 py-1.5 text-left">Type</th>
+                          <th className="px-2 py-1.5 text-left">Date</th>
+                          <th className="px-2 py-1.5 text-left">Status</th>
+                          <th className="px-2 py-1.5 text-left">Description</th>
+                          <th className="px-2 py-1.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoicedVisits.map((visit) => renderVisitRow(visit, true))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CollapsibleContent>
             </div>
           </Collapsible>

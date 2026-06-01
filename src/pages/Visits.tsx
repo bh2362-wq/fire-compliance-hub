@@ -101,11 +101,27 @@ const Visits = () => {
             <p className="page-subtitle">Service visits and job management</p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Calendar — icon-only on mobile so engineers don't lose access */}
+            <Button asChild variant="outline" size="icon" className="h-9 w-9 sm:hidden" aria-label="Open calendar">
+              <Link to="/dashboard/schedule">
+                <Calendar className="w-4 h-4" />
+              </Link>
+            </Button>
             <Button asChild variant="outline" size="sm" className="hidden sm:flex items-center gap-1.5 text-xs">
               <Link to="/dashboard/schedule">
                 <Calendar className="w-3.5 h-3.5" />
                 Calendar
               </Link>
+            </Button>
+            {/* AI Sweep — icon-only on mobile */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 sm:hidden"
+              onClick={() => setShowAISweep(true)}
+              aria-label="AI Sweep"
+            >
+              <Sparkles className="w-4 h-4" />
             </Button>
             <Button
               variant="outline"
@@ -124,7 +140,8 @@ const Visits = () => {
               trigger={
                 <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md text-sm h-9">
                   <Plus className="w-4 h-4 mr-1.5" />
-                  New Visit
+                  <span className="hidden sm:inline">New Visit</span>
+                  <span className="sm:hidden">New</span>
                 </Button>
               }
             />
@@ -141,16 +158,19 @@ const Visits = () => {
           </div>
         )}
 
-        {/* Filter row */}
-        <div className="flex items-center gap-0 border-b border-border -mb-px">
-          {/* Status filter tabs — underline style */}
-          <div className="flex items-center">
+        {/* Filter row — stacks on mobile (tabs scroll horizontally with snap;
+            site filter goes full-width below). Single row on sm+. */}
+        <div className="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-0 sm:border-b sm:border-border sm:-mb-px">
+          {/* Status filter tabs — underline style. On mobile we render a
+              snap-scrollable strip with its own bottom border so the row
+              still reads as a tab bar. */}
+          <div className="flex items-center overflow-x-auto snap-x snap-mandatory scrollbar-thin border-b border-border sm:border-0 -mx-2 px-2 sm:mx-0 sm:px-0">
             {statusTabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setStatusFilter(tab.key)}
                 className={cn(
-                  "px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap",
+                  "px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap snap-start shrink-0",
                   statusFilter === tab.key
                     ? "border-primary text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
@@ -169,10 +189,10 @@ const Visits = () => {
             ))}
           </div>
 
-          {/* Site filter */}
-          <div className="ml-auto pb-1">
+          {/* Site filter — full-width on mobile (under tabs), 180px on desktop */}
+          <div className="sm:ml-auto sm:pb-1">
             <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-              <SelectTrigger className="w-[180px] bg-card border-border text-sm h-8">
+              <SelectTrigger className="w-full sm:w-[180px] bg-card border-border text-sm h-9 sm:h-8">
                 <Filter className="w-3 h-3 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="Filter by site" />
               </SelectTrigger>
