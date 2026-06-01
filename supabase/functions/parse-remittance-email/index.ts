@@ -57,6 +57,21 @@ interface ParsedRemittance {
   confidence_notes: string | null;
 }
 
+// Strip the common BHO / Xero invoice-number variations down to a
+// comparable shape. Catches: case differences ("inv-1234" vs "INV-1234"),
+// separator differences ("INV-1234" vs "INV/1234" vs "INV 1234"),
+// leading-zero padding ("0001234" vs "1234"), trailing /year suffixes
+// ("INV-1234/2024"), and stray whitespace. Deliberately conservative —
+// we'd rather miss a fuzzy match than create a wrong one.
+function normaliseInvoiceNumber(raw: string): string {
+  return raw
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/[/-]/g, "")
+    .replace(/\/\d{4}$/, "") // strip trailing /YYYY before separator removal would have eaten it
+    .replace(/^0+(?=\d)/, ""); // drop leading zeros so 0001234 == 1234
+}
+
 const SYSTEM_PROMPT = `You are an accounts assistant at BHO Fire Ltd. Your job is to extract structured remittance-advice data from an email (and any attached PDF). Remittance advices tell BHO that one or more of their invoices have been paid.
 
 A remittance advice typically contains:
@@ -312,18 +327,47 @@ Deno.serve(async (req) => {
       const invoiceNumbers = lineItems
         .map((li) => li.invoice_number)
         .filter((n): n is string => !!n);
-      const { data: existingInvoices } = invoiceNumbers.length > 0
-        ? await supabase
-            .from("xero_invoices")
-            .select("id, xero_invoice_number, total_amount")
-            .in("xero_invoice_number", invoiceNumbers)
-        : { data: [] };
-      const byNumber = new Map(
-        (existingInvoices ?? []).map((row) => [row.xero_invoice_number, row]),
-      );
+      // Pull a wider candidate pool from the local cache. We then run
+      // two passes: exact match first, normalized fuzzy match for the
+      // rest. The wider fetch is so a single round trip covers both
+      // passes — much cheaper than per-line queries.
+      const { data: allLocalInvoices } = await supabase
+        .from("xero_invoices")
+        .select("id, xero_invoice_id, xero_invoice_number, total_amount, contact_name, status")
+        .not("xero_invoice_number", "is", null);
+
+      const localInvoices = (allLocalInvoices ?? []) as Array<{
+        id: string;
+        xero_invoice_id: string;
+        xero_invoice_number: string | null;
+        total_amount: number | null;
+        contact_name: string | null;
+        status: string | null;
+      }>;
+
+      // Index by exact number AND by normalized number for the fuzzy pass.
+      const byExactNumber = new Map<string, (typeof localInvoices)[number]>();
+      const byNormalisedNumber = new Map<string, (typeof localInvoices)[number]>();
+      for (const inv of localInvoices) {
+        if (!inv.xero_invoice_number) continue;
+        byExactNumber.set(inv.xero_invoice_number, inv);
+        byNormalisedNumber.set(normaliseInvoiceNumber(inv.xero_invoice_number), inv);
+      }
 
       const rows = lineItems.map((li) => {
-        const matched = li.invoice_number ? byNumber.get(li.invoice_number) : null;
+        const exact = li.invoice_number ? byExactNumber.get(li.invoice_number) : null;
+        let matched: (typeof localInvoices)[number] | null = exact ?? null;
+        let confidence: "exact" | "fuzzy" | null = matched ? "exact" : null;
+
+        // Fuzzy fallback: normalize both sides and look again.
+        if (!matched && li.invoice_number) {
+          const fuzzy = byNormalisedNumber.get(normaliseInvoiceNumber(li.invoice_number));
+          if (fuzzy) {
+            matched = fuzzy;
+            confidence = "fuzzy";
+          }
+        }
+
         if (matched) matchedCount++;
         return {
           remittance_id: header.id,
@@ -331,7 +375,9 @@ Deno.serve(async (req) => {
           amount: li.amount,
           raw_text: li.raw_text,
           matched_xero_invoice_id: matched?.id ?? null,
-          match_confidence: matched ? "exact" : null,
+          xero_invoice_id: matched?.xero_invoice_id ?? null,
+          matched_contact_name: matched?.contact_name ?? null,
+          match_confidence: confidence,
         };
       });
       await supabase.from("remittance_line_items").insert(rows);
