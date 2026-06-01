@@ -29,12 +29,15 @@ function classifyCEKind(text: string): "audibility" | "cause_effect" {
   return "audibility";
 }
 
-// Map our cat 1/2/3 to ce_issues.severity which uses 'critical'/
-// 'major'/'minor' strings.
-const CE_SEVERITY: Record<1 | 2 | 3, string> = {
+// Map our cat 1/2/3 to ce_issues.severity. The DB column has a
+// CHECK constraint that only allows ('critical', 'non_critical') —
+// don't expand without updating the migration. cat 1 → critical
+// (immediate life-safety risk); cat 2 + 3 both → non_critical
+// (impaired but operational).
+const CE_SEVERITY: Record<1 | 2 | 3, "critical" | "non_critical"> = {
   1: "critical",
-  2: "major",
-  3: "minor",
+  2: "non_critical",
+  3: "non_critical",
 };
 
 interface Props {
@@ -62,6 +65,10 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
   const [stepIdx, setStepIdx] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
+  // Bumped after a successful paste-apply to force FindingsRemedialsStep
+  // to refetch its ce_issues + ce_remedials lists (the step caches them
+  // in local state and only fetches on mount otherwise).
+  const [findingsRefreshKey, setFindingsRefreshKey] = useState(0);
 
   const handleComplete = async () => {
     if (!report) return;
@@ -145,7 +152,12 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
       {stepIdx === 2 && <OutputFunctionsStep reportId={report.id} />}
       {stepIdx === 3 && <AudibilityStep report={report} onPatch={patchScalars} reportId={report.id} />}
       {stepIdx === 4 && (
-        <FindingsRemedialsStep report={report} onPatch={patchScalars} reportId={report.id} />
+        <FindingsRemedialsStep
+          report={report}
+          onPatch={patchScalars}
+          reportId={report.id}
+          refreshKey={findingsRefreshKey}
+        />
       )}
       {stepIdx === 5 && (
         <CauseEffectSignOffStep
@@ -176,6 +188,8 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
         // C&E defects DON'T go to site_defects — the C&E wizard reads its
         // findings list from ce_issues (separate table per the C&E data
         // model). Classify each as audibility vs cause_effect and insert.
+        let inserted = 0;
+        let failed = 0;
         for (const d of defects) {
           const haystack = `${d.description} ${d.recommended_action ?? ""} ${d.location ?? ""}`;
           const kind = classifyCEKind(haystack);
@@ -190,14 +204,30 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
                 severity: CE_SEVERITY[d.category],
                 action_required: d.recommended_action,
               });
-            if (insErr) console.error("ce_issues insert:", insErr);
+            if (insErr) {
+              console.error("ce_issues insert:", insErr);
+              failed++;
+            } else {
+              inserted++;
+            }
           } catch (e) {
             console.error("Failed to create ce_issues row:", e);
+            failed++;
           }
+        }
+        if (failed > 0) {
+          toast({
+            title: `${failed} of ${defects.length} defects failed to save`,
+            description: "Check the browser console for the underlying error.",
+            variant: "destructive",
+          });
         }
         if (fieldUpdates.notes !== undefined) {
           await patch({ general_observations: fieldUpdates.notes });
         }
+        // Tell the Findings step to refetch so the new rows appear without
+        // a full page reload.
+        if (inserted > 0) setFindingsRefreshKey((k) => k + 1);
       }}
     />
     </>
