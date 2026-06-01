@@ -141,6 +141,20 @@ export interface BS5839Checklist {
   };
 }
 
+// Per-panel checklist data used by the legacy multi-panel service-report
+// flow. The actual UI component is gone — only pdfGenerator.ts still
+// references the shape when reading panels out of report.notes JSON.
+export interface PanelChecklistData {
+  assetId: string;
+  assetName: string;
+  manufacturer?: string;
+  model?: string;
+  location?: string;
+  checklist: BS5839Checklist;
+  defects?: string;
+  recommendations?: string;
+}
+
 export type ServiceReportSystemStatus =
   | "fully_operational"
   | "advisory_only"

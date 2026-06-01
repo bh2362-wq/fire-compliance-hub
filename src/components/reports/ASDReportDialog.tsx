@@ -1,3 +1,9 @@
+/**
+ * @deprecated Path 2 step C — being replaced by a route-based wizard at
+ * /dashboard/visits/:id/asd-report/capture (planned in src/features/asdServiceReport/).
+ * Do not extend this file; new ASD service capture work should go into
+ * the wizard. Kept in service until the migration ships.
+ */
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";

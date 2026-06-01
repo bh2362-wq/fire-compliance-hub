@@ -1,3 +1,10 @@
+/**
+ * @deprecated Path 2 step B — being replaced by a route-based wizard at
+ * /dashboard/visits/:id/disabled-refuge-report/capture (planned in
+ * src/features/disabledRefugeReport/). Do not extend this file; new
+ * disabled-refuge capture work should go into the wizard. Kept in
+ * service until the migration ships.
+ */
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";

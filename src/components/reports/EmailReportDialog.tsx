@@ -47,6 +47,12 @@ interface EmailReportDialogProps {
   reportDate: string;
   companyName?: string;
   logoUrl?: string;
+  // Human label for what's being sent. Defaults to "Service Report" but
+  // smart-form callers pass e.g. "Installation Certificate" so the
+  // subject/template fallbacks and edge-function payload match the
+  // document. Lets the smart-forms callers reuse this dialog instead
+  // of maintaining a parallel EmailSmartFormDialog.
+  documentType?: string;
   generatePdfBase64: () => Promise<string>;
 }
 
@@ -65,6 +71,7 @@ export function EmailReportDialog({
   reportDate,
   companyName,
   logoUrl,
+  documentType = "Service Report",
   generatePdfBase64,
 }: EmailReportDialogProps) {
   const { user } = useAuth();
@@ -132,16 +139,16 @@ export function EmailReportDialog({
          applySelectedTemplate(templatesList[0], compName);
        } else {
          // Fallback to hardcoded values
-         setSubject(`Service Report ${reportNumber} - ${siteName}`);
+         setSubject(`${documentType} ${reportNumber} - ${siteName}`);
          setEmailBody(
            `Dear ${customerName || "Customer"},\n\nPlease find attached the service report for your records.\n\nIf you have any questions regarding this report, please don't hesitate to contact us.\n\nKind regards,\n${compName}`
          );
        }
      } catch (error) {
        console.error("Failed to load templates:", error);
-       setSubject(`Service Report ${reportNumber} - ${siteName}`);
+       setSubject(`${documentType} ${reportNumber} - ${siteName}`);
        setEmailBody(
-         `Dear ${customerName || "Customer"},\n\nPlease find attached the service report for your records.\n\nIf you have any questions regarding this report, please don't hesitate to contact us.\n\nKind regards,\n${companyName || "The Service Team"}`
+         `Dear ${customerName || "Customer"},\n\nPlease find attached the ${documentType.toLowerCase()} for your records.\n\nIf you have any questions regarding this document, please don't hesitate to contact us.\n\nKind regards,\n${companyName || "The Service Team"}`
        );
      } finally {
        setLoadingTemplates(false);
@@ -245,6 +252,7 @@ export function EmailReportDialog({
            companyName: companyNameVal || companyName,
           logoUrl,
            emailBody: emailBody.trim(),
+           documentType,
         },
       });
 
@@ -347,10 +355,10 @@ export function EmailReportDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            Email Report
+            Email {documentType}
           </DialogTitle>
           <DialogDescription>
-            Send report {reportNumber} as a PDF attachment
+            Send {reportNumber} as a PDF attachment
           </DialogDescription>
         </DialogHeader>
 
