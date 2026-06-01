@@ -3,6 +3,9 @@
 // report pipelines look identical to a reader. Backed by the Supabase
 // edge functions `generate-cause-effect-docx` + `convert-quote-pdf`
 // (the latter generalised in PR #79 to accept a `bucket` param).
+//
+// Deploy marker: redeploy trigger 2026-06-01 (Azure SWA didn't pick up
+// the PR #80 merge — pushing a no-op edit here to force a fresh build).
 
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
