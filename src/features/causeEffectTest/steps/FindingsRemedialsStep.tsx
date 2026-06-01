@@ -20,6 +20,9 @@ interface Props {
   report: CauseEffectTestReport;
   onPatch: (updates: Partial<CauseEffectTestReport>) => void;
   reportId: string;
+  /** Bump this from the parent to force a re-fetch of ce_issues +
+      ce_remedials (e.g. after paste-AI-notes apply writes new rows). */
+  refreshKey?: number;
 }
 
 interface Issue {
@@ -43,7 +46,7 @@ interface Remedial {
   estimated_cost: number | null;
 }
 
-export function FindingsRemedialsStep({ report, onPatch, reportId }: Props) {
+export function FindingsRemedialsStep({ report, onPatch, reportId, refreshKey = 0 }: Props) {
   const { toast } = useToast();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [remedials, setRemedials] = useState<Remedial[]>([]);
@@ -67,7 +70,10 @@ export function FindingsRemedialsStep({ report, onPatch, reportId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [reportId, toast]);
+    // refreshKey is intentionally in the deps so the parent can trigger
+    // a refetch after writes (e.g. paste-AI-notes apply) without us
+    // needing a subscription channel.
+  }, [reportId, toast, refreshKey]);
 
   const addIssue = async (kind: Issue["kind"]) => {
     const { data, error } = await (supabase as any)

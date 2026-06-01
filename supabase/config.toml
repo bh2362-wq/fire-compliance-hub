@@ -149,3 +149,15 @@ verify_jwt = false
 
 [functions.query-reference-library]
 verify_jwt = false
+
+[functions.extract-report-notes]
+verify_jwt = false
+
+[functions.analyze-bs5839-defects]
+verify_jwt = false
+
+[functions.parse-remittance-email]
+verify_jwt = false
+
+[functions.scan-remittance-emails]
+verify_jwt = false

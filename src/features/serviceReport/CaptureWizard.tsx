@@ -3,7 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Visit } from "@/hooks/useVisits";
 import { ServiceReport, BS5839Checklist } from "@/services/serviceReportService";
 import { useServiceReportDraft } from "./useServiceReportDraft";
-import { listDefects, type SiteDefect } from "@/services/defectService";
+import { listDefects, createDefect, type SiteDefect } from "@/services/defectService";
 import { supabase } from "@/integrations/supabase/client";
 import { WizardShell, WizardLoadingState } from "@/features/_shared/WizardShell";
 import { SystemStep } from "./steps/SystemStep";
@@ -251,9 +251,26 @@ export function CaptureWizard({ visit, userId, onCompleted }: Props) {
           system_condition: report.system_condition,
           notes: report.notes,
         }}
-        onApply={async ({ fieldUpdates }) => {
-          // Defects are written inside the dialog (to site_defects). We
-          // only need to patch the report row with the merged field text.
+        onApply={async ({ defects, fieldUpdates }) => {
+          // BS5839 defects → site_defects, same as the DefectsStep adds.
+          for (const d of defects) {
+            const composed = d.recommended_action
+              ? `${d.description}\nRecommended: ${d.recommended_action}`
+              : d.description;
+            try {
+              await createDefect({
+                site_id: visit.site_id,
+                visit_id: visit.id,
+                report_id: report.id,
+                description: composed,
+                location: d.location,
+                category: d.category,
+                status: "open",
+              });
+            } catch (e) {
+              console.error("Failed to create defect from AI extract:", e);
+            }
+          }
           if (Object.keys(fieldUpdates).length > 0) {
             await patch(fieldUpdates as Partial<ServiceReport>);
           }
