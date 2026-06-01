@@ -312,7 +312,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       )}
 
       {/* ── Navigation ── */}
-      <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5 scrollbar-thin">
+      {/* min-h-0 is required: without it the flex item grows to fit its
+          children and overflow-y-auto never actually scrolls. */}
+      <nav className="flex-1 min-h-0 overflow-y-auto px-2 py-2 space-y-0.5 scrollbar-thin">
         {/* Operations */}
         <SectionLabel label="Operations" collapsed={collapsed} isMobile={isMobile} />
         {coreNav.map((item) => (
@@ -422,7 +424,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   );
 
   return (
-    <div className="h-screen flex w-full bg-background overflow-hidden">
+    <div className="h-[100dvh] flex w-full bg-background overflow-hidden">
       {/* Mobile overlay */}
       {isMobile && mobileOpen && (
         <div
@@ -434,7 +436,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen border-r border-sidebar-border z-50 overflow-y-auto transition-all duration-300",
+          // h-[100dvh] (not h-screen) so iOS Safari's URL bar + bottom toolbar don't hide the footer.
+          "fixed left-0 top-0 h-[100dvh] border-r border-sidebar-border z-50 overflow-y-auto transition-all duration-300",
           "bg-[hsl(var(--sidebar-background))]",
           sidebarWidth,
           isMobile && !mobileOpen && "-translate-x-full",
@@ -447,7 +450,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Main content */}
       <main
         className={cn(
-          "flex-1 flex flex-col transition-all duration-300 h-screen overflow-hidden",
+          "flex-1 flex flex-col transition-all duration-300 h-[100dvh] overflow-hidden",
           isMobile ? "ml-0" : collapsed ? "ml-16" : "ml-64"
         )}
       >
