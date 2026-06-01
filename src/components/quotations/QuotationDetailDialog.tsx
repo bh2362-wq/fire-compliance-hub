@@ -978,10 +978,10 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col p-0 gap-0">
-          <DialogHeader className="px-6 py-4 border-b shrink-0">
+        <DialogContent className="max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[95vh] flex flex-col p-0 gap-0 rounded-none sm:rounded-lg">
+          <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 flex-wrap">
                 <DialogTitle className="text-base font-semibold whitespace-nowrap">Quotation</DialogTitle>
                 <Input
                   value={quotationNumber}
@@ -989,7 +989,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                     setQuotationNumber(e.target.value);
                     setHasChanges(true);
                   }}
-                  className="w-[180px] font-mono text-sm h-8"
+                  className="w-full sm:w-[180px] font-mono text-sm h-8"
                   disabled={isLocked}
                 />
                 {quotation && (
@@ -1031,7 +1031,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           </DialogHeader>
 
 
-          <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 sm:py-4">
             {loading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -1223,16 +1223,16 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                   </CardContent>
                                 </Card>
                               ) : (
-                                <Card className={item.parent_id ? "ml-6 border-l-4 border-l-muted" : ""}>
-                                  <CardContent className="p-4 space-y-3">
-                                    <div className="flex items-start gap-3">
+                                <Card className={item.parent_id ? "ml-3 sm:ml-6 border-l-4 border-l-muted" : ""}>
+                                  <CardContent className="p-3 sm:p-4 space-y-3">
+                                    <div className="flex items-start gap-2 sm:gap-3">
                                       {!isLocked && (
                                         <button
                                           type="button"
                                           {...attributes}
                                           {...listeners}
                                           aria-label="Drag to reorder"
-                                          className={`mt-1 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted ${isDragging ? "cursor-grabbing" : "cursor-grab"} touch-none`}
+                                          className={`mt-1 p-2 -ml-1 sm:p-1 sm:ml-0 rounded text-muted-foreground hover:text-foreground hover:bg-muted ${isDragging ? "cursor-grabbing" : "cursor-grab"} touch-none`}
                                         >
                                           <GripVertical className="w-4 h-4" />
                                         </button>
@@ -1257,7 +1257,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                           placeholder="Description of work..."
                                           disabled={isLocked}
                                         />
-                                        <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                                        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 md:gap-2">
                                           <div>
                                             <Label className="text-xs">Item / Part</Label>
                                             <Input
@@ -1356,7 +1356,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
 
                   <Card>
                     <CardContent className="p-4">
-                      <div className="ml-auto w-72 space-y-1.5">
+                      <div className="sm:ml-auto w-full sm:w-72 space-y-1.5">
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Cost (internal)</span>
                           <span className="text-muted-foreground">£{totalCost.toFixed(2)}</span>
@@ -1479,19 +1479,22 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             )}
           </div>
 
-          <DialogFooter className="px-6 py-3 border-t shrink-0 sm:justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <DialogFooter className="px-4 sm:px-6 py-3 border-t shrink-0 flex-col sm:flex-row sm:justify-between gap-2">
+            {/* Left group — Close + extra actions. Stacks under main actions on mobile. */}
+            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-initial">
                 Close
               </Button>
               <QuoteActions quotationId={quotationId} />
             </div>
-            <div className="flex items-center gap-2">
+            {/* Right group — Email / PDF / Save are the primary actions; on
+                mobile they each get equal width via flex-1 so they fill the row. */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 onClick={() => setEmailDialogOpen(true)}
                 disabled={loading || lineItems.length === 0 || !customerContactEmail || isLocked}
-                className="gap-1"
+                className="gap-1 flex-1 sm:flex-initial"
               >
                 <Mail className="w-4 h-4" />
                 Email
@@ -1500,15 +1503,15 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                 variant="outline"
                 onClick={handleGeneratePDF}
                 disabled={generating || loading || lineItems.length === 0}
-                className="gap-1"
+                className="gap-1 flex-1 sm:flex-initial"
               >
                 {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-                Download PDF
+                <span className="hidden sm:inline">Download </span>PDF
               </Button>
               {!isLocked && (
-                <Button onClick={handleSave} disabled={saving} className="gap-1">
+                <Button onClick={handleSave} disabled={saving} className="gap-1 flex-1 sm:flex-initial">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Save & Sync
+                  Save<span className="hidden sm:inline"> & Sync</span>
                 </Button>
               )}
             </div>
