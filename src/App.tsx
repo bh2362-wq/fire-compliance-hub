@@ -23,6 +23,7 @@ import CustomerDetail from "./pages/CustomerDetail";
 import Visits from "./pages/Visits";
 import ServiceReportCapture from "./pages/ServiceReportCapture";
 import CauseEffectTestCapture from "./pages/CauseEffectTestCapture";
+import DisabledRefugeReportCapture from "./pages/DisabledRefugeReportCapture";
 import Invoices from "./pages/Invoices";
 import Reports from "./pages/Reports";
 import UploadDemo from "./pages/UploadDemo";
@@ -157,6 +158,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <CauseEffectTestCapture />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/visits/:visitId/disabled-refuge-report/capture"
+              element={
+                <ProtectedRoute>
+                  <DisabledRefugeReportCapture />
                 </ProtectedRoute>
               }
             />
