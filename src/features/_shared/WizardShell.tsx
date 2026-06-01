@@ -21,6 +21,12 @@ interface WizardShellProps {
    * provide it here and we'll swap it in for the Next button.
    */
   finalAction?: ReactNode;
+  /**
+   * Optional right-side action(s) rendered in the sticky header next to
+   * the offline / saving badges. Used by wizards to add things like the
+   * "Paste AI notes" button without each wizard rebuilding the header.
+   */
+  headerActions?: ReactNode;
 }
 
 /**
@@ -37,6 +43,7 @@ export function WizardShell({
   saving,
   children,
   finalAction,
+  headerActions,
 }: WizardShellProps) {
   const total = stepLabels.length;
   const isLast = stepIdx >= total - 1;
@@ -52,7 +59,8 @@ export function WizardShell({
           <p className="text-xs text-muted-foreground">
             Step {stepIdx + 1} of {total} · {stepLabels[stepIdx]}
           </p>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {headerActions}
             {saving && (
               <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                 <Save className="h-3 w-3 animate-pulse" /> Saving…
