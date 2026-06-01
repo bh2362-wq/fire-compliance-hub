@@ -1,25 +1,43 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- TODO: Set the document title to the name of your application -->
-    <title>Lovable App</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>FireLogbook · BHO Fire</title>
+    <meta name="description" content="BS 5839 service reports, defects, quotes and remittance management for BHO Fire Ltd." />
+
+    <!-- PWA manifest + theming. theme-color tints the iOS status bar and the
+         Android browser chrome to match the app background. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0a0f1a" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="/bho-fire-logo.png" />
+
+    <!-- iOS home-screen ("Add to Home Screen") setup. Without these, Safari
+         launches in a browser frame even when opened from the home screen
+         icon, which defeats the whole point. -->
+    <link rel="apple-touch-icon" href="/bho-fire-logo.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="FireLogbook" />
+    <!-- "default" gives the iOS status bar its own opaque space tinted by
+         theme-color, so the app content never overlaps the notch / Dynamic
+         Island. (black-translucent would be more "fullscreen" but needs
+         safe-area-inset plumbing on every top-level fixed element.) -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet" />
 
-    <!-- TODO: Update og:title to match your application name -->
-    <meta property="og:title" content="Lovable App" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <meta property="og:title" content="FireLogbook · BHO Fire" />
+    <meta property="og:description" content="BS 5839 service reports, defects, quotes and remittance management for BHO Fire Ltd." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:image" content="/bho-fire-logo.png" />
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:image" content="/bho-fire-logo.png" />
   </head>
 
   <body>
