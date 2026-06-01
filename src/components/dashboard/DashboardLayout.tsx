@@ -313,8 +313,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       {/* ── Navigation ── */}
       {/* min-h-0 is required: without it the flex item grows to fit its
-          children and overflow-y-auto never actually scrolls. */}
-      <nav className="flex-1 min-h-0 overflow-y-auto px-2 py-2 space-y-0.5 scrollbar-thin">
+          children and overflow-y-auto never actually scrolls.
+          touch-action: pan-y tells iOS Safari this element owns vertical
+          touch gestures, preventing the parent from intercepting. */}
+      <nav
+        className="flex-1 min-h-0 overflow-y-auto px-2 py-2 space-y-0.5 scrollbar-thin"
+        style={{ touchAction: "pan-y", WebkitOverflowScrolling: "touch" }}
+      >
         {/* Operations */}
         <SectionLabel label="Operations" collapsed={collapsed} isMobile={isMobile} />
         {coreNav.map((item) => (
@@ -437,7 +442,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       <aside
         className={cn(
           // h-[100dvh] (not h-screen) so iOS Safari's URL bar + bottom toolbar don't hide the footer.
-          "fixed left-0 top-0 h-[100dvh] border-r border-sidebar-border z-50 overflow-y-auto transition-all duration-300",
+          // overflow-hidden (not overflow-y-auto) because the <nav> inside owns the scrolling —
+          // two nested scroll containers on iOS Safari makes touch events flaky and the inner
+          // one silently fails to scroll. Single scroll container = reliable.
+          "fixed left-0 top-0 h-[100dvh] border-r border-sidebar-border z-50 overflow-hidden transition-all duration-300",
           "bg-[hsl(var(--sidebar-background))]",
           sidebarWidth,
           isMobile && !mobileOpen && "-translate-x-full",

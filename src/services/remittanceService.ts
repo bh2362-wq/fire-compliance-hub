@@ -18,6 +18,11 @@ export interface RemittanceLineItem {
   amount: number | null;
   raw_text: string | null;
   matched_xero_invoice_id: string | null;
+  // Load-bearing for xero-apply-payment. Set whenever a match is
+  // resolved (exact, fuzzy, or manual link from the office). The
+  // matched_xero_invoice_id FK is informational only — apply uses this.
+  xero_invoice_id: string | null;
+  matched_contact_name: string | null;
   match_confidence: MatchConfidence;
   status: LineItemStatus;
   xero_payment_id: string | null;
@@ -122,7 +127,11 @@ export async function applyLineItem(
   lineItem: RemittanceLineItem,
   bankAccountCode: string,
 ): Promise<{ status: LineItemStatus; xero_payment_id?: string; error?: string }> {
-  if (!lineItem.matched_xero_invoice_id || !lineItem.matched_invoice?.xero_invoice_id) {
+  // Prefer the direct xero_invoice_id (set by parse for matched lines AND
+  // by the manual link picker). Fall back to the cache row's Xero ID for
+  // older line items written before the v2 schema.
+  const xeroInvoiceId = lineItem.xero_invoice_id ?? lineItem.matched_invoice?.xero_invoice_id;
+  if (!xeroInvoiceId) {
     throw new Error("Line item isn't matched to a Xero invoice yet");
   }
   if (!lineItem.amount || lineItem.amount <= 0) {
@@ -130,7 +139,7 @@ export async function applyLineItem(
   }
   try {
     const result = await applyPaymentToInvoiceWithBank({
-      invoiceId: lineItem.matched_invoice.xero_invoice_id,
+      invoiceId: xeroInvoiceId,
       amount: lineItem.amount,
       bankAccountCode,
     });
@@ -174,6 +183,31 @@ async function applyPaymentToInvoiceWithBank(opts: ApplyPaymentOptions): Promise
 }
 // Surface the imported helper so consumers can keep using it for other flows.
 export { applyPaymentToInvoice };
+
+/**
+ * Manually link an unmatched line item to a Xero invoice picked from
+ * the live outstanding-invoices list. The line keeps its existing
+ * `amount` and `invoice_number` (which were AI-extracted from the email)
+ * — only the matching pointer is updated. Status returns to `pending`
+ * so the office can then press Apply.
+ */
+export async function linkLineItemToXeroInvoice(
+  lineItemId: string,
+  xeroInvoiceId: string,
+  contactName: string | null,
+): Promise<void> {
+  const { error } = await (supabase as unknown as { from: (t: string) => any })
+    .from("remittance_line_items")
+    .update({
+      xero_invoice_id: xeroInvoiceId,
+      matched_contact_name: contactName,
+      match_confidence: "manual",
+      status: "pending",
+      error_message: null,
+    })
+    .eq("id", lineItemId);
+  if (error) throw error;
+}
 
 /**
  * After all line items on a remittance have been applied (or skipped),

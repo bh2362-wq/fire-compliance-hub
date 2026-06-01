@@ -28,6 +28,7 @@ import {
   scanRemittanceEmails,
 } from "@/services/remittanceService";
 import { RemittanceSettingsDialog } from "@/components/remittance/RemittanceSettingsDialog";
+import { InvoiceLinkPickerDialog } from "@/components/remittance/InvoiceLinkPickerDialog";
 
 const TAB_STATUSES: Record<string, RemittanceStatus[]> = {
   pending: ["parsed", "needs_review"],
@@ -69,9 +70,14 @@ interface LineItemRowProps {
 function LineItemRow({ item, bibbyCode, remittanceLocked, onApplied }: LineItemRowProps) {
   const { toast } = useToast();
   const [applying, setApplying] = useState(false);
-  const matched = !!item.matched_xero_invoice_id;
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // A line is "matched" if either the auto-match populated the FK or
+  // the manual-link picker dropped a Xero invoice ID on it.
+  const matched = !!(item.matched_xero_invoice_id || item.xero_invoice_id);
   const isApplied = item.status === "applied";
   const isFailed = item.status === "failed";
+  const isManual = item.match_confidence === "manual";
+  const isFuzzy = item.match_confidence === "fuzzy";
 
   const handleApply = async () => {
     if (!bibbyCode) {
@@ -98,58 +104,77 @@ function LineItemRow({ item, bibbyCode, remittanceLocked, onApplied }: LineItemR
     }
   };
 
+  const contactName = item.matched_contact_name ?? item.matched_invoice?.contact_name ?? null;
+
   return (
-    <div className="flex items-center justify-between gap-3 py-2 border-t border-border first:border-t-0">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-sm">{item.invoice_number ?? "—"}</span>
-          {matched ? (
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
-              Matched
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
-              No match
-            </Badge>
+    <>
+      <div className="flex items-center justify-between gap-3 py-2 border-t border-border first:border-t-0">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-sm">{item.invoice_number ?? "—"}</span>
+            {matched ? (
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                {isManual ? "Linked" : isFuzzy ? "Fuzzy match" : "Matched"}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
+                No match
+              </Badge>
+            )}
+            {contactName && (
+              <span className="text-xs text-muted-foreground truncate">{contactName}</span>
+            )}
+          </div>
+          {item.raw_text && (
+            <p className="text-xs text-muted-foreground italic mt-0.5 truncate" title={item.raw_text}>
+              {item.raw_text}
+            </p>
           )}
-          {item.matched_invoice?.contact_name && (
-            <span className="text-xs text-muted-foreground truncate">
-              {item.matched_invoice.contact_name}
-            </span>
+          {isFailed && item.error_message && (
+            <p className="text-xs text-red-700 mt-0.5">{item.error_message}</p>
           )}
         </div>
-        {item.raw_text && (
-          <p className="text-xs text-muted-foreground italic mt-0.5 truncate" title={item.raw_text}>
-            {item.raw_text}
-          </p>
-        )}
-        {isFailed && item.error_message && (
-          <p className="text-xs text-red-700 mt-0.5">{item.error_message}</p>
-        )}
+        <div className="text-right shrink-0">
+          <p className="text-sm font-semibold">{formatGBP(item.amount)}</p>
+          {isApplied ? (
+            <span className="text-[11px] text-emerald-700 flex items-center justify-end gap-1 mt-0.5">
+              <CheckCircle2 className="w-3 h-3" /> Applied
+            </span>
+          ) : remittanceLocked ? (
+            <span className="text-[11px] text-muted-foreground">Skipped</span>
+          ) : matched ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs mt-1"
+              onClick={handleApply}
+              disabled={applying}
+            >
+              {applying ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+              {applying ? "Applying…" : "Apply"}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs mt-1"
+              onClick={() => setPickerOpen(true)}
+            >
+              Link invoice…
+            </Button>
+          )}
+        </div>
       </div>
-      <div className="text-right shrink-0">
-        <p className="text-sm font-semibold">{formatGBP(item.amount)}</p>
-        {isApplied ? (
-          <span className="text-[11px] text-emerald-700 flex items-center justify-end gap-1 mt-0.5">
-            <CheckCircle2 className="w-3 h-3" /> Applied
-          </span>
-        ) : remittanceLocked ? (
-          <span className="text-[11px] text-muted-foreground">Skipped</span>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 text-xs mt-1"
-            onClick={handleApply}
-            disabled={!matched || applying}
-            title={matched ? "Apply to Xero" : "Match an invoice first"}
-          >
-            {applying ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
-            {applying ? "Applying…" : "Apply"}
-          </Button>
-        )}
-      </div>
-    </div>
+
+      <InvoiceLinkPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        lineItemId={item.id}
+        initialQuery={item.invoice_number}
+        hintAmount={item.amount}
+        onLinked={onApplied}
+      />
+    </>
   );
 }
 
