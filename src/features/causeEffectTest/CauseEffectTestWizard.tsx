@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
 import { Visit } from "@/hooks/useVisits";
 import { WizardShell, WizardLoadingState } from "@/features/_shared/WizardShell";
 import { DevicesStep } from "@/features/serviceReport/steps/DevicesStep";
@@ -9,6 +11,7 @@ import { OutputFunctionsStep } from "./steps/OutputFunctionsStep";
 import { AudibilityStep } from "./steps/AudibilityStep";
 import { FindingsRemedialsStep } from "./steps/FindingsRemedialsStep";
 import { CauseEffectSignOffStep } from "./steps/CauseEffectSignOffStep";
+import { PasteAINotesDialog } from "@/components/notes-paste/PasteAINotesDialog";
 
 interface Props {
   visit: Visit;
@@ -83,12 +86,28 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
     void patch(updates);
   };
 
+  const [pasteOpen, setPasteOpen] = useState(false);
+
   return (
+    <>
     <WizardShell
       stepLabels={STEP_LABELS}
       stepIdx={stepIdx}
       setStepIdx={setStepIdx}
       saving={saving}
+      headerActions={
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 px-2 text-xs gap-1"
+          onClick={() => setPasteOpen(true)}
+          title="Paste AI notes (defects + observations)"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Paste notes</span>
+        </Button>
+      }
     >
       {stepIdx === 0 && (
         <CauseEffectSystemStep
@@ -113,5 +132,28 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
         />
       )}
     </WizardShell>
+
+    {/* C&E only has general_observations + notes as text fields. We map
+        the AI's `notes` addendum to general_observations (semantically
+        the closest match) and ignore the other addenda. Defect extraction
+        is the main value-add here — they go to site_defects same as
+        DefectsStep in BS5839. */}
+    <PasteAINotesDialog
+      open={pasteOpen}
+      onOpenChange={setPasteOpen}
+      reportType="ce"
+      siteId={visit.site_id}
+      visitId={visit.id}
+      reportId={report.id}
+      currentValues={{
+        notes: report.general_observations,
+      }}
+      onApply={async ({ fieldUpdates }) => {
+        if (fieldUpdates.notes !== undefined) {
+          await patch({ general_observations: fieldUpdates.notes });
+        }
+      }}
+    />
+    </>
   );
 }
