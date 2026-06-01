@@ -10,7 +10,6 @@ import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportSe
 import { parseAbsentMarker } from "@/lib/clientSignatureMarker";
 import { InvoiceStatusBadge } from "@/components/reports/InvoiceStatusBadge";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
-import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -41,14 +40,6 @@ interface SiteInfo {
   contact_name?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
-}
-
-interface ASDAsset {
-  id: string;
-  item_name: string;
-  manufacturer?: string | null;
-  model?: string | null;
-  location?: string | null;
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -112,8 +103,7 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ServiceReport | null>(null);
-  const [dialogType, setDialogType] = useState<"work" | "asd" | null>(null);
-  const [asdAssets, setAsdAssets] = useState<ASDAsset[]>([]);
+  const [dialogType, setDialogType] = useState<"work" | null>(null);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
   const [sharePointReport, setSharePointReport] = useState<ServiceReport | null>(null);
@@ -236,30 +226,14 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
     // legacy modal dialogs because the wizard doesn't model their fields.
     // (Once those disciplines have their own wizards, route them too.)
     if (isASDReport(report)) {
-      setSelectedReport(report);
-      // Load ASD assets for the dialog
-      try {
-        const parsed = JSON.parse(report.notes || "{}");
-        const assetIds = parsed.asset_ids || [];
-        if (assetIds.length > 0) {
-          const { data: assets } = await supabase
-            .from("site_assets")
-            .select("id, item_name, manufacturer, model, location")
-            .in("id", assetIds);
-          setAsdAssets(assets || []);
-        } else {
-          // Fallback: load all ASD assets for the site
-          const { data: assets } = await supabase
-            .from("site_assets")
-            .select("id, item_name, manufacturer, model, location")
-            .eq("site_id", siteId)
-            .eq("asset_type", "asd");
-          setAsdAssets(assets || []);
-        }
-      } catch {
-        setAsdAssets([]);
+      // ASD service reports → new capture wizard. Falls back to a toast
+      // for orphan reports without a visit_id since the wizard needs
+      // one for the URL.
+      if (report.visit_id) {
+        navigate(`/dashboard/visits/${report.visit_id}/asd-report/capture`);
+      } else {
+        toast.error("This ASD report isn't linked to a visit — open it from the visit instead.");
       }
-      setDialogType("asd");
       return;
     }
 
@@ -651,28 +625,8 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
       {/* BS5839 Report Dialog removed — wizard-only flow now.
           Orphan-report fallback is a toast in handleViewReport. */}
 
-      {/* ASD Report Dialog */}
-      {selectedReport && dialogType === "asd" && (
-        <ASDReportDialog
-          open={!!selectedReport && dialogType === "asd"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedReport(null);
-              setDialogType(null);
-              setAsdAssets([]);
-            }
-          }}
-          visit={{
-            id: selectedReport.visit_id,
-            visit_type: visitMap[selectedReport.visit_id]?.visit_type || "",
-            visit_date: visitMap[selectedReport.visit_id]?.visit_date || selectedReport.report_date,
-            site_id: siteId,
-            sites: siteName ? { name: siteName } : null,
-          }}
-          assets={asdAssets}
-          onSuccess={fetchReports}
-        />
-      )}
+      {/* ASD dialog removed — ASD picks navigate to the wizard via
+          handleViewReport. */}
 
       {pdfPreviewReportId && (
         <PdfPreviewDialog

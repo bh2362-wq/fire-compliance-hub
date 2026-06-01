@@ -50,10 +50,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ServiceReport, BS5839Checklist, getDefaultChecklist } from "@/services/serviceReportService";
-import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { DisabledRefugeReportDialog } from "@/components/reports/DisabledRefugeReportDialog";
 import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
@@ -62,14 +60,6 @@ import { loadCauseEffectReportBundle } from "@/services/causeEffectTestService";
 import { GenerateQuotationDialog } from "@/components/quotations/GenerateQuotationDialog";
 import { PdfPreviewDialog } from "@/components/reports/PdfPreviewDialog";
 import { ChangeReportSiteDialog } from "@/components/reports/ChangeReportSiteDialog";
-
-interface AssetInfo {
-  id: string;
-  item_name: string;
-  manufacturer?: string | null;
-  model?: string | null;
-  location?: string | null;
-}
 
 interface ReportWithSite extends ServiceReport {
   _kind?: "service";
@@ -139,8 +129,6 @@ const Reports = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedReport, setSelectedReport] = useState<ReportWithSite | null>(null);
-  const [asdAssets, setAsdAssets] = useState<AssetInfo[]>([]);
-  const [disabledRefugeAssets, setDisabledRefugeAssets] = useState<AssetInfo[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<ReportWithSite | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -973,32 +961,11 @@ const Reports = () => {
                   return;
                 }
 
-                if (reportType === "asd") {
-                  // Load ASD assets for this site
-                  const { data: assets } = await supabase
-                    .from("site_assets")
-                    .select("id, item_name, manufacturer, model, location")
-                    .eq("site_id", report.site_id)
-                    .eq("asset_type", "asd")
-                    .order("created_at", { ascending: true });
-
-                  setAsdAssets(assets || []);
-                  setDisabledRefugeAssets([]);
-                } else if (reportType === "disabled_refuge") {
-                  // Load Disabled Refuge assets for this site
-                  const { data: assets } = await supabase
-                    .from("site_assets")
-                    .select("id, item_name, manufacturer, model, location")
-                    .eq("site_id", report.site_id)
-                    .eq("asset_type", "disabled_refuge")
-                    .order("created_at", { ascending: true });
-
-                  setDisabledRefugeAssets(assets || []);
-                  setAsdAssets([]);
-                } else {
-                  setAsdAssets([]);
-                  setDisabledRefugeAssets([]);
-                }
+                // Asset loading for ASD / Disabled-refuge is no longer
+                // needed here — both types navigated to their wizard
+                // routes above. The wizards load their own assets from
+                // the URL. Only Work / declination reach this point and
+                // they don't need asset state.
                 setSelectedReport(report);
               };
 
@@ -1232,15 +1199,13 @@ const Reports = () => {
         )}
       </div>
 
-      {/* Report Dialog - conditionally show ASD or Service Report dialog */}
+      {/* Report Dialog — only Work (job) reports still open a dialog here.
+          ASD + Disabled-refuge + BS5839 navigate to their wizards from
+          handleViewReport before setSelectedReport fires. */}
       {selectedReport && (() => {
-        let isAsdReport = false;
         let isJobReport = false;
-        let isDisabledRefuge = false;
         try {
           const notesData = JSON.parse(selectedReport.notes || "{}");
-          isAsdReport = notesData.report_type === "asd";
-          isDisabledRefuge = notesData.report_type === "disabled_refuge";
           // Job sheets store job/work metadata in notes (and typically have JOB-* report numbers)
           isJobReport =
             (selectedReport.report_number || "").startsWith("JOB-") ||
@@ -1249,52 +1214,6 @@ const Reports = () => {
             Array.isArray(notesData.workDays);
         } catch {
           // Not JSON
-        }
-
-        if (isAsdReport) {
-          return (
-            <ASDReportDialog
-              open={!!selectedReport}
-              onOpenChange={(open) => {
-                if (!open) {
-                  setSelectedReport(null);
-                  setAsdAssets([]);
-                }
-              }}
-              visit={{
-                id: selectedReport.visit_id,
-                visit_type: selectedReport.visits?.visit_type || "",
-                visit_date: selectedReport.visits?.visit_date || selectedReport.report_date,
-                site_id: selectedReport.site_id,
-                sites: selectedReport.sites,
-              }}
-              assets={asdAssets}
-              onSuccess={fetchReports}
-            />
-          );
-        }
-
-        if (isDisabledRefuge) {
-          return (
-            <DisabledRefugeReportDialog
-              open={!!selectedReport}
-              onOpenChange={(open) => {
-                if (!open) {
-                  setSelectedReport(null);
-                  setDisabledRefugeAssets([]);
-                }
-              }}
-              visit={{
-                id: selectedReport.visit_id,
-                visit_type: selectedReport.visits?.visit_type || "",
-                visit_date: selectedReport.visits?.visit_date || selectedReport.report_date,
-                site_id: selectedReport.site_id,
-                sites: selectedReport.sites,
-              }}
-              assets={disabledRefugeAssets}
-              onSuccess={fetchReports}
-            />
-          );
         }
 
         if (isJobReport) {
