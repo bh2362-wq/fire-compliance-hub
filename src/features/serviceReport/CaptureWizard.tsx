@@ -14,6 +14,9 @@ import { DepartureStep } from "./steps/DepartureStep";
 import { SignOffStep } from "./steps/SignOffStep";
 import { useLiveDefectAnalysis } from "./useLiveDefectAnalysis";
 import { LiveDefectQuotePanel } from "./LiveDefectQuotePanel";
+import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
+import { PasteAINotesDialog } from "@/components/notes-paste/PasteAINotesDialog";
 
 // Feature flag — keep the AI quote panel off by default in production. Flip
 // `VITE_BS5839_AI_QUOTE=true` in the build env (or set the localStorage key
@@ -164,6 +167,9 @@ export function CaptureWizard({ visit, userId, onCompleted }: Props) {
     void patch({ checklist: next });
   };
 
+  // Paste-AI-notes dialog state.
+  const [pasteOpen, setPasteOpen] = useState(false);
+
   return (
     <>
       <WizardShell
@@ -171,6 +177,19 @@ export function CaptureWizard({ visit, userId, onCompleted }: Props) {
         stepIdx={stepIdx}
         setStepIdx={setStepIdx}
         saving={saving}
+        headerActions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1"
+            onClick={() => setPasteOpen(true)}
+            title="Paste AI notes (defects + field updates)"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Paste notes</span>
+          </Button>
+        }
       >
         {stepIdx === 0 && (
           <SystemStep visit={visit} report={report} onPatch={patchScalars} siteId={visit.site_id} />
@@ -216,6 +235,29 @@ export function CaptureWizard({ visit, userId, onCompleted }: Props) {
           siteName={siteInfo.name}
         />
       )}
+
+      <PasteAINotesDialog
+        open={pasteOpen}
+        onOpenChange={setPasteOpen}
+        reportType="bs5839"
+        siteId={visit.site_id}
+        visitId={visit.id}
+        reportId={report.id}
+        currentValues={{
+          defects_found: report.defects_found,
+          recommendations: report.recommendations,
+          work_carried_out: report.work_carried_out,
+          system_condition: report.system_condition,
+          notes: report.notes,
+        }}
+        onApply={async ({ fieldUpdates }) => {
+          // Defects are written inside the dialog (to site_defects). We
+          // only need to patch the report row with the merged field text.
+          if (Object.keys(fieldUpdates).length > 0) {
+            await patch(fieldUpdates as Partial<ServiceReport>);
+          }
+        }}
+      />
     </>
   );
 }
