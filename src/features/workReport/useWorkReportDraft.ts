@@ -323,7 +323,7 @@ export function useWorkReportDraft(visit: WorkReportVisit, userId: string) {
         .eq("id", visit.site_id)
         .maybeSingle();
 
-      let row = (await getServiceReport(visit.id)) as Record<string, unknown> | null;
+      let row = (await getServiceReport(visit.id)) as unknown as Record<string, unknown> | null;
       if (!row) {
         const created = await createServiceReport(
           visit.id,

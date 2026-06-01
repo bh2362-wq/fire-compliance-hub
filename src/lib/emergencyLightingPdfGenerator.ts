@@ -16,7 +16,7 @@ import {
 const STANDARD = "BS 5266-1:2016  ·  BS EN 1838:2013  ·  BAFE SP203-1";
 const TITLE = "Emergency Lighting Certificate";
 
-export async function generateELCertificatePDF(p: ELPayload): Promise<void> {
+export async function generateELCertificatePDF(p: ELPayload): Promise<{ base64: string; fileName: string }> {
   const company = await loadCompany();
   const logo = await loadLogoData(company.report_logo_url || company.company_logo_url);
   const companyName = san(company.company_name) || "BHO Fire Ltd";
@@ -122,5 +122,8 @@ export async function generateELCertificatePDF(p: ELPayload): Promise<void> {
   ]);
 
   drawMasterFooter(doc, pw);
-  doc.save(`${certRef}.pdf`);
+  const fileName = `${certRef}.pdf`;
+  const base64 = doc.output("datauristring").split(",")[1] ?? "";
+  doc.save(fileName);
+  return { base64, fileName };
 }

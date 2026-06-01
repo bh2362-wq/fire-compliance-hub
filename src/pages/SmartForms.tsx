@@ -46,22 +46,22 @@ async function buildSmartFormPdfBase64(sub: SmartFormSubmission): Promise<string
   }
   if (ft.startsWith("el_")) {
     const { generateELCertificatePDF } = await import("@/lib/emergencyLightingPdfGenerator");
-    const r = await (generateELCertificatePDF(p) as Promise<{ base64: string }>);
+    const r = await generateELCertificatePDF(p);
     return r.base64;
   }
   if (ft.startsWith("asd_")) {
     const { generateASDCommissioningPDF } = await import("@/lib/asdCommissioningPdfGenerator");
-    const r = await (generateASDCommissioningPDF(p) as Promise<{ base64: string }>);
+    const r = await generateASDCommissioningPDF(p);
     return r.base64;
   }
   if (ft.startsWith("dr_")) {
     const { generateDryRiserPDF } = await import("@/lib/dryRiserPdfGenerator");
-    const r = await (generateDryRiserPDF(p) as Promise<{ base64: string }>);
+    const r = await generateDryRiserPDF(p);
     return r.base64;
   }
   if (ft === "declination_of_works") {
     const { generateDeclinationPDF } = await import("@/lib/declinationPdfGenerator");
-    const r = await (generateDeclinationPDF(p) as Promise<{ base64: string }>);
+    const r = await generateDeclinationPDF(p);
     return r.base64;
   }
   const { base64 } = await generateBS5839CertificatePDF(p, { autoSign: true });
