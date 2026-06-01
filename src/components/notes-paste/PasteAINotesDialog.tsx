@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { createDefect, DefectCategory } from "@/services/defectService";
+import { DefectCategory } from "@/services/defectService";
 
 export type PasteReportType = "bs5839" | "asd" | "drm" | "work" | "ce";
 
@@ -141,12 +141,19 @@ export function PasteAINotesDialog({
     const out: Array<{ key: keyof ExtractedFields; value: string }> = [];
     for (const k of Object.keys(FIELD_LABELS) as Array<keyof ExtractedFields>) {
       const v = extracted.fields[k];
-      if (typeof v === "string" && v.trim().length > 0) {
-        out.push({ key: k, value: v });
-      }
+      if (typeof v !== "string" || v.trim().length === 0) continue;
+      // Only show fields the parent wizard can actually persist. The wizard
+      // declares its supported fields by including the AI's report-column
+      // name as a key in `currentValues` (even if the value is "" / null).
+      // Without this filter, the dialog would let the engineer tick fields
+      // that get silently dropped on apply — exactly the C&E case where
+      // only `notes` maps to a real column.
+      const reportKey = FIELD_TO_REPORT[k];
+      if (!(reportKey in currentValues)) continue;
+      out.push({ key: k, value: v });
     }
     return out;
-  }, [extracted]);
+  }, [extracted, currentValues]);
 
   const handleExtract = async () => {
     if (text.trim().length < 20) {
@@ -179,30 +186,16 @@ export function PasteAINotesDialog({
     if (!extracted) return;
     setStage("applying");
     try {
-      // Step 1: persist selected defects to site_defects.
+      // Selected defects — delegated to the caller via onApply so each
+      // wizard can route them to the right table. BS5839 / ASD / DRM /
+      // Work want site_defects; C&E uses its own ce_issues. The dialog
+      // stays persistence-agnostic.
       const defectsToCreate = extracted.defects.filter((_, i) => defectsSelected[i]);
-      for (const d of defectsToCreate) {
-        const composed = d.recommended_action
-          ? `${d.description}\nRecommended: ${d.recommended_action}`
-          : d.description;
-        try {
-          await createDefect({
-            site_id: siteId,
-            visit_id: visitId,
-            report_id: reportId,
-            description: composed,
-            location: d.location,
-            category: d.category,
-            status: "open",
-          });
-        } catch (e) {
-          console.error("Failed to create defect from AI extract:", e);
-        }
-      }
 
-      // Step 2: build field updates. Each selected addendum is appended
-      // to the existing value with a paragraph break so the AI text reads
-      // as a continuation, not a replacement.
+      // Selected field addenda — concatenated onto existing report text
+      // with a paragraph break so AI prose reads as a continuation.
+      // Skip addenda whose report key isn't in currentValues (the wizard
+      // has told us it can't persist that field).
       const fieldUpdates: PasteApplyResult["fieldUpdates"] = {};
       for (const [key, selected] of Object.entries(fieldsSelected) as Array<
         [keyof ExtractedFields, boolean]
@@ -211,6 +204,7 @@ export function PasteAINotesDialog({
         const addendum = extracted.fields[key];
         if (typeof addendum !== "string" || addendum.trim().length === 0) continue;
         const reportKey = FIELD_TO_REPORT[key];
+        if (!(reportKey in currentValues)) continue;
         const existing = currentValues[reportKey] ?? "";
         fieldUpdates[reportKey] =
           existing.trim().length > 0 ? `${existing.trim()}\n\n${addendum.trim()}` : addendum.trim();

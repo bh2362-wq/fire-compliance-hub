@@ -12,6 +12,30 @@ import { AudibilityStep } from "./steps/AudibilityStep";
 import { FindingsRemedialsStep } from "./steps/FindingsRemedialsStep";
 import { CauseEffectSignOffStep } from "./steps/CauseEffectSignOffStep";
 import { PasteAINotesDialog } from "@/components/notes-paste/PasteAINotesDialog";
+import { supabase } from "@/integrations/supabase/client";
+
+// Heuristic — pick the ce_issues.kind a defect should land under by
+// scanning its text for cause-effect-specific keywords (interface,
+// output, lift, BMS, door holder, shutdown). Anything else is treated
+// as an audibility issue, which is what most extracted C&E defects
+// turn out to be (sound levels, missing VADs, etc).
+function classifyCEKind(text: string): "audibility" | "cause_effect" {
+  const hay = text.toLowerCase();
+  if (
+    /\b(lift|bms|cause and effect|interface|output|door holder|shutdown|relay)\b/.test(hay)
+  ) {
+    return "cause_effect";
+  }
+  return "audibility";
+}
+
+// Map our cat 1/2/3 to ce_issues.severity which uses 'critical'/
+// 'major'/'minor' strings.
+const CE_SEVERITY: Record<1 | 2 | 3, string> = {
+  1: "critical",
+  2: "major",
+  3: "minor",
+};
 
 interface Props {
   visit: Visit;
@@ -148,7 +172,29 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
       currentValues={{
         notes: report.general_observations,
       }}
-      onApply={async ({ fieldUpdates }) => {
+      onApply={async ({ defects, fieldUpdates }) => {
+        // C&E defects DON'T go to site_defects — the C&E wizard reads its
+        // findings list from ce_issues (separate table per the C&E data
+        // model). Classify each as audibility vs cause_effect and insert.
+        for (const d of defects) {
+          const haystack = `${d.description} ${d.recommended_action ?? ""} ${d.location ?? ""}`;
+          const kind = classifyCEKind(haystack);
+          try {
+            const { error: insErr } = await (supabase as unknown as { from: (t: string) => any })
+              .from("ce_issues")
+              .insert({
+                report_id: report.id,
+                kind,
+                location: d.location,
+                description: d.description,
+                severity: CE_SEVERITY[d.category],
+                action_required: d.recommended_action,
+              });
+            if (insErr) console.error("ce_issues insert:", insErr);
+          } catch (e) {
+            console.error("Failed to create ce_issues row:", e);
+          }
+        }
         if (fieldUpdates.notes !== undefined) {
           await patch({ general_observations: fieldUpdates.notes });
         }

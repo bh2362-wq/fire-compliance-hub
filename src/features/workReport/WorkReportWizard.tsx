@@ -6,6 +6,7 @@ import { WizardShell, WizardLoadingState } from "@/features/_shared/WizardShell"
 import { InvoicePromptDialog } from "@/components/reports/InvoicePromptDialog";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import { PasteAINotesDialog } from "@/components/notes-paste/PasteAINotesDialog";
+import { createDefect } from "@/services/defectService";
 import {
   useWorkReportDraft,
   WorkReportDraft,
@@ -148,7 +149,25 @@ export function WorkReportWizard({ visit, userId, site, customer, onCompleted }:
           recommendations: draft.further_action,
           work_carried_out: draft.works_report,
         }}
-        onApply={async ({ fieldUpdates }) => {
+        onApply={async ({ defects, fieldUpdates }) => {
+          for (const d of defects) {
+            const composed = d.recommended_action
+              ? `${d.description}\nRecommended: ${d.recommended_action}`
+              : d.description;
+            try {
+              await createDefect({
+                site_id: visit.site_id,
+                visit_id: visit.id,
+                report_id: draft.id,
+                description: composed,
+                location: d.location,
+                category: d.category,
+                status: "open",
+              });
+            } catch (e) {
+              console.error("Failed to create defect from AI extract:", e);
+            }
+          }
           const updates: Partial<WorkReportDraft> = {};
           if (fieldUpdates.recommendations !== undefined) updates.further_action = fieldUpdates.recommendations;
           if (fieldUpdates.work_carried_out !== undefined) updates.works_report = fieldUpdates.work_carried_out;

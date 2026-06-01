@@ -10,6 +10,7 @@ import { SummaryStep } from "./steps/SummaryStep";
 import { NotesStep } from "./steps/NotesStep";
 import { SignOffStep } from "./steps/SignOffStep";
 import { PasteAINotesDialog } from "@/components/notes-paste/PasteAINotesDialog";
+import { createDefect } from "@/services/defectService";
 
 interface Visit {
   id: string;
@@ -124,7 +125,25 @@ export function DisabledRefugeWizard({ visit, assets, userId, onCompleted }: Pro
           system_condition: draft.system_condition,
           notes: draft.additional_notes,
         }}
-        onApply={async ({ fieldUpdates }) => {
+        onApply={async ({ defects, fieldUpdates }) => {
+          for (const d of defects) {
+            const composed = d.recommended_action
+              ? `${d.description}\nRecommended: ${d.recommended_action}`
+              : d.description;
+            try {
+              await createDefect({
+                site_id: visit.site_id,
+                visit_id: visit.id,
+                report_id: draft.id,
+                description: composed,
+                location: d.location,
+                category: d.category,
+                status: "open",
+              });
+            } catch (e) {
+              console.error("Failed to create defect from AI extract:", e);
+            }
+          }
           const updates: Partial<DisabledRefugeDraft> = {};
           if (fieldUpdates.defects_found !== undefined) updates.defects_found = fieldUpdates.defects_found;
           if (fieldUpdates.recommendations !== undefined) updates.recommendations = fieldUpdates.recommendations;
