@@ -89,8 +89,13 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405, headers: corsHeaders });
 
   try {
-    const { docx_storage_path, quotation_id } = await req.json();
+    // `bucket` is an optional override so other generators (C&E report)
+    // can reuse this conversion path without each needing their own
+    // edge function. Defaults to quote-outputs so existing quote flow
+    // is unchanged.
+    const { docx_storage_path, quotation_id, bucket } = await req.json();
     if (!docx_storage_path) throw new Error("Missing docx_storage_path");
+    const storageBucket = (typeof bucket === "string" && bucket.length > 0) ? bucket : "quote-outputs";
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing Authorization header");
@@ -101,8 +106,8 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: docxBlob, error: dlErr } = await supabase.storage.from("quote-outputs").download(docx_storage_path);
-    if (dlErr || !docxBlob) throw new Error(`Storage download failed: ${dlErr?.message}`);
+    const { data: docxBlob, error: dlErr } = await supabase.storage.from(storageBucket).download(docx_storage_path);
+    if (dlErr || !docxBlob) throw new Error(`Storage download failed (bucket=${storageBucket}): ${dlErr?.message}`);
     const docxBytes = new Uint8Array(await docxBlob.arrayBuffer());
 
     const token = await getGraphToken(cfg);
@@ -120,12 +125,12 @@ Deno.serve(async (req) => {
     }
 
     const pdfStoragePath = docx_storage_path.replace(/\.docx$/i, ".pdf");
-    const { error: upErr } = await supabase.storage.from("quote-outputs").upload(pdfStoragePath, pdfBytes, {
+    const { error: upErr } = await supabase.storage.from(storageBucket).upload(pdfStoragePath, pdfBytes, {
       contentType: "application/pdf", upsert: true,
     });
     if (upErr) throw new Error(`PDF upload failed: ${upErr.message}`);
 
-    const { data: signed, error: signErr } = await supabase.storage.from("quote-outputs").createSignedUrl(pdfStoragePath, 3600);
+    const { data: signed, error: signErr } = await supabase.storage.from(storageBucket).createSignedUrl(pdfStoragePath, 3600);
     if (signErr || !signed) throw new Error(`Sign failed: ${signErr?.message}`);
 
     if (quotation_id) {
