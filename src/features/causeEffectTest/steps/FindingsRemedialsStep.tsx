@@ -20,10 +20,37 @@ interface Props {
   report: CauseEffectTestReport;
   onPatch: (updates: Partial<CauseEffectTestReport>) => void;
   reportId: string;
-  /** Bump this from the parent to force a re-fetch of ce_issues +
-      ce_remedials (e.g. after paste-AI-notes apply writes new rows). */
-  refreshKey?: number;
+  /** Visit + site IDs are needed by the "Import findings from defects"
+      action which reads from site_defects (keyed by visit_id + site_id,
+      not report_id since C&E reports don't FK to service_reports). */
+  visitId: string;
+  siteId: string;
 }
+
+// Heuristic — pick the ce_issues.kind a site_defect should land under
+// by scanning its text for cause-effect-specific keywords (interface,
+// output, lift, BMS, door holder, shutdown, relay). Anything else
+// defaults to audibility, which is what most extracted C&E findings
+// turn out to be (sound levels, missing VADs, etc).
+function classifyCEKind(text: string): "audibility" | "cause_effect" {
+  const hay = text.toLowerCase();
+  if (
+    /\b(lift|bms|cause and effect|interface|output|door holder|shutdown|relay)\b/.test(hay)
+  ) {
+    return "cause_effect";
+  }
+  return "audibility";
+}
+
+// Map our site_defects.category (1/2/3) to ce_issues.severity. DB
+// CHECK constraint allows only ('critical', 'non_critical') —
+// cat 1 → critical (life-safety), cat 2+3 → non_critical (impaired
+// but operational).
+const CE_SEVERITY: Record<number, "critical" | "non_critical"> = {
+  1: "critical",
+  2: "non_critical",
+  3: "non_critical",
+};
 
 interface Issue {
   id: string;
@@ -46,34 +73,120 @@ interface Remedial {
   estimated_cost: number | null;
 }
 
-export function FindingsRemedialsStep({ report, onPatch, reportId, refreshKey = 0 }: Props) {
+export function FindingsRemedialsStep({ report, onPatch, reportId, visitId, siteId }: Props) {
   const { toast } = useToast();
+  void report; // silence unused-prop warning — kept for API symmetry
   const [issues, setIssues] = useState<Issue[]>([]);
   const [remedials, setRemedials] = useState<Remedial[]>([]);
   const [loading, setLoading] = useState(true);
+  // Count of site_defects on this visit. Drives the "Import from defects"
+  // button label so the engineer sees up-front whether there's anything
+  // worth importing.
+  const [defectCount, setDefectCount] = useState(0);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [iRes, rRes] = await Promise.all([
+      const [iRes, rRes, dRes] = await Promise.all([
         (supabase as any).from("ce_issues").select("*").eq("report_id", reportId),
         (supabase as any).from("ce_remedials").select("*").eq("report_id", reportId),
+        (supabase as any)
+          .from("site_defects")
+          .select("id", { count: "exact", head: true })
+          .eq("visit_id", visitId),
       ]);
       if (cancelled) return;
       if (iRes.error) toast({ title: "Couldn't load issues", description: iRes.error.message, variant: "destructive" });
       if (rRes.error) toast({ title: "Couldn't load remedials", description: rRes.error.message, variant: "destructive" });
       setIssues((iRes.data as Issue[]) ?? []);
       setRemedials((rRes.data as Remedial[]) ?? []);
+      setDefectCount(dRes.count ?? 0);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-    // refreshKey is intentionally in the deps so the parent can trigger
-    // a refetch after writes (e.g. paste-AI-notes apply) without us
-    // needing a subscription channel.
-  }, [reportId, toast, refreshKey]);
+  }, [reportId, visitId, toast]);
+
+  // Read every site_defect on this visit and turn each into a ce_issues
+  // row (with kind classified by keyword heuristic + severity mapped
+  // from category). Dedupes by description match against existing
+  // ce_issues so re-running the action doesn't double up.
+  const importFromDefects = async () => {
+    setImporting(true);
+    try {
+      const { data: defectsData, error: defErr } = await (supabase as any)
+        .from("site_defects")
+        .select("id, description, location, category, status")
+        .eq("visit_id", visitId);
+      if (defErr) throw defErr;
+      const defects = (defectsData ?? []) as Array<{
+        id: string;
+        description: string;
+        location: string | null;
+        category: number;
+        status: string;
+      }>;
+      if (defects.length === 0) {
+        toast({ title: "No defects to import", description: "Paste notes or add defects first." });
+        return;
+      }
+      // Build a set of existing ce_issues descriptions so we don't
+      // create dupes when this button gets pressed twice.
+      const existingDescriptions = new Set(
+        issues
+          .map((i) => (i.description ?? "").trim().toLowerCase())
+          .filter((s) => s.length > 0),
+      );
+      const toInsert = defects
+        .filter((d) => {
+          const norm = (d.description ?? "").trim().toLowerCase();
+          return norm.length > 0 && !existingDescriptions.has(norm);
+        })
+        .map((d) => {
+          const haystack = `${d.description} ${d.location ?? ""}`;
+          return {
+            report_id: reportId,
+            kind: classifyCEKind(haystack),
+            location: d.location,
+            description: d.description,
+            severity: CE_SEVERITY[d.category] ?? "non_critical",
+          };
+        });
+      if (toInsert.length === 0) {
+        toast({
+          title: "Nothing new to import",
+          description: `All ${defects.length} defect${defects.length === 1 ? "" : "s"} on this visit are already on the findings list.`,
+        });
+        return;
+      }
+      const { data: inserted, error: insErr } = await (supabase as any)
+        .from("ce_issues")
+        .insert(toInsert)
+        .select("*");
+      if (insErr) throw insErr;
+      const rows = (inserted ?? []) as Issue[];
+      setIssues((prev) => [...prev, ...rows]);
+      const skipped = defects.length - rows.length;
+      toast({
+        title: `Imported ${rows.length} finding${rows.length === 1 ? "" : "s"}`,
+        description:
+          skipped > 0
+            ? `${skipped} already on the list, skipped.`
+            : `From ${defects.length} site defect${defects.length === 1 ? "" : "s"}.`,
+      });
+    } catch (e) {
+      toast({
+        title: "Import failed",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const addIssue = async (kind: Issue["kind"]) => {
     const { data, error } = await (supabase as any)
@@ -198,6 +311,39 @@ export function FindingsRemedialsStep({ report, onPatch, reportId, refreshKey = 
         <p className="text-xs text-muted-foreground">
           Issues raised during the test and the remedial work needed to bring the system back to compliance.
         </p>
+      </div>
+
+      {/* Import from site_defects — for engineers who pasted notes (or
+          added defects via the defect register) and want them auto-
+          classified into ce_issues. Dedupes on description. */}
+      <div className="rounded-lg border border-dashed border-primary/30 bg-primary/[0.04] p-3 flex items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">Defects on this visit</p>
+          <p className="text-xs text-muted-foreground">
+            {defectCount === 0
+              ? "No site defects logged yet. Paste notes or add defects on another step first."
+              : `${defectCount} defect${defectCount === 1 ? "" : "s"} ready to classify into findings. Cause-effect keywords (lift, BMS, output, door holder…) route to the cause &amp; effect section; everything else to audibility.`}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={importFromDefects}
+          disabled={importing || defectCount === 0}
+          className="shrink-0"
+        >
+          {importing ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              Importing…
+            </>
+          ) : (
+            <>
+              <Wand2 className="w-3.5 h-3.5 mr-1.5" />
+              Import from defects
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Cause &amp; effect issues */}
