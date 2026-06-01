@@ -9,7 +9,6 @@ import { format } from "date-fns";
 import { getSiteServiceReports, ServiceReport } from "@/services/serviceReportService";
 import { parseAbsentMarker } from "@/lib/clientSignatureMarker";
 import { InvoiceStatusBadge } from "@/components/reports/InvoiceStatusBadge";
-import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -102,8 +101,6 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
   const [siteInfo, setSiteInfo] = useState<SiteInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<ServiceReport | null>(null);
-  const [dialogType, setDialogType] = useState<"work" | null>(null);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
   const [sharePointReport, setSharePointReport] = useState<ServiceReport | null>(null);
@@ -238,8 +235,11 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
     }
 
     if (isWorkReport(report)) {
-      setSelectedReport(report);
-      setDialogType("work");
+      if (report.visit_id) {
+        navigate(`/dashboard/visits/${report.visit_id}/work-report/capture`);
+      } else {
+        toast.error("This work report isn't linked to a visit — open it from the visit instead.");
+      }
       return;
     }
 
@@ -601,29 +601,8 @@ export function SiteServiceReports({ siteId, siteName, customerName }: SiteServi
         </div>
       )}
 
-      {/* Work Report Dialog */}
-      {selectedReport && dialogType === "work" && (
-        <WorkReportDialog
-          open={!!selectedReport && dialogType === "work"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedReport(null);
-              setDialogType(null);
-            }
-          }}
-          visit={{
-            id: selectedReport.visit_id,
-            visit_type: visitMap[selectedReport.visit_id]?.visit_type || "",
-            visit_date: visitMap[selectedReport.visit_id]?.visit_date || selectedReport.report_date,
-            site_id: siteId,
-            sites: siteName ? { name: siteName } : null,
-          }}
-          onSuccess={fetchReports}
-        />
-      )}
-
-      {/* BS5839 Report Dialog removed — wizard-only flow now.
-          Orphan-report fallback is a toast in handleViewReport. */}
+      {/* All report dialogs removed — every report type routes to its
+          wizard via handleViewReport. Orphan-report fallback is a toast. */}
 
       {/* ASD dialog removed — ASD picks navigate to the wizard via
           handleViewReport. */}

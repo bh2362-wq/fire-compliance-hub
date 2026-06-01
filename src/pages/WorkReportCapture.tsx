@@ -7,19 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { WorkReportWizard } from "@/features/workReport/WorkReportWizard";
 import type { WorkReportVisit } from "@/features/workReport/useWorkReportDraft";
-
-interface SiteRow {
-  name: string | null;
-  address: string | null;
-  city: string | null;
-  postcode: string | null;
-  contact_name: string | null;
-}
-
-function buildFullAddress(s: SiteRow | null): string {
-  if (!s) return "";
-  return [s.address, s.city, s.postcode].filter(Boolean).join(", ");
-}
+import type {
+  CompleteSiteInfo,
+  CompleteCustomerInfo,
+} from "@/features/workReport/completeWorkReport";
 
 export default function WorkReportCapture() {
   const { visitId } = useParams<{ visitId: string }>();
@@ -27,7 +18,8 @@ export default function WorkReportCapture() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [visit, setVisit] = useState<WorkReportVisit | null>(null);
-  const [site, setSite] = useState<SiteRow | null>(null);
+  const [site, setSite] = useState<CompleteSiteInfo | null>(null);
+  const [customer, setCustomer] = useState<CompleteCustomerInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,14 +42,35 @@ export default function WorkReportCapture() {
 
         const { data: siteRow, error: siteErr } = await supabase
           .from("sites")
-          .select("name, address, city, postcode, contact_name")
+          .select(
+            "id, name, address, city, postcode, contact_name, contact_phone, customer_id, customers(id, name, xero_contact_id)",
+          )
           .eq("id", visitRow.site_id)
           .maybeSingle();
-        if (siteErr) throw siteErr;
+        if (siteErr || !siteRow) throw new Error(siteErr?.message ?? "Site not found");
 
         if (cancelled) return;
         setVisit(visitRow as WorkReportVisit);
-        setSite(siteRow as SiteRow | null);
+        setSite({
+          id: siteRow.id,
+          name: siteRow.name,
+          address: siteRow.address,
+          city: siteRow.city,
+          postcode: siteRow.postcode,
+          contact_name: siteRow.contact_name,
+          contact_phone: siteRow.contact_phone,
+        });
+
+        const cust = siteRow.customers as
+          | { id: string; name: string; xero_contact_id: string | null }
+          | null;
+        if (cust) {
+          setCustomer({
+            id: cust.id,
+            name: cust.name,
+            xero_contact_id: cust.xero_contact_id,
+          });
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -91,7 +104,7 @@ export default function WorkReportCapture() {
     );
   }
 
-  if (error || !visit) {
+  if (error || !visit || !site) {
     return (
       <div className="max-w-md mx-auto p-6 text-center space-y-4">
         <p className="text-sm text-muted-foreground">{error ?? "Could not load this visit."}</p>
@@ -115,9 +128,8 @@ export default function WorkReportCapture() {
       <WorkReportWizard
         visit={visit}
         userId={user.id}
-        siteName={site?.name ?? ""}
-        siteContactName={site?.contact_name ?? null}
-        siteFullAddress={buildFullAddress(site)}
+        site={site}
+        customer={customer}
         onCompleted={() => {
           toast({ title: "Returning to reports" });
           navigate("/dashboard/reports");

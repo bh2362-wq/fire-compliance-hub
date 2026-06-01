@@ -5,6 +5,7 @@ import {
   getServiceReport,
   createServiceReport,
   updateServiceReport,
+  assignReportNumber,
 } from "@/services/serviceReportService";
 
 export interface WorkDayEntry {
@@ -375,22 +376,53 @@ export function useWorkReportDraft(visit: WorkReportVisit, userId: string) {
     }
   }, []);
 
-  const complete = useCallback(async (): Promise<void> => {
-    if (!draft) return;
+  /**
+   * Mark the report complete + lock it. Side effects:
+   *   - assign a JOB-* report number if not yet assigned
+   *   - update report row (status, notes, columns)
+   *   - mark the parent visit as completed
+   *
+   * Heavier post-complete work (SharePoint folder + PDF upload,
+   * notification email, calendar appointment, invoice prompt) lives in
+   * the wizard so the hook stays UI-agnostic. Returns the final draft
+   * with its assigned report_number so the wizard can chain those.
+   */
+  const complete = useCallback(async (visitId: string): Promise<WorkReportDraft | null> => {
+    if (!draft) return null;
     setSaving(true);
     try {
-      const n = { ...draft, work_completed: true };
-      await updateServiceReport(n.id, {
-        engineer_name: n.engineer_name,
-        client_name: n.client_name,
-        report_number: n.report_number,
-        report_date: n.report_date,
-        work_carried_out: n.works_report,
-        recommendations: n.further_action,
-        notes: buildNotesJson(n),
+      let finalNumber = draft.report_number;
+      if (!finalNumber) {
+        const newNumber = await assignReportNumber(draft.id, "JOB");
+        if (newNumber) finalNumber = newNumber;
+      }
+
+      const completed: WorkReportDraft = {
+        ...draft,
+        work_completed: true,
+        report_number: finalNumber,
+        status: "completed",
+        is_locked: true,
+      };
+
+      await updateServiceReport(completed.id, {
+        engineer_name: completed.engineer_name,
+        client_name: completed.client_name,
+        report_number: completed.report_number || null,
+        report_date: completed.report_date,
+        work_carried_out: completed.works_report,
+        recommendations: completed.further_action,
+        notes: buildNotesJson(completed),
         status: "completed",
       });
-      setDraft((prev) => (prev ? { ...prev, status: "completed", is_locked: true, work_completed: true } : prev));
+
+      await supabase
+        .from("service_visits")
+        .update({ status: "completed" })
+        .eq("id", visitId);
+
+      setDraft(completed);
+      return completed;
     } catch (e) {
       setError(e as Error);
       throw e;

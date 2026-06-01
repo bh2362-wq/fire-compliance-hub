@@ -37,7 +37,6 @@ import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
-import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
 import { ReportPreviewDialog } from "@/components/reports/ReportPreviewDialog";
 
@@ -181,7 +180,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [reportVisit, setReportVisit] = useState<Visit | null>(null);
   const [previewVisit, setPreviewVisit] = useState<Visit | null>(null);
   const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
-  const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | "disabled_refuge" | null>(null);
   const [editVisit, setEditVisit] = useState<Visit | null>(null);
   const [deleteVisit, setDeleteVisit] = useState<Visit | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -1593,8 +1591,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 navigate(`/dashboard/visits/${visitId}/service-report/capture`);
                 return;
               }
-              // ASD + Disabled-refuge route to their wizards. Work +
-              // declination still use the legacy dialog flow.
+              // ASD + Disabled-refuge + Work all route to their wizards.
               if (existingReportType === "asd") {
                 const visitId = previewVisit.id;
                 setReportVisit(null);
@@ -1607,9 +1604,18 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 navigate(`/dashboard/visits/${visitId}/disabled-refuge-report/capture`);
                 return;
               }
-              setReportType(existingReportType);
+              if (existingReportType === "work") {
+                const visitId = previewVisit.id;
+                setReportVisit(null);
+                navigate(`/dashboard/visits/${visitId}/work-report/capture`);
+                return;
+              }
+              // All known existingReportType values are handled above.
             } else if (previewVisit.visit_type === "remedial" || previewVisit.visit_type === "emergency" || previewVisit.visit_type === "supply_only") {
-              setReportType("work");
+              const visitId = previewVisit.id;
+              setReportVisit(null);
+              navigate(`/dashboard/visits/${visitId}/work-report/capture`);
+              return;
             } else {
               // Check visit notes for asset_type to auto-route
               try {
@@ -1647,40 +1653,21 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
         open={showReportTypeSelector}
         onOpenChange={setShowReportTypeSelector}
         onSelect={(type, _asdAssets, _disabledRefugeAssets) => {
-          // BS 5839 / ASD / Disabled-refuge picks navigate to their
-          // capture wizard. Work + declination still open the legacy
-          // dialog (Phase 5 will migrate Work).
-          if (reportVisit && (type === "bs5839" || type === "asd" || type === "disabled_refuge")) {
-            const visitId = reportVisit.id;
-            const slug =
-              type === "bs5839" ? "service-report"
-              : type === "asd" ? "asd-report"
-              : "disabled-refuge-report";
-            setShowReportTypeSelector(false);
-            setReportVisit(null);
-            navigate(`/dashboard/visits/${visitId}/${slug}/capture`);
-            return;
-          }
-          setReportType(type);
+          if (!reportVisit) return;
+          const visitId = reportVisit.id;
+          const slug =
+            type === "bs5839" ? "service-report" :
+            type === "asd" ? "asd-report" :
+            type === "disabled_refuge" ? "disabled-refuge-report" :
+            "work-report";
+          setShowReportTypeSelector(false);
+          setReportVisit(null);
+          navigate(`/dashboard/visits/${visitId}/${slug}/capture`);
         }}
         siteId={reportVisit?.site_id}
       />
 
-      {reportVisit && reportType === "work" && (
-        <WorkReportDialog
-          open={!!reportVisit && reportType === "work"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setReportVisit(null);
-              setReportType(null);
-            }
-          }}
-          visit={{ ...reportVisit, sites: reportVisit.site }}
-          onSuccess={onRefresh}
-        />
-      )}
-
-      {/* BS5839 dialog removed — all bs5839 picks route to the
+      {/* All report dialogs removed — every report type routes to its
           wizard via openReportForVisit / ReportTypeSelector. */}
 
       {/* ASD + Disabled-refuge dialogs removed — both picks navigate to
