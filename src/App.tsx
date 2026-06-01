@@ -25,6 +25,7 @@ import ServiceReportCapture from "./pages/ServiceReportCapture";
 import CauseEffectTestCapture from "./pages/CauseEffectTestCapture";
 import DisabledRefugeReportCapture from "./pages/DisabledRefugeReportCapture";
 import ASDServiceReportCapture from "./pages/ASDServiceReportCapture";
+import WorkReportCapture from "./pages/WorkReportCapture";
 import Invoices from "./pages/Invoices";
 import Reports from "./pages/Reports";
 import UploadDemo from "./pages/UploadDemo";
@@ -175,6 +176,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ASDServiceReportCapture />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/visits/:visitId/work-report/capture"
+              element={
+                <ProtectedRoute>
+                  <WorkReportCapture />
                 </ProtectedRoute>
               }
             />
