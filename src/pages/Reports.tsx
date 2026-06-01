@@ -54,8 +54,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
-import { generateCauseEffectReportPDF } from "@/lib/causeEffectReportPdfGenerator";
-import { loadCauseEffectReportBundle } from "@/services/causeEffectTestService";
+import { downloadCauseEffectReportPdf } from "@/features/causeEffectTest/useCauseEffectGeneration";
 import { GenerateQuotationDialog } from "@/components/quotations/GenerateQuotationDialog";
 import { PdfPreviewDialog } from "@/components/reports/PdfPreviewDialog";
 import { ChangeReportSiteDialog } from "@/components/reports/ChangeReportSiteDialog";
@@ -900,8 +899,7 @@ const Reports = () => {
                     toast.error("No C&E data captured yet — click Edit Report to start.");
                     return;
                   }
-                  const bundle = await loadCauseEffectReportBundle(ceRow.id);
-                  await generateCauseEffectReportPDF(bundle);
+                  await downloadCauseEffectReportPdf(ceRow.id);
                 } catch (e) {
                   const msg = e instanceof Error ? e.message : "Failed to generate PDF";
                   toast.error(`Couldn't generate C&E PDF: ${msg}`);
@@ -1446,8 +1444,7 @@ function CauseEffectReportRow({
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const bundle = await loadCauseEffectReportBundle(report.id);
-      await generateCauseEffectReportPDF(bundle);
+      await downloadCauseEffectReportPdf(report.id);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to generate PDF";
       toast.error(`Couldn't generate C&E PDF: ${msg}`);
