@@ -809,7 +809,7 @@ const Reports = () => {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -979,10 +979,10 @@ const Reports = () => {
               return (
                 <div
                   key={report.id}
-                  className="p-6 hover:bg-muted/30 transition-colors"
+                  className="p-4 sm:p-6 hover:bg-muted/30 transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                    <div className="flex items-start gap-3 sm:gap-4 min-w-0">
                       <div className={cn(
                         "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
                         isAsdReport
@@ -999,9 +999,9 @@ const Reports = () => {
                           <FileText className="w-6 h-6 text-primary" />
                         )}
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-foreground">
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-foreground truncate">
                             {report.sites?.name || "Unknown Site"}
                           </h3>
                           {isAsdReport && (
@@ -1030,7 +1030,7 @@ const Reports = () => {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" />
                             {format(new Date(report.report_date), "MMM d, yyyy")}
@@ -1054,18 +1054,24 @@ const Reports = () => {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    {/* Actions — wrap to a row below on mobile (sm:flex-row puts
+                        them at top-right on desktop). View Report becomes the
+                        primary action; Site collapses to icon-only to save space. */}
+                    <div className="flex items-center gap-2 sm:shrink-0 -mr-1 sm:mr-0">
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="h-9 px-2 sm:px-3"
                         onClick={() => navigate(`/dashboard/sites/${report.site_id}`)}
+                        aria-label="View site"
                       >
-                        <Building2 className="w-4 h-4 mr-1" />
-                        Site
+                        <Building2 className="w-4 h-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Site</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-9 flex-1 sm:flex-initial"
                         onClick={handleViewReportPdf}
                       >
                         <Eye className="w-4 h-4 mr-1" />
@@ -1073,7 +1079,7 @@ const Reports = () => {
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="More actions">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -1451,21 +1457,21 @@ function CauseEffectReportRow({
   };
 
   return (
-    <div className="p-6 hover:bg-muted/30 transition-colors">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
+    <div className="p-4 sm:p-6 hover:bg-muted/30 transition-colors">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-secondary/10">
             <Volume2 className="w-6 h-6 text-secondary" />
           </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-foreground">
+          <div className="space-y-1 min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-foreground truncate">
                 {report.sites?.name || "Unknown Site"}
               </h3>
               <Badge variant="secondary" className="text-xs">Cause &amp; Effect</Badge>
               <Badge variant="outline" className={status.className}>{status.label}</Badge>
             </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
               {report.report_date && (
                 <span className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
@@ -1480,26 +1486,28 @@ function CauseEffectReportRow({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:shrink-0">
           <Button
             variant="ghost"
             size="sm"
+            className="h-9 px-2 sm:px-3"
             onClick={() => navigate(`/dashboard/sites/${report.site_id}`)}
+            aria-label="View site"
           >
-            <Building2 className="w-4 h-4 mr-1" />
-            Site
+            <Building2 className="w-4 h-4 sm:mr-1" />
+            <span className="hidden sm:inline">Site</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
+          <Button variant="outline" size="sm" className="h-9 flex-1 sm:flex-initial" onClick={handleDownload} disabled={downloading}>
             {downloading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Eye className="w-4 h-4 mr-1" />}
             View Report
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleOpen}>
-            <FilePen className="w-4 h-4 mr-1" />
-            Open
+          <Button variant="ghost" size="sm" className="h-9 px-2 sm:px-3" onClick={handleOpen} aria-label="Open report">
+            <FilePen className="w-4 h-4 sm:mr-1" />
+            <span className="hidden sm:inline">Open</span>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="More actions">
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
