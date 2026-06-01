@@ -16,7 +16,7 @@ import {
 const STANDARD = "BS EN 54-20:2006+A1:2012  ·  FIA Code of Practice ASD Systems";
 const TITLE = "Aspirating Smoke Detection — Annual Service Certificate";
 
-export async function generateASDCommissioningPDF(p: ASDPayload): Promise<void> {
+export async function generateASDCommissioningPDF(p: ASDPayload): Promise<{ base64: string; fileName: string }> {
   const company = await loadCompany();
   const logo = await loadLogoData(company.report_logo_url || company.company_logo_url);
   const companyName = san(company.company_name) || "BHO Fire Ltd";
@@ -178,5 +178,8 @@ export async function generateASDCommissioningPDF(p: ASDPayload): Promise<void> 
   ]);
 
   drawMasterFooter(doc, pw);
-  doc.save(`${certRef}.pdf`);
+  const fileName = `${certRef}.pdf`;
+  const base64 = doc.output("datauristring").split(",")[1] ?? "";
+  doc.save(fileName);
+  return { base64, fileName };
 }
