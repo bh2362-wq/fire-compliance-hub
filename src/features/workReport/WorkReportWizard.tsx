@@ -87,13 +87,8 @@ export function WorkReportWizard({
         />
       )}
       {stepIdx === 1 && <WorksStep draft={draft} onPatch={patchScalars} />}
-      {stepIdx === 2 && <MaterialsStep />}
-      {stepIdx === 3 && (
-        <PhotosStep
-          photoCount={draft.photos.length}
-          fileCount={draft.report_files.length}
-        />
-      )}
+      {stepIdx === 2 && <MaterialsStep draft={draft} onPatch={patchScalars} />}
+      {stepIdx === 3 && <PhotosStep draft={draft} onPatch={patchScalars} />}
       {stepIdx === 4 && (
         <SignStep
           draft={draft}
