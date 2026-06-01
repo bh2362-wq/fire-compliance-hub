@@ -8,8 +8,7 @@ import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import type { CauseEffectTestReport } from "../useCauseEffectTestDraft";
-import { loadCauseEffectReportBundle } from "@/services/causeEffectTestService";
-import { generateCauseEffectReportPDF } from "@/lib/causeEffectReportPdfGenerator";
+import { downloadCauseEffectReportPdf } from "../useCauseEffectGeneration";
 
 interface Props {
   report: CauseEffectTestReport;
@@ -56,8 +55,7 @@ export function CauseEffectSignOffStep({ report, onPatch, onComplete, completing
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const bundle = await loadCauseEffectReportBundle(report.id);
-      await generateCauseEffectReportPDF(bundle);
+      await downloadCauseEffectReportPdf(report.id);
     } catch (e) {
       toast({
         title: "Couldn't generate PDF",
