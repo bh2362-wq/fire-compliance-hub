@@ -37,6 +37,7 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
   );
   const [stepIdx, setStepIdx] = useState(0);
   const [completing, setCompleting] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
 
   const handleComplete = async () => {
     if (!report) return;
@@ -86,7 +87,6 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
     void patch(updates);
   };
 
-  const [pasteOpen, setPasteOpen] = useState(false);
 
   return (
     <>
