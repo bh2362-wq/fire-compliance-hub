@@ -188,7 +188,7 @@ const Dashboard = () => {
         )}
 
         {/* ── Stats grid ──────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           <StatsCard
             title="Active Sites"
             value={stats.activeSites}
@@ -262,7 +262,7 @@ const Dashboard = () => {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
             <div className="p-3 rounded-lg bg-background/60">
               <p className="text-2xl font-bold text-foreground">{bafeCompliant}</p>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1">
@@ -302,7 +302,7 @@ const Dashboard = () => {
         <ServiceDueDashboard />
 
         {/* ── Quick actions + schedule ─────────────────────────────────── */}
-        <div className="grid lg:grid-cols-2 gap-5">
+        <div className="grid md:grid-cols-2 gap-3 md:gap-5">
           <QuickActions />
           <TodaySchedule />
         </div>
@@ -315,22 +315,22 @@ const Dashboard = () => {
 
 
         {/* ── Charts + financial ───────────────────────────────────────── */}
-        <div className="grid lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 space-y-5">
+        <div className="grid lg:grid-cols-3 gap-3 md:gap-5">
+          <div className="lg:col-span-2 space-y-3 md:space-y-5">
             <ComplianceChart />
             <div id="compliance-calendar">
               <ComplianceCalendar />
             </div>
             <RecentVisits />
           </div>
-          <div className="space-y-5">
+          <div className="space-y-3 md:space-y-5">
             <FinancialSummary />
             <BankReconciliation />
           </div>
         </div>
 
         {/* ── New Feature Callouts ─────────────────────────────────────── */}
-        <div className="grid md:grid-cols-2 gap-4 pt-2">
+        <div className="grid md:grid-cols-2 gap-3 md:gap-4 pt-2">
           <div
             className="new-feature-callout"
             onClick={() => navigate("/dashboard/cert-tracker")}
