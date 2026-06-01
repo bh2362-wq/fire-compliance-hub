@@ -958,6 +958,14 @@ const Reports = () => {
                   return;
                 }
 
+                // Disabled-refuge → route to the new wizard (Path 2 step B).
+                // Falls back to the legacy dialog when there's no visit_id
+                // since the wizard needs one for the URL.
+                if (reportType === "disabled_refuge" && report.visit_id) {
+                  navigate(`/dashboard/visits/${report.visit_id}/disabled-refuge-report/capture`);
+                  return;
+                }
+
                 if (reportType === "asd") {
                   // Load ASD assets for this site
                   const { data: assets } = await supabase
