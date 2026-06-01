@@ -15,7 +15,7 @@ import {
 
 const STANDARD = "BS 9990:2015 — Non-automatic firefighting systems in buildings";
 
-export async function generateDryRiserPDF(p: DRPayload): Promise<void> {
+export async function generateDryRiserPDF(p: DRPayload): Promise<{ base64: string; fileName: string }> {
   const company = await loadCompany();
   const logo = await loadLogoData(company.report_logo_url || company.company_logo_url);
   const companyName = san(company.company_name) || "BHO Fire Ltd";
@@ -136,5 +136,8 @@ export async function generateDryRiserPDF(p: DRPayload): Promise<void> {
   ]);
 
   drawMasterFooter(doc, pw);
-  doc.save(`${certRef}.pdf`);
+  const fileName = `${certRef}.pdf`;
+  const base64 = doc.output("datauristring").split(",")[1] ?? "";
+  doc.save(fileName);
+  return { base64, fileName };
 }

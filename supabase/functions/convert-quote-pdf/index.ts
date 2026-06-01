@@ -54,6 +54,26 @@ async function getUserDriveId(token: string, userUpn: string): Promise<string> {
   return id;
 }
 
+async function getConversionDriveId(token: string, cfg: ReturnType<typeof readGraphConfig>): Promise<string> {
+  const failures: string[] = [];
+  if (cfg.conversionSite) {
+    try {
+      return await getSiteDriveId(token, cfg.conversionSite);
+    } catch (err) {
+      failures.push(err instanceof Error ? err.message : String(err));
+      console.error("Graph site conversion drive unavailable, trying user drive fallback:", failures[failures.length - 1]);
+    }
+  }
+  if (cfg.conversionUser) {
+    try {
+      return await getUserDriveId(token, cfg.conversionUser);
+    } catch (err) {
+      failures.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+  throw new Error(`No usable Microsoft Graph conversion drive found. ${failures.join(" | ")}`);
+}
+
 async function uploadToGraph(token: string, driveId: string, fileName: string, bytes: Uint8Array): Promise<string> {
   const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodeURIComponent(fileName)}:/content`;
   const res = await fetch(url, {
@@ -111,9 +131,7 @@ Deno.serve(async (req) => {
     const docxBytes = new Uint8Array(await docxBlob.arrayBuffer());
 
     const token = await getGraphToken(cfg);
-    const driveId = cfg.conversionSite
-      ? await getSiteDriveId(token, cfg.conversionSite)
-      : await getUserDriveId(token, cfg.conversionUser!);
+    const driveId = await getConversionDriveId(token, cfg);
     const fileName = `${crypto.randomUUID()}.docx`;
     const itemId = await uploadToGraph(token, driveId, fileName, docxBytes);
 

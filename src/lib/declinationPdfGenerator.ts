@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 
-export async function generateDeclinationPDF(p: any): Promise<void> {
+export async function generateDeclinationPDF(p: any): Promise<{ base64: string; fileName: string }> {
   const { data: company } = await supabase.from("company_settings").select("*").limit(1).maybeSingle();
   const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
   const C = { navy:[30,41,90] as [number,number,number], white:[255,255,255] as [number,number,number], border:[200,200,200] as [number,number,number], text:[20,20,20] as [number,number,number], amber:[217,119,6] as [number,number,number], amberBg:[254,243,199] as [number,number,number] };
@@ -79,5 +79,8 @@ export async function generateDeclinationPDF(p: any): Promise<void> {
     doc.text(`${companyName} | Declination of Works | ${new Date().toLocaleDateString("en-GB")} | CONFIDENTIAL`, ML, 289, {maxWidth:CW-20});
     doc.text(`Page ${i} of ${total}`, pw-14, 289, {align:"right"});
   }
-  doc.save(`Declination-of-Works-${p.premises_name?.replace(/\s+/g,"-")||"document"}.pdf`);
+  const fileName = `Declination-of-Works-${p.premises_name?.replace(/\s+/g,"-")||"document"}.pdf`;
+  const base64 = doc.output("datauristring").split(",")[1] ?? "";
+  doc.save(fileName);
+  return { base64, fileName };
 }
