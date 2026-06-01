@@ -122,7 +122,12 @@ const NavItem = ({
     className={({ isActive }) =>
       cn(
         "relative flex items-center gap-3 rounded-md text-sm font-medium transition-all duration-150 group",
-        sub ? "px-3 py-1.5" : "px-3 py-2",
+        // Bump tap targets on mobile (~44px) without growing desktop rows.
+        sub
+          ? "px-3 py-2 sm:py-1.5"
+          : isMobile
+            ? "px-3 py-3"
+            : "px-3 py-2",
         isActive
           ? "bg-sidebar-accent text-sidebar-foreground"
           : "text-sidebar-foreground/55 hover:text-sidebar-foreground/90 hover:bg-sidebar-accent/60"
@@ -464,10 +469,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="flex items-center gap-2 md:gap-3">
             <GlobalSearch />
 
+            {/* Clear cache is a rare admin-style action; hide on mobile to
+                reclaim header space — engineers can still trigger it from
+                a tablet/desktop session if needed. */}
             <button
               onClick={clearAppCacheAndReload}
               title="Refresh app (clear cache)"
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Refresh app (clear cache)"
+              className="hidden sm:inline-flex p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             >
               <RefreshCw className="w-5 h-5" />
             </button>

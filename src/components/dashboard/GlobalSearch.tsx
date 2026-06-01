@@ -152,11 +152,12 @@ export function GlobalSearch() {
       {/* Trigger button */}
       <button
         onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors min-w-[180px] md:min-w-[260px]"
+        aria-label="Search everything"
+        className="flex items-center justify-center sm:justify-start gap-2 h-9 w-9 sm:w-auto sm:px-3 sm:py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors sm:min-w-[180px] md:min-w-[260px]"
       >
         <Search className="w-4 h-4 flex-shrink-0" />
-        <span className="hidden sm:inline">Search everything...</span>
-        <span className="sm:hidden">Search...</span>
+        <span className="hidden md:inline">Search everything...</span>
+        <span className="hidden sm:inline md:hidden">Search...</span>
         <kbd className="hidden md:inline-flex ml-auto items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
           ⌘K
         </kbd>
