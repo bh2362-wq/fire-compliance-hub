@@ -12,33 +12,7 @@ import { AudibilityStep } from "./steps/AudibilityStep";
 import { FindingsRemedialsStep } from "./steps/FindingsRemedialsStep";
 import { CauseEffectSignOffStep } from "./steps/CauseEffectSignOffStep";
 import { PasteAINotesDialog } from "@/components/notes-paste/PasteAINotesDialog";
-import { supabase } from "@/integrations/supabase/client";
-
-// Heuristic — pick the ce_issues.kind a defect should land under by
-// scanning its text for cause-effect-specific keywords (interface,
-// output, lift, BMS, door holder, shutdown). Anything else is treated
-// as an audibility issue, which is what most extracted C&E defects
-// turn out to be (sound levels, missing VADs, etc).
-function classifyCEKind(text: string): "audibility" | "cause_effect" {
-  const hay = text.toLowerCase();
-  if (
-    /\b(lift|bms|cause and effect|interface|output|door holder|shutdown|relay)\b/.test(hay)
-  ) {
-    return "cause_effect";
-  }
-  return "audibility";
-}
-
-// Map our cat 1/2/3 to ce_issues.severity. The DB column has a
-// CHECK constraint that only allows ('critical', 'non_critical') —
-// don't expand without updating the migration. cat 1 → critical
-// (immediate life-safety risk); cat 2 + 3 both → non_critical
-// (impaired but operational).
-const CE_SEVERITY: Record<1 | 2 | 3, "critical" | "non_critical"> = {
-  1: "critical",
-  2: "non_critical",
-  3: "non_critical",
-};
+import { createDefect } from "@/services/defectService";
 
 interface Props {
   visit: Visit;
@@ -65,10 +39,6 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
   const [stepIdx, setStepIdx] = useState(0);
   const [completing, setCompleting] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
-  // Bumped after a successful paste-apply to force FindingsRemedialsStep
-  // to refetch its ce_issues + ce_remedials lists (the step caches them
-  // in local state and only fetches on mount otherwise).
-  const [findingsRefreshKey, setFindingsRefreshKey] = useState(0);
 
   const handleComplete = async () => {
     if (!report) return;
@@ -156,7 +126,8 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
           report={report}
           onPatch={patchScalars}
           reportId={report.id}
-          refreshKey={findingsRefreshKey}
+          visitId={visit.id}
+          siteId={visit.site_id}
         />
       )}
       {stepIdx === 5 && (
@@ -185,33 +156,31 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
         notes: report.general_observations,
       }}
       onApply={async ({ defects, fieldUpdates }) => {
-        // C&E defects DON'T go to site_defects — the C&E wizard reads its
-        // findings list from ce_issues (separate table per the C&E data
-        // model). Classify each as audibility vs cause_effect and insert.
-        let inserted = 0;
+        // Defects land in site_defects (same as every other report type's
+        // paste flow). Use the "Generate findings from defects" button on
+        // step 5 to materialise them as structured ce_issues — that
+        // workflow is more visible, dedupes on description, and means
+        // there's only one persistence path to debug if something breaks.
+        // report_id stays null because site_defects.report_id FKs to
+        // service_reports — passing a ce_audibility_reports id would
+        // violate the constraint.
         let failed = 0;
         for (const d of defects) {
-          const haystack = `${d.description} ${d.recommended_action ?? ""} ${d.location ?? ""}`;
-          const kind = classifyCEKind(haystack);
+          const composed = d.recommended_action
+            ? `${d.description}\nRecommended: ${d.recommended_action}`
+            : d.description;
           try {
-            const { error: insErr } = await (supabase as unknown as { from: (t: string) => any })
-              .from("ce_issues")
-              .insert({
-                report_id: report.id,
-                kind,
-                location: d.location,
-                description: d.description,
-                severity: CE_SEVERITY[d.category],
-                action_required: d.recommended_action,
-              });
-            if (insErr) {
-              console.error("ce_issues insert:", insErr);
-              failed++;
-            } else {
-              inserted++;
-            }
+            await createDefect({
+              site_id: visit.site_id,
+              visit_id: visit.id,
+              report_id: null,
+              description: composed,
+              location: d.location,
+              category: d.category,
+              status: "open",
+            });
           } catch (e) {
-            console.error("Failed to create ce_issues row:", e);
+            console.error("Failed to create defect from AI extract:", e);
             failed++;
           }
         }
@@ -225,9 +194,6 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
         if (fieldUpdates.notes !== undefined) {
           await patch({ general_observations: fieldUpdates.notes });
         }
-        // Tell the Findings step to refetch so the new rows appear without
-        // a full page reload.
-        if (inserted > 0) setFindingsRefreshKey((k) => k + 1);
       }}
     />
     </>
