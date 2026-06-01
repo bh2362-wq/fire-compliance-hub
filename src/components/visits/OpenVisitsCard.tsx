@@ -8,7 +8,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList, Calendar, MapPin, ArrowRight, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
-import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 
 interface OpenVisit {
   id: string;
@@ -60,10 +59,10 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
   const [visits, setVisits] = useState<OpenVisit[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Report dialog state
+  // Report-type selector state. After the user picks a type we navigate
+  // straight to that wizard — no dialog state to track.
   const [selectedVisit, setSelectedVisit] = useState<OpenVisit | null>(null);
   const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
-  const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | null>(null);
 
   useEffect(() => {
     loadOpenVisits();
@@ -112,35 +111,29 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
   const handleVisitClick = (visit: OpenVisit) => {
     if (onVisitClick) {
       onVisitClick(visit.id);
-    } else {
-      setSelectedVisit(visit);
-
-      // For remedial and emergency visits, go directly to Work Report (job sheet only)
-      if (visit.visit_type === "remedial" || visit.visit_type === "emergency") {
-        setReportType("work");
-      } else {
-        // For scheduled service visits, show the report type selector
-        setShowReportTypeSelector(true);
-      }
+      return;
     }
+    // Remedial / emergency visits skip the report-type selector and go
+    // straight to the Work Report wizard (job sheet only).
+    if (visit.visit_type === "remedial" || visit.visit_type === "emergency") {
+      navigate(`/dashboard/visits/${visit.id}/work-report/capture`);
+      return;
+    }
+    // Scheduled service visits → ask the user which report type to capture.
+    setSelectedVisit(visit);
+    setShowReportTypeSelector(true);
   };
 
   const handleReportTypeSelect = (type: "bs5839" | "work" | "asd", _asdAssets?: ASDAsset[]) => {
-    // BS 5839 + ASD picks navigate to their capture wizard. Work
-    // reports still open the legacy dialog (Phase 5 will migrate that).
-    if (selectedVisit && (type === "bs5839" || type === "asd")) {
-      const visitId = selectedVisit.id;
-      const slug = type === "bs5839" ? "service-report" : "asd-report";
-      setShowReportTypeSelector(false);
-      setSelectedVisit(null);
-      navigate(`/dashboard/visits/${visitId}/${slug}/capture`);
-      return;
-    }
-    setReportType(type);
-  };
-
-  const handleReportSuccess = () => {
-    loadOpenVisits(); // Refresh the list
+    if (!selectedVisit) return;
+    const visitId = selectedVisit.id;
+    const slug =
+      type === "bs5839" ? "service-report" :
+      type === "asd" ? "asd-report" :
+      "work-report";
+    setShowReportTypeSelector(false);
+    setSelectedVisit(null);
+    navigate(`/dashboard/visits/${visitId}/${slug}/capture`);
   };
 
   if (loading) {
@@ -244,27 +237,8 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
         siteId={selectedVisit?.site_id}
       />
 
-      {/* Work Report Dialog */}
-      {selectedVisit && reportType === "work" && (
-        <WorkReportDialog
-          open={!!selectedVisit && reportType === "work"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedVisit(null);
-              setReportType(null);
-            }
-          }}
-          visit={{
-            id: selectedVisit.id,
-            visit_type: selectedVisit.visit_type,
-            visit_date: selectedVisit.visit_date,
-            site_id: selectedVisit.site_id,
-            sites: selectedVisit.sites,
-          }}
-          onSuccess={handleReportSuccess}
-          showCompleteVisit
-        />
-      )}
+      {/* All report dialogs removed — each pick navigates to its
+          capture wizard via handleReportTypeSelect. */}
 
       {/* BS5839 Report Dialog removed — wizard-only flow now.
           handleReportTypeSelect navigates to the capture wizard for

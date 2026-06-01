@@ -50,7 +50,6 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ServiceReport, BS5839Checklist, getDefaultChecklist } from "@/services/serviceReportService";
-import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
@@ -128,7 +127,6 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedReport, setSelectedReport] = useState<ReportWithSite | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<ReportWithSite | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -961,12 +959,21 @@ const Reports = () => {
                   return;
                 }
 
-                // Asset loading for ASD / Disabled-refuge is no longer
-                // needed here — both types navigated to their wizard
-                // routes above. The wizards load their own assets from
-                // the URL. Only Work / declination reach this point and
-                // they don't need asset state.
-                setSelectedReport(report);
+                // Work/job report → wizard (Path 2 step D, Phase 5c).
+                if (reportType === "job" && report.visit_id) {
+                  navigate(`/dashboard/visits/${report.visit_id}/work-report/capture`);
+                  return;
+                }
+
+                // Orphan work report (no visit_id) — rare, surface clearly.
+                if (reportType === "job") {
+                  toast.error("This work report isn't linked to a visit — open it from the visit instead.");
+                  return;
+                }
+
+                // Unhandled report type — every known type (bs5839, asd,
+                // disabled_refuge, job) is routed above. Surface clearly.
+                toast.error("This report type isn't viewable yet — please contact support.");
               };
 
               return (
@@ -1199,44 +1206,9 @@ const Reports = () => {
         )}
       </div>
 
-      {/* Report Dialog — only Work (job) reports still open a dialog here.
-          ASD + Disabled-refuge + BS5839 navigate to their wizards from
-          handleViewReport before setSelectedReport fires. */}
-      {selectedReport && (() => {
-        let isJobReport = false;
-        try {
-          const notesData = JSON.parse(selectedReport.notes || "{}");
-          // Job sheets store job/work metadata in notes (and typically have JOB-* report numbers)
-          isJobReport =
-            (selectedReport.report_number || "").startsWith("JOB-") ||
-            !!notesData.jobNumber ||
-            !!notesData.jobType ||
-            Array.isArray(notesData.workDays);
-        } catch {
-          // Not JSON
-        }
+      {/* All report types (BS5839, ASD, Disabled-refuge, Work/job) now
+          navigate to wizard routes from handleViewReport — no dialogs. */}
 
-        if (isJobReport) {
-          return (
-            <WorkReportDialog
-              open={!!selectedReport}
-              onOpenChange={(open) => !open && setSelectedReport(null)}
-              visit={{
-                id: selectedReport.visit_id,
-                visit_type: selectedReport.visits?.visit_type || "",
-                visit_date: selectedReport.visits?.visit_date || selectedReport.report_date,
-                site_id: selectedReport.site_id,
-                sites: selectedReport.sites,
-              }}
-              onSuccess={fetchReports}
-            />
-          );
-        }
-
-        // BS5839 reports now flow through the wizard route via
-        // handleViewReport — this fallback branch is unreachable.
-        return null;
-      })()}
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
