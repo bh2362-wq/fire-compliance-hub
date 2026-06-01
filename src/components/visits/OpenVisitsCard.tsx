@@ -9,7 +9,6 @@ import { ClipboardList, Calendar, MapPin, ArrowRight, AlertCircle } from "lucide
 import { supabase } from "@/integrations/supabase/client";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
-import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
 
 interface OpenVisit {
   id: string;
@@ -28,13 +27,16 @@ interface OpenVisit {
   } | null;
 }
 
-interface ASDAsset {
+// ASDAsset shape kept local to ReportTypeSelector's callback signature
+// — the wizard loads its own assets from the URL, so we don't keep any
+// state here.
+type ASDAsset = {
   id: string;
   item_name: string;
   manufacturer?: string | null;
   model?: string | null;
   location?: string | null;
-}
+};
 
 interface OpenVisitsCardProps {
   siteId?: string;
@@ -62,7 +64,6 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
   const [selectedVisit, setSelectedVisit] = useState<OpenVisit | null>(null);
   const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
   const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | null>(null);
-  const [selectedAsdAssets, setSelectedAsdAssets] = useState<ASDAsset[]>([]);
 
   useEffect(() => {
     loadOpenVisits();
@@ -124,21 +125,18 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
     }
   };
 
-  const handleReportTypeSelect = (type: "bs5839" | "work" | "asd", asdAssets?: ASDAsset[]) => {
-    // BS 5839 service reports go to the new capture wizard — the legacy
-    // ServiceReportDialog stays in the codebase only for back-compat with
-    // surfaces that haven't migrated yet.
-    if (type === "bs5839" && selectedVisit) {
+  const handleReportTypeSelect = (type: "bs5839" | "work" | "asd", _asdAssets?: ASDAsset[]) => {
+    // BS 5839 + ASD picks navigate to their capture wizard. Work
+    // reports still open the legacy dialog (Phase 5 will migrate that).
+    if (selectedVisit && (type === "bs5839" || type === "asd")) {
       const visitId = selectedVisit.id;
+      const slug = type === "bs5839" ? "service-report" : "asd-report";
       setShowReportTypeSelector(false);
       setSelectedVisit(null);
-      navigate(`/dashboard/visits/${visitId}/service-report/capture`);
+      navigate(`/dashboard/visits/${visitId}/${slug}/capture`);
       return;
     }
     setReportType(type);
-    if (asdAssets && asdAssets.length > 0) {
-      setSelectedAsdAssets(asdAssets);
-    }
   };
 
   const handleReportSuccess = () => {
@@ -272,29 +270,8 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
           handleReportTypeSelect navigates to the capture wizard for
           bs5839 picks; this branch is no longer reachable. */}
 
-      {/* ASD Report Dialog */}
-      {selectedVisit && reportType === "asd" && selectedAsdAssets.length > 0 && (
-        <ASDReportDialog
-          open={!!selectedVisit && reportType === "asd"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedVisit(null);
-              setReportType(null);
-              setSelectedAsdAssets([]);
-            }
-          }}
-          visit={{
-            id: selectedVisit.id,
-            visit_type: selectedVisit.visit_type,
-            visit_date: selectedVisit.visit_date,
-            site_id: selectedVisit.site_id,
-            sites: selectedVisit.sites,
-          }}
-          assets={selectedAsdAssets}
-          onSuccess={handleReportSuccess}
-          showCompleteVisit
-        />
-      )}
+      {/* ASD dialog removed — ASD picks navigate to the wizard via
+          handleReportTypeSelect. */}
     </Card>
   );
 }

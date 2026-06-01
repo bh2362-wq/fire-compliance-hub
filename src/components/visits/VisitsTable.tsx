@@ -38,8 +38,6 @@ import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import { WorkReportDialog } from "@/components/reports/WorkReportDialog";
-import { ASDReportDialog } from "@/components/reports/ASDReportDialog";
-import { DisabledRefugeReportDialog } from "@/components/reports/DisabledRefugeReportDialog";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
 import { ReportPreviewDialog } from "@/components/reports/ReportPreviewDialog";
 
@@ -74,22 +72,6 @@ import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
 import { toast as sonnerToast } from "sonner";
 import { LinkExistingCertDialog } from "./LinkExistingCertDialog";
 import { SiteLink, CustomerLink } from "@/components/common/EntityLinks";
-
-interface ASDAsset {
-  id: string;
-  item_name: string;
-  manufacturer?: string | null;
-  model?: string | null;
-  location?: string | null;
-}
-
-interface DisabledRefugeAsset {
-  id: string;
-  item_name: string;
-  manufacturer?: string | null;
-  model?: string | null;
-  location?: string | null;
-}
 
 interface InvoiceInfo {
   xero_invoice_number: string | null;
@@ -200,8 +182,6 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [previewVisit, setPreviewVisit] = useState<Visit | null>(null);
   const [showReportTypeSelector, setShowReportTypeSelector] = useState(false);
   const [reportType, setReportType] = useState<"bs5839" | "work" | "asd" | "disabled_refuge" | null>(null);
-  const [selectedAsdAssets, setSelectedAsdAssets] = useState<ASDAsset[]>([]);
-  const [selectedDisabledRefugeAssets, setSelectedDisabledRefugeAssets] = useState<DisabledRefugeAsset[]>([]);
   const [editVisit, setEditVisit] = useState<Visit | null>(null);
   const [deleteVisit, setDeleteVisit] = useState<Visit | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -1613,31 +1593,21 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 navigate(`/dashboard/visits/${visitId}/service-report/capture`);
                 return;
               }
-              setReportType(existingReportType);
-              // If ASD, load assets
+              // ASD + Disabled-refuge route to their wizards. Work +
+              // declination still use the legacy dialog flow.
               if (existingReportType === "asd") {
-                try {
-                  const { data: assets } = await supabase
-                    .from("site_assets")
-                    .select("id, item_name, manufacturer, model, location")
-                    .eq("site_id", previewVisit.site_id)
-                    .eq("asset_type", "asd");
-                  setSelectedAsdAssets(assets || []);
-                } catch {
-                  setSelectedAsdAssets([]);
-                }
-              } else if (existingReportType === "disabled_refuge") {
-                try {
-                  const { data: assets } = await supabase
-                    .from("site_assets")
-                    .select("id, item_name, manufacturer, model, location")
-                    .eq("site_id", previewVisit.site_id)
-                    .eq("asset_type", "disabled_refuge");
-                  setSelectedDisabledRefugeAssets(assets || []);
-                } catch {
-                  setSelectedDisabledRefugeAssets([]);
-                }
+                const visitId = previewVisit.id;
+                setReportVisit(null);
+                navigate(`/dashboard/visits/${visitId}/asd-report/capture`);
+                return;
               }
+              if (existingReportType === "disabled_refuge") {
+                const visitId = previewVisit.id;
+                setReportVisit(null);
+                navigate(`/dashboard/visits/${visitId}/disabled-refuge-report/capture`);
+                return;
+              }
+              setReportType(existingReportType);
             } else if (previewVisit.visit_type === "remedial" || previewVisit.visit_type === "emergency" || previewVisit.visit_type === "supply_only") {
               setReportType("work");
             } else {
@@ -1647,29 +1617,15 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 const assetType = notes?.asset_type;
                 
                 if (assetType === "disabled_refuge") {
-                  const { data: assets } = await supabase
-                    .from("site_assets")
-                    .select("id, item_name, manufacturer, model, location")
-                    .eq("site_id", previewVisit.site_id)
-                    .eq("asset_type", "disabled_refuge");
-                  
-                  if (assets && assets.length > 0) {
-                    setSelectedDisabledRefugeAssets(assets);
-                    setReportType("disabled_refuge");
-                    return;
-                  }
+                  const visitId = previewVisit.id;
+                  setReportVisit(null);
+                  navigate(`/dashboard/visits/${visitId}/disabled-refuge-report/capture`);
+                  return;
                 } else if (assetType === "asd") {
-                  const { data: assets } = await supabase
-                    .from("site_assets")
-                    .select("id, item_name, manufacturer, model, location")
-                    .eq("site_id", previewVisit.site_id)
-                    .eq("asset_type", "asd");
-                  
-                  if (assets && assets.length > 0) {
-                    setSelectedAsdAssets(assets);
-                    setReportType("asd");
-                    return;
-                  }
+                  const visitId = previewVisit.id;
+                  setReportVisit(null);
+                  navigate(`/dashboard/visits/${visitId}/asd-report/capture`);
+                  return;
                 } else if (assetType === "fire_panel") {
                   // BS 5839 → navigate to wizard
                   const visitId = previewVisit.id;
@@ -1690,23 +1646,22 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       <ReportTypeSelector
         open={showReportTypeSelector}
         onOpenChange={setShowReportTypeSelector}
-        onSelect={(type, asdAssets, disabledRefugeAssets) => {
-          // BS 5839 → navigate to the new capture wizard instead of opening
-          // the legacy ServiceReportDialog.
-          if (type === "bs5839" && reportVisit) {
+        onSelect={(type, _asdAssets, _disabledRefugeAssets) => {
+          // BS 5839 / ASD / Disabled-refuge picks navigate to their
+          // capture wizard. Work + declination still open the legacy
+          // dialog (Phase 5 will migrate Work).
+          if (reportVisit && (type === "bs5839" || type === "asd" || type === "disabled_refuge")) {
             const visitId = reportVisit.id;
+            const slug =
+              type === "bs5839" ? "service-report"
+              : type === "asd" ? "asd-report"
+              : "disabled-refuge-report";
             setShowReportTypeSelector(false);
             setReportVisit(null);
-            navigate(`/dashboard/visits/${visitId}/service-report/capture`);
+            navigate(`/dashboard/visits/${visitId}/${slug}/capture`);
             return;
           }
           setReportType(type);
-          if (asdAssets && asdAssets.length > 0) {
-            setSelectedAsdAssets(asdAssets);
-          }
-          if (disabledRefugeAssets && disabledRefugeAssets.length > 0) {
-            setSelectedDisabledRefugeAssets(disabledRefugeAssets);
-          }
         }}
         siteId={reportVisit?.site_id}
       />
@@ -1728,37 +1683,8 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       {/* BS5839 dialog removed — all bs5839 picks route to the
           wizard via openReportForVisit / ReportTypeSelector. */}
 
-      {reportVisit && reportType === "asd" && selectedAsdAssets.length > 0 && (
-        <ASDReportDialog
-          open={!!reportVisit && reportType === "asd"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setReportVisit(null);
-              setReportType(null);
-              setSelectedAsdAssets([]);
-            }
-          }}
-          visit={{ ...reportVisit, sites: reportVisit.site }}
-          assets={selectedAsdAssets}
-          onSuccess={onRefresh}
-        />
-      )}
-
-      {reportVisit && reportType === "disabled_refuge" && selectedDisabledRefugeAssets.length > 0 && (
-        <DisabledRefugeReportDialog
-          open={!!reportVisit && reportType === "disabled_refuge"}
-          onOpenChange={(open) => {
-            if (!open) {
-              setReportVisit(null);
-              setReportType(null);
-              setSelectedDisabledRefugeAssets([]);
-            }
-          }}
-          visit={{ ...reportVisit, sites: reportVisit.site }}
-          assets={selectedDisabledRefugeAssets}
-          onSuccess={onRefresh}
-        />
-      )}
+      {/* ASD + Disabled-refuge dialogs removed — both picks navigate to
+          their respective capture wizards via ReportTypeSelector. */}
 
       {editVisit && (
         <VisitEditDialog
