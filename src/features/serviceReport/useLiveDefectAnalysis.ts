@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { ServiceReport } from "@/services/serviceReportService";
 import type { SiteDefect } from "@/services/defectService";
+import {
+  getTodaysAnalysisUsage,
+  tokensToGbp,
+  type AiUsageSnapshot,
+} from "@/services/aiUsageService";
 
 export interface AnalyzedDefect {
   description: string;
@@ -28,6 +33,8 @@ export interface DefectAnalysis {
   totals: { parts: number; labour: number; subtotal: number };
   content_hash: string;
   generated_at: number;
+  /** Approximate GBP cost of just this analysis call. */
+  last_call_cost_gbp: number;
 }
 
 export interface UseLiveDefectAnalysisOptions {
@@ -42,8 +49,12 @@ interface AnalysisState {
   analysis: DefectAnalysis | null;
   loading: boolean;
   error: Error | null;
+  /** Runs by THIS hook instance — soft cap (maxRuns option). */
   runs: number;
   paused: boolean;
+  /** Cumulative analysis cost + run count for the signed-in user today.
+      Refreshed after each successful AI call. Null while loading. */
+  usage: AiUsageSnapshot | null;
 }
 
 // Stable content-hash over the inputs that meaningfully change the AI's
@@ -124,7 +135,21 @@ export function useLiveDefectAnalysis(
     error: null,
     runs: 0,
     paused: false,
+    usage: null,
   });
+
+  // Prime today's usage once on mount so the cost meter has a value
+  // before the first AI call lands. Cheap one-shot query.
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    void getTodaysAnalysisUsage().then((u) => {
+      if (!cancelled) setState((s) => ({ ...s, usage: u }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
   const lastHashRef = useRef<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -140,6 +165,17 @@ export function useLiveDefectAnalysis(
       setState((s) => ({
         ...s,
         error: new Error(`AI analysis cap reached (${maxRuns} runs). Press Refresh to retry.`),
+      }));
+      return;
+    }
+    // Hard daily cap — checked against persisted usage so it survives
+    // wizard remounts and applies across visits the engineer opens today.
+    if (state.usage && state.usage.runsToday >= state.usage.dailyRunCap) {
+      setState((s) => ({
+        ...s,
+        error: new Error(
+          `Daily AI analysis cap hit (${state.usage!.dailyRunCap} runs). Resets at midnight.`,
+        ),
       }));
       return;
     }
@@ -180,23 +216,38 @@ export function useLiveDefectAnalysis(
       if (error) throw new Error(error.message);
       if (!data || data.error) throw new Error(data?.error ?? "AI analysis failed");
 
+      const lastCallCost = tokensToGbp(
+        data.usage?.input_tokens ?? 0,
+        data.usage?.output_tokens ?? 0,
+      );
+
       setState((s) => ({
         ...s,
         loading: false,
         runs: s.runs + 1,
+        // Optimistic usage bump — the next refresh from getTodaysAnalysisUsage
+        // will reconcile. Avoids a meter that lags behind the panel.
+        usage: s.usage
+          ? {
+              ...s.usage,
+              runsToday: s.usage.runsToday + 1,
+              spentTodayGbp: s.usage.spentTodayGbp + lastCallCost,
+            }
+          : s.usage,
         analysis: {
           defects: data.defects ?? [],
           scope_introduction: data.scope_introduction ?? "",
           totals: data.totals ?? { parts: 0, labour: 0, subtotal: 0 },
           content_hash: data.content_hash ?? contentHash,
           generated_at: Date.now(),
+          last_call_cost_gbp: lastCallCost,
         },
       }));
     } catch (e) {
       if ((e as Error).name === "AbortError") return;
       setState((s) => ({ ...s, loading: false, error: e as Error }));
     }
-  }, [report, defects, site, contentHash, maxRuns, state.runs]);
+  }, [report, defects, site, contentHash, maxRuns, state.runs, state.usage]);
 
   // Schedule a debounced run whenever the content hash changes.
   useEffect(() => {

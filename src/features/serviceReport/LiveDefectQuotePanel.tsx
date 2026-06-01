@@ -1,11 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Pause, Play, RefreshCw, Sparkles, Wand2 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import type { DefectAnalysis } from "./useLiveDefectAnalysis";
+import type { AiUsageSnapshot } from "@/services/aiUsageService";
+import { formatGBP as formatUsageGBP } from "@/services/aiUsageService";
+import {
+  scorePart,
+  scoreDefect,
+  countNonHighParts,
+  CONFIDENCE_COLOURS,
+  CONFIDENCE_LABEL,
+} from "./aiConfidence";
 import { createDraftQuoteFromAnalysis } from "@/services/draftQuoteFromDefectsService";
 
 interface Props {
@@ -15,6 +25,8 @@ interface Props {
   paused: boolean;
   setPaused: (v: boolean) => void;
   refresh: () => void;
+  /** Cost meter data — null until first usage fetch lands. */
+  usage: AiUsageSnapshot | null;
 
   // Required to persist as a draft quote.
   siteId: string;
@@ -56,6 +68,7 @@ export function LiveDefectQuotePanel({
   paused,
   setPaused,
   refresh,
+  usage,
   siteId,
   visitId,
   reportId,
@@ -64,9 +77,18 @@ export function LiveDefectQuotePanel({
   siteName,
 }: Props) {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  // The verify-before-save checkbox gates the CTA when the analysis
+  // contains any non-high-confidence parts. Reset whenever the analysis
+  // changes (new defects = new things to verify).
+  const [verified, setVerified] = useState(false);
+  const nonHighParts = analysis ? countNonHighParts(analysis.defects) : 0;
+  const requireVerify = nonHighParts > 0;
+  // Any new analysis result invalidates the engineer's prior verification.
+  useEffect(() => {
+    setVerified(false);
+  }, [analysis?.content_hash]);
 
   // Hide the pill entirely until we have something to surface. Loading is
   // shown as a faint "Thinking…" so engineers know AI is working.
@@ -182,6 +204,20 @@ export function LiveDefectQuotePanel({
             )}
           </div>
 
+          {usage && (
+            <div className="mt-3 rounded-md bg-muted/50 px-3 py-2 text-[11px] flex items-center justify-between gap-2 text-muted-foreground">
+              <span>
+                Today: <span className="text-foreground font-medium">{formatUsageGBP(usage.spentTodayGbp)}</span>{" "}
+                · {usage.runsToday}/{usage.dailyRunCap} runs
+              </span>
+              {analysis && (
+                <span title="Approximate cost of the most recent AI call">
+                  Last call: <span className="text-foreground font-medium">{formatUsageGBP(analysis.last_call_cost_gbp)}</span>
+                </span>
+              )}
+            </div>
+          )}
+
           {error && (
             <div className="mt-3 rounded border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
               {error.message}
@@ -206,13 +242,20 @@ export function LiveDefectQuotePanel({
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {analysis.defects.map((d, i) => (
+                  {analysis.defects.map((d, i) => {
+                    const defectLevel = scoreDefect(d);
+                    return (
                     <div key={i} className="rounded border bg-card p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant="outline" className={CATEGORY_COLOURS[d.category]}>
                             Cat {d.category}
                           </Badge>
+                          <span
+                            className={`inline-block h-2 w-2 rounded-full ${CONFIDENCE_COLOURS[defectLevel]}`}
+                            title={CONFIDENCE_LABEL[defectLevel]}
+                            aria-label={CONFIDENCE_LABEL[defectLevel]}
+                          />
                           {d.source === "extracted" && (
                             <Badge variant="outline" className="text-[10px]">
                               From notes
@@ -230,22 +273,32 @@ export function LiveDefectQuotePanel({
                       )}
                       {d.suggested_parts.length > 0 && (
                         <ul className="text-xs space-y-1 mt-1">
-                          {d.suggested_parts.map((p, j) => (
+                          {d.suggested_parts.map((p, j) => {
+                            const conf = scorePart(p);
+                            return (
                             <li key={j} className="flex items-center justify-between gap-2">
-                              <span className="truncate">
-                                <span className="font-mono">{p.part_number}</span>{" "}
-                                <span className="text-muted-foreground">— {p.description}</span>
-                                {!p.catalog_match && (
-                                  <Badge variant="outline" className="ml-1 text-[10px] text-amber-700 border-amber-300">
-                                    Est.
-                                  </Badge>
-                                )}
+                              <span className="flex items-center gap-1.5 truncate">
+                                <span
+                                  className={`shrink-0 h-1.5 w-1.5 rounded-full ${CONFIDENCE_COLOURS[conf.level]}`}
+                                  title={conf.reason}
+                                  aria-label={conf.reason}
+                                />
+                                <span className="truncate">
+                                  <span className="font-mono">{p.part_number}</span>{" "}
+                                  <span className="text-muted-foreground">— {p.description}</span>
+                                  {!p.catalog_match && (
+                                    <Badge variant="outline" className="ml-1 text-[10px] text-amber-700 border-amber-300">
+                                      Est.
+                                    </Badge>
+                                  )}
+                                </span>
                               </span>
                               <span className="shrink-0 text-muted-foreground">
                                 {p.qty} × {formatGBP(p.unit_price)}
                               </span>
                             </li>
-                          ))}
+                            );
+                          })}
                         </ul>
                       )}
                       {d.labour_hours > 0 && (
@@ -255,7 +308,8 @@ export function LiveDefectQuotePanel({
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -274,16 +328,35 @@ export function LiveDefectQuotePanel({
                 </div>
               </div>
 
-              {analysis.defects.some((d) => d.suggested_parts.some((p) => !p.catalog_match)) && (
-                <p className="text-xs text-muted-foreground italic">
-                  Lines marked <strong>Est.</strong> are AI estimates rather than catalog matches —
-                  verify part numbers and prices before sending the quote.
-                </p>
+              {requireVerify && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
+                  <p className="text-xs text-amber-900">
+                    <strong>{nonHighParts} line{nonHighParts === 1 ? "" : "s"}</strong> need a
+                    manual check before this becomes a real quote. Amber dots = catalog match
+                    with unusual price/format. Red dots = AI estimate. Open the office Quotes
+                    section to edit prices + swap to real catalog parts if needed.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="verify-parts"
+                      checked={verified}
+                      onCheckedChange={(v) => setVerified(v === true)}
+                    />
+                    <Label htmlFor="verify-parts" className="text-xs cursor-pointer">
+                      I've reviewed the flagged lines and they look reasonable.
+                    </Label>
+                  </div>
+                </div>
               )}
 
               <Button
                 onClick={handleSave}
-                disabled={saving || analysis.defects.length === 0 || loading}
+                disabled={
+                  saving ||
+                  analysis.defects.length === 0 ||
+                  loading ||
+                  (requireVerify && !verified)
+                }
                 className="w-full"
                 size="lg"
               >

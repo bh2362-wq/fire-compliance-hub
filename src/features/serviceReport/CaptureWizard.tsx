@@ -207,6 +207,7 @@ export function CaptureWizard({ visit, userId, onCompleted }: Props) {
           paused={analysisHook.paused}
           setPaused={analysisHook.setPaused}
           refresh={analysisHook.refresh}
+          usage={analysisHook.usage}
           siteId={visit.site_id}
           visitId={visit.id}
           reportId={report.id}
