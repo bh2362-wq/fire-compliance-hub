@@ -1,3 +1,11 @@
+/**
+ * @deprecated Path 2 step D — the largest beast (~2,500 LOC) and the
+ * last dialog to migrate. Planned target: a route-based wizard at
+ * /dashboard/visits/:id/work-report/capture (src/features/workReport/).
+ * Do not extend this file; new work-report capture work should go into
+ * the wizard once it lands. The notes-JSON shape this writes must be
+ * preserved by the wizard — ReportPreviewDialog parses it.
+ */
 import { useState, useEffect, useMemo, useRef } from "react";
 import { format } from "date-fns";
 import { isHeic, heicTo } from "heic-to";

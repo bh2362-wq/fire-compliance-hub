@@ -1,6 +1,7 @@
 /**
- * smartFormCertificatePdfGenerator.ts
- * Produces: Fire Alarm Service Report (4-page format matching paper cert)
+ * serviceReportGenerator.ts
+ * Produces: Fire Alarm Service Report (4-page format matching paper cert).
+ * Used by every smart-form caller via `generateServiceReport as generateBS5839CertificatePDF`.
  */
 
 import jsPDF from "jspdf";

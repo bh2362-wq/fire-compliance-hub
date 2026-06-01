@@ -24,24 +24,61 @@ import { generateServiceReport as generateBS5839CertificatePDF } from "@/lib/ser
 import { generateInstallationCertificatePDF } from "@/lib/installationCertificatePdfGenerator";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
-import EmailSmartFormDialog from "@/components/smart-forms/EmailSmartFormDialog";
+import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
+
+// Smart-form PDF dispatcher — picks the right generator per form_type so
+// the shared EmailReportDialog can stay PDF-agnostic. Moved out of the
+// retired EmailSmartFormDialog.
+async function buildSmartFormPdfBase64(sub: SmartFormSubmission): Promise<string> {
+  const p = (sub.payload || {}) as any;
+  const ft = sub.form_type as string;
+  if (ft === "bs5839_installation") {
+    const { base64 } = await generateInstallationCertificatePDF(p, { autoSign: true });
+    return base64;
+  }
+  if (ft === "bs5839_commissioning") {
+    const { base64 } = await generateCommissioningCertificatePDF(p, { autoSign: true });
+    return base64;
+  }
+  if (ft === "bs5839_modification") {
+    const { base64 } = await generateModificationCertificatePDF(p, { autoSign: true });
+    return base64;
+  }
+  if (ft.startsWith("el_")) {
+    const { generateELCertificatePDF } = await import("@/lib/emergencyLightingPdfGenerator");
+    const r = await (generateELCertificatePDF(p) as Promise<{ base64: string }>);
+    return r.base64;
+  }
+  if (ft.startsWith("asd_")) {
+    const { generateASDCommissioningPDF } = await import("@/lib/asdCommissioningPdfGenerator");
+    const r = await (generateASDCommissioningPDF(p) as Promise<{ base64: string }>);
+    return r.base64;
+  }
+  if (ft.startsWith("dr_")) {
+    const { generateDryRiserPDF } = await import("@/lib/dryRiserPdfGenerator");
+    const r = await (generateDryRiserPDF(p) as Promise<{ base64: string }>);
+    return r.base64;
+  }
+  if (ft === "declination_of_works") {
+    const { generateDeclinationPDF } = await import("@/lib/declinationPdfGenerator");
+    const r = await (generateDeclinationPDF(p) as Promise<{ base64: string }>);
+    return r.base64;
+  }
+  const { base64 } = await generateBS5839CertificatePDF(p, { autoSign: true });
+  return base64;
+}
 
 type BS5839Form = "bs5839_inspection_servicing" | "bs5839_installation" | "bs5839_commissioning" | "bs5839_modification";
 type ActiveForm = BS5839Form | "el" | "asd" | "asd_comm" | "dr" | "declination" | null;
 
 // ── Cert catalogue ────────────────────────────────────────────────────────────
+// The BS 5839 Inspection & Servicing Certificate has been retired from this
+// page — the canonical capture surface is now the wizard at
+// /dashboard/visits/:id/service-report/capture (writes to service_reports,
+// not smart_form_submissions). BS5839CertificateForm.tsx still exists for
+// historical submissions but isn't listed here. See PR #N for the
+// consolidation plan.
 const FIRE_ALARM_FORMS = [
-  {
-    key: "bs5839_inspection_servicing" as ActiveForm,
-    name: "Inspection & Servicing Certificate",
-    code: "IS / Annex G.6",
-    bafe: null,
-    description: "Routine periodic maintenance certificate. Multi-step, BS 5839-1:2025 compliant, with full BS checklist, defect register, device testing and battery check.",
-    standard: "BS 5839-1:2025",
-    color: "text-blue-600",
-    bg: "bg-blue-50 dark:bg-blue-950/20 border-blue-200",
-    icon: FileSignature,
-  },
   {
     key: "bs5839_installation" as ActiveForm,
     name: "Installation Certificate",
@@ -336,6 +373,10 @@ export default function SmartForms() {
       </div>
 
       {/* ── Dialogs ──────────────────────────────────────────────────────────── */}
+      {/* BS5839CertificateForm is retained for editing historical
+          smart_form_submissions only — the catalogue card was removed so
+          new ones aren't created here. Rendered when an old submission is
+          opened from the catalogue list. */}
       <BS5839CertificateForm
         open={activeForm === "bs5839_inspection_servicing"}
         onOpenChange={(o) => { if (!o) closeForm(); }}
@@ -382,11 +423,29 @@ export default function SmartForms() {
         onOpenChange={(o) => { if (!o) closeForm(); }}
         onSaved={load}
       />
-      <EmailSmartFormDialog
+      <EmailReportDialog
         open={!!emailingSub}
         onOpenChange={(o) => { if (!o) setEmailingSub(null); }}
-        submission={emailingSub}
-        formTypeLabel={formTypeLabel}
+        defaultEmail={
+          (emailingSub?.payload as any)?.responsible_person_email ||
+          (emailingSub?.payload as any)?.responsible_email ||
+          (emailingSub?.payload as any)?.client_email ||
+          ""
+        }
+        customerName={
+          (emailingSub?.payload as any)?.responsible_person_name ||
+          (emailingSub?.payload as any)?.responsible_name ||
+          ""
+        }
+        siteName={(emailingSub?.payload as any)?.premises_name || ""}
+        reportNumber={emailingSub?.certificate_reference || ""}
+        reportDate={format(new Date(), "dd/MM/yyyy")}
+        documentType={emailingSub ? formTypeLabel(emailingSub.form_type) : "Certificate"}
+        generatePdfBase64={() =>
+          emailingSub
+            ? buildSmartFormPdfBase64(emailingSub)
+            : Promise.reject(new Error("No submission"))
+        }
       />
     </DashboardLayout>
   );

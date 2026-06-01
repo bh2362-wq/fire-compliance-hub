@@ -10,7 +10,7 @@ import {
   SECTION_LABELS,
   SYSTEM_TYPES,
 } from "@/services/serviceReportService";
-import type { PanelChecklistData } from "@/components/reports/MultiPanelChecklist";
+import type { PanelChecklistData } from "@/services/serviceReportService";
 
 // Company Branding Constants
 const COMPANY = {
