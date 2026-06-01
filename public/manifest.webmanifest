@@ -1,0 +1,28 @@
+{
+  "name": "FireLogbook · BHO Fire",
+  "short_name": "FireLogbook",
+  "description": "BS 5839 service reports, defects, quotes and remittance management for BHO Fire Ltd.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0f1a",
+  "theme_color": "#0a0f1a",
+  "icons": [
+    {
+      "src": "/bho-fire-logo.png",
+      "sizes": "228x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/bho-fire-logo.png",
+      "sizes": "228x180",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "en-GB",
+  "dir": "ltr"
+}

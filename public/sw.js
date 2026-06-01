@@ -6,7 +6,10 @@
 // are never cached. This keeps the wizard reachable after the first online
 // load without serving stale data for mutations.
 
-const CACHE_NAME = "fcc-shell-v1";
+// Bump on every release that ships changes to index.html / manifest /
+// other shell assets — the activate handler nukes older caches so users
+// don't get stuck on a stale app shell.
+const CACHE_NAME = "fcc-shell-v2-pwa";
 const STATIC_DESTINATIONS = new Set(["document", "script", "style", "image", "font"]);
 
 self.addEventListener("install", (event) => {
