@@ -966,6 +966,13 @@ const Reports = () => {
                   return;
                 }
 
+                // ASD service report → new wizard (Path 2 step C). Same
+                // fallback shape as disabled-refuge.
+                if (reportType === "asd" && report.visit_id) {
+                  navigate(`/dashboard/visits/${report.visit_id}/asd-report/capture`);
+                  return;
+                }
+
                 if (reportType === "asd") {
                   // Load ASD assets for this site
                   const { data: assets } = await supabase
