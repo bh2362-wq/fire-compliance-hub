@@ -233,8 +233,18 @@ export function PasteAINotesDialog({
         const reportKey = FIELD_TO_REPORT[key];
         if (!(reportKey in currentValues)) continue;
         const existing = currentValues[reportKey] ?? "";
-        fieldUpdates[reportKey] =
-          existing.trim().length > 0 ? `${existing.trim()}\n\n${addendum.trim()}` : addendum.trim();
+        const trimmedExisting = existing.trim();
+        const trimmedAddendum = addendum.trim();
+        // Skip the append if the addendum is already present verbatim in
+        // the existing text — re-pasting the same notes (a common pattern
+        // when the engineer is iterating on what the AI extracted) used
+        // to grow the field by one full copy on every Apply.
+        if (trimmedExisting.includes(trimmedAddendum)) {
+          fieldUpdates[reportKey] = trimmedExisting;
+        } else {
+          fieldUpdates[reportKey] =
+            trimmedExisting.length > 0 ? `${trimmedExisting}\n\n${trimmedAddendum}` : trimmedAddendum;
+        }
       }
 
       await onApply({ defects: defectsToCreate, fieldUpdates });

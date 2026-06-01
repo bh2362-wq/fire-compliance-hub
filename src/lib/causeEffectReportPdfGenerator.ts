@@ -109,9 +109,42 @@ function bodyText(doc: jsPDF, text: string, y: number, pageWidth: number, opts?:
   doc.setTextColor(...(opts?.muted ? COLORS.mediumGrey : COLORS.charcoal));
   doc.setFont("helvetica", opts?.italic ? "italic" : "normal");
   doc.setFontSize(8);
-  const lines = doc.splitTextToSize(text, pageWidth - 2 * MARGIN);
+  const lines = doc.splitTextToSize(text, pageWidth - 2 * MARGIN) as string[];
   doc.text(lines, MARGIN, y);
   return y + lines.length * 4.2;
+}
+
+// Same as bodyText but emits lines one at a time and inserts a page break
+// (re-drawing the BHO header on the new page) whenever the next line would
+// land in the footer zone. Use this for any text that could be long enough
+// to flow off the page — long general_observations being the obvious case
+// that exposed the original bodyText bug.
+function bodyTextPaged(
+  doc: jsPDF,
+  text: string,
+  y: number,
+  pageWidth: number,
+  pageHeight: number,
+  logo: HTMLImageElement | null,
+  opts?: { italic?: boolean; muted?: boolean },
+): number {
+  doc.setTextColor(...(opts?.muted ? COLORS.mediumGrey : COLORS.charcoal));
+  doc.setFont("helvetica", opts?.italic ? "italic" : "normal");
+  doc.setFontSize(8);
+  const lines = doc.splitTextToSize(text, pageWidth - 2 * MARGIN) as string[];
+  const lineHeight = 4.2;
+  // Stay above the footer rule (footer starts at pageHeight - 18, we need
+  // ~4mm of breathing room before that).
+  const bottomLimit = pageHeight - 22;
+  for (const line of lines) {
+    if (y + lineHeight > bottomLimit) {
+      doc.addPage();
+      y = header(doc, pageWidth, logo);
+    }
+    doc.text(line, MARGIN, y);
+    y += lineHeight;
+  }
+  return y;
 }
 
 // Drawn checkbox — Helvetica can't render ☑/☐ glyphs, so the rendered
@@ -415,14 +448,16 @@ export async function generateCauseEffectReportPDF(
   y = pageBreakIfNeeded(doc, y, pageHeight, pageWidth, logo, 40);
   y = sectionHeading(doc, "4. Full audibility test results", y, pageWidth);
 
-  // §4.1 Test equipment — only show populated rows.
+  // §4.1 Test equipment — always render the heading so the section
+  // numbering reads "4 → 4.1 → 4.2" rather than jumping from "4" to "4.2"
+  // when the engineer didn't capture meter details.
   const eqRows: Array<[string, string]> = [];
   if (report.sound_meter_make_model) eqRows.push(["Sound Level Meter", report.sound_meter_make_model]);
   if (report.sound_meter_serial) eqRows.push(["Serial Number", report.sound_meter_serial]);
   if (report.sound_meter_cal_due) eqRows.push(["Calibration Due", formatDate(report.sound_meter_cal_due)]);
   if (report.sound_meter_cal_on_file) eqRows.push(["Calibration Certificate", "On file"]);
+  y = subHeading(doc, "4.1 Test equipment", y);
   if (eqRows.length > 0) {
-    y = subHeading(doc, "4.1 Test equipment", y);
     autoTable(doc, {
       startY: y,
       theme: "grid",
@@ -433,6 +468,9 @@ export async function generateCauseEffectReportPDF(
       body: eqRows,
     });
     y = lastY(doc) + 4;
+  } else {
+    y = bodyText(doc, "Sound level meter details not recorded.", y, pageWidth, { italic: true, muted: true });
+    y += 2;
   }
 
   // §4.2 Sound level measurements — same empty-state treatment as 3.2.
@@ -537,7 +575,24 @@ export async function generateCauseEffectReportPDF(
 
   y = subHeading(doc, "5.3 General observations", y);
   if (report.general_observations?.trim()) {
-    y = bodyText(doc, report.general_observations.trim(), y, pageWidth);
+    // Dedupe paragraphs — engineers sometimes apply the same paste twice
+    // (or a previous bug appended addenda repeatedly). Strip consecutive
+    // duplicate paragraphs so the rendered report doesn't ship the same
+    // sentence five times. Casefold-trim for matching, preserve original
+    // text otherwise.
+    const seen = new Set<string>();
+    const cleaned = report.general_observations
+      .split(/\n{2,}/)
+      .map((p) => p.trim())
+      .filter((p) => {
+        if (p.length === 0) return false;
+        const key = p.toLowerCase().replace(/\s+/g, " ");
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .join("\n\n");
+    y = bodyTextPaged(doc, cleaned, y, pageWidth, pageHeight, logo);
   } else {
     y = bodyText(doc, "None recorded.", y, pageWidth, { italic: true, muted: true });
   }
