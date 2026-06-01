@@ -27,6 +27,7 @@ import DisabledRefugeReportCapture from "./pages/DisabledRefugeReportCapture";
 import ASDServiceReportCapture from "./pages/ASDServiceReportCapture";
 import WorkReportCapture from "./pages/WorkReportCapture";
 import Invoices from "./pages/Invoices";
+import RemittanceAdvice from "./pages/RemittanceAdvice";
 import Reports from "./pages/Reports";
 import UploadDemo from "./pages/UploadDemo";
 import Reconciliation from "./pages/Reconciliation";
@@ -277,6 +278,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Invoices />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/remittance-advice"
+              element={
+                <ProtectedRoute>
+                  <RemittanceAdvice />
                 </ProtectedRoute>
               }
             />
