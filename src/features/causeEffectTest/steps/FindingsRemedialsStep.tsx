@@ -396,6 +396,14 @@ export function FindingsRemedialsStep({ report, onPatch, reportId, visitId, site
                 placeholder="Action required"
                 className="text-xs"
               />
+              <div className="flex justify-end">
+                <AIRewriteButton
+                  text={row.action_required ?? ""}
+                  type="bs5839_guidance"
+                  onRewrite={(v) => updateIssue(row, { action_required: v || null })}
+                  context={`Cause & effect issue. Description: ${row.description ?? "—"}. Location: ${row.location ?? "—"}. Severity: ${row.severity ?? "—"}.`}
+                />
+              </div>
             </div>
           ))
         )}
@@ -459,6 +467,14 @@ export function FindingsRemedialsStep({ report, onPatch, reportId, visitId, site
                 placeholder="Action required"
                 className="text-xs"
               />
+              <div className="flex justify-end">
+                <AIRewriteButton
+                  text={row.action_required ?? ""}
+                  type="bs5839_guidance"
+                  onRewrite={(v) => updateIssue(row, { action_required: v || null })}
+                  context={`Audibility issue. Description: ${row.description ?? "—"}. Location: ${row.location ?? "—"}. Measured: ${row.measured_db ?? "—"} dB. Required: ${row.required_db ?? "—"} dB.`}
+                />
+              </div>
             </div>
           ))
         )}
@@ -466,13 +482,20 @@ export function FindingsRemedialsStep({ report, onPatch, reportId, visitId, site
 
       {/* General observations */}
       <section className="space-y-2 pt-2 border-t">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <Label className="text-sm font-medium">General observations</Label>
-          <AIRewriteButton
-            text={report.general_observations ?? ""}
-            type="comments"
-            onRewrite={(v) => onPatch({ general_observations: v || null })}
-          />
+          <div className="flex items-center gap-1">
+            <AIRewriteButton
+              text={report.general_observations ?? ""}
+              type="comments"
+              onRewrite={(v) => onPatch({ general_observations: v || null })}
+            />
+            <AIRewriteButton
+              text={report.general_observations ?? ""}
+              type="bs5839_guidance"
+              onRewrite={(v) => onPatch({ general_observations: v || null })}
+            />
+          </div>
         </div>
         <Textarea
           rows={3}
