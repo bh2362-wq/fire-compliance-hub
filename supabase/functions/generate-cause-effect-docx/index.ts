@@ -562,13 +562,33 @@ function locateSignatureRun(xml: string, anchorText: string): [number, number] |
   return [start, runEnd + "</w:r>".length];
 }
 
+export interface SignatureEmbedDiagnostics {
+  engineer_provided: boolean;
+  engineer_is_data_url: boolean;
+  engineer_embedded: boolean;
+  engineer_reason?: string;
+  client_provided: boolean;
+  client_is_data_url: boolean;
+  client_embedded: boolean;
+  client_reason?: string;
+}
+
 async function embedSignatures(
   zip: ZipLike,
   doc: string,
   bundle: Bundle,
+  diag: SignatureEmbedDiagnostics,
 ): Promise<string> {
   const r = bundle.report;
-  if (!r.engineer_signature && !r.client_signature) return doc;
+  diag.engineer_provided = !!r.engineer_signature;
+  diag.client_provided = !!r.client_signature;
+  diag.engineer_is_data_url = typeof r.engineer_signature === "string" && r.engineer_signature.startsWith("data:image/");
+  diag.client_is_data_url = typeof r.client_signature === "string" && r.client_signature.startsWith("data:image/");
+  if (!r.engineer_signature && !r.client_signature) {
+    diag.engineer_reason = "no signature on report row";
+    diag.client_reason = "no signature on report row";
+    return doc;
+  }
 
   // Read the rels + content_types so we can mutate them.
   let relsXml = "";
@@ -588,20 +608,31 @@ async function embedSignatures(
   }
 
   const sigs = [
-    { url: r.engineer_signature, anchor: "ENGINEER", relId: "rIdSigEngineer", drawingId: 1001, name: "EngineerSignature", file: "sig_engineer" },
-    { url: r.client_signature,   anchor: "CLIENT / RESPONSIBLE PERSON", relId: "rIdSigClient", drawingId: 1002, name: "ClientSignature", file: "sig_client" },
+    { url: r.engineer_signature, anchor: "ENGINEER", relId: "rIdSigEngineer", drawingId: 1001, name: "EngineerSignature", file: "sig_engineer", who: "engineer" as const },
+    { url: r.client_signature,   anchor: "CLIENT / RESPONSIBLE PERSON", relId: "rIdSigClient", drawingId: 1002, name: "ClientSignature", file: "sig_client", who: "client" as const },
   ];
 
+  const setReason = (who: "engineer" | "client", r: string) => {
+    if (who === "engineer") diag.engineer_reason = r;
+    else diag.client_reason = r;
+  };
+  const markEmbedded = (who: "engineer" | "client") => {
+    if (who === "engineer") diag.engineer_embedded = true;
+    else diag.client_embedded = true;
+  };
+
   for (const s of sigs) {
-    if (!s.url) continue;
+    if (!s.url) { setReason(s.who, "no signature on report row"); continue; }
     const decoded = dataUrlToBytes(s.url);
     if (!decoded) {
-      console.warn(`Signature for ${s.anchor} is not a valid data URL; skipping`);
+      const head = s.url.slice(0, 30);
+      const reason = `not a data URL (starts with "${head}")`;
+      console.warn(`Signature for ${s.anchor}: ${reason}`);
+      setReason(s.who, reason);
       continue;
     }
     const ext = decoded.mime === "image/png" ? "png" : decoded.mime === "image/jpeg" ? "jpeg" : "png";
     const fileName = `${s.file}.${ext}`;
-    relsXml = relsXml; // keep tsc happy in case of cumulative mutations
     await attachImageRel(zip, relsXml, fileName, decoded.bytes, s.relId);
     // attachImageRel writes a NEW rels XML; re-read so next iteration sees it.
     const relsFile2 = (zip as unknown as { files: Record<string, { async: (t: string) => Promise<string> }> })
@@ -613,11 +644,15 @@ async function embedSignatures(
     // Replace the signature line run with our drawing run.
     const loc = locateSignatureRun(doc, s.anchor);
     if (!loc) {
-      console.warn(`Couldn't find signature line for ${s.anchor}`);
+      const reason = `anchor "${s.anchor}" or trailing underscore line not found`;
+      console.warn(reason);
+      setReason(s.who, reason);
       continue;
     }
     const [runStart, runEnd] = loc;
     doc = doc.slice(0, runStart) + buildSignatureRun(s.relId, s.drawingId, s.name) + doc.slice(runEnd);
+    markEmbedded(s.who);
+    setReason(s.who, "ok");
   }
 
   // Save the updated content types back to the zip once.
@@ -668,11 +703,17 @@ Deno.serve(async (req) => {
     // Embed signatures if the wizard captured them — modifies the zip
     // in place (adds image bytes, registers relationships, declares
     // PNG content type) and returns updated document XML.
+    const sigDiag: SignatureEmbedDiagnostics = {
+      engineer_provided: false, engineer_is_data_url: false, engineer_embedded: false,
+      client_provided:   false, client_is_data_url:   false, client_embedded:   false,
+    };
     filledXml = await embedSignatures(
       zip as unknown as ZipLike,
       filledXml,
       bundle,
+      sigDiag,
     );
+    console.log("Signature embed status:", JSON.stringify(sigDiag));
     zip.file("word/document.xml", filledXml);
 
     const docxBytes = await zip.generateAsync({
@@ -700,6 +741,9 @@ Deno.serve(async (req) => {
       expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
       file_size_bytes: docxBytes.byteLength,
       bucket: "ce-outputs",
+      // Diagnostic — client logs this so we can see why signatures
+      // didn't embed without needing Supabase function logs.
+      signature_diagnostics: sigDiag,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
