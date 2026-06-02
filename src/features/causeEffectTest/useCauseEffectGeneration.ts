@@ -56,6 +56,30 @@ export function useConvertCePdf() {
   });
 }
 
+// supabase.functions.invoke() returns a generic "Edge Function returned
+// a non-2xx status code" error message that hides the actual body the
+// function emitted. The real error string sits on error.context (a
+// Response) — read it so callers can show the user what specifically
+// went wrong (MS Graph credentials, bucket missing, etc) rather than
+// the supabase wrapper's opaque message.
+async function readFunctionError(err: unknown, fallback: string): Promise<string> {
+  if (!err || typeof err !== "object") return fallback;
+  const e = err as { message?: string; context?: unknown };
+  // Try to read the Response body from context if it's there.
+  try {
+    const ctx = e.context;
+    if (ctx && typeof ctx === "object" && "json" in ctx && typeof (ctx as { json: () => Promise<unknown> }).json === "function") {
+      const body = await (ctx as { json: () => Promise<unknown> }).json();
+      if (body && typeof body === "object" && "error" in body) {
+        return String((body as { error: unknown }).error);
+      }
+    }
+  } catch {
+    // body wasn't JSON or already consumed — fall through
+  }
+  return e.message ?? fallback;
+}
+
 // One-shot helper: takes a report id, loads the bundle, generates the
 // DOCX, converts to PDF, downloads the file. Used by the wizard
 // sign-off step and the Reports list — exactly the same pattern the
@@ -65,14 +89,20 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
 
   try {
     const docxRes = await supabase.functions.invoke("generate-cause-effect-docx", { body: bundle });
-    if (docxRes.error) throw new Error(`DOCX generation failed: ${docxRes.error.message}`);
+    if (docxRes.error) {
+      const msg = await readFunctionError(docxRes.error, "Unknown DOCX error");
+      throw new Error(`DOCX generation failed: ${msg}`);
+    }
     const docx = docxRes.data as DocxResponse | null;
     if (!docx?.storage_path) throw new Error("DOCX generator did not return a storage path");
 
     const pdfRes = await supabase.functions.invoke("convert-quote-pdf", {
       body: { docx_storage_path: docx.storage_path, bucket: "ce-outputs" },
     });
-    if (pdfRes.error) throw new Error(`PDF conversion failed: ${pdfRes.error.message}`);
+    if (pdfRes.error) {
+      const msg = await readFunctionError(pdfRes.error, "Unknown PDF conversion error");
+      throw new Error(`PDF conversion failed: ${msg}`);
+    }
     const pdf = pdfRes.data as PdfResponse | null;
     if (!pdf?.signed_url) throw new Error("PDF converter did not return a signed URL");
 
