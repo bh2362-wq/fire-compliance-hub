@@ -49,12 +49,19 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Actions handed in from the parent so behaviour matches whatever
       the row buttons already do (PDF preview, email modal, quote
-      flow, wizard navigation). Keeps the drawer presentation-only. */
-  onViewPdf: (report: ReportSummary) => void;
-  onEmail: (report: ReportSummary) => void;
-  onGenerateQuote: (report: ReportSummary) => void;
-  onEdit: (report: ReportSummary) => void;
+      flow, wizard navigation). Keeps the drawer presentation-only.
+      Pass undefined for an action to hide that button (e.g. Email
+      isn't wired for C&E reports yet). */
+  onViewPdf?: (report: ReportSummary) => void;
+  onEmail?: (report: ReportSummary) => void;
+  onGenerateQuote?: (report: ReportSummary) => void;
+  onEdit?: (report: ReportSummary) => void;
   generatingQuote?: boolean;
+  /** Default "standard" — drawer queries site_defects WHERE report_id.
+      "ce" — drawer queries ce_remedials WHERE report_id instead, with
+      remedial-flavoured labels. C&E reports don't link to
+      site_defects via report_id (the FK is to service_reports). */
+  kind?: "standard" | "ce";
 }
 
 function catIcon(cat: number) {
@@ -83,7 +90,7 @@ function excerpt(text: string | null | undefined, max = 240): string | null {
 export function ReportDetailDrawer({
   report, open, onOpenChange,
   onViewPdf, onEmail, onGenerateQuote, onEdit,
-  generatingQuote,
+  generatingQuote, kind = "standard",
 }: Props) {
   const navigate = useNavigate();
   const [defects, setDefects] = useState<DrawerDefect[]>([]);
@@ -97,23 +104,61 @@ export function ReportDetailDrawer({
     let cancelled = false;
     setLoadingDefects(true);
     (async () => {
-      const { data, error } = await supabase
-        .from("site_defects")
-        .select("id, description, location, category, status, quotation:quotations(id, quotation_number)")
-        .eq("report_id", report.id)
-        .order("category", { ascending: true })
-        .order("raised_at", { ascending: false });
-      if (cancelled) return;
-      if (error) {
-        console.error("Drawer defect load failed:", error);
-        setDefects([]);
+      if (kind === "ce") {
+        // C&E remedials: priority maps to category integer so the
+        // drawer's UI (catIcon + statusBadge) stays identical to the
+        // standard-row variant. urgent → cat 1, routine → cat 3.
+        const { data, error } = await supabase
+          .from("ce_remedials" as any)
+          .select("id, description, location, priority, quotation_id, quotation:quotations(id, quotation_number)")
+          .eq("report_id", report.id)
+          .order("priority", { ascending: true })
+          .order("created_at", { ascending: false });
+        if (cancelled) return;
+        if (error) {
+          console.error("Drawer C&E remedial load failed:", error);
+          setDefects([]);
+        } else {
+          const rows = (data ?? []) as Array<{
+            id: string;
+            description: string | null;
+            location: string | null;
+            priority: string | null;
+            quotation_id: string | null;
+            quotation: { id: string; quotation_number: string | null } | null;
+          }>;
+          setDefects(rows.map((r) => ({
+            id: r.id,
+            description: r.description ?? "Remedial work",
+            location: r.location,
+            category: r.priority === "urgent" ? 1 : 3,
+            // ce_remedials don't track status the same way site_defects
+            // do. Treat them as "open" until a quote_id is populated;
+            // otherwise "quoted". Keeps the badge + button-enabled
+            // logic working uniformly.
+            status: r.quotation_id ? "quoted" : "open",
+            quotation: r.quotation,
+          })));
+        }
       } else {
-        setDefects((data ?? []) as unknown as DrawerDefect[]);
+        const { data, error } = await supabase
+          .from("site_defects")
+          .select("id, description, location, category, status, quotation:quotations(id, quotation_number)")
+          .eq("report_id", report.id)
+          .order("category", { ascending: true })
+          .order("raised_at", { ascending: false });
+        if (cancelled) return;
+        if (error) {
+          console.error("Drawer defect load failed:", error);
+          setDefects([]);
+        } else {
+          setDefects((data ?? []) as unknown as DrawerDefect[]);
+        }
       }
       setLoadingDefects(false);
     })();
     return () => { cancelled = true; };
-  }, [open, report?.id]);
+  }, [open, report?.id, kind]);
 
   if (!report) return null;
 
@@ -154,10 +199,10 @@ export function ReportDetailDrawer({
         </SheetHeader>
 
         <div className="px-5 py-4 space-y-5">
-          {/* Defects logged against this report */}
+          {/* Defects / remedials logged against this report */}
           <section className="space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Defects ({defects.length})
+              {kind === "ce" ? "Remedials" : "Defects"} ({defects.length})
             </h3>
             {loadingDefects ? (
               <div className="space-y-2">
@@ -166,7 +211,9 @@ export function ReportDetailDrawer({
               </div>
             ) : defects.length === 0 ? (
               <p className="text-xs text-muted-foreground italic">
-                No defects logged against this report.
+                {kind === "ce"
+                  ? "No remedials logged against this report yet."
+                  : "No defects logged against this report."}
               </p>
             ) : (
               <div className="space-y-1.5">
@@ -230,31 +277,43 @@ export function ReportDetailDrawer({
         </div>
 
         {/* Action bar — sticks to the bottom so the engineer can act
-            without scrolling past long defect lists. */}
+            without scrolling past long defect lists. Each button only
+            renders when its handler is provided, so a C&E drawer that
+            doesn't support Email simply doesn't show it. */}
         <div className="sticky bottom-0 bg-background border-t px-5 py-3 grid grid-cols-2 gap-2">
-          <Button variant="outline" size="sm" onClick={() => onViewPdf(report)} className="gap-1.5">
-            <FileText className="w-3.5 h-3.5" /> View PDF
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => onEmail(report)} className="gap-1.5">
-            <Mail className="w-3.5 h-3.5" /> Email
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => onEdit(report)} className="gap-1.5">
-            <Pencil className="w-3.5 h-3.5" /> Edit
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => onGenerateQuote(report)}
-            disabled={generatingQuote || openDefects.length === 0}
-            className="gap-1.5"
-            title={openDefects.length === 0 ? "No open defects to quote" : "Generate a customer quote from this report's open defects"}
-          >
-            {generatingQuote ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <CheckCircle2 className="w-3.5 h-3.5" />
-            )}
-            Quote defects
-          </Button>
+          {onViewPdf && (
+            <Button variant="outline" size="sm" onClick={() => onViewPdf(report)} className="gap-1.5">
+              <FileText className="w-3.5 h-3.5" /> View PDF
+            </Button>
+          )}
+          {onEmail && (
+            <Button variant="outline" size="sm" onClick={() => onEmail(report)} className="gap-1.5">
+              <Mail className="w-3.5 h-3.5" /> Email
+            </Button>
+          )}
+          {onEdit && (
+            <Button variant="outline" size="sm" onClick={() => onEdit(report)} className="gap-1.5">
+              <Pencil className="w-3.5 h-3.5" /> Edit
+            </Button>
+          )}
+          {onGenerateQuote && (
+            <Button
+              size="sm"
+              onClick={() => onGenerateQuote(report)}
+              disabled={generatingQuote || openDefects.length === 0}
+              className="gap-1.5"
+              title={openDefects.length === 0
+                ? (kind === "ce" ? "No remedials to quote" : "No open defects to quote")
+                : (kind === "ce" ? "Generate a customer quote from this report's remedials" : "Generate a customer quote from this report's open defects")}
+            >
+              {generatingQuote ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              )}
+              {kind === "ce" ? "Quote remedials" : "Quote defects"}
+            </Button>
+          )}
         </div>
       </SheetContent>
     </Sheet>
