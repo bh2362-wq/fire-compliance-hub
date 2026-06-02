@@ -52,6 +52,14 @@ interface Site {
   postcode: string | null;
   contact_name: string | null;
   contact_phone: string | null;
+  /** Site-level fallbacks for fire-alarm-specific fields. The C&E
+      wizard's System step writes these onto the SITE row first;
+      the bundle loader pulls them so we can render them in the
+      JOB DETAILS card + §2 even when the engineer never re-typed
+      them on the report itself. */
+  panel_make_model: string | null;
+  num_devices: number | null;
+  arc_connected: boolean | null;
 }
 interface Customer { name: string | null; }
 interface Visit { visit_date: string; job_number: string | null; }
@@ -305,18 +313,36 @@ function buildBundleXml(bundle: Bundle, originalXml: string): string {
   xml = fill(xml, "[Site Contact Phone]", s.contact_phone);
 
   // ── JOB DETAILS info card ────────────────────────────────────────
+  // Panel / device count / ARC fall back to the SITE row when the
+  // report row doesn't have them — engineers commonly capture these
+  // once on the Site form and don't re-type per-visit.
+  const panelText = r.panel_make_model ?? s.panel_make_model ?? null;
+  const deviceCount = r.num_devices_total ?? s.num_devices ?? null;
+  const arcStatus =
+    r.arc_monitoring != null
+      ? (r.arc_monitoring ? "Yes" : "No")
+      : s.arc_connected != null
+        ? (s.arc_connected ? "Yes" : "No")
+        : null;
   xml = fill(xml, "[Customer]", bundle.customer?.name ?? null);
   xml = fill(xml, "[Engineer]", r.engineer_name);
-  xml = fill(xml, "[Panel Make Model]", r.panel_make_model);
-  xml = fill(xml, "[Device Count]", r.num_devices_total != null ? String(r.num_devices_total) : null);
-  xml = fill(xml, "[ARC Status]", r.arc_monitoring == null ? null : r.arc_monitoring ? "Yes" : "No");
+  xml = fill(xml, "[Panel Make Model]", panelText);
+  xml = fill(xml, "[Device Count]", deviceCount != null ? String(deviceCount) : null);
+  xml = fill(xml, "[ARC Status]", arcStatus);
 
   // ── §2 System details key/value pairs ────────────────────────────
   // (same placeholders as the info card — already covered above; the
   // template just shows the same data in two places.)
 
   // ── §3.1 Methodology ─────────────────────────────────────────────
-  xml = fill(xml, "[Test Methodology]", r.test_methodology);
+  // Default methodology text matches the legacy PDF generator so the
+  // section is never blank when the engineer hasn't typed their own.
+  const methodology = r.test_methodology?.trim() || (
+    "Minimum one detector per zone activated to verify programmed responses. " +
+    "All input/output relationships tested as per cause and effect matrix. " +
+    "System responses observed and verified."
+  );
+  xml = fill(xml, "[Test Methodology]", methodology);
 
   // ── §3.3 Output functions table — dynamic rows ───────────────────
   xml = fillTable(xml, "[Function]", bundle.outputs.map((o) => ({
