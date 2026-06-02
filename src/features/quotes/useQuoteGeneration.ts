@@ -143,17 +143,16 @@ export function useConvertQuotePdf() {
 }
 
 export async function downloadSignedUrl(signedUrl: string, suggestedFilename: string): Promise<void> {
-  const res = await fetch(signedUrl);
-  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
+  const remoteUrl = new URL(signedUrl);
+  remoteUrl.searchParams.set("download", suggestedFilename);
   const a = document.createElement("a");
-  a.href = url;
+  a.href = remoteUrl.toString();
   a.download = suggestedFilename;
+  a.rel = "noopener";
+  a.target = "_blank";
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
 }
 
 export function blobToBase64(blob: Blob): Promise<string> {
