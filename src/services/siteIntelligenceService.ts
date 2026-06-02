@@ -257,8 +257,8 @@ export async function getSiteIntelligence(siteId: string): Promise<SiteIntellige
   const buildingType     = (siteRow.building_type   as string | null) ?? (certPayload.building_type ?? certPayload.premises_type ?? null);
   const buildingOccupancy = (siteRow.occupancy_type as string | null) ?? (certPayload.occupancy_type ?? null);
   const building = (buildingType || buildingOccupancy) ? {
-    type: buildingType,
-    occupancy: buildingOccupancy,
+    type: (buildingType ?? null) as string | null,
+    occupancy: (buildingOccupancy ?? null) as string | null,
     storeys: typeof certPayload.storeys === "number" ? (certPayload.storeys as number) : null,
   } : null;
 
