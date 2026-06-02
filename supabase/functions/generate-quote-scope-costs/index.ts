@@ -64,11 +64,17 @@ Conventions:
 - Each item begins with a short, declarative trade-language heading, followed by a 1-2 sentence technical narrative describing WHAT will be done and WHY.
 - Cite the specific BS 5839-1:2025 clause where relevant (e.g. "in accordance with BS 5839-1:2025 Cl. 25.2(d)"). Do NOT invent clause numbers — omit if uncertain.
 - Group related work items into a single numbered point where it reads more naturally.
-- Use UK English. Use the active voice.
-- Be specific and technical. This represents BHO's professional standing to the client.
+- Use UK English. Active voice. "Will" not "shall".
+- Write like an engineer talking to a project manager — direct, technical, no fluff.
+- Concrete over abstract. "Replace the smoke detector at L1/14 and confirm activation" beats "Carry out the necessary remedial action on the affected device".
 - Do NOT include prices, timelines, or commercial terms. Scope only.
 - Do NOT preface the list with a heading or summary paragraph. Start directly with \`1. ...\`.
 - Urgency labels (Cat 1 / Cat 2 / Cat 3) are provided as context to inform tone — do NOT print the labels in the output. A Cat 1 item should read as immediate-action language; a Cat 3 item can be framed as recommended improvement.
+
+BANNED PHRASES — corporate-AI cliché that won't appear in the output:
+  "leverage"    "industry-leading"  "robust solution"  "tailored to your needs"
+  "ensure compliance with"  "facilitate"  "utilise"  "endeavour to"
+  "Furthermore"  "Additionally"  "Moreover"  "Importantly"
 
 If a work item is ambiguous, write the scope conservatively (describe investigation + remediation as separate phases if needed) and flag the assumption parenthetically at the end of that item.`;
 
