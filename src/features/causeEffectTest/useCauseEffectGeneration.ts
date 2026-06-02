@@ -31,6 +31,28 @@ interface PdfResponse {
   file_size_bytes: number;
 }
 
+function addDownloadParam(signedUrl: string, filename: string): string {
+  try {
+    const url = new URL(signedUrl);
+    url.searchParams.set("download", filename);
+    return url.toString();
+  } catch {
+    const sep = signedUrl.includes("?") ? "&" : "?";
+    return `${signedUrl}${sep}download=${encodeURIComponent(filename)}`;
+  }
+}
+
+function triggerBrowserDownload(url: string, filename: string): void {
+  const a = document.createElement("a");
+  a.href = addDownloadParam(url, filename);
+  a.download = filename;
+  a.rel = "noopener";
+  a.target = "_blank";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 export function useGenerateCauseEffectDocx() {
   return useMutation({
     mutationFn: async (bundle: CauseEffectReportBundle): Promise<DocxResponse> => {
@@ -164,17 +186,8 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
     const dateStr = bundle.visit.visit_date?.replace(/-/g, "") ?? "report";
     const filename = `CE_Audibility_${jobRef}_${dateStr}.pdf`;
 
-    const res = await fetch(pdf.signed_url);
-    if (!res.ok) throw new Error(`Failed to download generated PDF: ${res.status}`);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    triggerBrowserDownload(pdf.signed_url, filename);
+    toast.success("PDF ready", { description: "Download started in a new tab if your browser blocks direct downloads." });
   } catch (err) {
     // The cloud DOCX→PDF chain failed. We still hand the engineer A
     // PDF via the legacy in-browser jsPDF generator so they're never
