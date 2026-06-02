@@ -258,6 +258,7 @@ export default function Defects() {
                     <TableHead>Location</TableHead>
                     <TableHead>Raised</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Quote</TableHead>
                     <TableHead className="w-12" />
                   </TableRow>
                 </TableHeader>
@@ -288,6 +289,23 @@ export default function Defects() {
                         {format(new Date(d.raised_at), "dd MMM yy")}
                       </TableCell>
                       <TableCell><DefectStatusBadge status={d.status} /></TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">
+                        {d.quotation?.id ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate("/dashboard/quotations", {
+                                state: { openQuotationId: d.quotation!.id },
+                              })
+                            }
+                            className="text-primary hover:underline font-medium"
+                          >
+                            {d.quotation.quotation_number ?? "View"}
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

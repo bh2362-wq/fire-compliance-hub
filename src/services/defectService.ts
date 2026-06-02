@@ -32,6 +32,9 @@ export interface SiteDefect {
   user_id: string | null;
   // Joined
   site?: { id: string; name: string; customer_id: string; customers?: { name: string } | null } | null;
+  /** Backlink to the quotation this defect was rolled into. Populated
+      after a successful quote creation via AIDefectQuoteDialog. */
+  quotation?: { id: string; quotation_number: string | null } | null;
 }
 
 export interface DefectInsert {
@@ -68,7 +71,9 @@ export async function listDefects(filters?: {
 }): Promise<SiteDefect[]> {
   let q = supabase
     .from("site_defects")
-    .select("*, site:sites(id, name, customer_id, customers(name))")
+    .select(
+      "*, site:sites(id, name, customer_id, customers(name)), quotation:quotations(id, quotation_number)",
+    )
     .order("raised_at", { ascending: false });
 
   if (filters?.status && filters.status !== "all") q = q.eq("status", filters.status);
