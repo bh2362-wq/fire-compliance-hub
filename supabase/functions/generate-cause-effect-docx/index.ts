@@ -226,40 +226,40 @@ function fillTable(
   return xml.slice(0, trStart) + filled + xml.slice(trEnd);
 }
 
-// Synthesise a colspan'd "no data" row by mutating the original
-// placeholder row: keep the first <w:tc>, drop the rest, add a
-// gridSpan attribute. Doesn't touch the table's column widths so the
-// header row still aligns above it.
+// Synthesise a colspan'd "no data" row by rebuilding it cleanly from the
+// placeholder row. We keep the first cell's <w:tcPr> contents (borders,
+// margins, etc.) so the empty row visually matches a normal row, but
+// reconstruct the rest of the markup explicitly — string-mutation
+// shortcuts on the original cell produced malformed XML that the
+// Microsoft Graph PDF converter rejected with "cannotOpenFile".
 function buildEmptyRow(rowXml: string, message: string, columnCount: number): string {
-  // Find the first <w:tc>...</w:tc> in the row
   const tcStart = rowXml.indexOf("<w:tc");
   const tcEnd = rowXml.indexOf("</w:tc>", tcStart);
   if (tcStart < 0 || tcEnd < 0) return rowXml; // shouldn't happen on a valid template
   const firstTc = rowXml.slice(tcStart, tcEnd + "</w:tc>".length);
-  // Build a single-cell row spanning the whole table: take first cell's
-  // <w:tcPr>, inject <w:gridSpan>, replace inner text with the empty
-  // message in italic muted style.
-  const italic = '<w:r><w:rPr><w:i/><w:iCs/><w:color w:val="6B7280"/></w:rPr>' +
-    `<w:t xml:space="preserve">${escapeXmlText(message)}</w:t></w:r>`;
-  let merged = firstTc;
-  // Inject gridSpan into tcPr if not present
-  if (/<w:tcPr>/.test(merged)) {
-    merged = merged.replace(
-      "<w:tcPr>",
-      `<w:tcPr><w:gridSpan w:val="${columnCount}"/>`,
-    );
-  } else {
-    merged = merged.replace(
-      "<w:tc>",
-      `<w:tc><w:tcPr><w:gridSpan w:val="${columnCount}"/></w:tcPr>`,
-    );
-  }
-  // Replace the cell's paragraph content with just the italic message.
-  merged = merged.replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/, `<w:p><w:r>${italic.slice(8)}</w:p>`);
-  // (The above regex eats only the FIRST paragraph; if the cell had
-  // more paragraphs they remain. For our template the placeholder
-  // rows have one paragraph per cell so this is fine.)
-  return `<w:tr>${merged}</w:tr>`;
+
+  // Extract the existing <w:tcPr>...</w:tcPr> body so we reuse the cell
+  // styling (borders, margins, vertical alignment). If the cell didn't
+  // have a tcPr block (rare), fall back to empty.
+  const tcPrMatch = firstTc.match(/<w:tcPr>([\s\S]*?)<\/w:tcPr>/);
+  const tcPrBody = tcPrMatch ? tcPrMatch[1] : "";
+
+  const escapedMsg = escapeXmlText(message);
+  const cell =
+    "<w:tc>" +
+      "<w:tcPr>" +
+        `<w:gridSpan w:val="${columnCount}"/>` +
+        tcPrBody +
+      "</w:tcPr>" +
+      "<w:p>" +
+        "<w:r>" +
+          '<w:rPr><w:i/><w:iCs/><w:color w:val="6B7280"/></w:rPr>' +
+          `<w:t xml:space="preserve">${escapedMsg}</w:t>` +
+        "</w:r>" +
+      "</w:p>" +
+    "</w:tc>";
+
+  return `<w:tr>${cell}</w:tr>`;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -456,6 +456,10 @@ Deno.serve(async (req) => {
     const docxBytes = await zip.generateAsync({
       type: "uint8array",
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      // Office's headless PDF converter (MS Graph /content?format=pdf)
+      // rejects STORED zips with "cannotOpenFile". DEFLATE matches the
+      // working quote-docx pipeline.
+      compression: "DEFLATE",
     });
 
     const storagePath = `${bundle.report.id}/cause-effect-report.docx`;
