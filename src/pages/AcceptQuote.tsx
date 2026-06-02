@@ -3,10 +3,14 @@ import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, FileCheck, Building2, Calendar, PoundSterling, AlertCircle, FileText, Shield } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import { Loader2, CheckCircle2, FileCheck, Building2, Calendar, PoundSterling, AlertCircle, FileText, Shield, XCircle, ThumbsDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
@@ -34,6 +38,14 @@ const AcceptQuote = () => {
   const [name, setName] = useState("");
   const [poNumber, setPoNumber] = useState("");
   const [signature, setSignature] = useState("");
+  // Decline flow — separate from accept so customers who can't or
+  // won't accept aren't forced to go silent. They can give an
+  // optional reason which lands in BHO's inbox for follow-up.
+  const [declineOpen, setDeclineOpen] = useState(false);
+  const [declineName, setDeclineName] = useState("");
+  const [declineReason, setDeclineReason] = useState("");
+  const [declining, setDeclining] = useState(false);
+  const [declined, setDeclined] = useState(false);
   // Signature pad width adapts to the container so the canvas doesn't
   // overflow on narrow phones (iPhone SE = 375px). Re-measured on
   // mount + resize. Fixed 380px broke ~30% of mobile users.
@@ -88,6 +100,41 @@ const AcceptQuote = () => {
       setError("Failed to load quotation");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (!declineName.trim()) {
+      setError("Please enter your name");
+      return;
+    }
+    setDeclining(true);
+    setError(null);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(`${supabaseUrl}/functions/v1/accept-quotation`, {
+        method: "POST",
+        headers: { "apikey": anonKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,
+          action: "decline",
+          declined_by_name: declineName.trim(),
+          decline_reason: declineReason.trim() || null,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setError(result.error || "Failed to record decline");
+        return;
+      }
+      setDeclineOpen(false);
+      setDeclined(true);
+    } catch (err) {
+      console.error("Decline failed:", err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setDeclining(false);
     }
   };
 
@@ -153,6 +200,28 @@ const AcceptQuote = () => {
             <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
             <h2 className="text-xl font-semibold">Quotation Not Found</h2>
             <p className="text-muted-foreground">{error}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (declined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center space-y-4">
+            <XCircle className="w-16 h-16 text-muted-foreground mx-auto" />
+            <h2 className="text-2xl font-bold">Quotation Declined</h2>
+            <p className="text-muted-foreground">
+              Thanks for letting us know. We've recorded your response and someone from our team may be in touch to see if there's anything we can do.
+            </p>
+            <p className="text-xs text-muted-foreground pt-2">
+              Questions? Email{" "}
+              <a href="mailto:admin@bhofire.com" className="text-primary hover:underline">admin@bhofire.com</a>
+              {" "}or call{" "}
+              <a href="tel:+443300438659" className="text-primary hover:underline">0330 043 8659</a>.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -347,9 +416,95 @@ const AcceptQuote = () => {
                 By signing above, you agree to the terms and conditions of this quotation
                 and authorise the works to proceed.
               </p>
+
+              {/* Decline option — secondary, plain text to keep the
+                  accept path visually dominant but giving the customer
+                  a way to say no without going silent. */}
+              <div className="pt-3 border-t text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeclineName(name);
+                    setError(null);
+                    setDeclineOpen(true);
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                >
+                  Not going ahead? Decline this quote
+                </button>
+              </div>
             </CardContent>
           </Card>
         )}
+
+        {/* Decline confirmation dialog */}
+        <Dialog open={declineOpen} onOpenChange={setDeclineOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ThumbsDown className="w-4 h-4 text-muted-foreground" />
+                Decline quotation
+              </DialogTitle>
+              <DialogDescription>
+                Let us know you don't want to proceed. We'll mark the quote as
+                declined and a member of our team may reach out if there's anything
+                we can do.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="decline-name">Your name *</Label>
+                <Input
+                  id="decline-name"
+                  value={declineName}
+                  onChange={(e) => setDeclineName(e.target.value)}
+                  placeholder="Enter your full name"
+                  maxLength={200}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="decline-reason">Reason (optional)</Label>
+                <Textarea
+                  id="decline-reason"
+                  rows={3}
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  placeholder="e.g. price, timing, going with another supplier…"
+                  maxLength={2000}
+                />
+              </div>
+              {error && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {error}
+                </p>
+              )}
+            </div>
+            <DialogFooter className="flex-row gap-2 sm:gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setDeclineOpen(false)}
+                disabled={declining}
+                className="flex-1 sm:flex-initial"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDecline}
+                disabled={declining}
+                className="flex-1 sm:flex-initial gap-1.5"
+              >
+                {declining ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ThumbsDown className="w-4 h-4" />
+                )}
+                Decline quote
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Trust footer — reassures the customer this is the real BHO
             portal and gives them company credentials at a glance.
