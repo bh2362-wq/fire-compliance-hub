@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { SignaturePad } from "@/components/ui/signature-pad";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, FileCheck, Building2, Calendar, PoundSterling, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, FileCheck, Building2, Calendar, PoundSterling, AlertCircle, FileText, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
@@ -20,6 +20,7 @@ interface QuotationSummary {
   client_accepted_at: string | null;
   site_name: string | null;
   customer_name: string | null;
+  pdf_url: string | null;
 }
 
 const AcceptQuote = () => {
@@ -33,6 +34,20 @@ const AcceptQuote = () => {
   const [name, setName] = useState("");
   const [poNumber, setPoNumber] = useState("");
   const [signature, setSignature] = useState("");
+  // Signature pad width adapts to the container so the canvas doesn't
+  // overflow on narrow phones (iPhone SE = 375px). Re-measured on
+  // mount + resize. Fixed 380px broke ~30% of mobile users.
+  const sigContainerRef = useRef<HTMLDivElement | null>(null);
+  const [sigWidth, setSigWidth] = useState(380);
+  useEffect(() => {
+    const measure = () => {
+      const w = sigContainerRef.current?.clientWidth;
+      if (w && w > 0) setSigWidth(Math.min(w, 600));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [quotation]);
 
   useEffect(() => {
     if (token) fetchQuotation();
@@ -152,7 +167,21 @@ const AcceptQuote = () => {
             <CheckCircle2 className="w-16 h-16 text-primary mx-auto" />
             <h2 className="text-2xl font-bold">Quotation Accepted</h2>
             <p className="text-muted-foreground">
-              Thank you for accepting {quotation?.quotation_number}. We will be in touch shortly to schedule the works.
+              Thank you for accepting {quotation?.quotation_number}. We'll be in touch within one working day to schedule the works.
+            </p>
+            {quotation?.pdf_url && (
+              <Button variant="outline" size="lg" className="w-full" asChild>
+                <a href={quotation.pdf_url} target="_blank" rel="noopener noreferrer">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Download your copy
+                </a>
+              </Button>
+            )}
+            <p className="text-xs text-muted-foreground pt-2">
+              Questions? Email{" "}
+              <a href="mailto:admin@bhofire.com" className="text-primary hover:underline">admin@bhofire.com</a>
+              {" "}or call{" "}
+              <a href="tel:+443300438659" className="text-primary hover:underline">0330 043 8659</a>.
             </p>
           </CardContent>
         </Card>
@@ -214,6 +243,22 @@ const AcceptQuote = () => {
                 <span className="text-sm font-normal text-muted-foreground">+ VAT</span>
               </div>
             </div>
+            {/* Customer needs to see what they're accepting. The summary
+                card only shows the total — for the scope of works and
+                line items they need the rendered PDF. */}
+            {quotation!.pdf_url && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full"
+                asChild
+              >
+                <a href={quotation!.pdf_url} target="_blank" rel="noopener noreferrer">
+                  <FileText className="w-4 h-4 mr-2" />
+                  View quotation PDF
+                </a>
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -261,13 +306,15 @@ const AcceptQuote = () => {
 
               <div className="space-y-2">
                 <Label>Digital Signature *</Label>
-                <SignaturePad
-                  value={signature}
-                  onChange={setSignature}
-                  width={380}
-                  height={140}
-                  label="Sign to accept"
-                />
+                <div ref={sigContainerRef} className="w-full">
+                  <SignaturePad
+                    value={signature}
+                    onChange={setSignature}
+                    width={sigWidth}
+                    height={140}
+                    label="Sign to accept"
+                  />
+                </div>
               </div>
 
               {error && (
@@ -303,6 +350,25 @@ const AcceptQuote = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Trust footer — reassures the customer this is the real BHO
+            portal and gives them company credentials at a glance.
+            Helps reduce "is this a scam?" hesitation, especially on
+            mobile where the URL bar is small. */}
+        <div className="text-center text-xs text-muted-foreground space-y-1 pt-4">
+          <div className="flex items-center justify-center gap-1.5">
+            <Shield className="w-3.5 h-3.5" />
+            <span>BHO Fire Ltd · Company Reg No. 12235152</span>
+          </div>
+          <p>St Georges Business Park, Castle Rd, Sittingbourne ME10 3TB</p>
+          <p>
+            Questions about this quote? Email{" "}
+            <a href="mailto:admin@bhofire.com" className="text-primary hover:underline">
+              admin@bhofire.com
+            </a>{" "}
+            or call <a href="tel:+443300438659" className="text-primary hover:underline">0330 043 8659</a>.
+          </p>
+        </div>
       </div>
     </div>
   );
