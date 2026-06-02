@@ -125,6 +125,10 @@ const Quotations = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const prefillLineItem = (location.state as any)?.prefillLineItem || null;
+  // When another page navigates here with { openQuotationId } in router
+  // state (e.g. Defects table → "Quote" cell click), auto-open the
+  // detail dialog for that quotation once the list has loaded.
+  const openQuotationId = (location.state as any)?.openQuotationId || null;
   const [quotations, setQuotations] = useState<QuotationWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -149,6 +153,19 @@ const Quotations = () => {
       window.history.replaceState({}, document.title);
     }
   }, [prefillLineItem]);
+
+  // Auto-open detail dialog when deep-linked via openQuotationId. We
+  // wait until the list has loaded so we can hand the dialog the full
+  // QuotationWithDetails row rather than a stub. After matching once,
+  // clear the location state so a back-nav doesn't re-open.
+  useEffect(() => {
+    if (!openQuotationId || quotations.length === 0) return;
+    const target = quotations.find((q) => q.id === openQuotationId);
+    if (target) {
+      setSelectedQuotation(target);
+      window.history.replaceState({}, document.title);
+    }
+  }, [openQuotationId, quotations]);
 
   const fetchQuotations = async () => {
     try {
