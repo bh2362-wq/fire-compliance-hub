@@ -243,11 +243,22 @@ export async function getBibbyAccountCode(): Promise<string | null> {
     .select("value")
     .eq("key", BIBBY_ACCOUNT_KEY)
     .maybeSingle();
-  const value = data?.value as string | null | undefined;
-  return typeof value === "string" && value.length > 0 ? value : null;
+  // The value column is jsonb. Codes are typically a 3-digit string
+  // like "090" — but PostgREST will helpfully coerce a numeric-looking
+  // input ("791") to a JSON number on the way in, so the column can
+  // contain either shape. Accept both and stringify on the way out.
+  const raw = data?.value as unknown;
+  if (typeof raw === "string" && raw.length > 0) return raw;
+  if (typeof raw === "number") return String(raw);
+  return null;
 }
 
 export async function setBibbyAccountCode(code: string): Promise<void> {
+  // `code` is a JS string from the dialog input. supabase-js
+  // serialises it to a JSON string in the request body, which
+  // PostgREST then stores as a JSONB value. Numeric-looking codes
+  // (e.g. "791") may get coerced to JSON numbers — getBibbyAccountCode
+  // handles both types so the round-trip works either way.
   const { error } = await (supabase as unknown as { from: (t: string) => any })
     .from("app_settings")
     .upsert(
