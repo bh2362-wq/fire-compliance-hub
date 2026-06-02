@@ -170,6 +170,74 @@ function dedupeParagraphs(text: string): string {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Multi-paragraph placeholder fill
+//
+// A plain text replacement on a placeholder like [General Observations]
+// inserts literal '\n' inside a single <w:t> element. Word collapses
+// those into spaces, so engineers see one giant blob of text instead
+// of the paragraphs they typed.
+//
+// fillMultiParagraph fixes that: it locates the enclosing <w:p>,
+// extracts its <w:pPr> (alignment, spacing) and the placeholder run's
+// <w:rPr> (font sizing), then rebuilds N paragraphs — one per
+// blank-line-separated chunk — re-using the same paragraph properties
+// so the styling stays consistent.
+//
+// Lines that begin with "• ", "- ", "* ", or "– " become bullet items
+// (using ListParagraph + numId=2 — the template already ships both,
+// so no extra runtime setup needed).
+
+const BULLET_RE = /^[•\-*–]\s+/;
+
+function findEnclosingWpStart(xml: string, fromIdx: number): number {
+  const a = xml.lastIndexOf("<w:p>", fromIdx);
+  const b = xml.lastIndexOf("<w:p ", fromIdx);
+  return Math.max(a, b);
+}
+
+function fillMultiParagraph(xml: string, placeholder: string, value: string): string {
+  if (!value || !value.trim()) return fill(xml, placeholder, null);
+  const phIdx = xml.indexOf(placeholder);
+  if (phIdx < 0) return xml;
+  const pStart = findEnclosingWpStart(xml, phIdx);
+  if (pStart < 0) return xml;
+  const pEnd = xml.indexOf("</w:p>", phIdx) + "</w:p>".length;
+  if (pEnd <= 0) return xml;
+  const pXml = xml.slice(pStart, pEnd);
+
+  // Reuse the original paragraph's pPr (spacing, alignment, etc.)
+  // and the placeholder run's rPr (italic placeholder styling).
+  const pPrMatch = pXml.match(/<w:pPr>[\s\S]*?<\/w:pPr>/);
+  const pPr = pPrMatch ? pPrMatch[0] : "";
+  // Strip italic from the rPr — the placeholder is rendered italic
+  // in the template (placeholder convention) but real content reads
+  // better in upright type.
+  const rPrMatch = pXml.match(/<w:rPr>[\s\S]*?<\/w:rPr>/);
+  let rPr = rPrMatch ? rPrMatch[0] : "";
+  rPr = rPr.replace(/<w:i\/>/g, "").replace(/<w:iCs\/>/g, "");
+  if (rPr === "<w:rPr></w:rPr>") rPr = "";
+
+  // pPr for bullet items: same as body pPr but with ListParagraph
+  // style + numbering reference.
+  const bulletPPr = "<w:pPr>" +
+    '<w:pStyle w:val="ListParagraph"/>' +
+    '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr>' +
+    (pPrMatch ? pPrMatch[0].slice("<w:pPr>".length, -"</w:pPr>".length) : "") +
+    "</w:pPr>";
+
+  const blocks = value.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+  const rebuilt = blocks.map((block) => {
+    if (BULLET_RE.test(block)) {
+      const text = block.replace(BULLET_RE, "");
+      return `<w:p>${bulletPPr}<w:r>${rPr}<w:t xml:space="preserve">${escapeXmlText(text)}</w:t></w:r></w:p>`;
+    }
+    return `<w:p>${pPr}<w:r>${rPr}<w:t xml:space="preserve">${escapeXmlText(block)}</w:t></w:r></w:p>`;
+  }).join("");
+
+  return xml.slice(0, pStart) + rebuilt + xml.slice(pEnd);
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Row-cloning for dynamic tables
 
 // Find the start index of the <w:tr ...> element enclosing the
@@ -343,12 +411,14 @@ function buildBundleXml(bundle: Bundle, originalXml: string): string {
   // ── §3.1 Methodology ─────────────────────────────────────────────
   // Default methodology text matches the legacy PDF generator so the
   // section is never blank when the engineer hasn't typed their own.
+  // Default uses bullet-prefixed lines so the rendered output is a
+  // bulleted list rather than a single block.
   const methodology = r.test_methodology?.trim() || (
-    "Minimum one detector per zone activated to verify programmed responses. " +
-    "All input/output relationships tested as per cause and effect matrix. " +
-    "System responses observed and verified."
+    "• Minimum one detector per zone activated to verify programmed responses.\n\n" +
+    "• All input/output relationships tested as per cause and effect matrix.\n\n" +
+    "• System responses observed and verified."
   );
-  xml = fill(xml, "[Test Methodology]", methodology);
+  xml = fillMultiParagraph(xml, "[Test Methodology]", methodology);
 
   // ── §3.3 Output functions table — dynamic rows ───────────────────
   xml = fillTable(xml, "[Function]", bundle.outputs.map((o) => ({
@@ -409,8 +479,17 @@ function buildBundleXml(bundle: Bundle, originalXml: string): string {
   })), "No audibility issues identified.", 5);
 
   // ── §5.3 General observations ────────────────────────────────────
+  // Engineers type these as multiple paragraphs (often pasted from
+  // their own notes). Single-text-run replacement collapsed them into
+  // one giant block; fillMultiParagraph rebuilds them as real <w:p>
+  // elements so Word renders the paragraph breaks. Bullet lines
+  // (• / - / *) become bullet items.
   const obs = r.general_observations?.trim() ? dedupeParagraphs(r.general_observations) : null;
-  xml = fill(xml, "[General Observations]", obs ?? "None recorded.");
+  if (obs) {
+    xml = fillMultiParagraph(xml, "[General Observations]", obs);
+  } else {
+    xml = fill(xml, "[General Observations]", "None recorded.");
+  }
 
   // ── §6 Remedial works table ──────────────────────────────────────
   const totalCost = bundle.remedials.reduce((s, rm) => s + (rm.estimated_cost ?? 0), 0);
