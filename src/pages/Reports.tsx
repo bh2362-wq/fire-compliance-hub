@@ -56,6 +56,8 @@ import { getCompanySettings } from "@/services/companySettingsService";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
 import { downloadCauseEffectReportPdf } from "@/features/causeEffectTest/useCauseEffectGeneration";
 import { GenerateQuotationDialog } from "@/components/quotations/GenerateQuotationDialog";
+import { AIDefectQuoteDialog } from "@/components/defects/AIDefectQuoteDialog";
+import type { Defect, DefectCategory } from "@/services/defectService";
 import { PdfPreviewDialog } from "@/components/reports/PdfPreviewDialog";
 import { ChangeReportSiteDialog } from "@/components/reports/ChangeReportSiteDialog";
 
@@ -154,6 +156,13 @@ const Reports = () => {
   } | null>(null);
   const [quotationDialogOpen, setQuotationDialogOpen] = useState(false);
   const [reportForQuotation, setReportForQuotation] = useState<ReportWithSite | null>(null);
+  // "Generate quote from this report's defects" — same flow as the
+  // visit-level menu item (PR #84) but scoped via site_defects.report_id
+  // instead of visit_id. Engineers no longer need to navigate to
+  // /dashboard/defects to find which defects belong to which report.
+  const [reportQuoteDialogOpen, setReportQuoteDialogOpen] = useState(false);
+  const [reportQuoteDefects, setReportQuoteDefects] = useState<Defect[]>([]);
+  const [openingReportQuote, setOpeningReportQuote] = useState<string | null>(null);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
   const [changeSiteTarget, setChangeSiteTarget] = useState<{
@@ -648,6 +657,53 @@ const Reports = () => {
     }
   };
 
+  // Fetch the open defects logged against this report and open the
+  // shared AI quote dialog with them pre-loaded. Mirrors VisitsTable's
+  // openQuoteFromVisit (PR #84) — different scope column (report_id
+  // vs visit_id) but the same downstream behaviour.
+  const openQuoteFromReport = async (report: ReportWithSite) => {
+    setOpeningReportQuote(report.id);
+    try {
+      const { data, error } = await supabase
+        .from("site_defects")
+        .select("id, description, location, category, status, sites(name)")
+        .eq("report_id", report.id)
+        .eq("status", "open");
+      if (error) throw error;
+      const rows = (data ?? []) as Array<{
+        id: string;
+        description: string;
+        location: string | null;
+        category: number;
+        status: string;
+        sites: { name: string | null } | null;
+      }>;
+      if (rows.length === 0) {
+        toast.info("No open defects on this report", {
+          description: "Either no defects were logged, or all have already been quoted or remediated.",
+        });
+        return;
+      }
+      const siteName = rows[0].sites?.name ?? (report as any).site?.name ?? "site";
+      const mapped: Defect[] = rows.map((r) => ({
+        id: r.id,
+        description: r.description,
+        category: r.category as DefectCategory,
+        location: r.location,
+        site_id: report.site_id ?? "",
+        site_name: siteName,
+      }));
+      setReportQuoteDefects(mapped);
+      setReportQuoteDialogOpen(true);
+    } catch (e) {
+      toast.error("Couldn't load defects", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setOpeningReportQuote(null);
+    }
+  };
+
   const handleInvoicedToggle = async (reportId: string, invoiced: boolean) => {
     try {
       const { error } = await supabase
@@ -1118,7 +1174,18 @@ const Reports = () => {
                             }}
                           >
                             <ClipboardList className="w-4 h-4 mr-2" />
-                            Generate Quotation
+                            Generate Quotation (from summary)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => openQuoteFromReport(report)}
+                            disabled={openingReportQuote === report.id}
+                          >
+                            {openingReportQuote === report.id ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <FileText className="w-4 h-4 mr-2" />
+                            )}
+                            Generate Quote from Defects
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={(e) => {
@@ -1366,6 +1433,14 @@ const Reports = () => {
           generatePdfBase64={generateReportPdfBase64}
         />
       )}
+
+      {/* AI Quote from this report's open defects */}
+      <AIDefectQuoteDialog
+        open={reportQuoteDialogOpen}
+        onOpenChange={setReportQuoteDialogOpen}
+        defects={reportQuoteDefects}
+        onQuoteCreated={() => fetchReports()}
+      />
 
       {/* Generate Quotation Dialog */}
       {reportForQuotation && (
