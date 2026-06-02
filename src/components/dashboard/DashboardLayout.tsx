@@ -5,7 +5,7 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench, RefreshCw
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench, RefreshCw, Briefcase
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,6 +70,7 @@ const certsNav = [
 const financeNav = [
   { name: "Invoices",          href: "/dashboard/invoices",          icon: Receipt },
   { name: "Quotations",        href: "/dashboard/quotations",        icon: FileSpreadsheet },
+  { name: "Tenders",           href: "/dashboard/tenders",           icon: Briefcase },
   { name: "Remittance Advice", href: "/dashboard/remittance-advice", icon: Mail },
   { name: "Credit Control",    href: "/dashboard/credit-control",    icon: CreditCard },
   { name: "Purchase Orders",   href: "/dashboard/purchase-orders",   icon: ShoppingCart },
