@@ -36,6 +36,8 @@ import {
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Visit } from "@/hooks/useVisits";
+import { AIDefectQuoteDialog } from "@/components/defects/AIDefectQuoteDialog";
+import type { Defect, DefectCategory } from "@/services/defectService";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CreateInvoiceDialog } from "@/components/xero/CreateInvoiceDialog";
 import { ReportTypeSelector } from "@/components/reports/ReportTypeSelector";
@@ -189,6 +191,13 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
   const [invoiceMap, setInvoiceMap] = useState<Record<string, InvoiceInfo>>({});
   const [reportMap, setReportMap] = useState<Record<string, ReportInfo>>({});
   const [requirementsVisit, setRequirementsVisit] = useState<Visit | null>(null);
+  // "Generate quote from this visit's defects" — opens the shared AI
+  // quote dialog with the visit's open site_defects rows pre-loaded.
+  // Engineer no longer has to navigate to /dashboard/defects and pick
+  // them manually out of a multi-visit defect list.
+  const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [quoteDefects, setQuoteDefects] = useState<Defect[]>([]);
+  const [openingQuote, setOpeningQuote] = useState<string | null>(null);
   const [requirementsRefreshKey, setRequirementsRefreshKey] = useState(0);
   const [confirmationVisit, setConfirmationVisit] = useState<Visit | null>(null);
   const [selectedVisitIds, setSelectedVisitIds] = useState<Set<string>>(new Set());
@@ -447,6 +456,55 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // Fetch this visit's open defects and open the shared AI quote dialog
+  // with them pre-loaded. Filters on status='open' so already-quoted or
+  // remediated defects don't accidentally get re-quoted.
+  const openQuoteFromVisit = async (visit: Visit) => {
+    setOpeningQuote(visit.id);
+    try {
+      const { data, error } = await supabase
+        .from("site_defects")
+        .select("id, description, location, category, status, sites(name)")
+        .eq("visit_id", visit.id)
+        .eq("status", "open");
+      if (error) throw error;
+      const rows = (data ?? []) as Array<{
+        id: string;
+        description: string;
+        location: string | null;
+        category: number;
+        status: string;
+        sites: { name: string | null } | null;
+      }>;
+      if (rows.length === 0) {
+        toast({
+          title: "No open defects on this visit",
+          description: "Either no defects were logged, or all have already been quoted or remediated.",
+        });
+        return;
+      }
+      const siteName = rows[0].sites?.name ?? "site";
+      const mapped: Defect[] = rows.map((r) => ({
+        id: r.id,
+        description: r.description,
+        category: r.category as DefectCategory,
+        location: r.location,
+        site_id: visit.site_id,
+        site_name: siteName,
+      }));
+      setQuoteDefects(mapped);
+      setQuoteDialogOpen(true);
+    } catch (e) {
+      toast({
+        title: "Couldn't load defects",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setOpeningQuote(null);
     }
   };
 
@@ -1228,6 +1286,17 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                   <Package className="w-4 h-4 mr-2" />
                   Job Requirements
                  </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => openQuoteFromVisit(visit)}
+                  disabled={openingQuote === visit.id}
+                >
+                  {openingQuote === visit.id ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-2" />
+                  )}
+                  Generate Quote from Defects
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setClassifyVisit(visit)}>
                   <Tag className="w-4 h-4 mr-2" />
                   Classify
@@ -1967,6 +2036,12 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
           jobLabel={classifyVisit.job_number || classifyVisit.site?.name || undefined}
         />
       )}
+      <AIDefectQuoteDialog
+        open={quoteDialogOpen}
+        onOpenChange={setQuoteDialogOpen}
+        defects={quoteDefects}
+        onQuoteCreated={() => onRefresh()}
+      />
       <MergeSitesDialog
         open={mergeSitesOpen}
         onOpenChange={setMergeSitesOpen}
