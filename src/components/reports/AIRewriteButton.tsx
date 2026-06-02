@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, Undo2, Check, X, RefreshCw } from "lucide-react";
+import { Sparkles, Loader2, Undo2, Check, X, RefreshCw, BookOpenCheck, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,12 +15,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AIRewriteButtonProps {
   text: string;
-  type: "defects" | "defect_simplify" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_title" | "quotation_summary";
+  type: "defects" | "defect_simplify" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_title" | "quotation_summary" | "bs5839_guidance";
   onRewrite: (newText: string) => void;
   disabled?: boolean;
   generateRecommendations?: boolean;
   onRecommendationsGenerated?: (recommendations: string) => void;
   context?: string;
+}
+
+// The guidance prompt appends a fixed verification tag to every
+// response. The dialog renders it as a banner rather than inline text;
+// stripping here keeps both views clean.
+const GUIDANCE_VERIFY_TAG =
+  "[Guidance referencing BS 5839-1:2017 — verify clause numbers against your copy of the standard before issue.]";
+function stripGuidanceTag(text: string): string {
+  return text.replace(GUIDANCE_VERIFY_TAG, "").trimEnd();
 }
 
 export function AIRewriteButton({
@@ -55,7 +64,13 @@ export function AIRewriteButton({
       if (data.error) throw new Error(data.error);
 
       if (data.rewrittenText) {
-        setPreviewText(data.rewrittenText);
+        // Guidance responses end with a fixed verify tag — strip it from
+        // the preview body since the dialog renders the disclaimer as
+        // its own banner. (Keep raw text otherwise.)
+        const cleaned = type === "bs5839_guidance"
+          ? stripGuidanceTag(data.rewrittenText)
+          : data.rewrittenText;
+        setPreviewText(cleaned);
         setPreviewRecommendations(data.generatedRecommendations || null);
         setPreviewOpen(true);
       }
@@ -109,6 +124,11 @@ export function AIRewriteButton({
     }
   };
 
+  const isGuidance = type === "bs5839_guidance";
+  const idleLabel = isGuidance ? "Suggest BS 5839 guidance" : "Improve with AI";
+  const busyLabel = isGuidance ? "Drafting…" : "Improving...";
+  const IdleIcon = isGuidance ? BookOpenCheck : Sparkles;
+
   return (
     <>
       <div className="flex items-center gap-1">
@@ -123,9 +143,9 @@ export function AIRewriteButton({
           {loading ? (
             <Loader2 className="w-3 h-3 animate-spin mr-1" />
           ) : (
-            <Sparkles className="w-3 h-3 mr-1" />
+            <IdleIcon className="w-3 h-3 mr-1" />
           )}
-          {loading ? "Improving..." : "Improve with AI"}
+          {loading ? busyLabel : idleLabel}
         </Button>
         {originalText && !loading && !previewOpen && (
           <Button
@@ -145,10 +165,32 @@ export function AIRewriteButton({
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              AI Improvement Preview
+              {isGuidance ? (
+                <BookOpenCheck className="h-5 w-5 text-primary" />
+              ) : (
+                <Sparkles className="h-5 w-5 text-primary" />
+              )}
+              {isGuidance ? "BS 5839 Guidance Suggestion" : "AI Improvement Preview"}
             </DialogTitle>
           </DialogHeader>
+
+          {isGuidance && (
+            // BS 5839-1:2017 is copyrighted; the AI paraphrases from
+            // general knowledge and can be wrong about exact clause
+            // numbers. The engineer is signing the report — they must
+            // verify against their licensed copy before accepting.
+            <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold">Verify before signing.</p>
+                <p>
+                  This is AI-suggested guidance based on general knowledge of BS&nbsp;5839-1:2017. Clause numbers and specific
+                  requirements <strong>must be verified against your licensed copy of the standard</strong> before you accept and
+                  issue the report.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="flex-1 min-h-0 space-y-4">
             {/* Original vs Improved */}

@@ -44,6 +44,32 @@ interface TestRecord {
 
 type Result = "passed" | "failed" | "untested";
 
+// Group raw `device_type` strings (which come from various panel exports
+// — Gent, Notifier, Honeywell, free-text Excel pastes) into four
+// high-level categories the engineer thinks in: outputs (anything that
+// activates on alarm), detectors (anything that originates an alarm
+// from environmental sensing), call points (manual activation), and
+// other (modules, interfaces classified separately, isolators).
+type DeviceCategory = "outputs" | "detectors" | "call_points" | "other";
+
+function categorize(deviceType: string | null | undefined): DeviceCategory {
+  const t = (deviceType ?? "").toLowerCase();
+  if (!t) return "other";
+  // Order matters: check call points first because "MCP" can substring
+  // into other terms, and check "sounder/VAD" before "detector".
+  if (/\b(mcp|call\s*point|break\s*glass|manual\s*call)\b/.test(t)) return "call_points";
+  if (/\b(sounder|vad|beacon|strobe|bell|horn|interface|relay|module|door\s*holder|magnet)\b/.test(t)) return "outputs";
+  if (/\b(detector|smoke|heat|optical|ionisation|multi[\s-]?sensor|beam|aspir|co\b)\b/.test(t)) return "detectors";
+  return "other";
+}
+
+const CATEGORY_LABELS: Record<DeviceCategory, string> = {
+  outputs: "Outputs",
+  detectors: "Detectors",
+  call_points: "Call points",
+  other: "Other",
+};
+
 const FAIL_REASONS = [
   "No response to test",
   "Damaged",
@@ -130,7 +156,9 @@ export function DevicesStep({ visitId, siteId }: Props) {
   const [search, setSearch] = useState("");
   const [loopFilter, setLoopFilter] = useState<string | null>(null);
   const [zoneFilter, setZoneFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<DeviceCategory | null>(null);
   const [hideTested, setHideTested] = useState(true);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [failModal, setFailModal] = useState<Device | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -190,11 +218,23 @@ export function DevicesStep({ visitId, siteId }: Props) {
     return [...s].sort();
   }, [devicesQuery.data]);
 
+  // Category counts drive whether each filter chip renders — we hide
+  // the chip when the site has zero devices of that type so the row
+  // doesn't get cluttered with empty buckets.
+  const categoryCounts = useMemo(() => {
+    const c: Record<DeviceCategory, number> = { outputs: 0, detectors: 0, call_points: 0, other: 0 };
+    for (const d of devicesQuery.data ?? []) {
+      c[categorize(d.device_type)]++;
+    }
+    return c;
+  }, [devicesQuery.data]);
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return (devicesQuery.data ?? []).filter((d) => {
       if (loopFilter && d.loop !== loopFilter) return false;
       if (zoneFilter && d.zone !== zoneFilter) return false;
+      if (categoryFilter && categorize(d.device_type) !== categoryFilter) return false;
       if (hideTested && lookupTest(d)) return false;
       if (term) {
         const rawValues = d.raw_import_data && typeof d.raw_import_data === "object"
@@ -205,7 +245,7 @@ export function DevicesStep({ visitId, siteId }: Props) {
       }
       return true;
     });
-  }, [devicesQuery.data, loopFilter, zoneFilter, search, hideTested, testByDevice]);
+  }, [devicesQuery.data, loopFilter, zoneFilter, categoryFilter, search, hideTested, testByDevice]);
 
   const counts = useMemo(() => {
     let passed = 0, failed = 0, untested = 0;
@@ -301,6 +341,44 @@ export function DevicesStep({ visitId, siteId }: Props) {
     }
   };
 
+  // Bulk-mark every visible (currently filtered) untested device as
+  // passed. Confined to filtered+untested so the engineer can scope the
+  // action via category/loop/zone chips first ("show me only sounders" →
+  // "bulk pass all") rather than accidentally passing the whole site.
+  const bulkPassFiltered = async () => {
+    const targets = filtered.filter((d) => normalize(lookupTest(d)?.status) === "untested");
+    if (targets.length === 0) {
+      toast({ title: "Nothing to mark", description: "All visible devices are already tested." });
+      return;
+    }
+    const label = categoryFilter ? CATEGORY_LABELS[categoryFilter].toLowerCase() : "device";
+    if (!window.confirm(
+      `Mark ${targets.length} visible ${label}${targets.length === 1 ? "" : "s"} as PASSED?`,
+    )) return;
+    setBulkBusy(true);
+    try {
+      // recordTest already runs sequentially per call; doing them in
+      // parallel would race the toast + the file_uploads ensure call.
+      // Keep it sequential — typical bulk is <50 devices, takes a few
+      // seconds with a progress feel.
+      let okCount = 0;
+      for (const d of targets) {
+        try {
+          await recordTest(d, "passed");
+          okCount++;
+        } catch (e) {
+          console.error("bulk pass failed for device", d.id, e);
+        }
+      }
+      toast({
+        title: `Marked ${okCount} as passed`,
+        description: okCount < targets.length ? `${targets.length - okCount} failed — see console.` : undefined,
+      });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -379,6 +457,25 @@ export function DevicesStep({ visitId, siteId }: Props) {
 
       {/* Filter chips + search */}
       <div className="flex items-center gap-1.5 flex-wrap">
+        {/* Category chips — quick way to scope to outputs (sounders +
+            VADs + interfaces), detectors (smoke/heat/multi), or call
+            points. Useful for C&E testing where you want to "bulk pass
+            all sounders" or similar. Each chip hides when the site has
+            zero devices of that category. */}
+        <div className="flex flex-wrap gap-1">
+          <Chip active={!categoryFilter} onClick={() => setCategoryFilter(null)}>All types</Chip>
+          {(["outputs", "detectors", "call_points"] as const).map((cat) =>
+            categoryCounts[cat] > 0 ? (
+              <Chip
+                key={cat}
+                active={categoryFilter === cat}
+                onClick={() => setCategoryFilter((c) => (c === cat ? null : cat))}
+              >
+                {CATEGORY_LABELS[cat]} · {categoryCounts[cat]}
+              </Chip>
+            ) : null,
+          )}
+        </div>
         {loops.length > 1 && (
           <div className="flex flex-wrap gap-1">
             <Chip active={!loopFilter} onClick={() => setLoopFilter(null)}>All loops</Chip>
@@ -399,6 +496,26 @@ export function DevicesStep({ visitId, siteId }: Props) {
           {hideTested ? "Hiding tested" : "Showing all"}
         </Chip>
       </div>
+
+      {/* Bulk action — pass everything currently visible. Shown only
+          when there's at least one untested visible device so the
+          button doesn't sit dead at the end of a fully-tested list. */}
+      {filtered.some((d) => normalize(lookupTest(d)?.status) === "untested") && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={bulkBusy}
+          onClick={bulkPassFiltered}
+        >
+          {bulkBusy ? (
+            <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Marking…</>
+          ) : (
+            <><Check className="w-3.5 h-3.5 mr-1.5" /> Mark {filtered.filter((d) => normalize(lookupTest(d)?.status) === "untested").length} visible as PASS</>
+          )}
+        </Button>
+      )}
 
       <div className="relative">
         <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />

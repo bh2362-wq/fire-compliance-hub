@@ -147,16 +147,24 @@ export function CauseEffectSignOffStep({ report, onPatch, onComplete, completing
           </div>
         </div>
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
               Summary for the client
             </Label>
-            <AIRewriteButton
-              text={report.notes ?? ""}
-              type="recommendations"
-              onRewrite={(v) => onPatch({ notes: v || null })}
-              context={aiContext}
-            />
+            <div className="flex items-center gap-1">
+              <AIRewriteButton
+                text={report.notes ?? ""}
+                type="recommendations"
+                onRewrite={(v) => onPatch({ notes: v || null })}
+                context={aiContext}
+              />
+              <AIRewriteButton
+                text={report.notes ?? ""}
+                type="bs5839_guidance"
+                onRewrite={(v) => onPatch({ notes: v || null })}
+                context={aiContext}
+              />
+            </div>
           </div>
           <Textarea
             rows={4}
