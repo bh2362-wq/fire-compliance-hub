@@ -32,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2, Copy, Volume2 } from "lucide-react";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2, Copy, Volume2, Briefcase, Siren, Megaphone } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import {
@@ -123,6 +123,28 @@ const conditionConfig: Record<string, { label: string; icon: typeof CheckCircle2
   },
 };
 
+// Icon + colour per report type. Engineers should be able to tell at a
+// glance what kind of report each row is — previously C&E and ASD
+// shared a "secondary" colour while everything else was "primary",
+// which made the list look monochrome. Each entry maps to a Tailwind
+// class pair (background tint + text colour for the icon).
+const TYPE_STYLE: Record<string, { icon: typeof FileText; tint: string; ink: string; label: string }> = {
+  // BS 5839 service / inspection — house red (primary brand colour)
+  bs5839:          { icon: FileText,   tint: "bg-primary/10",      ink: "text-primary",            label: "BS 5839 Service" },
+  // ASD aspirating — teal/cyan, evokes airflow
+  asd:             { icon: Wind,       tint: "bg-cyan-500/10",     ink: "text-cyan-600 dark:text-cyan-400", label: "ASD Service" },
+  // Cause & effect — amber, distinct from teal
+  cause_effect:    { icon: Volume2,    tint: "bg-amber-500/10",    ink: "text-amber-600 dark:text-amber-400", label: "Cause & Effect" },
+  // Disabled refuge — orange (megaphone reflects voice alarm system)
+  disabled_refuge: { icon: Megaphone,  tint: "bg-orange-500/10",   ink: "text-orange-600 dark:text-orange-400", label: "Disabled Refuge" },
+  // Work / job report — green (a billable job)
+  job:             { icon: Briefcase,  tint: "bg-emerald-500/10",  ink: "text-emerald-600 dark:text-emerald-400", label: "Works" },
+  // Emergency callout — red (urgent)
+  emergency:       { icon: Siren,      tint: "bg-red-500/10",      ink: "text-red-600 dark:text-red-400", label: "Emergency Callout" },
+};
+
+const FALLBACK_TYPE_STYLE = TYPE_STYLE.bs5839;
+
 const Reports = () => {
   const navigate = useNavigate();
   const [reports, setReports] = useState<UnifiedReportRow[]>([]);
@@ -169,6 +191,14 @@ const Reports = () => {
   // they want; the drawer is for "I want to see what's in this report
   // before deciding what to do".
   const [drawerReport, setDrawerReport] = useState<ReportWithSite | null>(null);
+  // Separate state for C&E rows — different data shape + different
+  // action handlers (PDF via downloadCauseEffectReportPdf, no email
+  // flow, edit goes to the C&E wizard, quote uses ce_remedials).
+  const [drawerCeReport, setDrawerCeReport] = useState<CeReportRow | null>(null);
+  const [ceQuoteDialogOpen, setCeQuoteDialogOpen] = useState(false);
+  const [ceQuoteDefects, setCeQuoteDefects] = useState<Defect[]>([]);
+  const [ceQuoteRemedialIds, setCeQuoteRemedialIds] = useState<string[]>([]);
+  const [openingCeQuote, setOpeningCeQuote] = useState<string | null>(null);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
   const [changeSiteTarget, setChangeSiteTarget] = useState<{
@@ -710,6 +740,71 @@ const Reports = () => {
     }
   };
 
+  // C&E variant of openQuoteFromReport — queries ce_remedials instead
+  // of site_defects, maps priority→category, and wires a backlink
+  // callback so the new quotation_id lands on the source remedial rows
+  // (the AIDefectQuoteDialog's skipDefectLink prop turns off its
+  // default site_defects writeback for this flow).
+  const openQuoteFromCeReport = async (report: CeReportRow) => {
+    setOpeningCeQuote(report.id);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("ce_remedials")
+        .select("id, description, location, priority, sites:site_id(name)")
+        .eq("report_id", report.id);
+      if (error) throw error;
+      const rows = (data ?? []) as Array<{
+        id: string;
+        description: string | null;
+        location: string | null;
+        priority: string | null;
+        sites: { name: string | null } | null;
+      }>;
+      if (rows.length === 0) {
+        toast.info("No remedials on this C&E report", {
+          description: "Add remedials on step 5 of the wizard first.",
+        });
+        return;
+      }
+      const siteName = rows[0].sites?.name ?? report.sites?.name ?? "site";
+      const mapped: Defect[] = rows.map((r) => ({
+        id: r.id,
+        description: r.description ?? "Remedial work",
+        category: (r.priority === "urgent" ? 1 : 3) as DefectCategory,
+        location: r.location,
+        site_id: report.site_id ?? "",
+        site_name: siteName,
+      }));
+      setCeQuoteDefects(mapped);
+      setCeQuoteRemedialIds(mapped.map((d) => d.id));
+      setCeQuoteDialogOpen(true);
+    } catch (e) {
+      toast.error("Couldn't load remedials", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setOpeningCeQuote(null);
+    }
+  };
+
+  // After the AI dialog creates the quote, write the new quotation_id
+  // back to all source ce_remedials rows so the lineage is visible on
+  // both ends (mirrors PR #83's behaviour from FindingsRemedialsStep).
+  const handleCeQuoteCreated = async (quotationId?: string) => {
+    if (!quotationId || ceQuoteRemedialIds.length === 0) return;
+    const { error } = await (supabase as any)
+      .from("ce_remedials")
+      .update({ quotation_id: quotationId })
+      .in("id", ceQuoteRemedialIds);
+    if (error) {
+      console.error("ce_remedials backlink failed:", error);
+      toast.error("Quote created — backlink failed", {
+        description: "The remedials list won't show which quote they're in. Quote itself is fine.",
+      });
+    }
+    fetchReports();
+  };
+
   const handleInvoicedToggle = async (reportId: string, invoiced: boolean) => {
     try {
       const { error } = await supabase
@@ -910,6 +1005,7 @@ const Reports = () => {
                       siteId: report.site_id ?? null,
                       siteName: report.sites?.name ?? null,
                     })}
+                    onOpenDrawer={() => setDrawerCeReport(report)}
                   />
                 );
               }
@@ -1058,22 +1154,38 @@ const Reports = () => {
                       }}
                       className="flex items-start gap-3 sm:gap-4 min-w-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
                     >
-                      <div className={cn(
-                        "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
-                        isAsdReport
-                          ? "bg-secondary/10"
-                          : isCauseEffectVisit
-                            ? "bg-secondary/10"
-                            : "bg-primary/10"
-                      )}>
-                        {isAsdReport ? (
-                          <Wind className="w-6 h-6 text-secondary" />
-                        ) : isCauseEffectVisit ? (
-                          <Volume2 className="w-6 h-6 text-secondary" />
-                        ) : (
-                          <FileText className="w-6 h-6 text-primary" />
-                        )}
-                      </div>
+                      {(() => {
+                        // Pick the styling per detected report type so
+                        // each kind reads visually distinct in the list.
+                        // Visit type "emergency" can override a generic
+                        // bs5839 row since an emergency callout deserves
+                        // its own colour treatment.
+                        let typeKey = "bs5839";
+                        try {
+                          const notes = JSON.parse(report.notes || "{}");
+                          if (notes.report_type === "asd") typeKey = "asd";
+                          else if (notes.report_type === "disabled_refuge") typeKey = "disabled_refuge";
+                          else if (notes.jobNumber || notes.jobType || Array.isArray(notes.workDays)) typeKey = "job";
+                        } catch {
+                          if ((report.report_number || "").startsWith("JOB-")) typeKey = "job";
+                        }
+                        if (isAsdReport) typeKey = "asd";
+                        if (isCauseEffectVisit) typeKey = "cause_effect";
+                        // Visit-type override: emergency callouts get red
+                        // urgency colouring regardless of the underlying
+                        // report type.
+                        if ((report as any).visits?.visit_type === "emergency") typeKey = "emergency";
+                        const style = TYPE_STYLE[typeKey] ?? FALLBACK_TYPE_STYLE;
+                        const Icon = style.icon;
+                        return (
+                          <div className={cn(
+                            "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
+                            style.tint,
+                          )}>
+                            <Icon className={cn("w-6 h-6", style.ink)} />
+                          </div>
+                        );
+                      })()}
                       <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-foreground truncate">
@@ -1463,6 +1575,67 @@ const Reports = () => {
         onQuoteCreated={() => fetchReports()}
       />
 
+      {/* C&E drawer — same component, kind='ce' switches the query to
+          ce_remedials and relabels Defects → Remedials. C&E-specific
+          action handlers (PDF via downloadCauseEffectReportPdf, edit
+          → C&E wizard, no email yet). */}
+      <ReportDetailDrawer
+        kind="ce"
+        report={drawerCeReport ? {
+          id: drawerCeReport.id,
+          site_id: drawerCeReport.site_id ?? null,
+          visit_id: drawerCeReport.visit_id ?? null,
+          report_number: drawerCeReport.report_number ?? null,
+          report_date: drawerCeReport.report_date ?? null,
+          status: drawerCeReport.status ?? null,
+          site: {
+            name: drawerCeReport.sites?.name ?? null,
+            customers: { name: (drawerCeReport.sites as any)?.customers?.name ?? null },
+          },
+        } : null}
+        open={!!drawerCeReport}
+        onOpenChange={(open) => { if (!open) setDrawerCeReport(null); }}
+        onViewPdf={async () => {
+          if (!drawerCeReport) return;
+          try {
+            await downloadCauseEffectReportPdf(drawerCeReport.id);
+            setDrawerCeReport(null);
+          } catch (e) {
+            toast.error("Couldn't generate C&E PDF", {
+              description: e instanceof Error ? e.message : String(e),
+            });
+          }
+        }}
+        onEdit={() => {
+          if (!drawerCeReport?.visit_id) {
+            toast.error("This C&E report isn't linked to a visit.");
+            return;
+          }
+          const visitId = drawerCeReport.visit_id;
+          setDrawerCeReport(null);
+          navigate(`/dashboard/visits/${visitId}/cause-effect-test/capture`);
+        }}
+        onGenerateQuote={() => {
+          if (!drawerCeReport) return;
+          const ce = drawerCeReport;
+          setDrawerCeReport(null);
+          void openQuoteFromCeReport(ce);
+        }}
+        generatingQuote={openingCeQuote === drawerCeReport?.id}
+      />
+
+      {/* AI quote dialog for C&E remedials — separate instance from
+          the standard-report one above because skipDefectLink + the
+          ce_remedials backlink logic differs. */}
+      <AIDefectQuoteDialog
+        open={ceQuoteDialogOpen}
+        onOpenChange={setCeQuoteDialogOpen}
+        defects={ceQuoteDefects}
+        skipDefectLink
+        itemLabel={{ singular: "remedial", plural: "remedials" }}
+        onQuoteCreated={handleCeQuoteCreated}
+      />
+
       {/* Detail drawer — opens when an engineer taps the row body
           (icon/title/meta) on the Reports list. Action handlers reuse
           the row-level flows so behaviour stays identical. */}
@@ -1549,10 +1722,14 @@ function CauseEffectReportRow({
   report,
   navigate,
   onChangeSite,
+  onOpenDrawer,
 }: {
   report: CeReportRow;
   navigate: ReturnType<typeof useNavigate>;
   onChangeSite: () => void;
+  /** Tap the info section to open the detail drawer. Optional so the
+      component still works if the parent doesn't wire it. */
+  onOpenDrawer?: () => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   const status = statusConfig[report.status ?? "draft"] || statusConfig.draft;
@@ -1580,9 +1757,28 @@ function CauseEffectReportRow({
   return (
     <div className="p-4 sm:p-6 hover:bg-muted/30 transition-colors">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-secondary/10">
-            <Volume2 className="w-6 h-6 text-secondary" />
+        <div
+          role={onOpenDrawer ? "button" : undefined}
+          tabIndex={onOpenDrawer ? 0 : undefined}
+          onClick={onOpenDrawer}
+          onKeyDown={onOpenDrawer ? (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onOpenDrawer();
+            }
+          } : undefined}
+          className={cn(
+            "flex items-start gap-3 sm:gap-4 min-w-0",
+            onOpenDrawer && "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md",
+          )}
+        >
+          {/* C&E rows always use the cause_effect type style — same
+              amber treatment as in the standard row's mapping. */}
+          <div className={cn(
+            "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
+            TYPE_STYLE.cause_effect.tint,
+          )}>
+            <Volume2 className={cn("w-6 h-6", TYPE_STYLE.cause_effect.ink)} />
           </div>
           <div className="space-y-1 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
