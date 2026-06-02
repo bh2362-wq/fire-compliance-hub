@@ -113,14 +113,39 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
     // Either way the engineer can pop DevTools and see exactly what
     // came back without needing Supabase function logs access.
     console.log("[C&E DOCX] generate-cause-effect-docx response:", docx);
-    const sigDiag = (docx as unknown as { signature_diagnostics?: Record<string, unknown> }).signature_diagnostics;
+    const sigDiag = (docx as unknown as { signature_diagnostics?: {
+      engineer_provided: boolean; engineer_is_data_url: boolean; engineer_embedded: boolean; engineer_reason?: string;
+      client_provided: boolean; client_is_data_url: boolean; client_embedded: boolean; client_reason?: string;
+    } }).signature_diagnostics;
     if (sigDiag) {
       console.log("[C&E DOCX] Signature embed diagnostics:", sigDiag);
+      // Mobile-visible diagnostic: when a signature was provided but
+      // didn't embed, surface the reason via toast. Means engineers
+      // on mobile can see what went wrong without DevTools. Stays
+      // quiet on the happy path (both signatures embedded, or none
+      // provided).
+      const issues: string[] = [];
+      if (sigDiag.engineer_provided && !sigDiag.engineer_embedded) {
+        issues.push(`Engineer: ${sigDiag.engineer_reason ?? "unknown reason"}`);
+      }
+      if (sigDiag.client_provided && !sigDiag.client_embedded) {
+        issues.push(`Client: ${sigDiag.client_reason ?? "unknown reason"}`);
+      }
+      if (issues.length > 0) {
+        toast.warning("Signatures didn't embed", {
+          description: issues.join("  ·  "),
+          duration: 15_000,
+        });
+      }
     } else {
       console.warn(
         "[C&E DOCX] No signature_diagnostics field — the edge function deployed on Supabase " +
         "is still the older version. Wait for Lovable to redeploy or manually retrigger the function.",
       );
+      toast.info("New signature embedder hasn't deployed yet", {
+        description: "PDF generated with the old pipeline. Signatures may not appear. Try again in a minute.",
+        duration: 8_000,
+      });
     }
 
     const pdfRes = await supabase.functions.invoke("convert-quote-pdf", {
