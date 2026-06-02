@@ -32,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2, Copy, Volume2 } from "lucide-react";
+import { FileText, Building2, Calendar, Search, Eye, AlertTriangle, CheckCircle2, Wind, Trash2, MoreVertical, FileCheck, FilePen, Receipt, ReceiptText, Unlock, Mail, ClipboardList, Globe, Upload, ExternalLink, Loader2, Copy, Volume2, Briefcase, Siren, Megaphone } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { CustomerCreateInvoiceDialog } from "@/components/customers/CustomerCreateInvoiceDialog";
 import {
@@ -122,6 +122,28 @@ const conditionConfig: Record<string, { label: string; icon: typeof CheckCircle2
     className: "text-destructive",
   },
 };
+
+// Icon + colour per report type. Engineers should be able to tell at a
+// glance what kind of report each row is — previously C&E and ASD
+// shared a "secondary" colour while everything else was "primary",
+// which made the list look monochrome. Each entry maps to a Tailwind
+// class pair (background tint + text colour for the icon).
+const TYPE_STYLE: Record<string, { icon: typeof FileText; tint: string; ink: string; label: string }> = {
+  // BS 5839 service / inspection — house red (primary brand colour)
+  bs5839:          { icon: FileText,   tint: "bg-primary/10",      ink: "text-primary",            label: "BS 5839 Service" },
+  // ASD aspirating — teal/cyan, evokes airflow
+  asd:             { icon: Wind,       tint: "bg-cyan-500/10",     ink: "text-cyan-600 dark:text-cyan-400", label: "ASD Service" },
+  // Cause & effect — amber, distinct from teal
+  cause_effect:    { icon: Volume2,    tint: "bg-amber-500/10",    ink: "text-amber-600 dark:text-amber-400", label: "Cause & Effect" },
+  // Disabled refuge — orange (megaphone reflects voice alarm system)
+  disabled_refuge: { icon: Megaphone,  tint: "bg-orange-500/10",   ink: "text-orange-600 dark:text-orange-400", label: "Disabled Refuge" },
+  // Work / job report — green (a billable job)
+  job:             { icon: Briefcase,  tint: "bg-emerald-500/10",  ink: "text-emerald-600 dark:text-emerald-400", label: "Works" },
+  // Emergency callout — red (urgent)
+  emergency:       { icon: Siren,      tint: "bg-red-500/10",      ink: "text-red-600 dark:text-red-400", label: "Emergency Callout" },
+};
+
+const FALLBACK_TYPE_STYLE = TYPE_STYLE.bs5839;
 
 const Reports = () => {
   const navigate = useNavigate();
@@ -1132,22 +1154,38 @@ const Reports = () => {
                       }}
                       className="flex items-start gap-3 sm:gap-4 min-w-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
                     >
-                      <div className={cn(
-                        "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
-                        isAsdReport
-                          ? "bg-secondary/10"
-                          : isCauseEffectVisit
-                            ? "bg-secondary/10"
-                            : "bg-primary/10"
-                      )}>
-                        {isAsdReport ? (
-                          <Wind className="w-6 h-6 text-secondary" />
-                        ) : isCauseEffectVisit ? (
-                          <Volume2 className="w-6 h-6 text-secondary" />
-                        ) : (
-                          <FileText className="w-6 h-6 text-primary" />
-                        )}
-                      </div>
+                      {(() => {
+                        // Pick the styling per detected report type so
+                        // each kind reads visually distinct in the list.
+                        // Visit type "emergency" can override a generic
+                        // bs5839 row since an emergency callout deserves
+                        // its own colour treatment.
+                        let typeKey = "bs5839";
+                        try {
+                          const notes = JSON.parse(report.notes || "{}");
+                          if (notes.report_type === "asd") typeKey = "asd";
+                          else if (notes.report_type === "disabled_refuge") typeKey = "disabled_refuge";
+                          else if (notes.jobNumber || notes.jobType || Array.isArray(notes.workDays)) typeKey = "job";
+                        } catch {
+                          if ((report.report_number || "").startsWith("JOB-")) typeKey = "job";
+                        }
+                        if (isAsdReport) typeKey = "asd";
+                        if (isCauseEffectVisit) typeKey = "cause_effect";
+                        // Visit-type override: emergency callouts get red
+                        // urgency colouring regardless of the underlying
+                        // report type.
+                        if ((report as any).visits?.visit_type === "emergency") typeKey = "emergency";
+                        const style = TYPE_STYLE[typeKey] ?? FALLBACK_TYPE_STYLE;
+                        const Icon = style.icon;
+                        return (
+                          <div className={cn(
+                            "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
+                            style.tint,
+                          )}>
+                            <Icon className={cn("w-6 h-6", style.ink)} />
+                          </div>
+                        );
+                      })()}
                       <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-foreground truncate">
@@ -1734,8 +1772,13 @@ function CauseEffectReportRow({
             onOpenDrawer && "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md",
           )}
         >
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-secondary/10">
-            <Volume2 className="w-6 h-6 text-secondary" />
+          {/* C&E rows always use the cause_effect type style — same
+              amber treatment as in the standard row's mapping. */}
+          <div className={cn(
+            "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
+            TYPE_STYLE.cause_effect.tint,
+          )}>
+            <Volume2 className={cn("w-6 h-6", TYPE_STYLE.cause_effect.ink)} />
           </div>
           <div className="space-y-1 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
