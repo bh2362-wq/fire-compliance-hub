@@ -58,6 +58,7 @@ import { downloadCauseEffectReportPdf } from "@/features/causeEffectTest/useCaus
 import { GenerateQuotationDialog } from "@/components/quotations/GenerateQuotationDialog";
 import { AIDefectQuoteDialog } from "@/components/defects/AIDefectQuoteDialog";
 import type { Defect, DefectCategory } from "@/services/defectService";
+import { ReportDetailDrawer } from "@/components/reports/ReportDetailDrawer";
 import { PdfPreviewDialog } from "@/components/reports/PdfPreviewDialog";
 import { ChangeReportSiteDialog } from "@/components/reports/ChangeReportSiteDialog";
 
@@ -163,6 +164,11 @@ const Reports = () => {
   const [reportQuoteDialogOpen, setReportQuoteDialogOpen] = useState(false);
   const [reportQuoteDefects, setReportQuoteDefects] = useState<Defect[]>([]);
   const [openingReportQuote, setOpeningReportQuote] = useState<string | null>(null);
+  // Row-click → detail drawer. Decoupled from the existing action menu
+  // so engineers can still single-tap an action they already know
+  // they want; the drawer is for "I want to see what's in this report
+  // before deciding what to do".
+  const [drawerReport, setDrawerReport] = useState<ReportWithSite | null>(null);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
   const [changeSiteTarget, setChangeSiteTarget] = useState<{
@@ -1036,7 +1042,22 @@ const Reports = () => {
                   className="p-4 sm:p-6 hover:bg-muted/30 transition-colors"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-                    <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+                    {/* Tap the info section (icon + title + meta) to
+                        open the detail drawer. Action buttons on the
+                        right are siblings, so their clicks don't
+                        bubble through this handler. */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDrawerReport(report)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setDrawerReport(report);
+                        }
+                      }}
+                      className="flex items-start gap-3 sm:gap-4 min-w-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
+                    >
                       <div className={cn(
                         "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0",
                         isAsdReport
@@ -1440,6 +1461,34 @@ const Reports = () => {
         onOpenChange={setReportQuoteDialogOpen}
         defects={reportQuoteDefects}
         onQuoteCreated={() => fetchReports()}
+      />
+
+      {/* Detail drawer — opens when an engineer taps the row body
+          (icon/title/meta) on the Reports list. Action handlers reuse
+          the row-level flows so behaviour stays identical. */}
+      <ReportDetailDrawer
+        report={drawerReport as any}
+        open={!!drawerReport}
+        onOpenChange={(open) => { if (!open) setDrawerReport(null); }}
+        onViewPdf={(r) => { setPdfPreviewReportId(r.id); setDrawerReport(null); }}
+        onEmail={(r) => {
+          // Match the row's email flow — set the email target. The
+          // existing EmailReportDialog (rendered elsewhere in the page)
+          // opens automatically when reportToEmail is non-null.
+          setReportToEmail(drawerReport as any);
+          setDrawerReport(null);
+          void r;
+        }}
+        onGenerateQuote={(r) => {
+          setDrawerReport(null);
+          openQuoteFromReport(r as any);
+        }}
+        onEdit={(r) => {
+          setDrawerReport(null);
+          // Open the appropriate wizard for this report's visit.
+          if (r.visit_id) navigate(`/dashboard/visits/${r.visit_id}/service-report/capture`);
+        }}
+        generatingQuote={openingReportQuote === drawerReport?.id}
       />
 
       {/* Generate Quotation Dialog */}
