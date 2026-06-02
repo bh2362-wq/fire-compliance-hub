@@ -8,6 +8,7 @@
 // the PR #80 merge — pushing a no-op edit here to force a fresh build).
 
 import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   loadCauseEffectReportBundle,
@@ -93,7 +94,17 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
     a.remove();
     URL.revokeObjectURL(url);
   } catch (err) {
-    console.warn("Cloud DOCX-to-PDF conversion unavailable; using local PDF generator", err);
+    // The cloud DOCX→PDF chain failed. We still hand the engineer A
+    // PDF via the legacy in-browser jsPDF generator so they're never
+    // stuck — but make it visible (toast warning + console error)
+    // so a deploy/credentials/bucket regression doesn't silently
+    // ship the old-style report indefinitely.
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Cloud DOCX-to-PDF conversion failed; falling back to local PDF generator. Error:", err);
+    toast.warning("Using legacy PDF format", {
+      description: `Cloud generator unavailable: ${msg}. Investigating.`,
+      duration: 10_000,
+    });
     await generateCauseEffectReportPDF(bundle);
   }
 }
