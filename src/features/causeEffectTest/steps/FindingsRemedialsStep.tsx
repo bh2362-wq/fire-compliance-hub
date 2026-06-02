@@ -10,10 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, Trash2, Wand2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Wand2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
+import { AIDefectQuoteDialog } from "@/components/defects/AIDefectQuoteDialog";
+import type { Defect, DefectCategory } from "@/services/defectService";
 import type { CauseEffectTestReport } from "../useCauseEffectTestDraft";
 
 interface Props {
@@ -84,6 +86,12 @@ export function FindingsRemedialsStep({ report, onPatch, reportId, visitId, site
   // worth importing.
   const [defectCount, setDefectCount] = useState(0);
   const [importing, setImporting] = useState(false);
+  // "Generate quote from remedials" flow — opens the same AI dialog
+  // the Defects page uses, but with remedials adapted into Defect-shape
+  // and a custom onCreated handler that writes back ce_remedials.quotation_id.
+  const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [quoteDefects, setQuoteDefects] = useState<Defect[]>([]);
+  const [openingQuote, setOpeningQuote] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -289,6 +297,69 @@ export function FindingsRemedialsStep({ report, onPatch, reportId, visitId, site
       toast({ title: `Added ${data.length} remedial${data.length === 1 ? "" : "s"} from issues` });
     } finally {
       setGenerating(false);
+    }
+  };
+
+  // Map C&E remedial priority → site_defects category so the AI quote
+  // dialog (which sorts/prioritises by category) treats urgent items
+  // as critical. urgent → cat 1 (critical), routine → cat 3 (non-urgent).
+  const priorityToCategory = (priority: string | null): DefectCategory =>
+    priority === "urgent" ? 1 : 3;
+
+  // Build a Defect-shape array from the current remedials, fetch the
+  // site name (the dialog uses it for the quote title), then open the
+  // shared AIDefectQuoteDialog.
+  const openQuoteDialog = async () => {
+    if (remedials.length === 0) {
+      toast({ title: "No remedials to quote", description: "Add at least one remedial first." });
+      return;
+    }
+    setOpeningQuote(true);
+    try {
+      const { data: site, error } = await (supabase as any)
+        .from("sites").select("name").eq("id", siteId).maybeSingle();
+      if (error) throw error;
+      const siteName = site?.name ?? "site";
+      const mapped: Defect[] = remedials.map((r) => ({
+        id: r.id,
+        description: r.description ?? "Remedial work",
+        category: priorityToCategory(r.priority),
+        location: r.location,
+        site_id: siteId,
+        site_name: siteName,
+      }));
+      setQuoteDefects(mapped);
+      setQuoteDialogOpen(true);
+    } catch (e) {
+      toast({
+        title: "Couldn't open quote dialog",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+    } finally {
+      setOpeningQuote(false);
+    }
+  };
+
+  // When the quote is created, backlink the ce_remedials rows so the
+  // C&E report and the quote know about each other.
+  const handleQuoteCreated = async (quotationId?: string) => {
+    if (!quotationId) return;
+    const ids = quoteDefects.map((d) => d.id);
+    if (ids.length === 0) return;
+    const { error } = await (supabase as any)
+      .from("ce_remedials")
+      .update({ quotation_id: quotationId })
+      .in("id", ids);
+    if (error) {
+      console.error("ce_remedials quotation_id backlink failed:", error);
+      // Don't block the engineer — the quote exists, the trace is just
+      // missing. Surface a soft warning.
+      toast({
+        title: "Quote created — backlink failed",
+        description: "The remedials list won't show which quote they're in. Quote itself is fine.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -527,6 +598,23 @@ export function FindingsRemedialsStep({ report, onPatch, reportId, visitId, site
                 Generate from issues
               </Button>
             )}
+            {remedials.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={openQuoteDialog}
+                disabled={openingQuote}
+                title="Roll the remedials into an AI-drafted customer quote"
+              >
+                {openingQuote ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5 mr-1" />
+                )}
+                Generate quote
+              </Button>
+            )}
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={addRemedial}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Add
             </Button>
@@ -593,6 +681,15 @@ export function FindingsRemedialsStep({ report, onPatch, reportId, visitId, site
           </>
         )}
       </section>
+
+      <AIDefectQuoteDialog
+        open={quoteDialogOpen}
+        onOpenChange={setQuoteDialogOpen}
+        defects={quoteDefects}
+        skipDefectLink
+        itemLabel={{ singular: "remedial", plural: "remedials" }}
+        onQuoteCreated={handleQuoteCreated}
+      />
     </div>
   );
 }

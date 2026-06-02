@@ -24,7 +24,19 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   defects: Defect[];
-  onQuoteCreated: () => void;
+  /** Receives the new quotation id so callers can do source-specific
+      backlinking (e.g. update ce_remedials.quotation_id when sourced
+      from a C&E remedials list). Existing defect-page caller can
+      keep ignoring the argument. */
+  onQuoteCreated: (quotationId?: string) => void;
+  /** When true, skips the per-defect site_defects.status='quoted'
+      writeback. Use this when the "defects" array isn't really
+      site_defects rows — e.g. when ce_remedials are passed in
+      Defect shape for the quote UI. */
+  skipDefectLink?: boolean;
+  /** Override default badge / heading wording when the source isn't
+      defects (e.g. "remedials"). */
+  itemLabel?: { singular: string; plural: string };
 }
 
 function catIcon(cat: number) {
@@ -41,7 +53,11 @@ const BUCKET_META: Record<BucketKey, { label: string; icon: typeof Briefcase; sh
   extras:    { label: "Extras",    icon: Receipt,   showRegRef: false },
 };
 
-export function AIDefectQuoteDialog({ open, onOpenChange, defects, onQuoteCreated }: Props) {
+export function AIDefectQuoteDialog({
+  open, onOpenChange, defects, onQuoteCreated,
+  skipDefectLink = false,
+  itemLabel = { singular: "defect", plural: "defects" },
+}: Props) {
   const navigate = useNavigate();
   const {
     status, error, scopeContent, setScopeContent, lineItems, setLineItems, generate, reset, toLineItemRows, totals,
@@ -120,7 +136,7 @@ export function AIDefectQuoteDialog({ open, onOpenChange, defects, onQuoteCreate
         job_category: "reactive_remedial",
         // Spread inherited metadata (only non-null fields are present).
         ...inherited.values,
-        notes: `Remedial works quotation generated from ${defects.length} defect${defects.length !== 1 ? "s" : ""} identified during site inspection. Defect IDs: ${defects.map(d => d.id).join(", ")}${inherited.sourceQuotationNumber ? `\nMetadata inherited from ${inherited.sourceQuotationNumber} (${inherited.fieldsFound.length} field${inherited.fieldsFound.length !== 1 ? "s" : ""}).` : ""}`,
+        notes: `Remedial works quotation generated from ${defects.length} ${defects.length !== 1 ? itemLabel.plural : itemLabel.singular} identified during site inspection. Source IDs: ${defects.map(d => d.id).join(", ")}${inherited.sourceQuotationNumber ? `\nMetadata inherited from ${inherited.sourceQuotationNumber} (${inherited.fieldsFound.length} field${inherited.fieldsFound.length !== 1 ? "s" : ""}).` : ""}`,
       };
 
       const { data: quotation, error: qErr } = await supabase
@@ -137,13 +153,19 @@ export function AIDefectQuoteDialog({ open, onOpenChange, defects, onQuoteCreate
         if (liErr) throw liErr;
       }
 
-      await Promise.all(defects.map(d =>
-        updateDefect(d.id, { status: "quoted", quotation_id: quotation.id }).catch(console.error),
-      ));
+      // Only writeback to site_defects when the caller actually passed
+      // site_defects rows. C&E remedials use the same dialog but their
+      // IDs reference ce_remedials, not site_defects — caller handles
+      // its own backlink via the onQuoteCreated callback.
+      if (!skipDefectLink) {
+        await Promise.all(defects.map(d =>
+          updateDefect(d.id, { status: "quoted", quotation_id: quotation.id }).catch(console.error),
+        ));
+      }
 
       toast.success(`Quote ${quotationNumber} created — opening now`);
       handleClose();
-      onQuoteCreated();
+      onQuoteCreated(quotation.id);
       navigate(`/dashboard/quotations`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create quotation";
@@ -163,7 +185,7 @@ export function AIDefectQuoteDialog({ open, onOpenChange, defects, onQuoteCreate
             <Sparkles className="h-5 w-5 text-primary" />
             AI Remedial Works Quote
             <Badge variant="outline" className="text-[10px] ml-1">
-              {defects.length} defect{defects.length !== 1 ? "s" : ""} selected
+              {defects.length} {defects.length !== 1 ? itemLabel.plural : itemLabel.singular} selected
             </Badge>
           </DialogTitle>
         </DialogHeader>
@@ -173,7 +195,7 @@ export function AIDefectQuoteDialog({ open, onOpenChange, defects, onQuoteCreate
           {/* Selected defects summary */}
           <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Defects being quoted
+              {itemLabel.plural[0].toUpperCase() + itemLabel.plural.slice(1)} being quoted
             </p>
             {defects
               .slice().sort((a, b) => a.category - b.category)
