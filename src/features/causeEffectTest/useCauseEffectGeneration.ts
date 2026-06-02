@@ -86,6 +86,17 @@ async function readFunctionError(err: unknown, fallback: string): Promise<string
 // jsPDF generator used to be invoked with.
 export async function downloadCauseEffectReportPdf(reportId: string): Promise<void> {
   const bundle = await loadCauseEffectReportBundle(reportId);
+  // Sanity probe: prove this version of the client code is actually
+  // running. If the user clicks Generate PDF and nothing turns up
+  // in the console after this line, the Azure SWA bundle is still
+  // pre-PR-104 — i.e. cache or deploy lag.
+  console.log("[C&E PDF] downloadCauseEffectReportPdf invoked", {
+    reportId,
+    engineer_signature_set: !!(bundle.report as { engineer_signature?: unknown }).engineer_signature,
+    engineer_signature_starts: ((bundle.report as { engineer_signature?: unknown }).engineer_signature as string | undefined)?.slice?.(0, 40),
+    client_signature_set: !!(bundle.report as { client_signature?: unknown }).client_signature,
+    client_signature_starts: ((bundle.report as { client_signature?: unknown }).client_signature as string | undefined)?.slice?.(0, 40),
+  });
 
   try {
     const docxRes = await supabase.functions.invoke("generate-cause-effect-docx", { body: bundle });
@@ -96,11 +107,20 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
     const docx = docxRes.data as DocxResponse | null;
     if (!docx?.storage_path) throw new Error("DOCX generator did not return a storage path");
 
-    // Log signature embed diagnostics conspicuously so we can see why
-    // signatures didn't land without needing Supabase function logs.
+    // Aggressive logging so we can spot deploy lag — log the WHOLE
+    // response shape from generate-cause-effect-docx. Old function
+    // versions return no signature_diagnostics field; new ones do.
+    // Either way the engineer can pop DevTools and see exactly what
+    // came back without needing Supabase function logs access.
+    console.log("[C&E DOCX] generate-cause-effect-docx response:", docx);
     const sigDiag = (docx as unknown as { signature_diagnostics?: Record<string, unknown> }).signature_diagnostics;
     if (sigDiag) {
       console.log("[C&E DOCX] Signature embed diagnostics:", sigDiag);
+    } else {
+      console.warn(
+        "[C&E DOCX] No signature_diagnostics field — the edge function deployed on Supabase " +
+        "is still the older version. Wait for Lovable to redeploy or manually retrigger the function.",
+      );
     }
 
     const pdfRes = await supabase.functions.invoke("convert-quote-pdf", {
