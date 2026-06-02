@@ -96,6 +96,13 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
     const docx = docxRes.data as DocxResponse | null;
     if (!docx?.storage_path) throw new Error("DOCX generator did not return a storage path");
 
+    // Log signature embed diagnostics conspicuously so we can see why
+    // signatures didn't land without needing Supabase function logs.
+    const sigDiag = (docx as unknown as { signature_diagnostics?: Record<string, unknown> }).signature_diagnostics;
+    if (sigDiag) {
+      console.log("[C&E DOCX] Signature embed diagnostics:", sigDiag);
+    }
+
     const pdfRes = await supabase.functions.invoke("convert-quote-pdf", {
       body: { docx_storage_path: docx.storage_path, bucket: "ce-outputs" },
     });
