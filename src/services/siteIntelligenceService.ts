@@ -119,7 +119,7 @@ export async function getSiteIntelligence(siteId: string): Promise<SiteIntellige
 
   const [siteRes, assetsRes, contractRes, certRes, defectsRes] = await Promise.all([
     sb.from("sites")
-      .select("id, name, address, city, postcode, contact_name, contact_email, contact_phone, access_notes, parking_notes, gate_code, total_devices")
+      .select("id, name, address, city, postcode, contact_name, contact_email, contact_phone, access_notes, parking_notes, gate_code, total_devices, bs5839_category, building_type, occupancy_type, panel_make_model, num_loops, num_zones, arc_connected, has_pava")
       .eq("id", siteId).single(),
     sb.from("site_assets")
       .select("asset_type, item_name, manufacturer, model, location, zones_count, loops_count, notes, created_at")
@@ -170,13 +170,35 @@ export async function getSiteIntelligence(siteId: string): Promise<SiteIntellige
     panelAssets[0] ?? null;
   const totalLoops = panelAssets.reduce((sum, a) => sum + (a.loops_count ?? 0), 0);
   const totalZones = panelAssets.reduce((sum, a) => sum + (a.zones_count ?? 0), 0);
-  const panel = primaryPanel ? {
-    manufacturer: primaryPanel.manufacturer,
-    model: primaryPanel.model,
-    loops_count: totalLoops || primaryPanel.loops_count,
-    zones_count: totalZones || primaryPanel.zones_count,
-    location: primaryPanel.location,
-    age_years: yearsBetween(primaryPanel.created_at),
+
+  // sites.panel_make_model is the engineer's direct entry on the Site
+  // form — most authoritative. Often shaped as "Gent Vigilon" or
+  // "Honeywell Notifier ID3000". Split the first token off as
+  // manufacturer; remainder is model. If there's no space, treat the
+  // whole string as a model only (engineer can correct in the dialog).
+  let siteManufacturer: string | null = null;
+  let siteModel: string | null = null;
+  if (siteRow.panel_make_model) {
+    const raw = String(siteRow.panel_make_model).trim();
+    const firstSpace = raw.indexOf(" ");
+    if (firstSpace > 0) {
+      siteManufacturer = raw.slice(0, firstSpace);
+      siteModel = raw.slice(firstSpace + 1).trim() || null;
+    } else {
+      siteModel = raw;
+    }
+  }
+
+  // Build the merged panel object. Precedence: site row direct entry >
+  // primary panel asset. (loops/zones fall back to assets aggregate.)
+  const haveAnyPanel = !!(siteManufacturer || siteModel || primaryPanel || siteRow.num_loops || siteRow.num_zones);
+  const panel = haveAnyPanel ? {
+    manufacturer: siteManufacturer ?? primaryPanel?.manufacturer ?? null,
+    model:        siteModel        ?? primaryPanel?.model        ?? null,
+    loops_count:  (siteRow.num_loops as number | null) ?? (totalLoops || primaryPanel?.loops_count) ?? null,
+    zones_count:  (siteRow.num_zones as number | null) ?? (totalZones || primaryPanel?.zones_count) ?? null,
+    location:     primaryPanel?.location ?? null,
+    age_years:    yearsBetween(primaryPanel?.created_at),
   } : null;
 
   // ── Devices aggregate ────────────────────────────────────────────────────────
@@ -220,30 +242,39 @@ export async function getSiteIntelligence(siteId: string): Promise<SiteIntellige
       if (meta[k] === true) assetFlags[k] = true;
     }
   }
+  // Site row direct flags take precedence over cert/asset-derived ones —
+  // an engineer's tick on the Site form is the most authoritative source
+  // for "this site has ARC monitoring" or "this site has voice alarm".
   const features = {
-    arc_signal:    !!(certFeatures.arc_signal    ?? certPayload.arc_signal    ?? assetFlags.arc_signal),
-    voice_alarm:   !!(certFeatures.voice_alarm   ?? certPayload.voice_alarm   ?? assetFlags.voice_alarm),
+    arc_signal:    !!(siteRow.arc_connected ?? certFeatures.arc_signal    ?? certPayload.arc_signal    ?? assetFlags.arc_signal),
+    voice_alarm:   !!(siteRow.has_pava      ?? certFeatures.voice_alarm   ?? certPayload.voice_alarm   ?? assetFlags.voice_alarm),
     wireless:      !!(certFeatures.wireless      ?? certPayload.wireless      ?? assetFlags.wireless),
     bms_interface: !!(certFeatures.bms_interface ?? certPayload.bms_interface ?? assetFlags.bms_interface),
     lift_recall:   !!(certFeatures.lift_recall   ?? certPayload.lift_recall   ?? assetFlags.lift_recall),
   };
 
-  // ── Building (from latest cert payload) ──────────────────────────────────────
-  const building = (certPayload.building_type || certPayload.premises_type || certPayload.occupancy_type) ? {
-    type: (certPayload.building_type ?? certPayload.premises_type ?? null) as string | null,
-    occupancy: (certPayload.occupancy_type ?? null) as string | null,
+  // ── Building — sites row direct entry beats cert payload ────────────────────
+  const buildingType     = (siteRow.building_type   as string | null) ?? (certPayload.building_type ?? certPayload.premises_type ?? null);
+  const buildingOccupancy = (siteRow.occupancy_type as string | null) ?? (certPayload.occupancy_type ?? null);
+  const building = (buildingType || buildingOccupancy) ? {
+    type: buildingType,
+    occupancy: buildingOccupancy,
     storeys: typeof certPayload.storeys === "number" ? (certPayload.storeys as number) : null,
   } : null;
 
   // ── Contract (find fire alarm contract first, else first) ────────────────────
+  // sites.bs5839_category is the most authoritative category source —
+  // engineers set it directly on the Site form. Fall back to inferring
+  // from contract description / notes / cert payload.
   const fireContract = contracts.find(c => /fire[_ ]alarm/i.test(c.service_type ?? "")) ?? contracts[0] ?? null;
-  // Try to infer category from contract description / notes ("L1", "L2", "P1"…)
   const categoryMatch = (fireContract?.description || fireContract?.notes || "").match(/\b(L[1-5]|P[12]|M)\b/);
-  const contract = fireContract ? {
-    category: categoryMatch?.[1] ?? ((certPayload.system_categories as string) ?? null),
-    frequency: fireContract.frequency ?? null,
-    service_type: fireContract.service_type ?? null,
-    included_visits: fireContract.included_visits ?? null,
+  const resolvedCategory =
+    (siteRow.bs5839_category as string | null) ?? categoryMatch?.[1] ?? ((certPayload.system_categories as string) ?? null);
+  const contract = (fireContract || resolvedCategory) ? {
+    category: resolvedCategory,
+    frequency: fireContract?.frequency ?? null,
+    service_type: fireContract?.service_type ?? null,
+    included_visits: fireContract?.included_visits ?? null,
   } : null;
 
   // ── Tagging (search panel notes first, then any asset) ───────────────────────
