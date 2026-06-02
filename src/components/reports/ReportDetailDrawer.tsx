@@ -119,7 +119,7 @@ export function ReportDetailDrawer({
           console.error("Drawer C&E remedial load failed:", error);
           setDefects([]);
         } else {
-          const rows = (data ?? []) as Array<{
+          const rows = (data ?? []) as unknown as Array<{
             id: string;
             description: string | null;
             location: string | null;
