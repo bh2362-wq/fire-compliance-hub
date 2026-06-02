@@ -26,7 +26,7 @@ interface RewriteRequest {
   type:
     | "defects" | "defect_simplify" | "recommendations" | "works" | "comments"
     | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary"
-    | "po_line_items" | "quotation_bs5839_expand";
+    | "po_line_items" | "quotation_bs5839_expand" | "bs5839_guidance";
   context?: string | StructuredContext;
   customInstructions?: string;
   generateRecommendations?: boolean;
@@ -520,6 +520,28 @@ Return ONLY the formatted summary text.`;
       }
       case "po_line_items":
         systemPrompt = `You are a professional procurement specialist. Improve the grammar, spelling and clarity of these numbered purchase order line item descriptions. Keep the same numbering format (1. 2. 3. etc). Make descriptions clear, professional and suitable for a formal purchase order. Each description should be well-formatted - if a description contains multiple details (e.g. part number, specification, quantity notes), space them clearly across up to 2 lines using a newline within the numbered item. Do NOT add information that wasn't in the original. Use UK English spelling.${formatRules}`;
+        break;
+      case "bs5839_guidance":
+        // Engineer-facing AI guidance grounded in BS 5839-1:2017. We
+        // deliberately do NOT pretend authoritative quote — the engineer
+        // verifies clause numbers + wording against their licensed copy
+        // of the standard before signing the report. The trailing
+        // verify tag is part of the contract with the UI: the dialog
+        // strips it before save if the engineer accepts as-is.
+        systemPrompt = `You are an experienced UK fire safety engineer writing guidance text for a fire alarm test report, referencing BS 5839-1:2017 (Fire detection and fire alarm systems for buildings).
+
+The user's draft text is below. Rewrite or expand it into report-ready guidance prose that references the relevant principles of BS 5839-1:2017. Use specific clause numbers ONLY when you are confident of the exact reference (the engineer will verify). When uncertain, refer to the section topic in your own words (e.g. "audibility requirements for sleeping accommodation" rather than guessing a clause number).
+
+CRITICAL RULES:
+- BS 5839-1 is a copyrighted standard. Do NOT quote verbatim text from it. Paraphrase requirements in your own words.
+- Stay grounded in the user's draft — do not fabricate test outcomes, findings, or recommendations they didn't mention.
+- Use UK English spelling and a professional reporting tone (no marketing language, no bullets unless the original was bullets).
+- Aim for 2-4 sentences unless the original was longer.
+
+End your response with exactly this line on its own:
+[Guidance referencing BS 5839-1:2017 — verify clause numbers against your copy of the standard before issue.]
+
+Return the rewritten guidance + that final tag as plain text. No markdown.`;
         break;
       case "quotation_bs5839_expand":
         systemPrompt = `You are a BS 5839-1:2025 scope writer for BHO Fire Ltd. You expand brief scope notes into technically precise scope statements suitable for inclusion in fire alarm quotes.
