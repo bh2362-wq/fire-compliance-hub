@@ -33,6 +33,26 @@ function computeResult(alarm: number | null, required: number | null): "pass" | 
   return alarm >= required ? "pass" : "fail";
 }
 
+// Render NaN / non-finite stored values as an empty input rather than the
+// string "NaN". The previous `value={x ?? ""}` only caught null/undefined,
+// so once a NaN landed in state (e.g. from a paste, or a legacy row whose
+// dB was saved as NaN before the migration that tightened the column),
+// the field froze: "NaN" rendered, Number("NaN") came back NaN, and the
+// engineer couldn't backspace through to a recoverable empty state.
+function dbInputValue(n: number | null): number | "" {
+  return typeof n === "number" && Number.isFinite(n) ? n : "";
+}
+
+// Parse the input text back to number | null. Treats both empty string
+// and unparseable text as null so an engineer halfway through typing
+// (e.g. "-" before the digits) doesn't write NaN to state and re-trigger
+// the freeze.
+function parseDbInput(raw: string): number | null {
+  if (raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 export function AudibilityStep({ report, onPatch, reportId }: Props) {
   const { toast } = useToast();
   const [readings, setReadings] = useState<Reading[]>([]);
@@ -200,9 +220,9 @@ export function AudibilityStep({ report, onPatch, reportId }: Props) {
                   <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Ambient dB(A)</Label>
                   <Input
                     inputMode="decimal"
-                    value={row.ambient_db ?? ""}
+                    value={dbInputValue(row.ambient_db)}
                     onChange={(e) =>
-                      updateRow(row, { ambient_db: e.target.value === "" ? null : Number(e.target.value) })
+                      updateRow(row, { ambient_db: parseDbInput(e.target.value) })
                     }
                   />
                 </div>
@@ -210,9 +230,9 @@ export function AudibilityStep({ report, onPatch, reportId }: Props) {
                   <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Alarm dB(A)</Label>
                   <Input
                     inputMode="decimal"
-                    value={row.alarm_db ?? ""}
+                    value={dbInputValue(row.alarm_db)}
                     onChange={(e) =>
-                      updateRow(row, { alarm_db: e.target.value === "" ? null : Number(e.target.value) })
+                      updateRow(row, { alarm_db: parseDbInput(e.target.value) })
                     }
                   />
                 </div>
@@ -220,9 +240,9 @@ export function AudibilityStep({ report, onPatch, reportId }: Props) {
                   <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Required dB(A)</Label>
                   <Input
                     inputMode="decimal"
-                    value={row.required_db ?? ""}
+                    value={dbInputValue(row.required_db)}
                     onChange={(e) =>
-                      updateRow(row, { required_db: e.target.value === "" ? null : Number(e.target.value) })
+                      updateRow(row, { required_db: parseDbInput(e.target.value) })
                     }
                   />
                 </div>
