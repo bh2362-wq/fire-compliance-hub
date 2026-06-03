@@ -12,7 +12,10 @@ import { Step5Departure } from "./steps/Step5Departure";
 import { Step6SignOff } from "./steps/Step6SignOff";
 import { buildCalloutReportInput } from "@/services/calloutReportService";
 import { generateCalloutReportPDF } from "@/lib/calloutReportPdfGenerator";
-import { downloadCalloutReportDocx } from "@/services/calloutDocxService";
+import {
+  downloadCalloutReportDocx,
+  downloadCalloutReportPdfViaCloud,
+} from "@/services/calloutDocxService";
 
 // CalloutWizard — replaces the old VisitCalloutPanel 4-section form
 // with a 6-step flow that mirrors the on-site sequence:
@@ -73,9 +76,26 @@ export function CalloutWizard({ visitId }: Props) {
       // just made — avoids the "I clicked Generate but my last edit
       // isn't in the file" surprise.
       await state.save();
-      const input = await buildCalloutReportInput(visitId);
-      await generateCalloutReportPDF(input);
-      toast.success("Callout Report downloaded");
+      try {
+        // Preferred path: cloud DOCX→PDF via MS Graph, same chain as
+        // C&E and quotes. Gives an Office-rendered PDF that matches
+        // the .docx pixel-for-pixel.
+        await downloadCalloutReportPdfViaCloud(visitId);
+        toast.success("Callout Report downloaded");
+      } catch (cloudErr) {
+        // Cloud chain unavailable (storage RLS, MS Graph creds, deploy
+        // lag, etc). Fall back to the legacy in-browser jsPDF
+        // generator so the engineer always gets *a* PDF. Same fallback
+        // strategy as useCauseEffectGeneration.
+        const msg = cloudErr instanceof Error ? cloudErr.message : String(cloudErr);
+        console.error("[Callout PDF] cloud path failed; falling back to jsPDF:", cloudErr);
+        toast.warning("Using legacy PDF format", {
+          description: `Cloud generator unavailable: ${msg}`,
+          duration: 10_000,
+        });
+        const input = await buildCalloutReportInput(visitId);
+        await generateCalloutReportPDF(input);
+      }
     } catch (e) {
       toast.error((e as Error).message || "Could not generate PDF");
     } finally {

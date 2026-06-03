@@ -95,6 +95,7 @@ export async function buildCalloutReportInput(
 
   return {
     ref,
+    visitId,
     visitDate: v.visit_date,
     priority: v.priority,
     priorityLabel: priorityLabel(v.priority),

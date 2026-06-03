@@ -1,11 +1,16 @@
-// Callout report DOCX generator — first cut.
+// Callout report DOCX generator.
 //
 // Architecture: opens the BHO callout template (assets/callout-
-// template-baseline.docx, embedded as base64 in _template-data.ts so
-// we don't need a separate storage upload step), runs placeholder
-// substitution against the bundle the client posts, and returns the
-// filled DOCX as base64 in the response body so the frontend can
-// download it without a storage roundtrip.
+// template-baseline.docx, embedded as base64 in _template-data.ts),
+// runs placeholder substitution against the bundle the client posts,
+// uploads the filled DOCX to the callout-outputs bucket, and returns
+// the storage path + a signed download URL. The follow-on
+// convert-quote-pdf invocation (with bucket: "callout-outputs") then
+// renders the PDF.
+//
+// docx_base64 is also returned for callers that want the DOCX in-line
+// without a second roundtrip (the "Save & download DOCX" wizard
+// button still uses that path).
 //
 // Template note: the baseline is a copy of the C&E template — same
 // BHO styling, but the placeholders are C&E-flavoured. The
@@ -20,8 +25,11 @@
 // behaviour from the PR scoping question. Refinement pass on the
 // template will swap those for callout-specific sections.
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import JSZip from "npm:jszip@3.10.1";
 import { CALLOUT_TEMPLATE_BASE64 } from "./_template-data.ts";
+
+const BUCKET = "callout-outputs";
 
 // ──────────────────────────────────────────────────────────────────────
 // CORS — matches every other edge function in the project.
@@ -38,6 +46,10 @@ const CORS = {
 
 interface Bundle {
   ref: string;
+  // Visit id from the wizard. Used as the storage path prefix so each
+  // visit has a stable, predictable upload location (one DOCX per
+  // visit; upsert overwrites on regenerate).
+  visitId?: string;
   visitDate: string | null;
   priorityLabel: string | null;
   commercialLabel: string | null;
@@ -246,19 +258,68 @@ Deno.serve(async (req) => {
 
     const out = await zip.generateAsync({
       type: "uint8array",
+      // DEFLATE not STORED — MS Graph's headless DOCX→PDF converter
+      // rejects STORED zips with "cannotOpenFile". Same constraint
+      // the quote + C&E pipelines hit.
       compression: "DEFLATE",
     });
 
+    // Upload to the callout-outputs bucket so convert-quote-pdf can
+    // turn this into a PDF in a follow-on call. Service role key so
+    // we can write regardless of the caller's RLS context. visitId
+    // is the path prefix when provided — gives each visit a stable
+    // location (upsert overwrites on regenerate). Falls back to ref
+    // for callers that haven't been updated to send visitId yet.
+    const pathPrefix = bundle.visitId ?? bundle.ref ?? crypto.randomUUID();
+    const storagePath = `${pathPrefix}/callout-report.docx`;
+
+    let signedUrl: string | null = null;
+    let uploadError: string | null = null;
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(storagePath, out, {
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        upsert: true,
+      });
+      if (upErr) throw upErr;
+      const { data: signed, error: signErr } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(storagePath, 3600);
+      if (signErr || !signed) throw signErr ?? new Error("signed-url returned no data");
+      signedUrl = signed.signedUrl;
+    } catch (err) {
+      // Storage failure shouldn't kill the response — the docx_base64
+      // path still works for direct-download callers. Surface the
+      // reason via diagnostics so the frontend can fall back to
+      // in-browser PDF and log why.
+      uploadError = err instanceof Error ? err.message : String(err);
+      console.error("[generate-callout-docx] storage upload failed:", uploadError);
+    }
+
     return new Response(
       JSON.stringify({
+        // Storage path + signed URL for the cloud DOCX→PDF chain.
+        // null when the upload failed; callers should fall back to
+        // docx_base64 or the legacy in-browser PDF generator.
+        storage_path: uploadError ? null : storagePath,
+        signed_url: signedUrl,
+        bucket: BUCKET,
+        // Back-compat: in-line DOCX bytes for direct-download. Same
+        // payload as PR #132 so the wizard's "Save & download DOCX"
+        // button keeps working with no frontend change.
         docx_base64: bytesToBase64(out),
         // Diagnostic echo so frontend logs can confirm template
-        // version + how many bytes flowed through. Mirrors the C&E
-        // function's debug-friendly response shape.
+        // version + how many bytes flowed through + whether the
+        // upload landed. Mirrors the C&E function's debug-friendly
+        // response shape.
         diagnostics: {
           template_bytes: templateBytes.length,
           output_bytes: out.length,
           fault_narrative_filled: !!composeFaultNarrative(bundle.fault),
+          storage_upload_error: uploadError,
         },
       }),
       {
