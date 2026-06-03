@@ -428,7 +428,7 @@ export function DevicesStep({ visitId, siteId }: Props) {
   const bulkClearAllFiltered = async () => {
     const targets = filtered.filter((d) => {
       const s = normalize(lookupTest(d)?.status);
-      return s === "passed" || s === "fault";
+      return s === "passed" || s === "failed";
     });
     if (targets.length === 0) {
       toast({ title: "Nothing to clear", description: "No visible devices have test results." });
@@ -620,7 +620,7 @@ export function DevicesStep({ visitId, siteId }: Props) {
 
       {filtered.some((d) => {
         const s = normalize(lookupTest(d)?.status);
-        return s === "passed" || s === "fault";
+        return s === "passed" || s === "failed";
       }) && (
         <Button
           type="button"
@@ -633,7 +633,7 @@ export function DevicesStep({ visitId, siteId }: Props) {
           {bulkBusy ? (
             <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Clearing…</>
           ) : (
-            <><Eraser className="w-3.5 h-3.5 mr-1.5" /> Clear test results on {filtered.filter((d) => { const s = normalize(lookupTest(d)?.status); return s === "passed" || s === "fault"; }).length} visible</>
+            <><Eraser className="w-3.5 h-3.5 mr-1.5" /> Clear test results on {filtered.filter((d) => { const s = normalize(lookupTest(d)?.status); return s === "passed" || s === "failed"; }).length} visible</>
           )}
         </Button>
       )}
