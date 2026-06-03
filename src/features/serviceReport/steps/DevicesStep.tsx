@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Check, X, Search, ArrowLeftRight, RotateCcw } from "lucide-react";
+import { Loader2, Upload, Check, X, Search, ArrowLeftRight, RotateCcw, Eraser } from "lucide-react";
 import { parseCSV, parseTXT, type ParseResult } from "@/lib/parsers/csvParser";
 import { parsePDF } from "@/lib/parsers/pdfParser";
 import { saveFileUpload, ensureManualTicksUploadId } from "@/services/uploadService";
@@ -421,6 +421,48 @@ export function DevicesStep({ visitId, siteId }: Props) {
     }
   };
 
+  // Nuclear version of bulkClearPassFiltered — wipes every test row
+  // (pass and fault) on this visit for the currently filtered devices.
+  // Useful for "imported wrong panel log, start the visit again" without
+  // having to unpick passes and faults separately.
+  const bulkClearAllFiltered = async () => {
+    const targets = filtered.filter((d) => {
+      const s = normalize(lookupTest(d)?.status);
+      return s === "passed" || s === "fault";
+    });
+    if (targets.length === 0) {
+      toast({ title: "Nothing to clear", description: "No visible devices have test results." });
+      return;
+    }
+    const label = categoryFilter ? CATEGORY_LABELS[categoryFilter].toLowerCase() : "device";
+    if (!window.confirm(
+      `Clear ALL test results on ${targets.length} visible ${label}${targets.length === 1 ? "" : "s"}? Both PASS and FAULT records will be removed for this visit.`,
+    )) return;
+    setBulkBusy(true);
+    try {
+      const ids = targets.map((d) => d.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from("parsed_device_tests")
+        .delete()
+        .eq("visit_id", visitId)
+        .in("device_id", ids);
+      if (error) throw error;
+      toast({ title: `Cleared results on ${targets.length}` });
+      qc.invalidateQueries({ queryKey: ["sr-tests", visitId] });
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : err && typeof err === "object" && "message" in err && typeof (err as { message?: unknown }).message === "string"
+            ? (err as { message: string }).message
+            : JSON.stringify(err);
+      toast({ title: "Couldn't clear", description: message, variant: "destructive" });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -572,6 +614,26 @@ export function DevicesStep({ visitId, siteId }: Props) {
             <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Clearing…</>
           ) : (
             <><RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Clear pass on {filtered.filter((d) => normalize(lookupTest(d)?.status) === "passed").length} visible</>
+          )}
+        </Button>
+      )}
+
+      {filtered.some((d) => {
+        const s = normalize(lookupTest(d)?.status);
+        return s === "passed" || s === "fault";
+      }) && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={bulkBusy}
+          onClick={bulkClearAllFiltered}
+        >
+          {bulkBusy ? (
+            <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Clearing…</>
+          ) : (
+            <><Eraser className="w-3.5 h-3.5 mr-1.5" /> Clear test results on {filtered.filter((d) => { const s = normalize(lookupTest(d)?.status); return s === "passed" || s === "fault"; }).length} visible</>
           )}
         </Button>
       )}
