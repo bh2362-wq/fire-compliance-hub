@@ -51,6 +51,8 @@ import CustomerForms from "./pages/CustomerForms";
 import RoutePlanner from "./pages/RoutePlanner";
 import SmartForms from "./pages/SmartForms";
 import Defects from "./pages/Defects";
+import Tenders from "./pages/Tenders";
+import TenderLibrary from "./pages/TenderLibrary";
 
 // ── NEW: Certificate Tracker ──
 import CertTracker from "./pages/CertTracker";
@@ -294,6 +296,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Quotations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/tenders"
+              element={
+                <ProtectedRoute>
+                  <Tenders />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/tender-library"
+              element={
+                <ProtectedRoute>
+                  <TenderLibrary />
                 </ProtectedRoute>
               }
             />
