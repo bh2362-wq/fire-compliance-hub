@@ -741,6 +741,48 @@ export type Database = {
           },
         ]
       }
+      company_documents: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          expires_at: string | null
+          file_storage_path: string | null
+          file_url: string | null
+          id: string
+          is_archived: boolean | null
+          title: string
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          file_storage_path?: string | null
+          file_url?: string | null
+          id?: string
+          is_archived?: boolean | null
+          title: string
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          file_storage_path?: string | null
+          file_url?: string | null
+          id?: string
+          is_archived?: boolean | null
+          title?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
       company_settings: {
         Row: {
           address: string | null
@@ -6008,6 +6050,126 @@ export type Database = {
           status?: string
           updated_at?: string
           xero_contact_id?: string | null
+        }
+        Relationships: []
+      }
+      tender_pack_items: {
+        Row: {
+          company_document_id: string | null
+          created_at: string
+          custom_title: string | null
+          custom_url: string | null
+          id: string
+          notes: string | null
+          sort_order: number
+          tender_id: string
+        }
+        Insert: {
+          company_document_id?: string | null
+          created_at?: string
+          custom_title?: string | null
+          custom_url?: string | null
+          id?: string
+          notes?: string | null
+          sort_order?: number
+          tender_id: string
+        }
+        Update: {
+          company_document_id?: string | null
+          created_at?: string
+          custom_title?: string | null
+          custom_url?: string | null
+          id?: string
+          notes?: string | null
+          sort_order?: number
+          tender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tender_pack_items_company_document_id_fkey"
+            columns: ["company_document_id"]
+            isOneToOne: false
+            referencedRelation: "company_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tender_pack_items_tender_id_fkey"
+            columns: ["tender_id"]
+            isOneToOne: false
+            referencedRelation: "tenders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenders: {
+        Row: {
+          buyer_name: string | null
+          buyer_org: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          deadline_at: string | null
+          description: string | null
+          discovered_at: string
+          id: string
+          notes: string | null
+          published_at: string | null
+          region: string | null
+          source: string
+          source_id: string | null
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+          url: string | null
+          value_max: number | null
+          value_min: number | null
+        }
+        Insert: {
+          buyer_name?: string | null
+          buyer_org?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          deadline_at?: string | null
+          description?: string | null
+          discovered_at?: string
+          id?: string
+          notes?: string | null
+          published_at?: string | null
+          region?: string | null
+          source?: string
+          source_id?: string | null
+          status?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          url?: string | null
+          value_max?: number | null
+          value_min?: number | null
+        }
+        Update: {
+          buyer_name?: string | null
+          buyer_org?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          deadline_at?: string | null
+          description?: string | null
+          discovered_at?: string
+          id?: string
+          notes?: string | null
+          published_at?: string | null
+          region?: string | null
+          source?: string
+          source_id?: string | null
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+          value_max?: number | null
+          value_min?: number | null
         }
         Relationships: []
       }
