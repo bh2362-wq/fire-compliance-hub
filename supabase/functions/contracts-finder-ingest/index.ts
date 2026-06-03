@@ -184,7 +184,11 @@ Deno.serve(async (req) => {
 
     const cfRes = await fetch(CF_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent": "fire-compliance-hub/1.0 (+https://github.com/bh2362-wq/fire-compliance-hub)",
+      },
       body: JSON.stringify({
         searchCriteria: {
           types: ["Contract"],

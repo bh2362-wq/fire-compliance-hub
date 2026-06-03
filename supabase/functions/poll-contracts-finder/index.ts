@@ -67,9 +67,15 @@ Deno.serve(async (req) => {
 
     // Contracts Finder API v2: query OPEN notices (currently being procured)
     // with fire-safety CPV codes, within the published-date window.
+    // User-Agent is required — CF started returning 403 to anonymous /
+    // Deno-default UAs in mid-2026. Identify the app + a contact URL.
     const cfRes = await fetch(CF_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent": "fire-compliance-hub/1.0 (+https://github.com/bh2362-wq/fire-compliance-hub)",
+      },
       body: JSON.stringify({
         searchCriteria: {
           types: ["Contract"],
