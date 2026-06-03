@@ -84,6 +84,46 @@ export interface CalloutReportInput {
   partsUsed?: string | null;
   outstandingWorks?: string | null;
 
+  // Wizard step 2/3 — full work narrative + defects, sitting alongside
+  // the shorter fault.found / fault.actionTaken used in the PDF
+  // sign-off blocks. The DOCX generator prefers the long form when
+  // present so the report shows the full diagnosis story.
+  workCarriedOut?: string | null;
+  defectsFound?: string | null;
+
+  // Wizard step 4 — material costs the DOCX renders in §4. The PDF
+  // generator only knows partsUsed; the wizard captures labour hours
+  // + mileage separately, which the DOCX surfaces in their own rows.
+  labourHours?: number | null;
+  mileageMiles?: number | null;
+
+  // Wizard step 2/5 — isolation note. Same field captures both
+  // arrival isolation and departure isolation; the wizard updates it
+  // in place as the engineer works. Surfaced in §5 of the DOCX.
+  isolationDetails?: string | null;
+
+  // Wizard step 5 — recommendations + free-form notes. Both go into
+  // §5 of the DOCX; recommendations gets the headline slot, notes the
+  // follow-up slot below it.
+  recommendations?: string | null;
+  followupNotes?: string | null;
+
+  // Wizard step 6 — captured from service_reports.client_sign_position.
+  // Renders next to the client name in §6 of the DOCX. The PDF
+  // generator doesn't show position; only the DOCX does.
+  clientSignPosition?: string | null;
+
+  // Wizard step 2 — §2 evidence photos. Loaded from the
+  // callout_photos table + signed for storage download by the bundle
+  // builder. The DOCX generator renders these in a captioned grid as
+  // Appendix A at the end of the document.
+  photos?: Array<{
+    storage_path: string;
+    caption: string | null;
+    ordinal: number;
+    signed_url?: string | null;
+  }>;
+
   engineerSignature?: string | null;
   engineerSignDate?: string | null;
   clientName?: string | null;
