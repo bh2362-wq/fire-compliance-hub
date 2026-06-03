@@ -217,10 +217,10 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
     if (!pdf?.signed_url) throw new Error("PDF converter did not return a signed URL");
 
     // Fetch + trigger a browser download. Filename mirrors the jsPDF
-    // generator's convention: CE_Audibility_{jobNumber}_{date}.pdf.
+    // generator's convention: CE_{jobNumber}_{date}.pdf.
     const jobRef = bundle.visit.job_number ?? bundle.report.id.slice(0, 8);
     const dateStr = bundle.visit.visit_date?.replace(/-/g, "") ?? "report";
-    const filename = `CE_Audibility_${jobRef}_${dateStr}.pdf`;
+    const filename = `CE_${jobRef}_${dateStr}.pdf`;
 
     triggerBrowserDownload(pdf.signed_url, filename);
     toast.success("PDF ready", { description: "Download started in a new tab if your browser blocks direct downloads." });
