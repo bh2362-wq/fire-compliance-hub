@@ -276,7 +276,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
         }
       }
 
-      setQuotation({ ...quotationData, customers: customerData });
+      setQuotation({ source_cause_effect_report_id: null, ...quotationData, customers: customerData } as QuotationFull);
 
       // Best-effort lookup of the source C&E report's number for the
       // header chip. Silent on failure — the chip just won't render.
