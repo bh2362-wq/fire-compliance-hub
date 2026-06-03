@@ -870,9 +870,12 @@ const Reports = () => {
   const openQuoteFromCeReport = async (report: CeReportRow) => {
     setOpeningCeQuote(report.id);
     try {
+      // ce_remedials only has report_id — no site_id column — so the
+      // join through sites can't go via this table. Use the parent
+      // report's site name (already loaded on the row) instead.
       const { data, error } = await (supabase as any)
         .from("ce_remedials")
-        .select("id, description, location, priority, sites:site_id(name)")
+        .select("id, description, location, priority")
         .eq("report_id", report.id);
       if (error) throw error;
       const rows = (data ?? []) as Array<{
@@ -880,7 +883,6 @@ const Reports = () => {
         description: string | null;
         location: string | null;
         priority: string | null;
-        sites: { name: string | null } | null;
       }>;
       if (rows.length === 0) {
         toast.info("No remedials on this C&E report", {
@@ -888,7 +890,7 @@ const Reports = () => {
         });
         return;
       }
-      const siteName = rows[0].sites?.name ?? report.sites?.name ?? "site";
+      const siteName = report.sites?.name ?? "site";
       const mapped: Defect[] = rows.map((r) => ({
         id: r.id,
         description: r.description ?? "Remedial work",
@@ -1133,10 +1135,13 @@ const Reports = () => {
                     onOpenDrawer={() => setDrawerCeReport(report)}
                     onEmail={() => void handleEmailCeReport(report)}
                     onQuoteRemedials={() => void openQuoteFromCeReport(report)}
-                    onGenerateQuotationSummary={() => {
-                      setReportForQuotation(report);
-                      setQuotationDialogOpen(true);
-                    }}
+                    // Deliberately NOT passing onGenerateQuotationSummary —
+                    // ce_audibility_reports has no defects_found /
+                    // recommendations free text, so the AI dialog gets
+                    // nothing real to summarise and confabulates plausible
+                    // remedials. Quote from Defects (above) reads the
+                    // structured ce_remedials rows and is the only honest
+                    // path for C&E.
                     onCreateInvoice={() => void handleCreateInvoice(report)}
                     onToggleInvoiced={() => void handleInvoicedToggle(report.id, !report.invoiced, "ce")}
                     onMarkCompleted={() => void handleStatusChange(report.id, "completed", "ce")}
