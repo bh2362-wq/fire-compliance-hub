@@ -379,6 +379,57 @@ export function DevicesStep({ visitId, siteId }: Props) {
     }
   };
 
+  // Delete parsed_device_tests rows for these targets on this visit.
+  // Two passes because PDF-imported rows leave device_id NULL (uploadService
+  // doesn't resolve them to inventory rows) — but the wizard's checklist
+  // still ticks the device via a fallback (loop, address) lookup, so the
+  // engineer sees "passed" / "fault" on rows the id-IN filter alone misses.
+  //
+  //   pass 1: device_id IN (target ids)        — catches wizard taps
+  //   pass 2: device_id IS NULL AND (loop,addr) — catches PDF imports
+  //
+  // Pass 2 runs per target rather than a giant OR because loop/address are
+  // free-form text and PostgREST's or() filter syntax has no clean escape
+  // for commas/parens/dots. Parallel so 90 targets stays under a second.
+  // Returns the total count cleared for the toast.
+  const deleteTestsForTargets = async (
+    targets: Device[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    extraFilter: (q: any) => any,
+  ): Promise<number> => {
+    const ids = targets.map((d) => d.id);
+    let total = 0;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r1 = await extraFilter((supabase as any)
+      .from("parsed_device_tests")
+      .delete({ count: "exact" })
+      .eq("visit_id", visitId)
+      .in("device_id", ids));
+    if (r1.error) throw r1.error;
+    total += r1.count ?? 0;
+
+    // Pass 2: clear any matching imported rows that never got a device_id.
+    const nullPairs = targets.filter((d) => d.loop != null && d.address != null);
+    if (nullPairs.length > 0) {
+      const results = await Promise.all(nullPairs.map((d) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        extraFilter((supabase as any)
+          .from("parsed_device_tests")
+          .delete({ count: "exact" })
+          .eq("visit_id", visitId)
+          .is("device_id", null)
+          .eq("loop", d.loop)
+          .eq("address", d.address)),
+      ));
+      for (const r of results) {
+        if (r.error) throw r.error;
+        total += r.count ?? 0;
+      }
+    }
+    return total;
+  };
+
   // Inverse of bulkPassFiltered — clear the PASS status on every visible
   // device that's currently marked passed, so the engineer can re-test
   // a scope they ticked in error (e.g. wrong loop bulk-passed, then
@@ -397,16 +448,11 @@ export function DevicesStep({ visitId, siteId }: Props) {
     )) return;
     setBulkBusy(true);
     try {
-      const ids = targets.map((d) => d.id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from("parsed_device_tests")
-        .delete()
-        .eq("visit_id", visitId)
-        .eq("status", "passed")
-        .in("device_id", ids);
-      if (error) throw error;
-      toast({ title: `Cleared pass on ${targets.length}` });
+      const cleared = await deleteTestsForTargets(targets, (q) => q.eq("status", "passed"));
+      toast({
+        title: `Cleared pass on ${cleared} record${cleared === 1 ? "" : "s"}`,
+        description: cleared === 0 ? "Nothing matched on this visit." : undefined,
+      });
       qc.invalidateQueries({ queryKey: ["sr-tests", visitId] });
     } catch (err) {
       const message =
@@ -440,15 +486,11 @@ export function DevicesStep({ visitId, siteId }: Props) {
     )) return;
     setBulkBusy(true);
     try {
-      const ids = targets.map((d) => d.id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from("parsed_device_tests")
-        .delete()
-        .eq("visit_id", visitId)
-        .in("device_id", ids);
-      if (error) throw error;
-      toast({ title: `Cleared results on ${targets.length}` });
+      const cleared = await deleteTestsForTargets(targets, (q) => q);
+      toast({
+        title: `Cleared ${cleared} record${cleared === 1 ? "" : "s"}`,
+        description: cleared === 0 ? "Nothing matched on this visit." : undefined,
+      });
       qc.invalidateQueries({ queryKey: ["sr-tests", visitId] });
     } catch (err) {
       const message =
