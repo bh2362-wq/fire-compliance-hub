@@ -86,6 +86,13 @@ interface Bundle {
   } | null;
   partsUsed?: string | null;
   clientName?: string | null;
+  // Captured signatures from the wizard's Step 6. Either null
+  // (engineer didn't sign) or a base64 data URL ("data:image/png;
+  // base64,iVBORw..."). When set, the function embeds the bitmap
+  // into the DOCX's §9 sign-off line in place of the underscore
+  // glyphs. Mirrors generate-cause-effect-docx.
+  engineerSignature?: string | null;
+  clientSignature?: string | null;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -230,6 +237,216 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Signature embedding — ported from generate-cause-effect-docx.
+//
+// The template's §9 sign-off block has two underscore lines after the
+// "Signature:" labels — one for engineer, one for client. When the
+// wizard captured a signature (saved as a base64 PNG data URL on
+// service_reports.engineer_signature / .client_signature, surfaced on
+// the bundle as engineerSignature / clientSignature), embed the
+// bitmap in place of the line.
+//
+// Doing it from the function rather than via a template placeholder
+// keeps the .docx human-editable — engineers can re-author the
+// template in Word without remembering to preserve obscure tags.
+
+interface ZipLike {
+  file: (name: string, data?: Uint8Array | string) => unknown;
+  files: Record<string, unknown>;
+}
+
+function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; mime: string } | null {
+  const m = /^data:(image\/[a-z+]+);base64,(.+)$/i.exec(dataUrl.trim());
+  if (!m) return null;
+  const mime = m[1].toLowerCase();
+  const bin = atob(m[2]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { bytes, mime };
+}
+
+// EMU = English Metric Units. 914400 per inch. Sized to fit the
+// signature line slot in the C&E-derived template.
+const SIG_WIDTH_EMU = 2160000;  // ~2.36 inches
+const SIG_HEIGHT_EMU = 900000;  // ~0.98 inches
+
+function buildSignatureRun(relId: string, drawingId: number, name: string): string {
+  return (
+    '<w:r>' +
+      '<w:drawing>' +
+        '<wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">' +
+          `<wp:extent cx="${SIG_WIDTH_EMU}" cy="${SIG_HEIGHT_EMU}"/>` +
+          '<wp:effectExtent l="0" t="0" r="0" b="0"/>' +
+          `<wp:docPr id="${drawingId}" name="${name}"/>` +
+          '<wp:cNvGraphicFramePr>' +
+            '<a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/>' +
+          '</wp:cNvGraphicFramePr>' +
+          '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+            '<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+              '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+                '<pic:nvPicPr>' +
+                  `<pic:cNvPr id="${drawingId}" name="${name}"/>` +
+                  '<pic:cNvPicPr/>' +
+                '</pic:nvPicPr>' +
+                '<pic:blipFill>' +
+                  `<a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${relId}"/>` +
+                  '<a:stretch><a:fillRect/></a:stretch>' +
+                '</pic:blipFill>' +
+                '<pic:spPr>' +
+                  '<a:xfrm>' +
+                    '<a:off x="0" y="0"/>' +
+                    `<a:ext cx="${SIG_WIDTH_EMU}" cy="${SIG_HEIGHT_EMU}"/>` +
+                  '</a:xfrm>' +
+                  '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+                '</pic:spPr>' +
+              '</pic:pic>' +
+            '</a:graphicData>' +
+          '</a:graphic>' +
+        '</wp:inline>' +
+      '</w:drawing>' +
+    '</w:r>'
+  );
+}
+
+// Add image bytes to word/media/<name>, register a new relationship
+// in word/_rels/document.xml.rels, and return the rel id.
+async function attachImageRel(
+  zip: ZipLike,
+  relsXml: string,
+  fileName: string,
+  bytes: Uint8Array,
+  preferredRelId: string,
+): Promise<string> {
+  zip.file(`word/media/${fileName}`, bytes);
+  if (relsXml.includes(`Id="${preferredRelId}"`)) return preferredRelId;
+  const rel = `<Relationship Id="${preferredRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fileName}"/>`;
+  const newRels = relsXml.replace("</Relationships>", `${rel}</Relationships>`);
+  zip.file("word/_rels/document.xml.rels", newRels);
+  return preferredRelId;
+}
+
+// Ensure [Content_Types].xml has a Default entry for the given image
+// extension/mime. The base template registers jpeg only; PNG-only
+// signatures need their type declared or Word refuses to open the
+// file.
+function ensureContentType(ctXml: string, ext: string, mime: string): string {
+  if (ctXml.includes(`Extension="${ext}"`)) return ctXml;
+  const entry = `<Default Extension="${ext}" ContentType="${mime}"/>`;
+  return ctXml.replace(/<Default /, entry + "<Default ");
+}
+
+// Locate the FIRST signature line (the run containing the underscore
+// glyphs) AFTER a given anchor text. Returns [runStart, runEnd] for
+// the enclosing <w:r>...</w:r>, or null when anchor/line not found.
+function locateSignatureRun(xml: string, anchorText: string): [number, number] | null {
+  const anchorIdx = xml.indexOf(anchorText);
+  if (anchorIdx < 0) return null;
+  const lineIdx = xml.indexOf("____________________________", anchorIdx);
+  if (lineIdx < 0) return null;
+  const runStart = xml.lastIndexOf("<w:r ", lineIdx);
+  const runStartBare = xml.lastIndexOf("<w:r>", lineIdx);
+  const start = Math.max(runStart, runStartBare);
+  if (start < 0) return null;
+  const runEnd = xml.indexOf("</w:r>", lineIdx);
+  if (runEnd < 0) return null;
+  return [start, runEnd + "</w:r>".length];
+}
+
+interface SignatureEmbedDiagnostics {
+  engineer_provided: boolean;
+  engineer_is_data_url: boolean;
+  engineer_embedded: boolean;
+  engineer_reason?: string;
+  client_provided: boolean;
+  client_is_data_url: boolean;
+  client_embedded: boolean;
+  client_reason?: string;
+}
+
+async function embedSignatures(
+  zip: ZipLike,
+  doc: string,
+  bundle: Bundle,
+  diag: SignatureEmbedDiagnostics,
+): Promise<string> {
+  const eng = bundle.engineerSignature ?? null;
+  const cli = bundle.clientSignature ?? null;
+  diag.engineer_provided = !!eng;
+  diag.client_provided = !!cli;
+  diag.engineer_is_data_url = typeof eng === "string" && eng.startsWith("data:image/");
+  diag.client_is_data_url = typeof cli === "string" && cli.startsWith("data:image/");
+  if (!eng && !cli) {
+    diag.engineer_reason = "no signature on report row";
+    diag.client_reason = "no signature on report row";
+    return doc;
+  }
+
+  let relsXml = "";
+  let ctXml = "";
+  try {
+    const relsFile = (zip as unknown as { files: Record<string, { async: (t: string) => Promise<string> }> })
+      .files["word/_rels/document.xml.rels"];
+    const ctFile = (zip as unknown as { files: Record<string, { async: (t: string) => Promise<string> }> })
+      .files["[Content_Types].xml"];
+    relsXml = await relsFile.async("string");
+    ctXml = await ctFile.async("string");
+  } catch {
+    console.warn("Couldn't access rels/content-types; skipping signature embed");
+    return doc;
+  }
+
+  const sigs = [
+    { url: eng, anchor: "ENGINEER", relId: "rIdSigEngineer", drawingId: 1001, name: "EngineerSignature", file: "sig_engineer", who: "engineer" as const },
+    { url: cli, anchor: "CLIENT / RESPONSIBLE PERSON", relId: "rIdSigClient", drawingId: 1002, name: "ClientSignature", file: "sig_client", who: "client" as const },
+  ];
+
+  const setReason = (who: "engineer" | "client", r: string) => {
+    if (who === "engineer") diag.engineer_reason = r;
+    else diag.client_reason = r;
+  };
+  const markEmbedded = (who: "engineer" | "client") => {
+    if (who === "engineer") diag.engineer_embedded = true;
+    else diag.client_embedded = true;
+  };
+
+  for (const s of sigs) {
+    if (!s.url) { setReason(s.who, "no signature on report row"); continue; }
+    const decoded = dataUrlToBytes(s.url);
+    if (!decoded) {
+      const head = s.url.slice(0, 30);
+      const reason = `not a data URL (starts with "${head}")`;
+      console.warn(`Signature for ${s.anchor}: ${reason}`);
+      setReason(s.who, reason);
+      continue;
+    }
+    const ext = decoded.mime === "image/png" ? "png" : decoded.mime === "image/jpeg" ? "jpeg" : "png";
+    const fileName = `${s.file}.${ext}`;
+    await attachImageRel(zip, relsXml, fileName, decoded.bytes, s.relId);
+    // attachImageRel writes a new rels XML; re-read so next loop sees it.
+    const relsFile2 = (zip as unknown as { files: Record<string, { async: (t: string) => Promise<string> }> })
+      .files["word/_rels/document.xml.rels"];
+    relsXml = await relsFile2.async("string");
+
+    ctXml = ensureContentType(ctXml, ext, decoded.mime);
+
+    const loc = locateSignatureRun(doc, s.anchor);
+    if (!loc) {
+      const reason = `anchor "${s.anchor}" or trailing underscore line not found`;
+      console.warn(reason);
+      setReason(s.who, reason);
+      continue;
+    }
+    const [runStart, runEnd] = loc;
+    doc = doc.slice(0, runStart) + buildSignatureRun(s.relId, s.drawingId, s.name) + doc.slice(runEnd);
+    markEmbedded(s.who);
+    setReason(s.who, "ok");
+  }
+
+  zip.file("[Content_Types].xml", ctXml);
+  return doc;
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // HTTP handler
 
 Deno.serve(async (req) => {
@@ -253,7 +470,27 @@ Deno.serve(async (req) => {
       throw new Error("Template missing word/document.xml — re-encode and redeploy");
     }
     const originalXml = await documentXmlFile.async("string");
-    const filledXml = fillTemplate(bundle, originalXml);
+    let filledXml = fillTemplate(bundle, originalXml);
+
+    // Embed signatures if the wizard captured them. Modifies the zip
+    // in place (adds image bytes, registers relationships, declares
+    // the content type) and returns the updated document XML.
+    const sigDiag: SignatureEmbedDiagnostics = {
+      engineer_provided: false,
+      engineer_is_data_url: false,
+      engineer_embedded: false,
+      client_provided: false,
+      client_is_data_url: false,
+      client_embedded: false,
+    };
+    filledXml = await embedSignatures(
+      zip as unknown as ZipLike,
+      filledXml,
+      bundle,
+      sigDiag,
+    );
+    console.log("[generate-callout-docx] signature embed:", JSON.stringify(sigDiag));
+
     zip.file("word/document.xml", filledXml);
 
     const out = await zip.generateAsync({
@@ -321,6 +558,10 @@ Deno.serve(async (req) => {
           fault_narrative_filled: !!composeFaultNarrative(bundle.fault),
           storage_upload_error: uploadError,
         },
+        // Signature-specific echo. Mirrors C&E so the frontend can
+        // toast a clear "didn't embed because X" message when a
+        // signature was provided but didn't make it into the file.
+        signature_diagnostics: sigDiag,
       }),
       {
         status: 200,
