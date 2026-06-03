@@ -335,7 +335,13 @@ export async function generateCauseEffectReportPDF(
   if (site.bs5839_category) sysRows.push(["BS 5839 Category", site.bs5839_category]);
   if (site.panel_make_model) sysRows.push(["Panel Make / Model", site.panel_make_model]);
   if (site.num_zones != null) sysRows.push(["Number of Zones", String(site.num_zones)]);
-  if (site.num_devices != null) sysRows.push(["Number of Devices", String(site.num_devices)]);
+  // Live inventory count wins over the stored sites.num_devices snapshot.
+  // Bundle carries the device register that Appendix A renders, so use its
+  // length as the source of truth — falls back to the stored value when
+  // the inventory is empty (legacy sites that haven't been populated yet).
+  const liveDeviceCount = bundle.deviceRegister?.length ?? 0;
+  const displayDeviceCount = liveDeviceCount > 0 ? liveDeviceCount : site.num_devices;
+  if (displayDeviceCount != null) sysRows.push(["Number of Devices", String(displayDeviceCount)]);
   if (site.arc_connected === true) {
     sysRows.push(["ARC Monitoring", "Yes"]);
   } else if (site.arc_connected === false) {
