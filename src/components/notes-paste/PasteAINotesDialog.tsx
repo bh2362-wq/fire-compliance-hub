@@ -262,7 +262,7 @@ export function PasteAINotesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 gap-0 rounded-none sm:rounded-lg">
+      <DialogContent className="max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90dvh] flex flex-col p-0 gap-0 rounded-none sm:rounded-lg">
         <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />

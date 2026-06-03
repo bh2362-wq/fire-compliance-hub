@@ -186,7 +186,7 @@ export function GlobalSearch() {
               </button>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto py-1">
+            <div className="max-h-[60dvh] overflow-y-auto py-1">
               {query.length < 2 && (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                   Type at least 2 characters to search

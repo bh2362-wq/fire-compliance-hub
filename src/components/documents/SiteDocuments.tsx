@@ -398,7 +398,7 @@ function PreviewDialog({
           <img
             src={url}
             alt={doc?.title}
-            className="max-h-[70vh] w-full object-contain rounded"
+            className="max-h-[70dvh] w-full object-contain rounded"
           />
         ) : url && isPdf ? (
           <iframe

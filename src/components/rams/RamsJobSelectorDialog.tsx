@@ -202,7 +202,7 @@ export function RamsJobSelectorDialog({
               </span>
             </div>
 
-            <ScrollArea className="max-h-[40vh]">
+            <ScrollArea className="max-h-[40dvh]">
               <div className="space-y-2 pr-2">
                 {visits.map((visit) => (
                   <label

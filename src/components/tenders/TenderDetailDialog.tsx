@@ -158,7 +158,7 @@ export function TenderDetailDialog({ tender, open, onOpenChange, onChanged }: Pr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-2xl max-h-[90dvh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-5 pb-3 border-b">
           <DialogTitle className="text-base flex items-center gap-2 flex-wrap">
             {tender.title}

@@ -185,7 +185,7 @@ export default function SubcontractorsDialog({ open, onOpenChange }: Subcontract
   if (showForm) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit" : "Add"} Subcontractor</DialogTitle>
           </DialogHeader>
@@ -285,7 +285,7 @@ export default function SubcontractorsDialog({ open, onOpenChange }: Subcontract
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <HardHat className="w-5 h-5" />
