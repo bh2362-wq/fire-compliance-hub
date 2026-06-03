@@ -98,6 +98,25 @@ export async function getSiteSystemInfo(
   return (data as unknown as SiteSystemInfo | null) ?? null;
 }
 
+// Live count of devices in the asset inventory for a site. Used by the
+// wizard System steps and the report PDFs to prefer the actual count
+// over sites.num_devices (which is a stored snapshot the engineer used
+// to maintain by hand and that drifted from reality whenever inventory
+// changed). Returns null on RLS / network failure so callers can fall
+// back to the stored value without a crash.
+export async function getSiteDeviceCount(siteId: string): Promise<number | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { count, error } = await (supabase as any)
+    .from("devices")
+    .select("id", { count: "exact", head: true })
+    .eq("site_id", siteId);
+  if (error) {
+    console.warn("[getSiteDeviceCount] count failed:", error.message);
+    return null;
+  }
+  return count ?? 0;
+}
+
 export async function updateSiteSystemInfo(
   siteId: string,
   patch: Partial<SiteSystemInfo>,

@@ -16,6 +16,7 @@ import {
   BS5839_CATEGORIES,
   composePanelMakeModel,
   getSiteSystemInfo,
+  getSiteDeviceCount,
   updateSiteSystemInfo,
   type Bs5839Category,
   type SiteSystemInfo,
@@ -64,7 +65,13 @@ export function SystemStep({ visit, report, onPatch, siteId }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const info = await getSiteSystemInfo(siteId);
+        // Live device count from the asset inventory wins over the
+        // stored sites.num_devices snapshot. Parallel so the prefill
+        // isn't slowed by a sequential round-trip.
+        const [info, liveDeviceCount] = await Promise.all([
+          getSiteSystemInfo(siteId),
+          getSiteDeviceCount(siteId),
+        ]);
         if (cancelled || !info) return;
         const patch: Partial<ServiceReport> = {};
         const filled: string[] = [];
@@ -84,9 +91,13 @@ export function SystemStep({ visit, report, onPatch, siteId }: Props) {
           patch.zones_count = info.num_zones;
           filled.push("Zones");
         }
-        if (report.devices_count == null && info.num_devices != null) {
-          patch.devices_count = info.num_devices;
-          filled.push("Devices");
+        if (report.devices_count == null) {
+          const devicesPrefill =
+            liveDeviceCount != null && liveDeviceCount > 0 ? liveDeviceCount : info.num_devices;
+          if (devicesPrefill != null) {
+            patch.devices_count = devicesPrefill;
+            filled.push("Devices");
+          }
         }
         if (report.arc_connected == null && info.arc_connected != null) {
           patch.arc_connected = info.arc_connected;

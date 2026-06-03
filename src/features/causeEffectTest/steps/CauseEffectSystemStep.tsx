@@ -15,6 +15,7 @@ import {
   BS5839_CATEGORIES,
   composePanelMakeModel,
   getSiteSystemInfo,
+  getSiteDeviceCount,
   updateSiteSystemInfo,
   type SiteSystemInfo,
 } from "@/services/siteSystemInfoService";
@@ -59,23 +60,31 @@ export function CauseEffectSystemStep({ visit, report, onPatch, siteId }: Props)
     let cancelled = false;
     (async () => {
       try {
-        const fetched = await getSiteSystemInfo(siteId);
+        // Live count from the asset inventory wins over the stored
+        // sites.num_devices snapshot. Run alongside the site fetch so
+        // the prefill isn't slowed by a sequential query.
+        const [fetched, liveDeviceCount] = await Promise.all([
+          getSiteSystemInfo(siteId),
+          getSiteDeviceCount(siteId),
+        ]);
         if (cancelled) return;
         setInfo(fetched);
         if (fetched) {
           const split = splitPanelMakeModel(fetched.panel_make_model);
+          const devicesPrefill =
+            liveDeviceCount != null && liveDeviceCount > 0 ? liveDeviceCount : fetched.num_devices;
           setPanel({
             panel_manufacturer: split.make,
             panel_model: split.model,
             zones_count: fetched.num_zones,
-            devices_count: fetched.num_devices,
+            devices_count: devicesPrefill,
             arc_connected: fetched.arc_connected,
           });
           const filled: string[] = [];
           if (split.make) filled.push("Panel make");
           if (split.model) filled.push("Panel model");
           if (fetched.num_zones != null) filled.push("Zones");
-          if (fetched.num_devices != null) filled.push("Devices");
+          if (devicesPrefill != null) filled.push("Devices");
           if (fetched.arc_connected != null) filled.push("ARC");
           if (fetched.bs5839_category) filled.push("BS 5839 category");
           setPrefilled(filled);

@@ -413,7 +413,15 @@ function buildBundleXml(bundle: Bundle, originalXml: string): string {
   // report row doesn't have them — engineers commonly capture these
   // once on the Site form and don't re-type per-visit.
   const panelText = r.panel_make_model ?? s.panel_make_model ?? null;
-  const deviceCount = r.num_devices_total ?? s.num_devices ?? null;
+  // Live inventory count is the source of truth — bundle.deviceRegister
+  // is the same list Appendix A renders, so its length stays accurate
+  // when devices are added/removed without anyone re-typing the figure
+  // on the System step. Engineer override on the report row still wins
+  // first; stored sites.num_devices stays as final fallback for legacy
+  // sites whose inventory hasn't been populated yet.
+  const liveDeviceCount = bundle.deviceRegister?.length ?? 0;
+  const deviceCount =
+    r.num_devices_total ?? (liveDeviceCount > 0 ? liveDeviceCount : null) ?? s.num_devices ?? null;
   const arcStatus =
     r.arc_monitoring != null
       ? (r.arc_monitoring ? "Yes" : "No")
