@@ -52,6 +52,7 @@ const coreNav = [
   { name: "Asset Maintenance", href: "/dashboard/asset-maintenance", icon: Wrench },
   { name: "Reports",    href: "/dashboard/reports",   icon: BarChart3 },
   { name: "Defects",    href: "/dashboard/defects",   icon: ShieldAlert },
+  { name: "Tenders",    href: "/dashboard/tenders",   icon: Briefcase },
 ];
 
 const clientsNav = [
@@ -70,7 +71,6 @@ const certsNav = [
 const financeNav = [
   { name: "Invoices",          href: "/dashboard/invoices",          icon: Receipt },
   { name: "Quotations",        href: "/dashboard/quotations",        icon: FileSpreadsheet },
-  { name: "Tenders",           href: "/dashboard/tenders",           icon: Briefcase },
   { name: "Remittance Advice", href: "/dashboard/remittance-advice", icon: Mail },
   { name: "Credit Control",    href: "/dashboard/credit-control",    icon: CreditCard },
   { name: "Purchase Orders",   href: "/dashboard/purchase-orders",   icon: ShoppingCart },
