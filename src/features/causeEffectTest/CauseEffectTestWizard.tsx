@@ -3,6 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { Visit } from "@/hooks/useVisits";
+import { supabase } from "@/integrations/supabase/client";
 import { WizardShell, WizardLoadingState } from "@/features/_shared/WizardShell";
 import { DevicesStep } from "@/features/serviceReport/steps/DevicesStep";
 import { useCauseEffectTestDraft } from "./useCauseEffectTestDraft";
@@ -44,7 +45,28 @@ export function CauseEffectTestWizard({ visit, userId, onCompleted }: Props) {
     if (!report) return;
     setCompleting(true);
     try {
-      await patch({ status: "completed" });
+      const updates: Partial<typeof report> = { status: "completed" };
+      // First-time completion: allocate a number from the shared
+      // JOB-XXXXX pool (the same pool service reports draw from via
+      // get_next_report_number) so the C&E report shows up with a
+      // #JOB-XXXXX chip next to its site on the Reports list. Skip
+      // when there's already a number — unlocking + re-completing
+      // shouldn't burn a fresh one.
+      if (!report.report_number) {
+        const { data: nextNum, error: numErr } = await supabase.rpc(
+          "get_next_report_number",
+          { report_type: "JOB" },
+        );
+        if (numErr) {
+          // Non-fatal — completion is more valuable to the engineer
+          // than the numbering, so let it through. A follow-up backfill
+          // can pick up missed rows.
+          console.error("Failed to allocate C&E report number:", numErr);
+        } else if (typeof nextNum === "string") {
+          updates.report_number = nextNum;
+        }
+      }
+      await patch(updates);
       toast({ title: "C&E test report completed" });
       onCompleted?.();
     } catch (e) {
