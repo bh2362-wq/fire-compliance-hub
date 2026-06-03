@@ -37,6 +37,11 @@ interface Props {
   /** Override default badge / heading wording when the source isn't
       defects (e.g. "remedials"). */
   itemLabel?: { singular: string; plural: string };
+  /** When the dialog is opened from a C&E report's remedials list,
+      pass the report id here. It gets stamped onto the new quotation
+      so the quote view can show a "Sourced from C&E" link and the
+      email-send flow can offer to attach the source report PDF. */
+  sourceCauseEffectReportId?: string;
 }
 
 function catIcon(cat: number) {
@@ -57,6 +62,7 @@ export function AIDefectQuoteDialog({
   open, onOpenChange, defects, onQuoteCreated,
   skipDefectLink = false,
   itemLabel = { singular: "defect", plural: "defects" },
+  sourceCauseEffectReportId,
 }: Props) {
   const navigate = useNavigate();
   const {
@@ -134,6 +140,10 @@ export function AIDefectQuoteDialog({
         // Defect-driven quotes are remedial works by nature.
         works_type: "reactive_remedial",
         job_category: "reactive_remedial",
+        // Reverse link back to the C&E report when this dialog was
+        // opened from one — column added in migration
+        // 20260603120000_quotations_source_ce_report.sql.
+        ...(sourceCauseEffectReportId ? { source_cause_effect_report_id: sourceCauseEffectReportId } : {}),
         // Spread inherited metadata (only non-null fields are present).
         ...inherited.values,
         notes: `Remedial works quotation generated from ${defects.length} ${defects.length !== 1 ? itemLabel.plural : itemLabel.singular} identified during site inspection. Source IDs: ${defects.map(d => d.id).join(", ")}${inherited.sourceQuotationNumber ? `\nMetadata inherited from ${inherited.sourceQuotationNumber} (${inherited.fieldsFound.length} field${inherited.fieldsFound.length !== 1 ? "s" : ""}).` : ""}`,

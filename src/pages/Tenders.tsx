@@ -75,10 +75,20 @@ export default function Tenders() {
     try {
       const { data, error } = await supabase.functions.invoke("poll-contracts-finder", { body: {} });
       if (error) throw error;
-      const inserted = (data as { inserted?: number } | null)?.inserted ?? 0;
-      const skipped = (data as { skipped?: number } | null)?.skipped ?? 0;
-      toast.success(`Contracts Finder sync: ${inserted} new tenders`, {
-        description: skipped > 0 ? `${skipped} already in the system, skipped.` : undefined,
+      const d = data as {
+        inserted?: number;
+        relevance_skipped?: number;
+        duplicate_skipped?: number;
+        fetched?: number;
+      } | null;
+      const inserted = d?.inserted ?? 0;
+      const duplicates = d?.duplicate_skipped ?? 0;
+      const offTopic = d?.relevance_skipped ?? 0;
+      const parts: string[] = [];
+      if (duplicates > 0) parts.push(`${duplicates} already tracked`);
+      if (offTopic > 0) parts.push(`${offTopic} not fire-relevant`);
+      toast.success(`Contracts Finder sync: ${inserted} new tender${inserted === 1 ? "" : "s"}`, {
+        description: parts.length > 0 ? parts.join(" · ") : undefined,
       });
       void load();
     } catch (e) {

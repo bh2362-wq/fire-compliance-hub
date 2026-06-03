@@ -69,7 +69,8 @@ Deno.serve(async (req) => {
   fromD.setUTCDate(fromD.getUTCDate() - WINDOW_DAYS);
 
   let inserted = 0;
-  let skipped = 0;
+  let relevance_skipped = 0;
+  let duplicate_skipped = 0;
   let fetched = 0;
 
   try {
@@ -78,6 +79,8 @@ Deno.serve(async (req) => {
 
     // Contracts Finder API v2: query OPEN notices (currently being procured)
     // with fire-safety CPV codes, within the published-date window.
+    // User-Agent is required — CF started returning 403 to anonymous /
+    // Deno-default UAs in mid-2026. Identify the app + a contact URL.
     const cfRes = await fetch(CF_ENDPOINT, {
       method: "POST",
       headers: {
@@ -128,12 +131,12 @@ Deno.serve(async (req) => {
     for (const n of notices) {
       const item = (n?.item ?? {}) as Record<string, unknown>;
       const ocid = item.id as string | undefined;
-      if (!ocid) { skipped++; continue; }
+      if (!ocid) { relevance_skipped++; continue; }
 
       const title = decodeEntities(item.title as string | undefined);
       const description = decodeEntities(item.description as string | undefined);
 
-      if (!isRelevant(title, description)) { skipped++; continue; }
+      if (!isRelevant(title, description)) { relevance_skipped++; continue; }
 
       const buyer = decodeEntities(item.organisationName as string | undefined);
       const valueMin = Number(item.valueLow ?? 0) || null;
@@ -157,7 +160,7 @@ Deno.serve(async (req) => {
     }
 
     if (candidates.length === 0) {
-      return new Response(JSON.stringify({ inserted: 0, skipped, fetched }), {
+      return new Response(JSON.stringify({ inserted: 0, relevance_skipped, duplicate_skipped, fetched }), {
         headers: { ...CORS, "Content-Type": "application/json" },
       });
     }
@@ -189,7 +192,7 @@ Deno.serve(async (req) => {
         status: "discovered",
       }));
 
-    skipped += candidates.length - toInsert.length;
+    duplicate_skipped = candidates.length - toInsert.length;
 
     if (toInsert.length > 0) {
       const { error: insErr, count } = await supabase
@@ -199,13 +202,13 @@ Deno.serve(async (req) => {
       inserted = count ?? toInsert.length;
     }
 
-    return new Response(JSON.stringify({ inserted, skipped, fetched }), {
+    return new Response(JSON.stringify({ inserted, relevance_skipped, duplicate_skipped, fetched }), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (e) {
     const msg = errorMessage(e);
     console.error("[poll-contracts-finder] failed", msg, e);
-    return new Response(JSON.stringify({ error: msg, inserted, skipped, fetched }), {
+    return new Response(JSON.stringify({ error: msg, inserted, relevance_skipped, duplicate_skipped, fetched }), {
       status: 500,
       headers: { ...CORS, "Content-Type": "application/json" },
     });

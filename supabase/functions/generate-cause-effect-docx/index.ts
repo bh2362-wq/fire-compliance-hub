@@ -949,6 +949,24 @@ Deno.serve(async (req) => {
     const documentFile = zip.file("word/document.xml");
     if (!documentFile) throw new Error("Template is missing word/document.xml — corrupt build");
 
+    // Rewrite the docProps/core.xml title so the resulting PDF shows
+    // the right name in browser tabs / Acrobat. The template was
+    // branched from the master quote template, which left
+    // dc:title="Master Quotation" baked in — Word's headless PDF
+    // converter then surfaces that as the PDF's document title.
+    const coreFile = zip.file("docProps/core.xml");
+    if (coreFile) {
+      const docTitle = bundle.visit.job_number ?? bundle.report.id.slice(0, 8);
+      const escaped = escapeXmlText(docTitle);
+      let coreXml = await coreFile.async("string");
+      if (/<dc:title\b[^>]*>[\s\S]*?<\/dc:title>/.test(coreXml)) {
+        coreXml = coreXml.replace(/<dc:title\b[^>]*>[\s\S]*?<\/dc:title>/, `<dc:title>${escaped}</dc:title>`);
+      } else if (/<dc:title\s*\/>/.test(coreXml)) {
+        coreXml = coreXml.replace(/<dc:title\s*\/>/, `<dc:title>${escaped}</dc:title>`);
+      }
+      zip.file("docProps/core.xml", coreXml);
+    }
+
     const originalXml = await documentFile.async("string");
     let filledXml = buildBundleXml(bundle, originalXml);
     // Embed signatures if the wizard captured them — modifies the zip

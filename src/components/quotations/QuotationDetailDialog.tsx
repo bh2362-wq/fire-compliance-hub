@@ -16,6 +16,7 @@ import {
   LockOpen,
   GripVertical,
   Copy,
+  Volume2,
 } from "lucide-react";
 import {
   DndContext,
@@ -57,6 +58,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import { blobToBase64 } from "@/features/quotes/useQuoteGeneration";
+import { downloadCauseEffectReportPdf } from "@/features/causeEffectTest/useCauseEffectGeneration";
 import { EmailQuotationDialog } from "./EmailQuotationDialog";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 import { QuoteActions } from "@/features/quotes/QuoteActions";
@@ -116,6 +118,7 @@ interface QuotationFull {
   customer_id: string | null;
   locked_at: string | null;
   locked_by: string | null;
+  source_cause_effect_report_id: string | null;
   sites: {
     name: string;
     address?: string | null;
@@ -181,6 +184,12 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [generating, setGenerating] = useState(false);
   const [improving, setImproving] = useState(false);
   const [quotation, setQuotation] = useState<QuotationFull | null>(null);
+  // When the quote was raised from a C&E report
+  // (quotations.source_cause_effect_report_id is set), we look up the
+  // report's number so the header chip can read like
+  // "Sourced from C&E CE-2026-001" rather than a raw UUID.
+  const [sourceCeReportNumber, setSourceCeReportNumber] = useState<string | null>(null);
+  const [openingSourceCe, setOpeningSourceCe] = useState(false);
   const [inheritingMetadata, setInheritingMetadata] = useState(false);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -268,6 +277,21 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       }
 
       setQuotation({ ...quotationData, customers: customerData });
+
+      // Best-effort lookup of the source C&E report's number for the
+      // header chip. Silent on failure — the chip just won't render.
+      const sourceCeId = (quotationData as { source_cause_effect_report_id?: string | null })
+        .source_cause_effect_report_id;
+      if (sourceCeId) {
+        const { data: ceRow } = await (supabase as any)
+          .from("ce_audibility_reports")
+          .select("report_number")
+          .eq("id", sourceCeId)
+          .maybeSingle();
+        setSourceCeReportNumber(ceRow?.report_number ?? "C&E report");
+      } else {
+        setSourceCeReportNumber(null);
+      }
 
       setQuotationNumber(quotationData.quotation_number || "");
       setTitle(quotationData.title || `Remedial Works - ${quotationData.sites?.name || "Site"}`);
@@ -1026,6 +1050,35 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                     Duplicate
                   </Button>
                 )}
+                {quotation?.source_cause_effect_report_id && sourceCeReportNumber && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={async () => {
+                      if (!quotation.source_cause_effect_report_id) return;
+                      setOpeningSourceCe(true);
+                      try {
+                        await downloadCauseEffectReportPdf(quotation.source_cause_effect_report_id);
+                      } catch (e) {
+                        toast.error("Couldn't open C&E report", {
+                          description: e instanceof Error ? e.message : String(e),
+                        });
+                      } finally {
+                        setOpeningSourceCe(false);
+                      }
+                    }}
+                    disabled={openingSourceCe}
+                    title="Open the Cause & Effect report this quote was raised from"
+                  >
+                    {openingSourceCe ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5" />
+                    )}
+                    Sourced from {sourceCeReportNumber}
+                  </Button>
+                )}
               </div>
             </div>
           </DialogHeader>
@@ -1533,6 +1586,8 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           }}
           customerEmail={customerContactEmail}
           customerName={customerContactName || customerName}
+          sourceCauseEffectReportId={quotation.source_cause_effect_report_id}
+          sourceCauseEffectReportLabel={sourceCeReportNumber}
           onSuccess={() => {
             onUpdate?.();
           }}

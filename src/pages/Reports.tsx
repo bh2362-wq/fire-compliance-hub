@@ -23,6 +23,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
   DropdownMenuSeparator,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -54,7 +55,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
-import { downloadCauseEffectReportPdf } from "@/features/causeEffectTest/useCauseEffectGeneration";
+import { downloadCauseEffectReportPdf, getCauseEffectReportPdfBase64 } from "@/features/causeEffectTest/useCauseEffectGeneration";
 import { GenerateQuotationDialog } from "@/components/quotations/GenerateQuotationDialog";
 import { AIDefectQuoteDialog } from "@/components/defects/AIDefectQuoteDialog";
 import type { Defect, DefectCategory } from "@/services/defectService";
@@ -79,11 +80,15 @@ interface CeReportRow {
   site_id: string;
   report_number: string | null;
   report_date: string | null;
-  status: "draft" | "completed" | string | null;
+  status: "draft" | "completed" | "locked" | string | null;
   engineer_name: string | null;
   created_at: string;
-  sites: { name: string; customers?: { name: string } | null } | null;
-  visits: { visit_type: string; visit_date: string } | null;
+  notes: string | null;
+  invoiced: boolean | null;
+  sharepoint_url: string | null;
+  sharepoint_folder: string | null;
+  sites: { name: string; address?: string | null; customers?: { name: string } | null } | null;
+  visits: { visit_type: string; visit_date: string; client_po_number?: string | null } | null;
 }
 
 type UnifiedReportRow =
@@ -152,20 +157,29 @@ const Reports = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [reportToDelete, setReportToDelete] = useState<ReportWithSite | null>(null);
+  // Service-report-or-C&E unions on the four "act on this row"
+  // states. Each handler that mutates the underlying row branches the
+  // table name via reportTable() — keeps a single set of handlers
+  // instead of mirroring every one for ce_audibility_reports.
+  const [reportToDelete, setReportToDelete] = useState<ReportWithSite | CeReportRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
-  const [reportToInvoice, setReportToInvoice] = useState<ReportWithSite | null>(null);
+  const [reportToInvoice, setReportToInvoice] = useState<ReportWithSite | CeReportRow | null>(null);
   const [invoiceContactId, setInvoiceContactId] = useState<string | null>(null);
   const [invoiceCustomerInfo, setInvoiceCustomerInfo] = useState<{ id: string; name: string; xeroContactId: string | null } | null>(null);
   const [invoiceSiteInfo, setInvoiceSiteInfo] = useState<{ id: string; name: string; address: string | null; city: string | null } | null>(null);
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
-  const [reportToUnlock, setReportToUnlock] = useState<ReportWithSite | null>(null);
+  const [reportToUnlock, setReportToUnlock] = useState<ReportWithSite | CeReportRow | null>(null);
   const [unlockReason, setUnlockReason] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const { user } = useAuth();
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [reportToEmail, setReportToEmail] = useState<ReportWithSite | null>(null);
+  // Email state: ReportWithSite or CeReportRow — the dialog only reads
+  // id / site_id / visit_id / report_number / report_date / sites.name,
+  // which exist on both shapes. emailKind drives the PDF generator
+  // branch (service-report pipeline vs C&E DOCX→PDF pipeline).
+  const [reportToEmail, setReportToEmail] = useState<ReportWithSite | CeReportRow | null>(null);
+  const [emailKind, setEmailKind] = useState<"service" | "ce">("service");
   const [emailRecipientInfo, setEmailRecipientInfo] = useState<{
     email: string;
     recipients: string;
@@ -178,7 +192,7 @@ const Reports = () => {
     company_logo_url?: string;
   } | null>(null);
   const [quotationDialogOpen, setQuotationDialogOpen] = useState(false);
-  const [reportForQuotation, setReportForQuotation] = useState<ReportWithSite | null>(null);
+  const [reportForQuotation, setReportForQuotation] = useState<ReportWithSite | CeReportRow | null>(null);
   // "Generate quote from this report's defects" — same flow as the
   // visit-level menu item (PR #84) but scoped via site_defects.report_id
   // instead of visit_id. Engineers no longer need to navigate to
@@ -198,6 +212,9 @@ const Reports = () => {
   const [ceQuoteDialogOpen, setCeQuoteDialogOpen] = useState(false);
   const [ceQuoteDefects, setCeQuoteDefects] = useState<Defect[]>([]);
   const [ceQuoteRemedialIds, setCeQuoteRemedialIds] = useState<string[]>([]);
+  // Source C&E report id, threaded through to AIDefectQuoteDialog so
+  // the new quotation stamps quotations.source_cause_effect_report_id.
+  const [ceQuoteSourceReportId, setCeQuoteSourceReportId] = useState<string | null>(null);
   const [openingCeQuote, setOpeningCeQuote] = useState<string | null>(null);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
@@ -211,7 +228,7 @@ const Reports = () => {
 
   const sanitizeName = (name: string) => name.replace(/[<>:"/\\|?*]/g, "").replace(/\s+/g, " ").trim();
 
-  const handleUploadToSharePoint = async (report: ReportWithSite) => {
+  const handleUploadToSharePoint = async (report: ReportWithSite | CeReportRow) => {
     const customerName = (report.sites as any)?.customers?.name || "Unknown Customer";
     const siteName = report.sites?.name || "Unknown Site";
     const siteAddress = (report.sites as any)?.address || "";
@@ -224,6 +241,36 @@ const Reports = () => {
     const fileName = `${reportFolderName}.pdf`;
 
     setUploadingToSharePoint(report.id);
+
+    // C&E reports go through the cloud DOCX→PDF pipeline rather than
+    // the in-browser jsPDF generators below. Short-circuit early —
+    // saves loading service_reports columns that don't exist for C&E.
+    if (report._kind === "ce") {
+      try {
+        const base64 = await getCauseEffectReportPdfBase64(report.id);
+        const { data, error } = await supabase.functions.invoke("upload-to-sharepoint", {
+          body: { folderPath, fileName, fileBase64: base64, contentType: "application/pdf" },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        if (data?.webUrl) {
+          await (supabase as any).from("ce_audibility_reports").update({
+            sharepoint_folder: folderPath,
+            sharepoint_url: data.webUrl,
+          }).eq("id", report.id);
+        }
+        toast.success(`Report ${report.report_number} uploaded to SharePoint`);
+        fetchReports();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("SharePoint upload error (C&E):", err);
+        toast.error(msg);
+      } finally {
+        setUploadingToSharePoint(null);
+      }
+      return;
+    }
+
     try {
       // Fetch full report data for PDF generation
       const { data: fullReport } = await supabase
@@ -362,19 +409,50 @@ const Reports = () => {
       .maybeSingle();
 
     const customer = siteData?.customers as { name: string; contact_email: string; email_recipients: string; report_email_recipients: string } | null;
-    
+
     setEmailRecipientInfo({
       email: customer?.contact_email || "",
       recipients: customer?.report_email_recipients || customer?.email_recipients || "",
       customerName: customer?.name || "",
       customerId: siteData?.customer_id || "",
     });
+    setEmailKind("service");
+    setReportToEmail(report);
+    setEmailDialogOpen(true);
+  };
+
+  // C&E variant — same recipient-prefill shape as handleEmailReport,
+  // but the PDF generator branches to the C&E DOCX→PDF pipeline (see
+  // generateReportPdfBase64 below).
+  const handleEmailCeReport = async (report: CeReportRow) => {
+    const { data: siteData } = await supabase
+      .from("sites")
+      .select("customer_id, customers(name, contact_email, email_recipients, report_email_recipients)")
+      .eq("id", report.site_id)
+      .maybeSingle();
+
+    const customer = siteData?.customers as { name: string; contact_email: string; email_recipients: string; report_email_recipients: string } | null;
+
+    setEmailRecipientInfo({
+      email: customer?.contact_email || "",
+      recipients: customer?.report_email_recipients || customer?.email_recipients || "",
+      customerName: customer?.name || "",
+      customerId: siteData?.customer_id || "",
+    });
+    setEmailKind("ce");
     setReportToEmail(report);
     setEmailDialogOpen(true);
   };
 
   const generateReportPdfBase64 = async (): Promise<string | null> => {
     if (!reportToEmail) throw new Error("No report selected");
+
+    // C&E reports live in ce_audibility_reports and need the cloud
+    // DOCX→PDF pipeline. Service-report PDF generators below all
+    // assume a service_reports row, so branch early.
+    if (emailKind === "ce") {
+      return await getCauseEffectReportPdfBase64(reportToEmail.id);
+    }
 
     // Fetch full report data with site info
     const { data: fullReport } = await supabase
@@ -593,9 +671,9 @@ const Reports = () => {
         .from("ce_audibility_reports")
         .select(`
           id, visit_id, site_id, report_number, report_date, status,
-          engineer_name, created_at,
+          engineer_name, created_at, notes, invoiced, sharepoint_url, sharepoint_folder,
           sites:site_id(name, address, customers:customer_id(name)),
-          visits:visit_id(visit_type, visit_date)
+          visits:visit_id(visit_type, visit_date, client_po_number)
         `)
         .order("created_at", { ascending: false }),
     ]);
@@ -633,24 +711,34 @@ const Reports = () => {
     fetchReports();
   }, []);
 
+  // Table name for a unified row — C&E rows live in
+  // ce_audibility_reports, every other report type lives in
+  // service_reports. Used by the handlers below so a single set
+  // of code paths covers both row kinds.
+  const reportTable = (r: ReportWithSite | CeReportRow | null): "service_reports" | "ce_audibility_reports" =>
+    r?._kind === "ce" ? "ce_audibility_reports" : "service_reports";
+
   const handleDeleteReport = async () => {
     if (!reportToDelete) return;
-    
+
     setDeleting(true);
     try {
       const reportNumber = reportToDelete.report_number;
       const reportType = reportNumber?.startsWith("CERT") ? "CERT" : "JOB";
 
-      // Delete the report
-      const { error: deleteError } = await supabase
-        .from("service_reports")
+      // Delete the report — branch on the row kind so we hit the
+      // right table.
+      const { error: deleteError } = await (supabase as any)
+        .from(reportTable(reportToDelete))
         .delete()
         .eq("id", reportToDelete.id);
 
       if (deleteError) throw deleteError;
 
-      // Recycle the report number if it exists
-      if (reportNumber) {
+      // Recycle the report number if it exists. Service reports use
+      // this pool; C&E reports run their own numbering, so skip
+      // recycling for the C&E kind.
+      if (reportNumber && reportToDelete._kind !== "ce") {
         const { error: recycleError } = await supabase
           .from("recycled_report_numbers")
           .insert({
@@ -664,7 +752,7 @@ const Reports = () => {
         }
       }
 
-      toast.success(`Report ${reportNumber || ""} deleted successfully. The number will be reused.`);
+      toast.success(`Report ${reportNumber || ""} deleted successfully.`);
       fetchReports();
     } catch (error) {
       console.error("Failed to delete report:", error);
@@ -676,10 +764,11 @@ const Reports = () => {
     }
   };
 
-  const handleStatusChange = async (reportId: string, newStatus: string) => {
+  const handleStatusChange = async (reportId: string, newStatus: string, kind: "service" | "ce" = "service") => {
     try {
-      const { error } = await supabase
-        .from("service_reports")
+      const table = kind === "ce" ? "ce_audibility_reports" : "service_reports";
+      const { error } = await (supabase as any)
+        .from(table)
         .update({ status: newStatus })
         .eq("id", reportId);
 
@@ -777,6 +866,7 @@ const Reports = () => {
       }));
       setCeQuoteDefects(mapped);
       setCeQuoteRemedialIds(mapped.map((d) => d.id));
+      setCeQuoteSourceReportId(report.id);
       setCeQuoteDialogOpen(true);
     } catch (e) {
       toast.error("Couldn't load remedials", {
@@ -805,10 +895,11 @@ const Reports = () => {
     fetchReports();
   };
 
-  const handleInvoicedToggle = async (reportId: string, invoiced: boolean) => {
+  const handleInvoicedToggle = async (reportId: string, invoiced: boolean, kind: "service" | "ce" = "service") => {
     try {
-      const { error } = await supabase
-        .from("service_reports")
+      const table = kind === "ce" ? "ce_audibility_reports" : "service_reports";
+      const { error } = await (supabase as any)
+        .from(table)
         .update({ invoiced })
         .eq("id", reportId);
 
@@ -822,7 +913,7 @@ const Reports = () => {
     }
   };
 
-  const handleCreateInvoice = async (report: ReportWithSite) => {
+  const handleCreateInvoice = async (report: ReportWithSite | CeReportRow) => {
     // Look up the site and customer details
     const { data: siteData } = await supabase
       .from("sites")
@@ -862,9 +953,10 @@ const Reports = () => {
 
     setUnlocking(true);
     try {
-      // Update report status to draft
-      const { error: updateError } = await supabase
-        .from("service_reports")
+      // Update report status to draft — branch on the row kind so we
+      // hit the correct table.
+      const { error: updateError } = await (supabase as any)
+        .from(reportTable(reportToUnlock))
         .update({ status: "draft" })
         .eq("id", reportToUnlock.id);
 
@@ -875,7 +967,7 @@ const Reports = () => {
         .from("audit_logs")
         .insert({
           user_id: user.id,
-          entity_type: "service_report",
+          entity_type: reportToUnlock._kind === "ce" ? "ce_audibility_report" : "service_report",
           entity_id: reportToUnlock.id,
           action: "unlock",
           details: {
@@ -1006,6 +1098,26 @@ const Reports = () => {
                       siteName: report.sites?.name ?? null,
                     })}
                     onOpenDrawer={() => setDrawerCeReport(report)}
+                    onEmail={() => void handleEmailCeReport(report)}
+                    onQuoteRemedials={() => void openQuoteFromCeReport(report)}
+                    onGenerateQuotationSummary={() => {
+                      setReportForQuotation(report);
+                      setQuotationDialogOpen(true);
+                    }}
+                    onCreateInvoice={() => void handleCreateInvoice(report)}
+                    onToggleInvoiced={() => void handleInvoicedToggle(report.id, !report.invoiced, "ce")}
+                    onMarkCompleted={() => void handleStatusChange(report.id, "completed", "ce")}
+                    onUnlock={() => {
+                      setReportToUnlock(report);
+                      setUnlockDialogOpen(true);
+                    }}
+                    onUploadToSharePoint={() => void handleUploadToSharePoint(report)}
+                    onDelete={() => {
+                      setReportToDelete(report);
+                      setDeleteDialogOpen(true);
+                    }}
+                    quoteBusy={openingCeQuote === report.id}
+                    sharePointBusy={uploadingToSharePoint === report.id}
                   />
                 );
               }
@@ -1509,7 +1621,7 @@ const Reports = () => {
           xeroContactId={invoiceCustomerInfo.xeroContactId}
           sites={[invoiceSiteInfo]}
           onSuccess={() => {
-            handleInvoicedToggle(reportToInvoice.id, true);
+            handleInvoicedToggle(reportToInvoice.id, true, reportToInvoice._kind === "ce" ? "ce" : "service");
           }}
           jobReportData={{
             jobType: reportToInvoice.visits?.visit_type || "",
@@ -1528,7 +1640,11 @@ const Reports = () => {
               } catch { return undefined; }
             })(),
             siteName: invoiceSiteInfo.name,
-            jobDescription: reportToInvoice.work_carried_out || undefined,
+            // work_carried_out lives on service_reports only — C&E
+            // reports carry their narrative in general_observations
+            // + structured remedials, neither of which fits the
+            // invoice's free-text description field.
+            jobDescription: reportToInvoice._kind === "ce" ? undefined : (reportToInvoice.work_carried_out || undefined),
             visitDate: reportToInvoice.visits?.visit_date || reportToInvoice.report_date,
             materials: (() => {
               try {
@@ -1578,7 +1694,7 @@ const Reports = () => {
       {/* C&E drawer — same component, kind='ce' switches the query to
           ce_remedials and relabels Defects → Remedials. C&E-specific
           action handlers (PDF via downloadCauseEffectReportPdf, edit
-          → C&E wizard, no email yet). */}
+          → C&E wizard, Email via the C&E DOCX→PDF pipeline). */}
       <ReportDetailDrawer
         kind="ce"
         report={drawerCeReport ? {
@@ -1615,6 +1731,12 @@ const Reports = () => {
           setDrawerCeReport(null);
           navigate(`/dashboard/visits/${visitId}/cause-effect-test/capture`);
         }}
+        onEmail={() => {
+          if (!drawerCeReport) return;
+          const ce = drawerCeReport;
+          setDrawerCeReport(null);
+          void handleEmailCeReport(ce);
+        }}
         onGenerateQuote={() => {
           if (!drawerCeReport) return;
           const ce = drawerCeReport;
@@ -1632,6 +1754,7 @@ const Reports = () => {
         onOpenChange={setCeQuoteDialogOpen}
         defects={ceQuoteDefects}
         skipDefectLink
+        sourceCauseEffectReportId={ceQuoteSourceReportId ?? undefined}
         itemLabel={{ singular: "remedial", plural: "remedials" }}
         onQuoteCreated={handleCeQuoteCreated}
       />
@@ -1680,8 +1803,12 @@ const Reports = () => {
             site_id: reportForQuotation.site_id,
             visit_id: reportForQuotation.visit_id,
             notes: reportForQuotation.notes,
-            defects: reportForQuotation.defects_found,
-            recommendations: reportForQuotation.recommendations,
+            // defects_found / recommendations are service_reports
+            // columns. C&E reports carry the equivalent narrative
+            // in general_observations + structured remedials —
+            // surfaced via Quote Remedials, not from-summary AI.
+            defects: reportForQuotation._kind === "ce" ? null : reportForQuotation.defects_found,
+            recommendations: reportForQuotation._kind === "ce" ? null : reportForQuotation.recommendations,
             sites: reportForQuotation.sites,
             visits: reportForQuotation.visits,
           }}
@@ -1723,6 +1850,17 @@ function CauseEffectReportRow({
   navigate,
   onChangeSite,
   onOpenDrawer,
+  onEmail,
+  onQuoteRemedials,
+  onGenerateQuotationSummary,
+  onCreateInvoice,
+  onToggleInvoiced,
+  onMarkCompleted,
+  onUnlock,
+  onUploadToSharePoint,
+  onDelete,
+  quoteBusy = false,
+  sharePointBusy = false,
 }: {
   report: CeReportRow;
   navigate: ReturnType<typeof useNavigate>;
@@ -1730,6 +1868,30 @@ function CauseEffectReportRow({
   /** Tap the info section to open the detail drawer. Optional so the
       component still works if the parent doesn't wire it. */
   onOpenDrawer?: () => void;
+  /** Open the email-quotation flow for the C&E report's PDF. */
+  onEmail?: () => void;
+  /** Open the AI quote dialog seeded with this report's remedials. */
+  onQuoteRemedials?: () => void;
+  /** Open GenerateQuotationDialog (AI-summary path). Note that for
+      C&E reports, defects_found / recommendations are blank — the
+      dialog gets less to work with than for service reports. */
+  onGenerateQuotationSummary?: () => void;
+  /** Push the report into the create-invoice flow. */
+  onCreateInvoice?: () => void;
+  /** Flip the invoiced flag on the row. */
+  onToggleInvoiced?: () => void;
+  /** Move status from draft → completed. */
+  onMarkCompleted?: () => void;
+  /** Open the unlock-with-reason dialog. */
+  onUnlock?: () => void;
+  /** Upload the C&E PDF to SharePoint and stamp sharepoint_url. */
+  onUploadToSharePoint?: () => void;
+  /** Open the delete-with-confirmation dialog. */
+  onDelete?: () => void;
+  /** Disables Quote Remedials while the parent loads remedials. */
+  quoteBusy?: boolean;
+  /** Spinner on the SharePoint upload item while in flight. */
+  sharePointBusy?: boolean;
 }) {
   const [downloading, setDownloading] = useState(false);
   const status = statusConfig[report.status ?? "draft"] || statusConfig.draft;
@@ -1829,10 +1991,115 @@ function CauseEffectReportRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleOpen}>
+                <FilePen className="w-4 h-4 mr-2" />
+                Edit Report
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={onChangeSite}>
                 <Building2 className="w-4 h-4 mr-2" />
                 Change Site / Customer
               </DropdownMenuItem>
+              {onEmail && (
+                <DropdownMenuItem onClick={onEmail}>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Email Report
+                </DropdownMenuItem>
+              )}
+              {onCreateInvoice && (
+                <DropdownMenuItem onClick={onCreateInvoice}>
+                  <Receipt className="w-4 h-4 mr-2" />
+                  Create Invoice
+                </DropdownMenuItem>
+              )}
+              {onGenerateQuotationSummary && (
+                <DropdownMenuItem onClick={onGenerateQuotationSummary}>
+                  <ClipboardList className="w-4 h-4 mr-2" />
+                  Generate Quotation (from summary)
+                </DropdownMenuItem>
+              )}
+              {onQuoteRemedials && (
+                <DropdownMenuItem onClick={onQuoteRemedials} disabled={quoteBusy}>
+                  {quoteBusy ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-2" />
+                  )}
+                  Generate Quote from Defects
+                </DropdownMenuItem>
+              )}
+              {onToggleInvoiced && (
+                <DropdownMenuItem onClick={onToggleInvoiced}>
+                  <ReceiptText className="w-4 h-4 mr-2" />
+                  {report.invoiced ? "Mark as Not Invoiced" : "Mark as Invoiced"}
+                </DropdownMenuItem>
+              )}
+              {(report.status === "completed" || report.status === "locked")
+                ? onUnlock && (
+                    <DropdownMenuItem onClick={onUnlock}>
+                      <Unlock className="w-4 h-4 mr-2" />
+                      Unlock Report
+                    </DropdownMenuItem>
+                  )
+                : onMarkCompleted && (
+                    <DropdownMenuItem onClick={onMarkCompleted}>
+                      <FileCheck className="w-4 h-4 mr-2" />
+                      Mark as Completed
+                    </DropdownMenuItem>
+                  )}
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Globe className="w-4 h-4 mr-2" />
+                  View Online
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent>
+                    {report.sharepoint_url && (
+                      <>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            window.open(report.sharepoint_url!, "_blank", "noopener,noreferrer");
+                          }}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Open in SharePoint
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            navigator.clipboard.writeText(report.sharepoint_url!);
+                            toast.success("SharePoint link copied to clipboard");
+                          }}
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy SharePoint Link
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {onUploadToSharePoint && (
+                      <DropdownMenuItem onClick={onUploadToSharePoint} disabled={sharePointBusy}>
+                        {sharePointBusy ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4 mr-2" />
+                        )}
+                        {report.sharepoint_url ? "Update on SharePoint" : "Upload to SharePoint"}
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+              {onDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={onDelete}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Report
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

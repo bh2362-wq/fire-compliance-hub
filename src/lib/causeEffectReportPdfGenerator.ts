@@ -741,7 +741,7 @@ export async function generateCauseEffectReportPDF(
   }
 
   const safeSiteName = site.name.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
-  const baseName = `CE_Audibility_${visit.job_number ?? safeSiteName}_${(report.report_date ?? "draft").replace(/-/g, "")}`;
+  const baseName = visit.job_number ?? safeSiteName;
 
   if (options?.returnBlob) {
     return doc.output("blob");

@@ -217,10 +217,9 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
     if (!pdf?.signed_url) throw new Error("PDF converter did not return a signed URL");
 
     // Fetch + trigger a browser download. Filename mirrors the jsPDF
-    // generator's convention: CE_Audibility_{jobNumber}_{date}.pdf.
+    // generator's convention: {jobNumber}.pdf.
     const jobRef = bundle.visit.job_number ?? bundle.report.id.slice(0, 8);
-    const dateStr = bundle.visit.visit_date?.replace(/-/g, "") ?? "report";
-    const filename = `CE_Audibility_${jobRef}_${dateStr}.pdf`;
+    const filename = `${jobRef}.pdf`;
 
     triggerBrowserDownload(pdf.signed_url, filename);
     toast.success("PDF ready", { description: "Download started in a new tab if your browser blocks direct downloads." });
@@ -238,4 +237,47 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
     });
     await generateCauseEffectReportPDF(bundle);
   }
+}
+
+// Same DOCX→PDF cloud pipeline as downloadCauseEffectReportPdf, but
+// fetches the PDF bytes and returns base64 instead of triggering a
+// browser download. Used by the Email-from-drawer flow on the Reports
+// page so the engineer can send a C&E report from the same UI as
+// service reports. No toast / fallback chain — callers (typically
+// EmailReportDialog) own error surfacing.
+export async function getCauseEffectReportPdfBase64(reportId: string): Promise<string> {
+  const bundle = await loadCauseEffectReportBundle(reportId);
+
+  const docxRes = await supabase.functions.invoke("generate-cause-effect-docx", { body: bundle });
+  if (docxRes.error) {
+    const msg = await readFunctionError(docxRes.error, "Unknown DOCX error");
+    throw new Error(`DOCX generation failed: ${msg}`);
+  }
+  const docx = docxRes.data as DocxResponse | null;
+  if (!docx?.storage_path) throw new Error("DOCX generator did not return a storage path");
+
+  const pdfRes = await supabase.functions.invoke("convert-quote-pdf", {
+    body: { docx_storage_path: docx.storage_path, bucket: "ce-outputs" },
+  });
+  if (pdfRes.error) {
+    const msg = await readFunctionError(pdfRes.error, "Unknown PDF conversion error");
+    throw new Error(`PDF conversion failed: ${msg}`);
+  }
+  const pdf = pdfRes.data as PdfResponse | null;
+  if (!pdf?.signed_url) throw new Error("PDF converter did not return a signed URL");
+
+  const resp = await fetch(pdf.signed_url);
+  if (!resp.ok) throw new Error(`Couldn't fetch generated PDF (${resp.status})`);
+  const buf = await resp.arrayBuffer();
+
+  // Chunked base64 encoding — String.fromCharCode.apply blows up on
+  // large buffers, so walk the byte array in slices small enough for
+  // the call stack.
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)));
+  }
+  return btoa(binary);
 }

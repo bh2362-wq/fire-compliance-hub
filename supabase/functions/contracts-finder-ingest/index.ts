@@ -187,7 +187,11 @@ Deno.serve(async (req) => {
 
     const cfRes = await fetch(CF_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent": "FireShieldLogs/1.0 (+https://fire-shield-logs.lovable.app)",
+      },
       body: JSON.stringify({
         searchCriteria: {
           types: ["Contract"],

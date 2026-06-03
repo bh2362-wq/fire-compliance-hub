@@ -850,6 +850,7 @@ const Quotations = () => {
           customerEmail={quotationToEmail.customers?.contact_email || ""}
           defaultRecipients={quotationToEmail.customers?.quote_email_recipients || quotationToEmail.customers?.email_recipients || ""}
           customerName={quotationToEmail.customers?.contact_name || quotationToEmail.customers?.name || ""}
+          sourceCauseEffectReportId={(quotationToEmail as { source_cause_effect_report_id?: string | null }).source_cause_effect_report_id ?? null}
           onSuccess={() => {
             fetchQuotations();
           }}
