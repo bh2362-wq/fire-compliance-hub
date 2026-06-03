@@ -93,6 +93,36 @@ interface Bundle {
   // glyphs. Mirrors generate-cause-effect-docx.
   engineerSignature?: string | null;
   clientSignature?: string | null;
+
+  // Wizard step 2/3 — full narrative + defects.
+  workCarriedOut?: string | null;
+  defectsFound?: string | null;
+
+  // Wizard step 4 — labour + mileage. Rendered as their own rows in
+  // §4 alongside the parts list.
+  labourHours?: number | null;
+  mileageMiles?: number | null;
+
+  // Wizard step 2/5 — isolation note (live state, captured on
+  // arrival, refreshed on departure).
+  isolationDetails?: string | null;
+
+  // Wizard step 5 — recommendations + free-form follow-up notes.
+  recommendations?: string | null;
+  followupNotes?: string | null;
+
+  // Wizard step 6 — client signing position.
+  clientSignPosition?: string | null;
+
+  // Wizard step 2 — §2 evidence photos. Bundle builder pre-signs each
+  // photo's storage path; the edge function fetches the bytes
+  // server-side and lays them out as a captioned grid in Appendix A.
+  photos?: Array<{
+    storage_path: string;
+    caption: string | null;
+    ordinal: number;
+    signed_url?: string | null;
+  }>;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -168,9 +198,39 @@ function composeFaultNarrative(fault: Bundle["fault"]): string {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Main fill — only the overlapping placeholders from the C&E template
-// get values; the C&E-specific ones (sound meter, audibility, etc.)
-// are left as "—" until the template is refined for callouts.
+// Main fill — fills placeholders against the REFINED callout template
+// (assets/callout-template-baseline.docx run through
+// scripts/_refine_callout_template.py). The placeholder names below
+// match the renamed slots produced by that refiner:
+//
+//   [Fault Diagnosis]       — §3.1, was [Test Methodology]
+//   [Parts List]            — §4.1, was [Sound Meter Make Model]
+//   [Labour Hours]          — §4.1, was [Sound Meter Serial]
+//   [Mileage Miles]         — §4.1, was [Calibration Due]
+//   [Recommendations Block] — §5.3, was [General Observations]
+//
+// Anything still flagged as a C&E-only placeholder ([Test Equipment],
+// the audibility tables, remedial cost table, compliance ticks)
+// prints "—" until a follow-up Word edit deletes those blocks.
+
+function fmtLabourHours(n: number | null | undefined): string | null {
+  if (n == null) return null;
+  // Trim trailing .0 so "1.0 hrs" reads as "1 hr"; keep fractional
+  // precision otherwise (engineers log to the quarter-hour).
+  const formatted = Number.isInteger(n) ? String(n) : n.toString();
+  return `${formatted} ${n === 1 ? "hr" : "hrs"}`;
+}
+
+function fmtRecommendationsBlock(
+  recommendations: string | null | undefined,
+  followup: string | null | undefined,
+): string | null {
+  const r = (recommendations ?? "").trim();
+  const f = (followup ?? "").trim();
+  if (!r && !f) return null;
+  if (r && f) return `${r}\n\n${f}`;
+  return r || f;
+}
 
 function fillTemplate(bundle: Bundle, originalXml: string): string {
   let xml = originalXml;
@@ -198,13 +258,32 @@ function fillTemplate(bundle: Bundle, originalXml: string): string {
     : null;
   xml = fill(xml, "[ARC Status]", arcStatus);
 
-  // ── Fault narrative → General Observations placeholder ─────────────
-  // First cut: collapse all four fault sections into the single GenObs
-  // placeholder. Template refinement will split these out.
+  // ── §3 Investigation & actions ─────────────────────────────────────
+  // §3.1 takes the fault diagnosis. The longer fault narrative
+  // (reported / on arrival / found / action taken, all in one
+  // paragraph) was the previous home for this data; we keep that
+  // composition as a backup if the refined slot isn't populated.
   const faultNarrative = composeFaultNarrative(bundle.fault);
-  xml = fill(xml, "[General Observations]", faultNarrative);
+  xml = fill(xml, "[Fault Diagnosis]", bundle.fault?.found ?? faultNarrative);
 
-  // ── Sign-off (§9) ──────────────────────────────────────────────────
+  // ── §4 Materials & time ────────────────────────────────────────────
+  // Three repurposed slots — the labels next to them now read "Parts
+  // list:" / "Labour hours:" / "Mileage (miles):" per the refiner's
+  // SUBSECTION_RENAMES.
+  xml = fill(xml, "[Parts List]", bundle.partsUsed ?? null);
+  xml = fill(xml, "[Labour Hours]", fmtLabourHours(bundle.labourHours));
+  xml = fill(xml, "[Mileage Miles]",
+    bundle.mileageMiles != null ? String(bundle.mileageMiles) : null,
+  );
+
+  // ── §5 Departure & follow-up ───────────────────────────────────────
+  // §5.3 (renamed "Recommendations & follow-up") receives the
+  // recommendations + free-form notes joined into one block.
+  xml = fill(xml, "[Recommendations Block]",
+    fmtRecommendationsBlock(bundle.recommendations, bundle.followupNotes),
+  );
+
+  // ── §6 Sign-off ────────────────────────────────────────────────────
   // Same fallthrough as the C&E §9 fix in PR #128 — engineer-typed
   // wins, customer record auto-fills the gap. calloutReportService
   // already applies this; we pass through whatever it computed.
@@ -447,6 +526,229 @@ async function embedSignatures(
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Photo evidence appendix
+//
+// Engineers attach photos to the callout in wizard step 2 (panel
+// display, fault location, isolated devices). The bundle pre-signs
+// each photo's storage URL; this code fetches the bytes server-side,
+// registers each as a DOCX image relationship + content type (same
+// plumbing as the signature embedder above), and lays them out in a
+// 2-column captioned grid at the end of the document.
+//
+// Inserted before the trailing <w:sectPr> so the appendix inherits
+// the page settings. Falls back to before </w:body> if no sectPr.
+//
+// Failure modes (each surfaces via diagnostics):
+//   - signed URL fetch fails (network / RLS / expired token)
+//   - response Content-Type isn't image/png or image/jpeg
+//   - bytes empty (zero-byte upload)
+// In each case the photo is skipped; the appendix renders with the
+// remaining photos so the report ships even if one image is bad.
+
+interface ZipLikeFiles {
+  file: (name: string, data?: Uint8Array | string) => unknown;
+  files: Record<string, { async: (t: string) => Promise<string> }>;
+}
+
+interface RegisteredPhoto {
+  relId: string;
+  drawingId: number;
+  caption: string;
+  ordinal: number;
+}
+
+interface PhotoAppendixDiagnostics {
+  photos_received: number;
+  photos_embedded: number;
+  failures: Array<{ ordinal: number; reason: string }>;
+}
+
+const PHOTO_WIDTH_EMU = 2560000;  // ~2.8 inches
+const PHOTO_HEIGHT_EMU = 1920000; // ~2.1 inches (4:3 aspect)
+
+function guessExtension(contentType: string | null): "png" | "jpeg" | null {
+  if (!contentType) return null;
+  const ct = contentType.toLowerCase();
+  if (ct.includes("png")) return "png";
+  if (ct.includes("jpeg") || ct.includes("jpg")) return "jpeg";
+  return null;
+}
+
+function buildPhotoRun(photo: RegisteredPhoto): string {
+  // Inline DrawingML — same shape as buildSignatureRun above, but
+  // sized for the appendix tile and named per-photo.
+  return (
+    '<w:r>' +
+      '<w:drawing>' +
+        '<wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">' +
+          `<wp:extent cx="${PHOTO_WIDTH_EMU}" cy="${PHOTO_HEIGHT_EMU}"/>` +
+          '<wp:effectExtent l="0" t="0" r="0" b="0"/>' +
+          `<wp:docPr id="${photo.drawingId}" name="Photo${photo.ordinal}"/>` +
+          '<wp:cNvGraphicFramePr>' +
+            '<a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/>' +
+          '</wp:cNvGraphicFramePr>' +
+          '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+            '<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+              '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+                '<pic:nvPicPr>' +
+                  `<pic:cNvPr id="${photo.drawingId}" name="Photo${photo.ordinal}"/>` +
+                  '<pic:cNvPicPr/>' +
+                '</pic:nvPicPr>' +
+                '<pic:blipFill>' +
+                  `<a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${photo.relId}"/>` +
+                  '<a:stretch><a:fillRect/></a:stretch>' +
+                '</pic:blipFill>' +
+                '<pic:spPr>' +
+                  '<a:xfrm>' +
+                    '<a:off x="0" y="0"/>' +
+                    `<a:ext cx="${PHOTO_WIDTH_EMU}" cy="${PHOTO_HEIGHT_EMU}"/>` +
+                  '</a:xfrm>' +
+                  '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+                '</pic:spPr>' +
+              '</pic:pic>' +
+            '</a:graphicData>' +
+          '</a:graphic>' +
+        '</wp:inline>' +
+      '</w:drawing>' +
+    '</w:r>'
+  );
+}
+
+function buildPhotoCell(photo: RegisteredPhoto): string {
+  const captionXml = photo.caption.trim().length > 0
+    ? `<w:p><w:pPr><w:spacing w:before="60" w:after="0"/></w:pPr>` +
+        `<w:r><w:rPr><w:i/><w:iCs/><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr>` +
+        `<w:t xml:space="preserve">${escapeXmlText(photo.caption.trim())}</w:t></w:r></w:p>`
+    : "";
+  return (
+    "<w:tc>" +
+      '<w:tcPr>' +
+        '<w:tcW w:w="2500" w:type="pct"/>' +
+        '<w:tcMar><w:top w:w="120" w:type="dxa"/><w:bottom w:w="120" w:type="dxa"/><w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tcMar>' +
+      '</w:tcPr>' +
+      '<w:p><w:pPr><w:spacing w:after="0"/></w:pPr>' + buildPhotoRun(photo) + '</w:p>' +
+      captionXml +
+    "</w:tc>"
+  );
+}
+
+function buildPhotoAppendix(photos: RegisteredPhoto[]): string {
+  const heading =
+    '<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="120"/></w:pPr>' +
+      '<w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="32"/><w:szCs w:val="32"/><w:color w:val="C53030"/></w:rPr>' +
+        '<w:t xml:space="preserve">Appendix A — Photo evidence</w:t>' +
+      "</w:r>" +
+    "</w:p>";
+
+  if (photos.length === 0) return "";
+
+  const tblPr =
+    "<w:tblPr>" +
+      '<w:tblW w:w="5000" w:type="pct"/>' +
+      '<w:tblLayout w:type="autofit"/>' +
+    "</w:tblPr>";
+  const tblGrid =
+    "<w:tblGrid>" +
+      '<w:gridCol w:w="4800"/>' +
+      '<w:gridCol w:w="4800"/>' +
+    "</w:tblGrid>";
+
+  // Pair photos into rows of 2 — odd count gets an empty right cell.
+  const rows: string[] = [];
+  for (let i = 0; i < photos.length; i += 2) {
+    const left = buildPhotoCell(photos[i]);
+    const right = i + 1 < photos.length
+      ? buildPhotoCell(photos[i + 1])
+      : '<w:tc><w:tcPr><w:tcW w:w="2500" w:type="pct"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr></w:p></w:tc>';
+    rows.push(`<w:tr>${left}${right}</w:tr>`);
+  }
+
+  return heading + `<w:tbl>${tblPr}${tblGrid}${rows.join("")}</w:tbl>`;
+}
+
+function injectPhotoAppendix(xml: string, appendix: string): string {
+  if (!appendix) return xml;
+  const sectIdx = xml.lastIndexOf("<w:sectPr");
+  const bodyEndIdx = xml.lastIndexOf("</w:body>");
+  const insertAt = sectIdx > 0 && sectIdx < bodyEndIdx ? sectIdx : bodyEndIdx;
+  if (insertAt < 0) return xml;
+  return xml.slice(0, insertAt) + appendix + xml.slice(insertAt);
+}
+
+async function appendPhotoEvidence(
+  zip: ZipLikeFiles,
+  doc: string,
+  bundle: Bundle,
+  diag: PhotoAppendixDiagnostics,
+): Promise<string> {
+  const photos = bundle.photos ?? [];
+  diag.photos_received = photos.length;
+  if (photos.length === 0) return doc;
+
+  // Load rels + content-types once; append per-photo, write back at
+  // the end. Same pattern as the signature embedder.
+  let relsXml: string;
+  let ctXml: string;
+  try {
+    relsXml = await zip.files["word/_rels/document.xml.rels"].async("string");
+    ctXml = await zip.files["[Content_Types].xml"].async("string");
+  } catch (err) {
+    console.warn("[generate-callout-docx] couldn't read rels/CT for photo appendix:", err);
+    return doc;
+  }
+
+  const registered: RegisteredPhoto[] = [];
+
+  for (const photo of photos) {
+    if (!photo.signed_url) {
+      diag.failures.push({ ordinal: photo.ordinal, reason: "no signed URL" });
+      continue;
+    }
+    try {
+      const resp = await fetch(photo.signed_url);
+      if (!resp.ok) throw new Error(`http ${resp.status}`);
+      const ext = guessExtension(resp.headers.get("Content-Type"))
+        ?? (photo.storage_path.toLowerCase().endsWith(".png") ? "png" : "jpeg");
+      const bytes = new Uint8Array(await resp.arrayBuffer());
+      if (bytes.length === 0) throw new Error("empty body");
+
+      const relId = `rIdPhoto${photo.ordinal}`;
+      const fileName = `photo_${photo.ordinal}.${ext}`;
+      zip.file(`word/media/${fileName}`, bytes);
+
+      if (!relsXml.includes(`Id="${relId}"`)) {
+        const rel = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fileName}"/>`;
+        relsXml = relsXml.replace("</Relationships>", `${rel}</Relationships>`);
+      }
+      if (!ctXml.includes(`Extension="${ext}"`)) {
+        const mime = ext === "png" ? "image/png" : "image/jpeg";
+        const entry = `<Default Extension="${ext}" ContentType="${mime}"/>`;
+        ctXml = ctXml.replace(/<Default /, entry + "<Default ");
+      }
+
+      registered.push({
+        relId,
+        // 2000+ avoids collision with the signature embedder's 1001/1002
+        drawingId: 2000 + photo.ordinal,
+        caption: photo.caption ?? "",
+        ordinal: photo.ordinal,
+      });
+      diag.photos_embedded += 1;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      diag.failures.push({ ordinal: photo.ordinal, reason: msg });
+      console.warn(`[generate-callout-docx] photo ${photo.ordinal} skipped:`, msg);
+    }
+  }
+
+  zip.file("word/_rels/document.xml.rels", relsXml);
+  zip.file("[Content_Types].xml", ctXml);
+
+  const appendix = buildPhotoAppendix(registered);
+  return injectPhotoAppendix(doc, appendix);
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // HTTP handler
 
 Deno.serve(async (req) => {
@@ -490,6 +792,24 @@ Deno.serve(async (req) => {
       sigDiag,
     );
     console.log("[generate-callout-docx] signature embed:", JSON.stringify(sigDiag));
+
+    // Photo evidence appendix — fetches each photo via its pre-signed
+    // URL, registers media/rels/content-types, lays out a captioned
+    // 2-column grid before the trailing <w:sectPr>. Per-photo
+    // failures surface via photo_diagnostics; the appendix renders
+    // with whatever succeeded.
+    const photoDiag: PhotoAppendixDiagnostics = {
+      photos_received: 0,
+      photos_embedded: 0,
+      failures: [],
+    };
+    filledXml = await appendPhotoEvidence(
+      zip as unknown as ZipLikeFiles,
+      filledXml,
+      bundle,
+      photoDiag,
+    );
+    console.log("[generate-callout-docx] photo appendix:", JSON.stringify(photoDiag));
 
     zip.file("word/document.xml", filledXml);
 
@@ -562,6 +882,10 @@ Deno.serve(async (req) => {
         // toast a clear "didn't embed because X" message when a
         // signature was provided but didn't make it into the file.
         signature_diagnostics: sigDiag,
+        // Photo embed diagnostics — received/embedded counts plus
+        // per-photo failure reasons. Frontend toasts when some
+        // photos were captured but didn't make it into Appendix A.
+        photo_diagnostics: photoDiag,
       }),
       {
         status: 200,

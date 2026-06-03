@@ -59,15 +59,47 @@ export async function buildCalloutReportInput(
   // fields; client_name is the legacy field still written by older
   // routine-service flows. Read both so either source feeds the
   // sign-off fallthrough below.
+  //
+  // Materials / departure / recommendations columns added for the
+  // DOCX template refinement — surface the wizard step 4-5 data that
+  // didn't have anywhere to render in the in-browser PDF.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: reportData } = await (supabase as any)
     .from("service_reports")
     .select(
       "system_status, parts_used, engineer_signature, engineer_name, " +
-        "client_signature, client_name, client_sign_name, client_sign_position",
+        "client_signature, client_name, client_sign_name, client_sign_position, " +
+        "work_carried_out, defects_found, labour_hours, mileage_miles, " +
+        "isolation_details, recommendations, notes",
     )
     .eq("visit_id", visitId)
     .maybeSingle();
+
+  // §2 evidence photos — separate query so the report still renders
+  // for visits with no photos (no row → empty array, no appendix).
+  // Signed URLs short-circuit the DOCX generator's image embedding;
+  // the edge function uses them to fetch bytes server-side.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: photoRows } = await (supabase as any)
+    .from("callout_photos")
+    .select("storage_path, caption, ordinal")
+    .eq("visit_id", visitId)
+    .order("ordinal");
+  const photosWithUrls = await Promise.all(
+    ((photoRows ?? []) as Array<{ storage_path: string; caption: string | null; ordinal: number }>).map(
+      async (p) => {
+        const { data: signed } = await supabase.storage
+          .from("callout-photos")
+          .createSignedUrl(p.storage_path, 3600);
+        return {
+          storage_path: p.storage_path,
+          caption: p.caption,
+          ordinal: p.ordinal,
+          signed_url: signed?.signedUrl ?? null,
+        };
+      },
+    ),
+  );
 
   // Engineer name — prefer the one the engineer typed on the service
   // report; fall back to their profile full_name.
@@ -145,6 +177,16 @@ export async function buildCalloutReportInput(
     systemStatus: reportData?.system_status ?? null,
     partsUsed: reportData?.parts_used ?? null,
     outstandingWorks: null, // no dedicated column yet — schema follow-up
+
+    workCarriedOut: reportData?.work_carried_out ?? null,
+    defectsFound: reportData?.defects_found ?? null,
+    labourHours: reportData?.labour_hours ?? null,
+    mileageMiles: reportData?.mileage_miles ?? null,
+    isolationDetails: reportData?.isolation_details ?? null,
+    recommendations: reportData?.recommendations ?? null,
+    followupNotes: reportData?.notes ?? null,
+    clientSignPosition: reportData?.client_sign_position ?? null,
+    photos: photosWithUrls,
 
     engineerSignature: reportData?.engineer_signature ?? null,
     engineerSignDate: null,

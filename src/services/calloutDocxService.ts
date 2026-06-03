@@ -22,6 +22,12 @@ interface SignatureDiagnostics {
   client_reason?: string;
 }
 
+interface PhotoDiagnostics {
+  photos_received?: number;
+  photos_embedded?: number;
+  failures?: Array<{ ordinal: number; reason: string }>;
+}
+
 interface DocxResponse {
   storage_path?: string | null;
   signed_url?: string | null;
@@ -34,6 +40,7 @@ interface DocxResponse {
     storage_upload_error?: string | null;
   };
   signature_diagnostics?: SignatureDiagnostics;
+  photo_diagnostics?: PhotoDiagnostics;
 }
 
 // Surface a toast warning when a signature was captured by the wizard
@@ -56,6 +63,26 @@ function reportSignatureDiagnostics(sigDiag?: SignatureDiagnostics): void {
       duration: 15_000,
     });
   }
+}
+
+// Same shape as the signature reporter — surfaces a toast when some
+// photos were uploaded by the wizard but didn't reach Appendix A.
+// Quiet on the happy path (zero photos, or all embedded).
+function reportPhotoDiagnostics(diag?: PhotoDiagnostics): void {
+  if (!diag) return;
+  const received = diag.photos_received ?? 0;
+  const embedded = diag.photos_embedded ?? 0;
+  console.log("[Callout DOCX] photo appendix:", diag);
+  if (received === 0 || received === embedded) return;
+  const missing = received - embedded;
+  const reasons = (diag.failures ?? [])
+    .slice(0, 3)
+    .map((f) => `#${f.ordinal}: ${f.reason}`)
+    .join("  ·  ");
+  toast.warning(`${missing} photo${missing === 1 ? "" : "s"} didn't embed`, {
+    description: reasons || "Photo bytes couldn't be fetched server-side.",
+    duration: 12_000,
+  });
 }
 
 interface PdfResponse {
@@ -116,6 +143,7 @@ export async function downloadCalloutReportDocx(visitId: string): Promise<void> 
   // didn't embed.
   console.log("[Callout DOCX] generate-callout-docx response:", data.diagnostics);
   reportSignatureDiagnostics(data.signature_diagnostics);
+  reportPhotoDiagnostics(data.photo_diagnostics);
 
   const blob = base64ToBlob(data.docx_base64);
   triggerDownload(blob, `${bundle.ref}.docx`);
@@ -151,6 +179,7 @@ export async function downloadCalloutReportPdfViaCloud(visitId: string): Promise
   }
   console.log("[Callout PDF] generate-callout-docx diagnostics:", docx.diagnostics);
   reportSignatureDiagnostics(docx.signature_diagnostics);
+  reportPhotoDiagnostics(docx.photo_diagnostics);
 
   const pdfRes = await supabase.functions.invoke("convert-quote-pdf", {
     body: {
