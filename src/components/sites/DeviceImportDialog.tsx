@@ -42,16 +42,29 @@ import * as XLSX from "xlsx";
 const GENT_DEVICE_TYPES: Record<string, string> = {
   "MCP": "Manual Call Point",
   "QOH": "Quad Optical Heat Detector",
-  "QH": "Quad Heat Detector", 
+  "QH": "Quad Heat Detector",
   "Q2H": "Quad 2 Heat Detector",
+  "Q2HF": "Optical Heat Detector",
   "qHV1": "Optical Heat Sounder",
-  "q2HV1": "Dual Optical Heat Sounder",
+  // Corrected: q2HV1 is the heat detector + VAD variant, not a sounder.
+  // Previously labelled "Dual Optical Heat Sounder" which conflated it
+  // with q2HV2 — caused the engineer to mis-classify devices on import.
+  "q2HV1": "Heat Detector and VAD",
   "q2HV3": "Dual Optical Heat Sounder VAD",
   "q2H1": "Dual Optical Heat Detector",
   "qHS": "Heat Sounder",
+  "qOHS": "Optical Heat Sounder",
+  "O": "Optical Detector",
   "MVI": "Input Module",
   "MVO": "Output Module",
+  "KSI": "Keyswitch (output)",
+  "Rep": "Repeater Panel",
   "S-Quad": "S-Quad Detector",
+  // Friendly-name aliases: PDF/CSV exports sometimes carry the long
+  // device-type name in the type column instead of the short code, so
+  // accept those forms too and route them to the interface category.
+  "Loop Voltage Input (2-channel)": "Loop Voltage Input Interface (2-channel)",
+  "Loop Voltage Input (4-channel)": "Loop Voltage Input Interface (4-channel)",
 };
 
 function parseGentTextFormat(content: string): DeviceImport[] {

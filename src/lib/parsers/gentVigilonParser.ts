@@ -25,22 +25,35 @@ const GENT_TYPE_LABELS: Record<string, string> = {
   "3FR": "Sounder/Beacon",
   "3SFR": "Sounder/Beacon (alt)",
   Q2H: "Quad 2 Heat Detector",
+  Q2HF: "Optical Heat Detector",
   QH: "Quad Heat Detector",
   QOH: "Quad Optical Heat Detector",
   q2HV4: "Dual Optical Heat Sounder/VAD",
   q2HV3: "Dual Optical Heat VAD",
   q2HV2: "Dual Optical Heat Sounder",
+  // q2HV1 = heat detector + VAD. Distinct from the q2HV2 sounder
+  // variant — the engineer flagged this gap during a real import.
+  q2HV1: "Heat Detector and VAD",
   q2HS: "Dual Optical Heat Sounder",
   qHV2: "Heat Sounder/Beacon",
   qHS: "Heat Sounder",
+  qOHS: "Optical Heat Sounder",
   OH: "Optical Heat Detector",
+  O: "Optical Detector",
+  KSI: "Keyswitch (output)",
+  Rep: "Repeater Panel",
   MVI: "Multi-Input Interface",
-  LVI4: "Loop Voltage Input (4-channel)",
-  LVI2: "Loop Voltage Input (2-channel)",
+  LVI4: "Loop Voltage Input Interface (4-channel)",
+  LVI2: "Loop Voltage Input Interface (2-channel)",
   "Li/f": "Loop Interface",
   COMPS: "Combined Sounder",
   STSS: "Sounder",
   SCBS: "Sounder/Beacon",
+  // Friendly-name aliases — when the PDF text column carries the long
+  // form instead of the short code, route them to the same canonical
+  // friendly label so downstream categorisation stays consistent.
+  "Loop Voltage Input (2-channel)": "Loop Voltage Input Interface (2-channel)",
+  "Loop Voltage Input (4-channel)": "Loop Voltage Input Interface (4-channel)",
 };
 
 function friendlyType(code: string): string {
