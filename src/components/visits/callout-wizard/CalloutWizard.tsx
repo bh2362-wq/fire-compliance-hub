@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, FileDown, Loader2, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileDown, FileText, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useCalloutWizard } from "./useCalloutWizard";
@@ -12,6 +12,7 @@ import { Step5Departure } from "./steps/Step5Departure";
 import { Step6SignOff } from "./steps/Step6SignOff";
 import { buildCalloutReportInput } from "@/services/calloutReportService";
 import { generateCalloutReportPDF } from "@/lib/calloutReportPdfGenerator";
+import { downloadCalloutReportDocx } from "@/services/calloutDocxService";
 
 // CalloutWizard — replaces the old VisitCalloutPanel 4-section form
 // with a 6-step flow that mirrors the on-site sequence:
@@ -45,6 +46,7 @@ export function CalloutWizard({ visitId }: Props) {
   const state = useCalloutWizard(visitId);
   const [stepIdx, setStepIdx] = useState(0);
   const [generating, setGenerating] = useState(false);
+  const [generatingDocx, setGeneratingDocx] = useState(false);
 
   if (state.loading) {
     return (
@@ -78,6 +80,21 @@ export function CalloutWizard({ visitId }: Props) {
       toast.error((e as Error).message || "Could not generate PDF");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleGenerateDocx = async () => {
+    setGeneratingDocx(true);
+    try {
+      // Save first so the file reflects the in-memory edits. Same
+      // reasoning as handleGenerate above.
+      await state.save();
+      await downloadCalloutReportDocx(visitId);
+      toast.success("Callout Report DOCX downloaded");
+    } catch (e) {
+      toast.error((e as Error).message || "Could not generate DOCX");
+    } finally {
+      setGeneratingDocx(false);
     }
   };
 
@@ -151,13 +168,31 @@ export function CalloutWizard({ visitId }: Props) {
           <Button
             variant="outline"
             size="sm"
+            onClick={handleGenerateDocx}
+            disabled={generating || generatingDocx || state.saving}
+          >
+            {generatingDocx ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                Generating DOCX…
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4 mr-1" />
+                Save &amp; download DOCX
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleGenerate}
-            disabled={generating || state.saving}
+            disabled={generating || generatingDocx || state.saving}
           >
             {generating ? (
               <>
                 <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                Generating…
+                Generating PDF…
               </>
             ) : (
               <>
@@ -169,7 +204,7 @@ export function CalloutWizard({ visitId }: Props) {
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={state.saving || generating}
+            disabled={state.saving || generating || generatingDocx}
           >
             {state.saving ? (
               <>
