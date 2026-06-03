@@ -21,6 +21,7 @@ import {
 import { getCompanySettings } from "@/services/companySettingsService";
 import { RamsDocument } from "@/services/ramsService";
 import { generateMergedRamsPDFBase64 } from "@/lib/ramsPdfGenerator";
+import { rememberLastRecipients } from "@/services/emailMemoryService";
 
 interface EmailRamsDialogProps {
   open: boolean;
@@ -61,7 +62,7 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
       if (document.site_id) {
         const { data: site } = await supabase
           .from("sites")
-          .select("customer_id, customers(name, contact_name, contact_email, report_email_recipients, email_recipients)")
+          .select("customer_id, customers(name, contact_name, contact_email, report_email_recipients, email_recipients, last_email_recipients)")
           .eq("id", document.site_id)
           .maybeSingle();
 
@@ -69,7 +70,7 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
         if (customer) {
           custName = customer.name || "";
           contName = customer.contact_name || "";
-          const recipientList = customer.report_email_recipients || customer.email_recipients || "";
+          const recipientList = customer.last_email_recipients || customer.report_email_recipients || customer.email_recipients || "";
           const emails = [customer.contact_email, recipientList]
             .filter(Boolean)
             .join(",")
@@ -266,6 +267,7 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
             sent_by: user?.id || null,
           })
           .eq("id", document.id);
+        void rememberLastRecipients(customerId, recipients);
         toast.success(`RAMS sent to ${summary.sent} recipient${summary.sent > 1 ? "s" : ""}`);
       }
       if (summary.failed > 0) {
