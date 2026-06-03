@@ -94,6 +94,16 @@ interface Remedial {
   estimated_cost: number | null;
 }
 
+interface DeviceRegisterEntry {
+  loop: string | null;
+  address: string | null;
+  device_type: string | null;
+  location: string | null;
+  zone: string | null;
+  installed_at: string | null;
+  test_status: string | null;  // "passed" | "fault" | null
+}
+
 interface Bundle {
   report: Report;
   site: Site;
@@ -103,6 +113,7 @@ interface Bundle {
   readings: AudibilityReading[];
   issues: Issue[];
   remedials: Remedial[];
+  deviceRegister?: DeviceRegisterEntry[];
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -539,7 +550,149 @@ function buildBundleXml(bundle: Bundle, originalXml: string): string {
   xml = tickAttachment(xml, "Photographic Evidence (if applicable)", !!r.attach_photos);
   xml = tickAttachment(xml, "Previous Test Reports for Comparison", !!r.attach_previous_reports);
 
+  // ── Appendix A — Device register (injected after main report) ──
+  xml = injectDeviceRegisterAppendix(xml, bundle.deviceRegister ?? []);
+
   return xml;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Appendix A — Device register
+//
+// Built programmatically rather than via a template placeholder row —
+// the table is potentially long (hundreds of devices on a large site)
+// and easier to maintain as code than to keep aligned with the .docx.
+// Injected before the final <w:sectPr> (or </w:body> if no section
+// properties exist) so page settings stay in effect.
+
+function yearsSince(iso: string | null): string {
+  if (!iso) return "—";
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return "—";
+  const ms = Date.now() - then.getTime();
+  const yrs = ms / (365.25 * 24 * 60 * 60 * 1000);
+  if (yrs < 1) return "<1 yr";
+  return `${Math.floor(yrs)} yr`;
+}
+
+function formatDeviceNumber(loop: string | null, address: string | null): string {
+  const a = address?.trim() || "";
+  const l = loop?.trim() || "";
+  if (l && a) return `L${l}/${a}`;
+  return a || l || "—";
+}
+
+function formatTestStatus(s: string | null | undefined): string {
+  if (s === "passed") return "PASS";
+  if (s === "fault") return "FAIL";
+  return "Not tested";
+}
+
+// Build one <w:tc> body cell with consistent padding + size.
+function appendixCell(text: string, opts: { bold?: boolean; fill?: string; color?: string; sizeHalfPt?: number } = {}): string {
+  const fillShd = opts.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${opts.fill}"/>` : "";
+  const rPrParts: string[] = [];
+  if (opts.bold) rPrParts.push("<w:b/>", "<w:bCs/>");
+  if (opts.sizeHalfPt) rPrParts.push(`<w:sz w:val="${opts.sizeHalfPt}"/>`, `<w:szCs w:val="${opts.sizeHalfPt}"/>`);
+  if (opts.color) rPrParts.push(`<w:color w:val="${opts.color}"/>`);
+  const rPr = rPrParts.length > 0 ? `<w:rPr>${rPrParts.join("")}</w:rPr>` : "";
+  // OOXML schema requires <w:shd> before <w:tcMar> inside <w:tcPr>.
+  return (
+    "<w:tc>" +
+      "<w:tcPr>" +
+        fillShd +
+        '<w:tcMar><w:top w:w="60" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tcMar>' +
+      "</w:tcPr>" +
+      "<w:p>" +
+        `<w:pPr><w:spacing w:after="0"/></w:pPr>` +
+        `<w:r>${rPr}<w:t xml:space="preserve">${escapeXmlText(text)}</w:t></w:r>` +
+      "</w:p>" +
+    "</w:tc>"
+  );
+}
+
+function buildDeviceRegisterAppendix(register: DeviceRegisterEntry[]): string {
+  // Page break + heading always render so the engineer sees "Appendix A
+  // — Device register" even when the asset list is empty (proves we
+  // looked; absence of devices is meaningful).
+  const heading =
+    '<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="120"/></w:pPr>' +
+      '<w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="32"/><w:szCs w:val="32"/><w:color w:val="C53030"/></w:rPr>' +
+        '<w:t xml:space="preserve">Appendix A — Device register</w:t>' +
+      "</w:r>" +
+    "</w:p>";
+  const intro =
+    '<w:p><w:pPr><w:spacing w:after="160"/></w:pPr>' +
+      '<w:r><w:rPr><w:i/><w:iCs/><w:sz w:val="20"/><w:szCs w:val="20"/><w:color w:val="6B7280"/></w:rPr>' +
+        '<w:t xml:space="preserve">Full asset register for the site, with this visit\'s test outcome merged in where applicable.</w:t>' +
+      "</w:r>" +
+    "</w:p>";
+
+  if (register.length === 0) {
+    const empty =
+      '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr>' +
+        '<w:r><w:rPr><w:i/><w:iCs/><w:sz w:val="20"/><w:color w:val="6B7280"/></w:rPr>' +
+          '<w:t xml:space="preserve">No devices recorded in the asset register for this site.</w:t>' +
+        "</w:r>" +
+      "</w:p>";
+    return heading + intro + empty;
+  }
+
+  const tblPr =
+    "<w:tblPr>" +
+      '<w:tblW w:w="5000" w:type="pct"/>' +
+      '<w:tblBorders>' +
+        '<w:top w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>' +
+        '<w:left w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>' +
+        '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>' +
+        '<w:right w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>' +
+        '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>' +
+        '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>' +
+      "</w:tblBorders>" +
+      '<w:tblLayout w:type="autofit"/>' +
+    "</w:tblPr>";
+
+  // 6 columns: Number / Type / Location / Zone / Age / Result
+  const tblGrid =
+    "<w:tblGrid>" +
+      '<w:gridCol w:w="1200"/>' +
+      '<w:gridCol w:w="2200"/>' +
+      '<w:gridCol w:w="2200"/>' +
+      '<w:gridCol w:w="1100"/>' +
+      '<w:gridCol w:w="900"/>' +
+      '<w:gridCol w:w="1200"/>' +
+    "</w:tblGrid>";
+
+  const headerCells = ["Number", "Type", "Location", "Zone", "Age", "Result"]
+    .map((h) => appendixCell(h, { bold: true, fill: "1F2937", color: "FFFFFF", sizeHalfPt: 18 }))
+    .join("");
+  const headerRow = `<w:tr><w:trPr><w:tblHeader/></w:trPr>${headerCells}</w:tr>`;
+
+  const bodyRows = register.map((d) => {
+    const cells =
+      appendixCell(formatDeviceNumber(d.loop, d.address), { sizeHalfPt: 16 }) +
+      appendixCell(d.device_type?.trim() || "—",          { sizeHalfPt: 16 }) +
+      appendixCell(d.location?.trim() || "—",             { sizeHalfPt: 16 }) +
+      appendixCell(d.zone?.trim() || "—",                 { sizeHalfPt: 16 }) +
+      appendixCell(yearsSince(d.installed_at),            { sizeHalfPt: 16 }) +
+      appendixCell(formatTestStatus(d.test_status),       { sizeHalfPt: 16, bold: d.test_status === "fault" });
+    return `<w:tr>${cells}</w:tr>`;
+  }).join("");
+
+  const table = `<w:tbl>${tblPr}${tblGrid}${headerRow}${bodyRows}</w:tbl>`;
+  return heading + intro + table;
+}
+
+function injectDeviceRegisterAppendix(xml: string, register: DeviceRegisterEntry[]): string {
+  const appendix = buildDeviceRegisterAppendix(register);
+  // Insert before the final <w:sectPr> if present so the document's
+  // section properties (page size, margins) still apply to the
+  // appendix. Falls back to inserting before </w:body>.
+  const sectIdx = xml.lastIndexOf("<w:sectPr");
+  const bodyEndIdx = xml.lastIndexOf("</w:body>");
+  const insertAt = sectIdx > 0 && sectIdx < bodyEndIdx ? sectIdx : bodyEndIdx;
+  if (insertAt < 0) return xml;
+  return xml.slice(0, insertAt) + appendix + xml.slice(insertAt);
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -858,6 +1011,10 @@ Deno.serve(async (req) => {
         aud_issues_rendered: bundle.issues.filter((i) => i.kind === "audibility").length,
         remedials_rendered: bundle.remedials.length,
       },
+      // Appendix A diagnostic — how many devices were rendered. 0
+      // means the asset register for this site is empty (or the
+      // client didn't send the register at all on an older bundle).
+      device_register_rendered: bundle.deviceRegister?.length ?? 0,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
