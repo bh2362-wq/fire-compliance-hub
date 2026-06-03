@@ -11,18 +11,42 @@ import {
 import { ScopeWriterDialog } from "./ScopeWriterDialog";
 import { extractEdgeError } from "@/lib/edgeError";
 
-export function QuoteActions({ quotationId }: { quotationId: string }) {
+export function QuoteActions({
+  quotationId,
+  onBeforeAction,
+}: {
+  quotationId: string;
+  /** Called immediately before Export to Word / Generate PDF runs.
+      Return false to abort the action (e.g. save failed). The dialog
+      hosting QuoteActions uses this to flush unsaved edits to the DB
+      before the export reads from it — otherwise useQuotationFull's
+      cached pre-edit row is what gets rendered into the document. */
+  onBeforeAction?: () => Promise<boolean>;
+}) {
   const { data: q, refetch } = useQuotationFull(quotationId);
   const docx = useGenerateQuoteDocx();
   const pdf = useConvertQuotePdf();
   const [scopeOpen, setScopeOpen] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
 
+  // Wraps onBeforeAction + a forced refetch so the data passed to the
+  // mutation always reflects the latest DB state. Returns the fresh
+  // quotation or null when the action should abort.
+  const flushAndReload = async () => {
+    if (onBeforeAction) {
+      const ok = await onBeforeAction();
+      if (!ok) return null;
+    }
+    const { data: fresh } = await refetch();
+    return fresh ?? q ?? null;
+  };
+
   const onExportDocx = async () => {
-    if (!q) return;
+    const fresh = await flushAndReload();
+    if (!fresh) return;
     try {
-      const r = await docx.mutateAsync(q);
-      await downloadSignedUrl(r.signed_url, `${q.quotation_number}.docx`);
+      const r = await docx.mutateAsync(fresh);
+      await downloadSignedUrl(r.signed_url, `${fresh.quotation_number}.docx`);
       toast.success("Word document downloaded");
       refetch();
     } catch (e) {
@@ -32,16 +56,17 @@ export function QuoteActions({ quotationId }: { quotationId: string }) {
   };
 
   const onGeneratePdf = async () => {
-    if (!q) return;
+    const fresh = await flushAndReload();
+    if (!fresh) return;
     setPdfBusy(true);
     try {
-      let docxPath = q.latest_docx_path;
+      let docxPath = fresh.latest_docx_path;
       if (!docxPath) {
-        const d = await docx.mutateAsync(q);
+        const d = await docx.mutateAsync(fresh);
         docxPath = d.storage_path;
       }
-      const r = await pdf.mutateAsync({ docx_storage_path: docxPath, quotation_id: q.id });
-      await downloadSignedUrl(r.signed_url, `${q.quotation_number}.pdf`);
+      const r = await pdf.mutateAsync({ docx_storage_path: docxPath, quotation_id: fresh.id });
+      await downloadSignedUrl(r.signed_url, `${fresh.quotation_number}.pdf`);
       toast.success("PDF downloaded");
       refetch();
     } catch (e) {
