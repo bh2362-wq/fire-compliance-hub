@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, Check, X, Search, ArrowLeftRight } from "lucide-react";
+import { Loader2, Upload, Check, X, Search, ArrowLeftRight, RotateCcw } from "lucide-react";
 import { parseCSV, parseTXT, type ParseResult } from "@/lib/parsers/csvParser";
 import { parsePDF } from "@/lib/parsers/pdfParser";
 import { saveFileUpload, ensureManualTicksUploadId } from "@/services/uploadService";
@@ -379,6 +379,48 @@ export function DevicesStep({ visitId, siteId }: Props) {
     }
   };
 
+  // Inverse of bulkPassFiltered — clear the PASS status on every visible
+  // device that's currently marked passed, so the engineer can re-test
+  // a scope they ticked in error (e.g. wrong loop bulk-passed, then
+  // re-filtered to that loop). Deletes only "passed" parsed_device_tests
+  // rows on this visit for the targets — never touches FAULT rows or
+  // tests against the device on other visits.
+  const bulkClearPassFiltered = async () => {
+    const targets = filtered.filter((d) => normalize(lookupTest(d)?.status) === "passed");
+    if (targets.length === 0) {
+      toast({ title: "Nothing to clear", description: "No visible devices are currently passed." });
+      return;
+    }
+    const label = categoryFilter ? CATEGORY_LABELS[categoryFilter].toLowerCase() : "device";
+    if (!window.confirm(
+      `Clear PASS on ${targets.length} visible ${label}${targets.length === 1 ? "" : "s"}? They'll show as not tested again.`,
+    )) return;
+    setBulkBusy(true);
+    try {
+      const ids = targets.map((d) => d.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from("parsed_device_tests")
+        .delete()
+        .eq("visit_id", visitId)
+        .eq("status", "passed")
+        .in("device_id", ids);
+      if (error) throw error;
+      toast({ title: `Cleared pass on ${targets.length}` });
+      qc.invalidateQueries({ queryKey: ["sr-tests", visitId] });
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : err && typeof err === "object" && "message" in err && typeof (err as { message?: unknown }).message === "string"
+            ? (err as { message: string }).message
+            : JSON.stringify(err);
+      toast({ title: "Couldn't clear", description: message, variant: "destructive" });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -513,6 +555,23 @@ export function DevicesStep({ visitId, siteId }: Props) {
             <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Marking…</>
           ) : (
             <><Check className="w-3.5 h-3.5 mr-1.5" /> Mark {filtered.filter((d) => normalize(lookupTest(d)?.status) === "untested").length} visible as PASS</>
+          )}
+        </Button>
+      )}
+
+      {filtered.some((d) => normalize(lookupTest(d)?.status) === "passed") && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          disabled={bulkBusy}
+          onClick={bulkClearPassFiltered}
+        >
+          {bulkBusy ? (
+            <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Clearing…</>
+          ) : (
+            <><RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Clear pass on {filtered.filter((d) => normalize(lookupTest(d)?.status) === "passed").length} visible</>
           )}
         </Button>
       )}
