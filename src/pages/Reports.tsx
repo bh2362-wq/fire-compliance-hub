@@ -54,7 +54,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { EmailReportDialog } from "@/components/reports/EmailReportDialog";
 import { getCompanySettings } from "@/services/companySettingsService";
 import { generateServiceReportPDF, generateWorkReportPDF, generateASDReportPDF, generateDisabledRefugeReportPDF } from "@/lib/pdfGenerator";
-import { downloadCauseEffectReportPdf } from "@/features/causeEffectTest/useCauseEffectGeneration";
+import { downloadCauseEffectReportPdf, getCauseEffectReportPdfBase64 } from "@/features/causeEffectTest/useCauseEffectGeneration";
 import { GenerateQuotationDialog } from "@/components/quotations/GenerateQuotationDialog";
 import { AIDefectQuoteDialog } from "@/components/defects/AIDefectQuoteDialog";
 import type { Defect, DefectCategory } from "@/services/defectService";
@@ -165,7 +165,12 @@ const Reports = () => {
   const [unlocking, setUnlocking] = useState(false);
   const { user } = useAuth();
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [reportToEmail, setReportToEmail] = useState<ReportWithSite | null>(null);
+  // Email state: ReportWithSite or CeReportRow — the dialog only reads
+  // id / site_id / visit_id / report_number / report_date / sites.name,
+  // which exist on both shapes. emailKind drives the PDF generator
+  // branch (service-report pipeline vs C&E DOCX→PDF pipeline).
+  const [reportToEmail, setReportToEmail] = useState<ReportWithSite | CeReportRow | null>(null);
+  const [emailKind, setEmailKind] = useState<"service" | "ce">("service");
   const [emailRecipientInfo, setEmailRecipientInfo] = useState<{
     email: string;
     recipients: string;
@@ -362,19 +367,50 @@ const Reports = () => {
       .maybeSingle();
 
     const customer = siteData?.customers as { name: string; contact_email: string; email_recipients: string; report_email_recipients: string } | null;
-    
+
     setEmailRecipientInfo({
       email: customer?.contact_email || "",
       recipients: customer?.report_email_recipients || customer?.email_recipients || "",
       customerName: customer?.name || "",
       customerId: siteData?.customer_id || "",
     });
+    setEmailKind("service");
+    setReportToEmail(report);
+    setEmailDialogOpen(true);
+  };
+
+  // C&E variant — same recipient-prefill shape as handleEmailReport,
+  // but the PDF generator branches to the C&E DOCX→PDF pipeline (see
+  // generateReportPdfBase64 below).
+  const handleEmailCeReport = async (report: CeReportRow) => {
+    const { data: siteData } = await supabase
+      .from("sites")
+      .select("customer_id, customers(name, contact_email, email_recipients, report_email_recipients)")
+      .eq("id", report.site_id)
+      .maybeSingle();
+
+    const customer = siteData?.customers as { name: string; contact_email: string; email_recipients: string; report_email_recipients: string } | null;
+
+    setEmailRecipientInfo({
+      email: customer?.contact_email || "",
+      recipients: customer?.report_email_recipients || customer?.email_recipients || "",
+      customerName: customer?.name || "",
+      customerId: siteData?.customer_id || "",
+    });
+    setEmailKind("ce");
     setReportToEmail(report);
     setEmailDialogOpen(true);
   };
 
   const generateReportPdfBase64 = async (): Promise<string | null> => {
     if (!reportToEmail) throw new Error("No report selected");
+
+    // C&E reports live in ce_audibility_reports and need the cloud
+    // DOCX→PDF pipeline. Service-report PDF generators below all
+    // assume a service_reports row, so branch early.
+    if (emailKind === "ce") {
+      return await getCauseEffectReportPdfBase64(reportToEmail.id);
+    }
 
     // Fetch full report data with site info
     const { data: fullReport } = await supabase
@@ -1578,7 +1614,7 @@ const Reports = () => {
       {/* C&E drawer — same component, kind='ce' switches the query to
           ce_remedials and relabels Defects → Remedials. C&E-specific
           action handlers (PDF via downloadCauseEffectReportPdf, edit
-          → C&E wizard, no email yet). */}
+          → C&E wizard, Email via the C&E DOCX→PDF pipeline). */}
       <ReportDetailDrawer
         kind="ce"
         report={drawerCeReport ? {
@@ -1614,6 +1650,12 @@ const Reports = () => {
           const visitId = drawerCeReport.visit_id;
           setDrawerCeReport(null);
           navigate(`/dashboard/visits/${visitId}/cause-effect-test/capture`);
+        }}
+        onEmail={() => {
+          if (!drawerCeReport) return;
+          const ce = drawerCeReport;
+          setDrawerCeReport(null);
+          void handleEmailCeReport(ce);
         }}
         onGenerateQuote={() => {
           if (!drawerCeReport) return;
