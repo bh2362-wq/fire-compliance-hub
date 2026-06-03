@@ -658,6 +658,47 @@ const Reports = () => {
     setLoading(true);
     // Fetch service reports and C&E reports in parallel — they live in
     // separate tables but the user expects to see both on this page.
+    //
+    // C&E SELECT is split into a tolerant two-step: try with the parity
+    // columns added in 20260603130000 (invoiced / sharepoint_url /
+    // sharepoint_folder), and if that errors (typical PostgREST
+    // 'column does not exist' on envs where the migration hasn't run
+    // yet) retry with just the original column set so the rows still
+    // render. The mark-invoiced and SharePoint mutations downstream
+    // will throw until the migration applies — but at least the rows
+    // are visible.
+    const ceParityCols = `
+      id, visit_id, site_id, report_number, report_date, status,
+      engineer_name, created_at, notes, invoiced, sharepoint_url, sharepoint_folder,
+      sites:site_id(name, address, customers:customer_id(name)),
+      visits:visit_id(visit_type, visit_date, client_po_number)
+    `;
+    const ceBaseCols = `
+      id, visit_id, site_id, report_number, report_date, status,
+      engineer_name, created_at, notes,
+      sites:site_id(name, address, customers:customer_id(name)),
+      visits:visit_id(visit_type, visit_date, client_po_number)
+    `;
+    const fetchCeRows = async () => {
+      const tryParity = await (supabase as any)
+        .from("ce_audibility_reports")
+        .select(ceParityCols)
+        .order("created_at", { ascending: false });
+      if (!tryParity.error) return tryParity;
+      const msg = String(tryParity.error?.message ?? "");
+      const isMissingColumn = /column .* does not exist|invoiced|sharepoint_url|sharepoint_folder/i.test(msg);
+      if (!isMissingColumn) return tryParity;
+      console.warn(
+        "[Reports] ce_audibility_reports parity columns missing — falling back. " +
+        "Run migration 20260603130000_ce_reports_parity_columns.sql to enable " +
+        "Mark Invoiced / SharePoint actions on C&E rows.",
+      );
+      return (supabase as any)
+        .from("ce_audibility_reports")
+        .select(ceBaseCols)
+        .order("created_at", { ascending: false });
+    };
+
     const [serviceRes, ceRes] = await Promise.all([
       supabase
         .from("service_reports")
@@ -667,15 +708,7 @@ const Reports = () => {
           visits:visit_id(visit_type, visit_date, client_po_number)
         `)
         .order("created_at", { ascending: false }),
-      (supabase as any)
-        .from("ce_audibility_reports")
-        .select(`
-          id, visit_id, site_id, report_number, report_date, status,
-          engineer_name, created_at, notes, invoiced, sharepoint_url, sharepoint_folder,
-          sites:site_id(name, address, customers:customer_id(name)),
-          visits:visit_id(visit_type, visit_date, client_po_number)
-        `)
-        .order("created_at", { ascending: false }),
+      fetchCeRows(),
     ]);
 
     const serviceRows: UnifiedReportRow[] =
