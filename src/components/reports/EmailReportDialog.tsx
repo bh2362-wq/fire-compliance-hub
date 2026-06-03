@@ -159,7 +159,11 @@ export function EmailReportDialog({
      const variables = {
        customer_name: customerName || "Customer",
        site_name: siteName,
-       report_number: reportNumber,
+       // Falls back to "Draft" rather than "" — applyTemplate leaves
+       // {{key}} placeholders untouched when the value is falsy, so an
+       // empty report_number on a draft report otherwise leaks the
+       // literal "{{report_number}}" into the customer-facing subject.
+       report_number: reportNumber || "Draft",
        report_date: reportDate,
        company_name: compNameOverride || companyNameVal || companyName || "The Service Team",
      };
