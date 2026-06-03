@@ -256,11 +256,25 @@ export async function loadCauseEffectReportBundle(
     device_type: string | null; location: string | null;
     zone: string | null; installed_at: string | null;
   }>;
+  // Cross-check the SELECT against a head/count on the same site_id —
+  // a SELECT can return zero rows because the table is empty *or*
+  // because the SELECT itself failed (RLS, column missing). The count
+  // uses no columns, so if it returns > 0 while the SELECT returned 0
+  // we know the SELECT is broken on this row shape rather than the
+  // site being empty.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { count: deviceCountForSite, error: countErr } = await (supabase as any)
+    .from("devices")
+    .select("id", { count: "exact", head: true })
+    .eq("site_id", report.site_id);
   console.log(
     "[loadCauseEffectReportBundle] device register:",
     JSON.stringify({
       site_id: report.site_id,
+      site_name: (siteRes as { data?: { name?: string } }).data?.name ?? null,
       rows_returned: registerRows.length,
+      head_count_for_same_site_id: deviceCountForSite ?? null,
+      head_count_error: countErr?.message ?? null,
       tests_returned: tests.length,
       // Sample the first row's keys so we can spot a schema mismatch
       // (e.g. column renamed since this SELECT was written).
