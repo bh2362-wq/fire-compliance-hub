@@ -1341,6 +1341,11 @@ const Reports = () => {
                           <h3 className="font-semibold text-foreground truncate">
                             {report.sites?.name || "Unknown Site"}
                           </h3>
+                          {report.report_number && (
+                            <Badge variant="outline" className="text-xs font-mono">
+                              #{report.report_number}
+                            </Badge>
+                          )}
                           {isAsdReport && (
                             <Badge variant="secondary" className="text-xs">
                               ASD
@@ -1985,6 +1990,11 @@ function CauseEffectReportRow({
               <h3 className="font-semibold text-foreground truncate">
                 {report.sites?.name || "Unknown Site"}
               </h3>
+              {report.report_number && (
+                <Badge variant="outline" className="text-xs font-mono">
+                  #{report.report_number}
+                </Badge>
+              )}
               <Badge variant="secondary" className="text-xs">Cause &amp; Effect</Badge>
               <Badge variant="outline" className={status.className}>{status.label}</Badge>
             </div>
@@ -1999,7 +2009,6 @@ function CauseEffectReportRow({
                 <span className="capitalize">{report.visits.visit_type.replace(/_/g, " ")}</span>
               )}
               {report.engineer_name && <span>Engineer: {report.engineer_name}</span>}
-              {report.report_number && <span>#{report.report_number}</span>}
             </div>
           </div>
         </div>
