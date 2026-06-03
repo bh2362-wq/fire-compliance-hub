@@ -140,6 +140,17 @@ function fill(xml: string, placeholder: string, value: string | null | undefined
   return replaceWtText(xml, placeholder, v);
 }
 
+// Cell-value display helper for table columns. The ?? operator misses
+// empty strings — a reading row added in the wizard but left blank
+// has location="" which would render as a visually blank cell. This
+// treats null, undefined, "" and whitespace-only as missing so every
+// empty slot gets the em-dash.
+function cell(value: string | null | undefined): string {
+  if (value == null) return "—";
+  const s = String(value).trim();
+  return s === "" ? "—" : s;
+}
+
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
@@ -438,9 +449,17 @@ function buildBundleXml(bundle: Bundle, originalXml: string): string {
   xml = fill(xml, "[Calibration Due]", fmtDate(r.sound_meter_cal_due));
 
   // ── §4.2 Sound level measurements table ──────────────────────────
-  xml = fillTable(xml, "[Location]", bundle.readings.map((rd) => ({
-    "[Location]": rd.location ?? "—",
-    "[Floor]": rd.floor ?? "—",
+  // Drop fully-empty rows so the wizard's auto-added blank row doesn't
+  // render as 6 em-dashes. A reading counts as real if any of
+  // location / ambient / alarm has been touched.
+  const readingsToRender = bundle.readings.filter((rd) =>
+    (rd.location && rd.location.trim() !== "") ||
+    rd.ambient_db != null ||
+    rd.alarm_db != null
+  );
+  xml = fillTable(xml, "[Location]", readingsToRender.map((rd) => ({
+    "[Location]": cell(rd.location),
+    "[Floor]": cell(rd.floor),
     "[Ambient dB]": rd.ambient_db != null ? String(rd.ambient_db) : "—",
     "[Alarm dB]": rd.alarm_db != null ? String(rd.alarm_db) : "—",
     "[Required dB]": rd.required_db != null ? String(rd.required_db) : "—",
@@ -823,6 +842,22 @@ Deno.serve(async (req) => {
       // Diagnostic — client logs this so we can see why signatures
       // didn't embed without needing Supabase function logs.
       signature_diagnostics: sigDiag,
+      // Section diagnostics — what actually got rendered. Helps debug
+      // "section X is blank in the PDF" reports: if the count here is
+      // 0, the data never reached the function (wizard didn't save,
+      // bundle didn't load it, or RLS filtered it).
+      section_diagnostics: {
+        outputs_rendered: bundle.outputs.length,
+        readings_received: bundle.readings.length,
+        readings_rendered: bundle.readings.filter((rd) =>
+          (rd.location && rd.location.trim() !== "") ||
+          rd.ambient_db != null ||
+          rd.alarm_db != null
+        ).length,
+        ce_issues_rendered: bundle.issues.filter((i) => i.kind === "cause_effect").length,
+        aud_issues_rendered: bundle.issues.filter((i) => i.kind === "audibility").length,
+        remedials_rendered: bundle.remedials.length,
+      },
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

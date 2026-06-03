@@ -118,6 +118,16 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
     engineer_signature_starts: ((bundle.report as { engineer_signature?: unknown }).engineer_signature as string | undefined)?.slice?.(0, 40),
     client_signature_set: !!(bundle.report as { client_signature?: unknown }).client_signature,
     client_signature_starts: ((bundle.report as { client_signature?: unknown }).client_signature as string | undefined)?.slice?.(0, 40),
+    // Pre-flight counts so a "section X blank" report can be diagnosed
+    // by comparing client-side bundle counts against the
+    // section_diagnostics the edge function echoes back.
+    bundle_counts: {
+      outputs: bundle.outputs.length,
+      readings: bundle.readings.length,
+      issues: bundle.issues.length,
+      remedials: bundle.remedials.length,
+      deviceTests: bundle.deviceTests.length,
+    },
   });
 
   try {
@@ -135,6 +145,32 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
     // Either way the engineer can pop DevTools and see exactly what
     // came back without needing Supabase function logs access.
     console.log("[C&E DOCX] generate-cause-effect-docx response:", docx);
+    // Mobile-visible section diagnostics — flag any section where the
+    // client sent data but the function rendered zero rows. Most
+    // common cause of "§X is blank in the PDF" reports.
+    const secDiag = (docx as unknown as { section_diagnostics?: {
+      outputs_rendered: number;
+      readings_received: number;
+      readings_rendered: number;
+      ce_issues_rendered: number;
+      aud_issues_rendered: number;
+      remedials_rendered: number;
+    } }).section_diagnostics;
+    if (secDiag) {
+      console.log("[C&E DOCX] Section diagnostics:", secDiag);
+      const sentReadings = bundle.readings.length;
+      if (sentReadings === 0 && secDiag.readings_received === 0) {
+        toast.info("No sound-level readings on this report", {
+          description: "§4.2 will be empty. Add readings in the wizard's Audibility step before generating.",
+          duration: 8_000,
+        });
+      } else if (sentReadings > 0 && secDiag.readings_rendered === 0) {
+        toast.warning("§4.2 rendered empty", {
+          description: `${sentReadings} reading row(s) sent but all were blank (no location or measurements). Open each row in the wizard and fill in location + dB.`,
+          duration: 12_000,
+        });
+      }
+    }
     const sigDiag = (docx as unknown as { signature_diagnostics?: {
       engineer_provided: boolean; engineer_is_data_url: boolean; engineer_embedded: boolean; engineer_reason?: string;
       client_provided: boolean; client_is_data_url: boolean; client_embedded: boolean; client_reason?: string;

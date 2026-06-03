@@ -107,15 +107,16 @@ export function AudibilityStep({ report, onPatch, reportId }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-semibold">Audibility readings</h3>
+        <h3 className="text-base font-semibold">Audibility</h3>
         <p className="text-xs text-muted-foreground">
-          Capture sound-level meter details, then add a row per measurement location. Required dB defaults to 65 (general areas); set to 75 for sleeping accommodation.
+          Fills §4.1 (test equipment) and §4.2 (sound level measurements) of the printed report.
+          Required dB defaults to 65 (general areas); set to 75 for sleeping accommodation.
         </p>
       </div>
 
-      {/* Sound-level meter (free-text per §4.1) */}
+      {/* Sound-level meter — populates report §4.1 */}
       <div className="space-y-2 rounded-lg border bg-card p-3">
-        <Label className="text-sm font-medium">Sound level meter</Label>
+        <Label className="text-sm font-medium">§4.1 — Sound level meter</Label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Make / model</Label>
@@ -153,11 +154,14 @@ export function AudibilityStep({ report, onPatch, reportId }: Props) {
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="flex items-center gap-2 text-xs">
-        <span className="text-muted-foreground">{readings.length} reading{readings.length === 1 ? "" : "s"}</span>
-        {passCount > 0 && <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">{passCount} pass</Badge>}
-        {failCount > 0 && <Badge variant="destructive">{failCount} fail</Badge>}
+      {/* §4.2 — readings list. Header makes the wizard ↔ PDF mapping explicit. */}
+      <div className="flex items-center justify-between gap-2 pt-2">
+        <Label className="text-sm font-medium">§4.2 — Sound level measurements</Label>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground">{readings.length} reading{readings.length === 1 ? "" : "s"}</span>
+          {passCount > 0 && <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">{passCount} pass</Badge>}
+          {failCount > 0 && <Badge variant="destructive">{failCount} fail</Badge>}
+        </div>
       </div>
 
       {loading ? (
