@@ -127,6 +127,7 @@ export async function downloadCauseEffectReportPdf(reportId: string): Promise<vo
       issues: bundle.issues.length,
       remedials: bundle.remedials.length,
       deviceTests: bundle.deviceTests.length,
+      deviceRegister: bundle.deviceRegister.length,
     },
   });
 

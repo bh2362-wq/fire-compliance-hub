@@ -234,11 +234,39 @@ export async function loadCauseEffectReportBundle(
     const s = t.status === "passed" || t.status === "fault" ? t.status : null;
     if (s) testByDeviceId.set(t.device_id, s);
   }
+  // Surface a silent device-register fetch failure — without this the
+  // Appendix A "No devices recorded" message is indistinguishable from
+  // a genuinely empty site, and the engineer can't tell whether RLS
+  // blocked the query, the site_id mismatched, or the table is empty.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const devErr = (devRes as { error?: { message?: string; code?: string; details?: string } }).error;
+  if (devErr) {
+    console.error(
+      "[loadCauseEffectReportBundle] device register fetch failed:",
+      JSON.stringify({
+        message: devErr.message,
+        code: devErr.code,
+        details: devErr.details,
+        site_id: report.site_id,
+      }),
+    );
+  }
   const registerRows = (devRes.data ?? []) as Array<{
     id: string; loop: string | null; address: string | null;
     device_type: string | null; location: string | null;
     zone: string | null; installed_at: string | null;
   }>;
+  console.log(
+    "[loadCauseEffectReportBundle] device register:",
+    JSON.stringify({
+      site_id: report.site_id,
+      rows_returned: registerRows.length,
+      tests_returned: tests.length,
+      // Sample the first row's keys so we can spot a schema mismatch
+      // (e.g. column renamed since this SELECT was written).
+      sample_keys: registerRows[0] ? Object.keys(registerRows[0]) : null,
+    }),
+  );
   const deviceRegister: CauseEffectDeviceRegisterEntry[] = registerRows.map((d) => ({
     loop: d.loop, address: d.address, device_type: d.device_type,
     location: d.location, zone: d.zone, installed_at: d.installed_at,
