@@ -31,6 +31,11 @@ import {
 
 export interface CalloutReportInput {
   ref: string;
+  // The service_visits row id this report is for. Required by the
+  // cloud DOCX generator so it can write to a stable storage path
+  // (callout-outputs/<visitId>/callout-report.docx). The in-browser
+  // PDF generator doesn't use it, but it's cheap to carry through.
+  visitId: string;
   visitDate: string;                            // ISO
   priority?: string | null;                     // p1 | p2 | p3 | ooh | weekend
   priorityLabel?: string | null;                // e.g. "P1 — Immediate (4hr)"
