@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { buildCalloutReportInput } from "./calloutReportService";
 
@@ -10,6 +11,17 @@ import { buildCalloutReportInput } from "./calloutReportService";
 //   downloadCalloutReportPdfViaCloud — DOCX→PDF chain via MS Graph,
 //                                       returns + downloads the PDF.
 
+interface SignatureDiagnostics {
+  engineer_provided?: boolean;
+  engineer_is_data_url?: boolean;
+  engineer_embedded?: boolean;
+  engineer_reason?: string;
+  client_provided?: boolean;
+  client_is_data_url?: boolean;
+  client_embedded?: boolean;
+  client_reason?: string;
+}
+
 interface DocxResponse {
   storage_path?: string | null;
   signed_url?: string | null;
@@ -21,6 +33,29 @@ interface DocxResponse {
     fault_narrative_filled?: boolean;
     storage_upload_error?: string | null;
   };
+  signature_diagnostics?: SignatureDiagnostics;
+}
+
+// Surface a toast warning when a signature was captured by the wizard
+// but didn't make it into the file. Quiet on the happy path (both
+// embedded, or neither provided) — only fires when there's something
+// to investigate. Mirrors the C&E toast wording.
+function reportSignatureDiagnostics(sigDiag?: SignatureDiagnostics): void {
+  if (!sigDiag) return;
+  console.log("[Callout DOCX] signature embed:", sigDiag);
+  const issues: string[] = [];
+  if (sigDiag.engineer_provided && !sigDiag.engineer_embedded) {
+    issues.push(`Engineer: ${sigDiag.engineer_reason ?? "unknown reason"}`);
+  }
+  if (sigDiag.client_provided && !sigDiag.client_embedded) {
+    issues.push(`Client: ${sigDiag.client_reason ?? "unknown reason"}`);
+  }
+  if (issues.length > 0) {
+    toast.warning("Signatures didn't embed", {
+      description: issues.join("  ·  "),
+      duration: 15_000,
+    });
+  }
 }
 
 interface PdfResponse {
@@ -76,8 +111,11 @@ export async function downloadCalloutReportDocx(visitId: string): Promise<void> 
   }
   // Diagnostics in console so deploy-lag investigations have a
   // breadcrumb without needing Supabase function logs access. Stays
-  // quiet on the happy path beyond a single log line.
+  // quiet on the happy path beyond a single log line. Signature
+  // diagnostics get their own toast when something was captured but
+  // didn't embed.
   console.log("[Callout DOCX] generate-callout-docx response:", data.diagnostics);
+  reportSignatureDiagnostics(data.signature_diagnostics);
 
   const blob = base64ToBlob(data.docx_base64);
   triggerDownload(blob, `${bundle.ref}.docx`);
@@ -112,6 +150,7 @@ export async function downloadCalloutReportPdfViaCloud(visitId: string): Promise
     throw new Error(`Callout DOCX upload to storage failed: ${reason}`);
   }
   console.log("[Callout PDF] generate-callout-docx diagnostics:", docx.diagnostics);
+  reportSignatureDiagnostics(docx.signature_diagnostics);
 
   const pdfRes = await supabase.functions.invoke("convert-quote-pdf", {
     body: {
