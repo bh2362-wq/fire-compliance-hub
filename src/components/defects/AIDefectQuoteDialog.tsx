@@ -58,6 +58,40 @@ const BUCKET_META: Record<BucketKey, { label: string; icon: typeof Briefcase; sh
   extras:    { label: "Extras",    icon: Receipt,   showRegRef: false },
 };
 
+// Detects "column does not exist" PostgrestErrors for a specific
+// column name. Used to fall back to a leaner insert when a recently-
+// added column hasn't landed in this environment's schema yet (same
+// pattern as PR #112's parity-column hotfix on Reports.tsx).
+function isMissingColumnError(err: unknown, column: string): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as Record<string, unknown>;
+  const code = typeof e.code === "string" ? e.code : "";
+  const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
+  // 42703 = undefined_column. Also match on text — Supabase clients
+  // sometimes surface the error text without the SQLSTATE code.
+  if (code !== "42703" && !message.includes("does not exist")) return false;
+  return message.includes(column.toLowerCase());
+}
+
+// Unwraps thrown errors into a toast-friendly string. Handles:
+//   - Error instances (just return .message)
+//   - Supabase PostgrestError shape (plain object with message /
+//     details / hint / code) — picks the most specific field present
+//     and tacks on the code for debugging when one's set
+//   - anything else (returns the fallback)
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err !== "object" || err === null) return fallback;
+  const e = err as Record<string, unknown>;
+  const message = typeof e.message === "string" ? e.message : null;
+  const details = typeof e.details === "string" ? e.details : null;
+  const hint = typeof e.hint === "string" ? e.hint : null;
+  const code = typeof e.code === "string" ? e.code : null;
+  const primary = details || message || hint;
+  if (!primary) return code ? `${fallback} (${code})` : fallback;
+  return code ? `${primary} (${code})` : primary;
+}
+
 export function AIDefectQuoteDialog({
   open, onOpenChange, defects, onQuoteCreated,
   skipDefectLink = false,
@@ -118,10 +152,22 @@ export function AIDefectQuoteDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
 
-      const { data: siteData } = await supabase
+      const { data: siteData, error: siteErr } = await supabase
         .from("sites").select("customer_id").eq("id", siteId).maybeSingle();
+      if (siteErr) throw siteErr;
 
-      const { data: quotationNumber } = await supabase.rpc("get_next_quotation_number");
+      // RPC error wasn't being caught — if the function errors or
+      // returns null (sequence exhausted, RLS denial), we'd happily
+      // INSERT with quotation_number = NULL and the insert would then
+      // fail with a generic NOT-NULL violation. Surface the real
+      // problem upfront instead.
+      const { data: quotationNumber, error: numErr } = await supabase.rpc("get_next_quotation_number");
+      if (numErr) throw numErr;
+      if (!quotationNumber) {
+        throw new Error(
+          "Quotation number generator returned no value — check the get_next_quotation_number RPC",
+        );
+      }
 
       // Inherit fire-alarm spec metadata from the most recent prior quote on
       // this site so the shared DOCX template renders full header/system
@@ -149,12 +195,33 @@ export function AIDefectQuoteDialog({
         notes: `Remedial works quotation generated from ${defects.length} ${defects.length !== 1 ? itemLabel.plural : itemLabel.singular} identified during site inspection. Source IDs: ${defects.map(d => d.id).join(", ")}${inherited.sourceQuotationNumber ? `\nMetadata inherited from ${inherited.sourceQuotationNumber} (${inherited.fieldsFound.length} field${inherited.fieldsFound.length !== 1 ? "s" : ""}).` : ""}`,
       };
 
-      const { data: quotation, error: qErr } = await supabase
+      // Two-step tolerant insert — try with source_cause_effect_report_id
+      // first, retry without it if the column doesn't exist on this
+      // environment. Same hotfix pattern as PR #112 for ce parity
+      // columns: the migration 20260603120000 might not have applied
+      // yet on every Supabase project this app talks to. The reverse
+      // link is nice-to-have; the quote itself should still create.
+      let { data: quotation, error: qErr } = await supabase
         .from("quotations")
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .insert(insertPayload as any)
         .select()
         .single();
+      if (qErr && sourceCauseEffectReportId && isMissingColumnError(qErr, "source_cause_effect_report_id")) {
+        console.warn(
+          "[AIDefectQuoteDialog] quotations.source_cause_effect_report_id missing — " +
+          "falling back to insert without the reverse link. Run migration " +
+          "20260603120000_quotations_source_ce_report.sql to enable it.",
+        );
+        const { source_cause_effect_report_id: _, ...payloadWithoutLink } = insertPayload as { source_cause_effect_report_id?: unknown } & Record<string, unknown>;
+        void _;
+        ({ data: quotation, error: qErr } = await supabase
+          .from("quotations")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .insert(payloadWithoutLink as any)
+          .select()
+          .single());
+      }
       if (qErr) throw qErr;
 
       const rows = toLineItemRows(quotation.id);
@@ -178,8 +245,16 @@ export function AIDefectQuoteDialog({
       onQuoteCreated(quotation.id);
       navigate(`/dashboard/quotations`);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to create quotation";
-      toast.error(message);
+      // Always log the raw error to console so we can see Supabase's
+      // PostgrestError shape (code/details/hint) in DevTools even when
+      // the toast text is short.
+      console.error("[AIDefectQuoteDialog] create-quote failed:", err);
+      // PostgrestError isn't an Error instance — it's a plain object
+      // with message/code/details/hint. Without this branch the toast
+      // fell back to the generic "Failed to create quotation" string
+      // and swallowed the real reason (NOT-NULL violation on
+      // quotation_number, RLS denial, etc).
+      toast.error(extractErrorMessage(err, "Failed to create quotation"));
     } finally {
       setCreating(false);
     }
