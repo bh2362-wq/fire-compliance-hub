@@ -203,6 +203,9 @@ const Reports = () => {
   const [ceQuoteDialogOpen, setCeQuoteDialogOpen] = useState(false);
   const [ceQuoteDefects, setCeQuoteDefects] = useState<Defect[]>([]);
   const [ceQuoteRemedialIds, setCeQuoteRemedialIds] = useState<string[]>([]);
+  // Source C&E report id, threaded through to AIDefectQuoteDialog so
+  // the new quotation stamps quotations.source_cause_effect_report_id.
+  const [ceQuoteSourceReportId, setCeQuoteSourceReportId] = useState<string | null>(null);
   const [openingCeQuote, setOpeningCeQuote] = useState<string | null>(null);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfPreviewReportId, setPdfPreviewReportId] = useState<string | null>(null);
@@ -813,6 +816,7 @@ const Reports = () => {
       }));
       setCeQuoteDefects(mapped);
       setCeQuoteRemedialIds(mapped.map((d) => d.id));
+      setCeQuoteSourceReportId(report.id);
       setCeQuoteDialogOpen(true);
     } catch (e) {
       toast.error("Couldn't load remedials", {
@@ -1674,6 +1678,7 @@ const Reports = () => {
         onOpenChange={setCeQuoteDialogOpen}
         defects={ceQuoteDefects}
         skipDefectLink
+        sourceCauseEffectReportId={ceQuoteSourceReportId ?? undefined}
         itemLabel={{ singular: "remedial", plural: "remedials" }}
         onQuoteCreated={handleCeQuoteCreated}
       />

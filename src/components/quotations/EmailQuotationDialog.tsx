@@ -18,11 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Send, Mail, FileText, Link2 } from "lucide-react";
+import { Loader2, Send, Mail, FileText, Link2, Volume2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchQuotationFull, renderQuotePdfBase64 } from "@/features/quotes/useQuoteGeneration";
+import { getCauseEffectReportPdfBase64 } from "@/features/causeEffectTest/useCauseEffectGeneration";
 import { getCompanySettings } from "@/services/companySettingsService";
 import {
   EmailTemplate,
@@ -53,6 +54,14 @@ interface EmailQuotationDialogProps {
   defaultRecipients?: string;
   customerName?: string;
   onSuccess?: () => void;
+  /** When the quote was raised from a C&E report, pass the report id
+      here. The dialog shows an "Include C&E source report" checkbox
+      (default on) and, when sent, fetches the C&E PDF and adds it as
+      a second attachment via additionalAttachments. */
+  sourceCauseEffectReportId?: string | null;
+  /** Display label for the source report — usually its report_number.
+      Falls back to "Cause & Effect report" when unknown. */
+  sourceCauseEffectReportLabel?: string | null;
 }
 
 export function EmailQuotationDialog({
@@ -63,6 +72,8 @@ export function EmailQuotationDialog({
   defaultRecipients,
   customerName,
   onSuccess,
+  sourceCauseEffectReportId,
+  sourceCauseEffectReportLabel,
 }: EmailQuotationDialogProps) {
   const [sending, setSending] = useState(false);
   const [recipients, setRecipients] = useState("");
@@ -73,6 +84,7 @@ export function EmailQuotationDialog({
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [companyNameVal, setCompanyNameVal] = useState("");
   const [includeAcceptLink, setIncludeAcceptLink] = useState(!!quotation.acceptance_token);
+  const [includeCeReport, setIncludeCeReport] = useState(!!sourceCauseEffectReportId);
 
   // Email autocomplete state
   const [allContacts, setAllContacts] = useState<ContactSuggestion[]>([]);
@@ -269,6 +281,27 @@ export function EmailQuotationDialog({
         finalBody += `\n\nTo accept this quotation online, please click the link below:\n${acceptUrl}`;
       }
 
+      // Optionally attach the source C&E report PDF so the customer
+      // sees the findings the quote was raised from in the same email.
+      // Fetched via the same DOCX→PDF pipeline used for direct C&E
+      // downloads, so byte-identical to the report PDF the engineer
+      // sees on the Reports page.
+      let additionalAttachments: { filename: string; content: string }[] | undefined;
+      if (includeCeReport && sourceCauseEffectReportId) {
+        try {
+          const cePdfBase64 = await getCauseEffectReportPdfBase64(sourceCauseEffectReportId);
+          const ceFilename = `${sourceCauseEffectReportLabel || "Cause-Effect-Report"}.pdf`;
+          additionalAttachments = [{ filename: ceFilename, content: cePdfBase64 }];
+        } catch (ceErr) {
+          // Don't block the send — surface and continue without the
+          // C&E attachment so the quote still goes out.
+          console.error("C&E source attachment failed:", ceErr);
+          toast.warning("Sending without C&E attachment", {
+            description: ceErr instanceof Error ? ceErr.message : String(ceErr),
+          });
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("send-report-email", {
         body: {
           to: recipientList,
@@ -278,6 +311,7 @@ export function EmailQuotationDialog({
           siteName: quotation.sites?.name || "Site",
           reportNumber: quotation.quotation_number,
           reportDate: new Date().toISOString().split("T")[0],
+          ...(additionalAttachments ? { additionalAttachments } : {}),
         },
       });
 
@@ -458,6 +492,21 @@ export function EmailQuotationDialog({
                 </div>
               </div>
               <Switch checked={includeAcceptLink} onCheckedChange={setIncludeAcceptLink} />
+            </div>
+          )}
+
+          {sourceCauseEffectReportId && (
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="flex items-center gap-2">
+                <Volume2 className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <Label className="text-sm font-medium">Attach source C&amp;E report</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Sends {sourceCauseEffectReportLabel || "the Cause & Effect report"} alongside the quote PDF
+                  </p>
+                </div>
+              </div>
+              <Switch checked={includeCeReport} onCheckedChange={setIncludeCeReport} />
             </div>
           )}
 

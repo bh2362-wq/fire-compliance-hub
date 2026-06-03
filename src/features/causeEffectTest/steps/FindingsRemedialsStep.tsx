@@ -689,6 +689,7 @@ export function FindingsRemedialsStep({ report, onPatch, reportId, visitId, site
         skipDefectLink
         itemLabel={{ singular: "remedial", plural: "remedials" }}
         onQuoteCreated={handleQuoteCreated}
+        sourceCauseEffectReportId={reportId}
       />
     </div>
   );
