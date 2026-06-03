@@ -491,11 +491,14 @@ export type Database = {
           engineer_signature: string | null
           general_observations: string | null
           id: string
+          invoiced: boolean
           next_service_due: string | null
           notes: string | null
           remedial_timeframe: string | null
           report_date: string | null
           report_number: string | null
+          sharepoint_folder: string | null
+          sharepoint_url: string | null
           site_id: string
           sound_meter_cal_due: string | null
           sound_meter_cal_on_file: boolean | null
@@ -517,11 +520,14 @@ export type Database = {
           engineer_signature?: string | null
           general_observations?: string | null
           id?: string
+          invoiced?: boolean
           next_service_due?: string | null
           notes?: string | null
           remedial_timeframe?: string | null
           report_date?: string | null
           report_number?: string | null
+          sharepoint_folder?: string | null
+          sharepoint_url?: string | null
           site_id: string
           sound_meter_cal_due?: string | null
           sound_meter_cal_on_file?: boolean | null
@@ -543,11 +549,14 @@ export type Database = {
           engineer_signature?: string | null
           general_observations?: string | null
           id?: string
+          invoiced?: boolean
           next_service_due?: string | null
           notes?: string | null
           remedial_timeframe?: string | null
           report_date?: string | null
           report_number?: string | null
+          sharepoint_folder?: string | null
+          sharepoint_url?: string | null
           site_id?: string
           sound_meter_cal_due?: string | null
           sound_meter_cal_on_file?: boolean | null
