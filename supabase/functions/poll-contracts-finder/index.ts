@@ -41,6 +41,18 @@ function toIsoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const e = error as Record<string, unknown>;
+    return [e.message, e.code, e.details, e.hint]
+      .filter(Boolean)
+      .map(String)
+      .join(" | ") || JSON.stringify(e);
+  }
+  return String(error);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -74,7 +86,7 @@ Deno.serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        "User-Agent": "fire-compliance-hub/1.0 (+https://github.com/bh2362-wq/fire-compliance-hub)",
+        "User-Agent": "FireShieldLogs/1.0 (+https://fire-shield-logs.lovable.app)",
       },
       body: JSON.stringify({
         searchCriteria: {
@@ -154,11 +166,12 @@ Deno.serve(async (req) => {
     }
 
     // One round trip to find which source_ids we already have.
-    const { data: existing } = await supabase
+    const { data: existing, error: existingErr } = await supabase
       .from("tenders")
       .select("source_id")
       .eq("source", "contracts_finder")
       .in("source_id", candidates.map((c) => c.source_id));
+    if (existingErr) throw existingErr;
 
     const seen = new Set((existing ?? []).map((r: { source_id: string }) => r.source_id));
     const toInsert = candidates
@@ -193,8 +206,8 @@ Deno.serve(async (req) => {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error("[poll-contracts-finder] failed", msg);
+    const msg = errorMessage(e);
+    console.error("[poll-contracts-finder] failed", msg, e);
     return new Response(JSON.stringify({ error: msg, inserted, relevance_skipped, duplicate_skipped, fetched }), {
       status: 500,
       headers: { ...CORS, "Content-Type": "application/json" },

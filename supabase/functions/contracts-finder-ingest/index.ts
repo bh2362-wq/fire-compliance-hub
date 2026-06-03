@@ -119,7 +119,10 @@ Deno.serve(async (req) => {
   if (!validAnon && !validService && token && token.split(".").length === 3) {
     try {
       const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
-      if (payload?.iss?.toString().includes("supabase") && (payload.ref === Deno.env.get("SUPABASE_URL")?.match(/https:\/\/([^.]+)/)?.[1])) {
+      const projectRef = Deno.env.get("SUPABASE_URL")?.match(/https:\/\/([^.]+)/)?.[1];
+      const iss = String(payload?.iss ?? "");
+      const issMatches = iss.includes("supabase") || (projectRef && iss.includes(projectRef));
+      if (issMatches) {
         if (payload.role === "service_role") validService = true;
         else if (payload.role === "anon" || payload.role === "authenticated") validAnon = true;
       }
@@ -187,7 +190,7 @@ Deno.serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        "User-Agent": "fire-compliance-hub/1.0 (+https://github.com/bh2362-wq/fire-compliance-hub)",
+        "User-Agent": "FireShieldLogs/1.0 (+https://fire-shield-logs.lovable.app)",
       },
       body: JSON.stringify({
         searchCriteria: {
