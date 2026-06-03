@@ -1046,6 +1046,9 @@ const Reports = () => {
                       siteName: report.sites?.name ?? null,
                     })}
                     onOpenDrawer={() => setDrawerCeReport(report)}
+                    onEmail={() => void handleEmailCeReport(report)}
+                    onQuoteRemedials={() => void openQuoteFromCeReport(report)}
+                    quoteBusy={openingCeQuote === report.id}
                   />
                 );
               }
@@ -1770,6 +1773,9 @@ function CauseEffectReportRow({
   navigate,
   onChangeSite,
   onOpenDrawer,
+  onEmail,
+  onQuoteRemedials,
+  quoteBusy = false,
 }: {
   report: CeReportRow;
   navigate: ReturnType<typeof useNavigate>;
@@ -1777,6 +1783,13 @@ function CauseEffectReportRow({
   /** Tap the info section to open the detail drawer. Optional so the
       component still works if the parent doesn't wire it. */
   onOpenDrawer?: () => void;
+  /** Open the email-quotation flow for the C&E report's PDF. */
+  onEmail?: () => void;
+  /** Open the AI quote dialog seeded with this report's remedials. */
+  onQuoteRemedials?: () => void;
+  /** Disables the Quote Remedials menu item while the parent is
+      busy resolving remedials → defects for the dialog. */
+  quoteBusy?: boolean;
 }) {
   const [downloading, setDownloading] = useState(false);
   const status = statusConfig[report.status ?? "draft"] || statusConfig.draft;
@@ -1876,10 +1889,30 @@ function CauseEffectReportRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleOpen}>
+                <FilePen className="w-4 h-4 mr-2" />
+                Edit Report
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={onChangeSite}>
                 <Building2 className="w-4 h-4 mr-2" />
                 Change Site / Customer
               </DropdownMenuItem>
+              {onEmail && (
+                <DropdownMenuItem onClick={onEmail}>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Email Report
+                </DropdownMenuItem>
+              )}
+              {onQuoteRemedials && (
+                <DropdownMenuItem onClick={onQuoteRemedials} disabled={quoteBusy}>
+                  {quoteBusy ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-2" />
+                  )}
+                  Quote Remedials
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
