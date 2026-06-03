@@ -956,9 +956,7 @@ Deno.serve(async (req) => {
     // converter then surfaces that as the PDF's document title.
     const coreFile = zip.file("docProps/core.xml");
     if (coreFile) {
-      const jobRef = bundle.visit.job_number ?? bundle.report.id.slice(0, 8);
-      const dateStr = (bundle.visit.visit_date ?? "report").replace(/-/g, "");
-      const docTitle = `CE_${jobRef}_${dateStr}`;
+      const docTitle = bundle.visit.job_number ?? bundle.report.id.slice(0, 8);
       const escaped = escapeXmlText(docTitle);
       let coreXml = await coreFile.async("string");
       if (/<dc:title\b[^>]*>[\s\S]*?<\/dc:title>/.test(coreXml)) {
