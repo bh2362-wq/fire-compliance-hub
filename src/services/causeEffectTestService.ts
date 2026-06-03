@@ -61,6 +61,19 @@ export interface CauseEffectDeviceTest {
   fail_reason: string | null;
 }
 
+// Per-device row for the printed report's "Appendix A — Device register".
+// Joined from devices (asset registry) ⨝ parsed_device_tests (this visit's
+// results). Devices not tested on this visit get test_status = null.
+export interface CauseEffectDeviceRegisterEntry {
+  loop: string | null;
+  address: string | null;
+  device_type: string | null;
+  location: string | null;
+  zone: string | null;
+  installed_at: string | null;
+  test_status: "passed" | "fault" | null;
+}
+
 export interface CauseEffectSiteInfo {
   id: string;
   name: string;
@@ -114,6 +127,7 @@ export interface CauseEffectReportBundle {
   issues: CauseEffectIssue[];
   remedials: CauseEffectRemedial[];
   deviceTests: CauseEffectDeviceTest[];
+  deviceRegister: CauseEffectDeviceRegisterEntry[];
 }
 
 /**
@@ -132,7 +146,7 @@ export async function loadCauseEffectReportBundle(
     .single();
   if (rErr || !report) throw rErr ?? new Error("Report not found");
 
-  const [siteRes, visitRes, outRes, stgRes, audRes, issRes, remRes, dtRes] = await Promise.all([
+  const [siteRes, visitRes, outRes, stgRes, audRes, issRes, remRes, dtRes, devRes] = await Promise.all([
     (supabase as any)
       .from("sites")
       .select(
@@ -184,6 +198,15 @@ export async function loadCauseEffectReportBundle(
       .select("device_id, loop, address, device_type, location, status, tested_at, fail_reason")
       .eq("visit_id", report.visit_id)
       .order("tested_at", { ascending: true }),
+    // Full device register for the site (asset registry). Used to build
+    // the "Appendix A — Device register" table on the printed report:
+    // every device on site, plus this visit's test result if any.
+    (supabase as any)
+      .from("devices")
+      .select("id, loop, address, device_type, location, zone, installed_at")
+      .eq("site_id", report.site_id)
+      .order("loop", { ascending: true })
+      .order("address", { ascending: true }),
   ]);
 
   // Second-stage customer lookup — only when the site has a customer linked.
@@ -201,6 +224,27 @@ export async function loadCauseEffectReportBundle(
     customer = (data as CauseEffectCustomerInfo) ?? null;
   }
 
+  // Merge visit test results into the device register by device id so
+  // Appendix A can show PASS / FAIL / Not tested for each row without
+  // an extra round trip on the edge function.
+  const tests = (dtRes.data ?? []) as Array<{ device_id: string | null; status: string }>;
+  const testByDeviceId = new Map<string, "passed" | "fault">();
+  for (const t of tests) {
+    if (!t.device_id) continue;
+    const s = t.status === "passed" || t.status === "fault" ? t.status : null;
+    if (s) testByDeviceId.set(t.device_id, s);
+  }
+  const registerRows = (devRes.data ?? []) as Array<{
+    id: string; loop: string | null; address: string | null;
+    device_type: string | null; location: string | null;
+    zone: string | null; installed_at: string | null;
+  }>;
+  const deviceRegister: CauseEffectDeviceRegisterEntry[] = registerRows.map((d) => ({
+    loop: d.loop, address: d.address, device_type: d.device_type,
+    location: d.location, zone: d.zone, installed_at: d.installed_at,
+    test_status: testByDeviceId.get(d.id) ?? null,
+  }));
+
   return {
     report: report as CauseEffectTestReport,
     site,
@@ -212,5 +256,6 @@ export async function loadCauseEffectReportBundle(
     issues: (issRes.data ?? []) as CauseEffectIssue[],
     remedials: (remRes.data ?? []) as CauseEffectRemedial[],
     deviceTests: (dtRes.data ?? []) as CauseEffectDeviceTest[],
+    deviceRegister,
   };
 }
