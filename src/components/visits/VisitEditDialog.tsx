@@ -46,7 +46,7 @@ import { sendAppointmentUpdatedNotification } from "@/services/notificationServi
 import { SERVICE_TYPES } from "@/services/serviceContractService";
 import SubcontractorSheetsSection from "@/components/visits/SubcontractorSheetsSection";
 import { SiteDocuments } from "@/components/documents/SiteDocuments";
-import { VisitCalloutPanel } from "@/components/visits/VisitCalloutPanel";
+import { CalloutWizard } from "@/components/visits/callout-wizard/CalloutWizard";
 import { RecommendedReportCard } from "@/components/visits/RecommendedReportCard";
 import { VisitRamsBanner } from "@/components/visits/VisitRamsBanner";
 import { VisitDeviceAccountability } from "@/components/visits/VisitDeviceAccountability";
@@ -809,15 +809,16 @@ const VisitEditDialog = ({
               </div>
             )}
 
-            {/* Callout details (priority, classification, call timing,
-                fault narrative). Mostly relevant for reactive / emergency
-                visits but available on every visit. */}
+            {/* Callout wizard — 6-step flow that captures the full
+                callout from intake through sign-off. Replaced the
+                4-section VisitCalloutPanel; same data shape, better
+                on-site UX, and §2 evidence photos. */}
             <div className="space-y-2 pt-3 border-t">
               <FormLabel className="text-base flex items-center gap-2">
                 <Siren className="w-4 h-4" />
-                Callout details
+                Callout report
               </FormLabel>
-              <VisitCalloutPanel visitId={visit.id} />
+              <CalloutWizard visitId={visit.id} />
             </div>
 
             {/* Site Documents (manual service sheets, attachments) */}

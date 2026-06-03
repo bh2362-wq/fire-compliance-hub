@@ -55,10 +55,16 @@ export async function buildCalloutReportInput(
 
   // Optional companion service_report — provides system_status, parts,
   // and the captured signatures if the engineer has completed it.
-  const { data: reportData } = await supabase
+  // client_sign_name + client_sign_position are the wizard Step 6
+  // fields; client_name is the legacy field still written by older
+  // routine-service flows. Read both so either source feeds the
+  // sign-off fallthrough below.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: reportData } = await (supabase as any)
     .from("service_reports")
     .select(
-      "system_status, parts_used, engineer_signature, engineer_name, client_signature, client_name",
+      "system_status, parts_used, engineer_signature, engineer_name, " +
+        "client_signature, client_name, client_sign_name, client_sign_position",
     )
     .eq("visit_id", visitId)
     .maybeSingle();
@@ -142,7 +148,15 @@ export async function buildCalloutReportInput(
     engineerSignature: reportData?.engineer_signature ?? null,
     engineerSignDate: null,
     clientSignature: reportData?.client_signature ?? null,
-    clientName: reportData?.client_name ?? null,
+    // Sign-off name fallthrough — mirrors the C&E §9 fix from PR #128.
+    // Wizard Step 6 field wins, then the legacy column, then the
+    // customer record's contact name. Form stays an accurate record of
+    // what the engineer typed; the customer auto-fills the gap.
+    clientName:
+      reportData?.client_sign_name ??
+      reportData?.client_name ??
+      customer.contact_name ??
+      null,
     clientSignDate: null,
   };
 }
