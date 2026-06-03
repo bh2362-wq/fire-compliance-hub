@@ -655,8 +655,8 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   };
 
 
-  const handleSave = async () => {
-    if (!quotation) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!quotation) return false;
     setSaving(true);
     try {
       const totalAmount = lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
@@ -754,10 +754,12 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       toast.success("Quotation saved");
       setHasChanges(false);
       onUpdate?.();
-      fetchQuotation();
+      await fetchQuotation();
+      return true;
     } catch (error) {
       console.error("Error saving quotation:", error);
       toast.error("Failed to save quotation");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -1538,7 +1540,16 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
               <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-initial">
                 Close
               </Button>
-              <QuoteActions quotationId={quotationId} />
+              <QuoteActions
+                quotationId={quotationId}
+                onBeforeAction={async () => {
+                  // Flush any in-memory edits to the DB so the export
+                  // renders the user's latest changes. If there are no
+                  // pending edits, skip the save and just proceed.
+                  if (!hasChanges) return true;
+                  return await handleSave();
+                }}
+              />
             </div>
             {/* Right group — Email / PDF / Save are the primary actions; on
                 mobile they each get equal width via flex-1 so they fill the row. */}
