@@ -99,7 +99,7 @@ export function InvoiceLinkPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[80vh] sm:h-auto sm:max-h-[80vh] flex flex-col gap-3">
+      <DialogContent className="max-w-2xl h-[80vh] sm:h-auto sm:max-h-[80dvh] flex flex-col gap-3">
         <DialogHeader>
           <DialogTitle>Link to a Xero invoice</DialogTitle>
           <DialogDescription>

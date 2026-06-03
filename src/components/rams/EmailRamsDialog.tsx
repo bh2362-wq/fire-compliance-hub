@@ -319,7 +319,7 @@ export function EmailRamsDialog({ open, onOpenChange, document }: EmailRamsDialo
           </div>
         )}
 
-        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+        <div className="space-y-4 py-4 max-h-[60dvh] overflow-y-auto">
           {templates.length > 0 && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">

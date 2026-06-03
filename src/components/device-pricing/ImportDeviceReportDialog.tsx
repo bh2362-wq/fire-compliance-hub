@@ -220,7 +220,7 @@ export function ImportDeviceReportDialog({ open, onOpenChange, onSuccess }: Impo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import Device Report</DialogTitle>
           <DialogDescription>Upload a Gent device health report or paste device data to create a pricing list.</DialogDescription>

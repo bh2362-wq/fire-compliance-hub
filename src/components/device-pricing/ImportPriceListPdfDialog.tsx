@@ -355,7 +355,7 @@ export function ImportPriceListPdfDialog({ open, onOpenChange, onSuccess }: Prop
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[90dvh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Import Supplier Price List</DialogTitle>
           <DialogDescription>

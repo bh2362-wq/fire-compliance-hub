@@ -170,7 +170,7 @@
  
    return (
      <Dialog open={open} onOpenChange={onOpenChange}>
-       <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+       <DialogContent className="max-w-2xl max-h-[85dvh] overflow-hidden flex flex-col">
          <DialogHeader>
            <DialogTitle className="flex items-center gap-3">
              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">

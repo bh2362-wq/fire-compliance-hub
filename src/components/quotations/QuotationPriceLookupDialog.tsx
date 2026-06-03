@@ -81,7 +81,7 @@ export function QuotationPriceLookupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl w-[95vw] max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-3xl w-[95vw] max-h-[85dvh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Catalog Price Lookup</DialogTitle>
           <DialogDescription>

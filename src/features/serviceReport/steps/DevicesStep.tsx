@@ -946,7 +946,7 @@ function FailReasonDialog({
             Record fail · {device.loop ? `L${device.loop}/` : ""}{device.address ?? "?"}
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+        <div className="space-y-2 max-h-[55dvh] overflow-y-auto">
           {FAIL_REASONS.map((r) => (
             <button
               key={r}

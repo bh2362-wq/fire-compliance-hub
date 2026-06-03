@@ -202,7 +202,7 @@ export function RamsTemplateDialog({ open, onOpenChange, template }: RamsTemplat
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[90dvh]">
         <DialogHeader>
           <DialogTitle>{template ? "Edit Template" : "New RAMS Template"}</DialogTitle>
         </DialogHeader>

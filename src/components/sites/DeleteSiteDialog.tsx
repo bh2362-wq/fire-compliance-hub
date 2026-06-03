@@ -92,7 +92,7 @@ const DeleteSiteDialog = ({ open, onOpenChange, siteName, siteId, onSuccess }: D
 
   return (
     <AlertDialog open={open} onOpenChange={(v) => { if (!v) { setConfirmText(""); setForceMode(false); } onOpenChange(v); }}>
-      <AlertDialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <AlertDialogContent className="max-w-lg max-h-[85dvh] overflow-y-auto">
         <AlertDialogHeader>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">

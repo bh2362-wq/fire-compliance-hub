@@ -1004,7 +1004,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[95vh] flex flex-col p-0 gap-0 rounded-none sm:rounded-lg">
+        <DialogContent className="max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[95dvh] flex flex-col p-0 gap-0 rounded-none sm:rounded-lg">
           <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 flex-wrap">

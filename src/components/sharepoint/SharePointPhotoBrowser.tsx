@@ -188,7 +188,7 @@ export function SharePointPhotoBrowser({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl !flex !flex-col max-h-[80vh] overflow-hidden">
+      <DialogContent className="max-w-3xl !flex !flex-col max-h-[80dvh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FolderOpen className="w-5 h-5" />

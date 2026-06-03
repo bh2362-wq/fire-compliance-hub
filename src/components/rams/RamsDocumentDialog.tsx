@@ -344,7 +344,7 @@ export function RamsDocumentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[90dvh]">
         <DialogHeader>
           <DialogTitle>{document ? `Edit ${document.rams_number}` : "New RAMS Document"}</DialogTitle>
         </DialogHeader>

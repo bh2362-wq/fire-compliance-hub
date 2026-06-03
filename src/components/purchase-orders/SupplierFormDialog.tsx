@@ -244,7 +244,7 @@ const SupplierFormDialog = ({
       if (!open) resetForm();
       onOpenChange(open);
     }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Supplier" : "Add New Supplier"}</DialogTitle>
         </DialogHeader>

@@ -221,7 +221,7 @@ export function CustomerOverdueDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90dvh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
@@ -248,7 +248,7 @@ export function CustomerOverdueDialog({
             </TabsList>
 
             <TabsContent value="invoices" className="flex-1 min-h-0 mt-4">
-              <div className="border rounded-md overflow-auto max-h-[50vh]">
+              <div className="border rounded-md overflow-auto max-h-[50dvh]">
                 <Table>
                   <TableHeader>
                     <TableRow>

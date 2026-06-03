@@ -141,7 +141,7 @@ export function BulkEmailJobsDialog({ open, onOpenChange, selectedVisits, onSucc
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+        <div className="space-y-4 max-h-[60dvh] overflow-y-auto">
           {/* Job preview */}
           <div className="rounded-lg bg-muted/50 p-3 space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Jobs to include:</p>
