@@ -38,6 +38,13 @@ interface Report {
   engineer_name: string | null;
   client_name: string | null;
   client_company: string | null;
+  // SignOffStep writes here. Older code/templates assumed client_name +
+  // client_company, but the wizard's actual sign-off step stores the
+  // signing person's printed name + position on these columns instead —
+  // and client_company never existed on the schema, so the §9 sign-off
+  // block has been printing "—" for every report.
+  client_sign_name: string | null;
+  client_sign_position: string | null;
   attach_ce_matrix: boolean | null;
   attach_floor_plans: boolean | null;
   attach_calibration_cert: boolean | null;
@@ -67,7 +74,7 @@ interface Site {
   num_devices: number | null;
   arc_connected: boolean | null;
 }
-interface Customer { name: string | null; }
+interface Customer { name: string | null; contact_name: string | null; }
 interface Visit { visit_date: string; job_number: string | null; }
 interface OutputCheck { function_name: string; expected: string | null; actual: string | null; result: string | null; }
 interface AudibilityReading {
@@ -547,9 +554,17 @@ function buildBundleXml(bundle: Bundle, originalXml: string): string {
   xml = fill(xml, "[Next Service Due]", fmtDate(r.next_service_due));
 
   // ── §9 Sign-off ─────────────────────────────────────────────────
+  // Client name falls through SignOffStep -> early SystemStep -> customer
+  // contact. Company falls through schema (legacy) -> customer name. The
+  // customer is fetched by the bundle loader specifically so the sign-off
+  // block populates without the engineer re-typing fields that already
+  // live on the customer row.
+  const signClientName =
+    r.client_sign_name ?? r.client_name ?? bundle.customer?.contact_name ?? null;
+  const signClientCompany = r.client_company ?? bundle.customer?.name ?? null;
   xml = fill(xml, "[Engineer Name]", r.engineer_name);
-  xml = fill(xml, "[Client Name]", r.client_name);
-  xml = fill(xml, "[Client Company]", r.client_company);
+  xml = fill(xml, "[Client Name]", signClientName);
+  xml = fill(xml, "[Client Company]", signClientCompany);
 
   // ── §10 Attachments ☐ → ☑ where ticked ──────────────────────────
   xml = tickAttachment(xml, "Cause and Effect Matrix", !!r.attach_ce_matrix);
