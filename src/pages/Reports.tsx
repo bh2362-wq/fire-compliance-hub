@@ -1959,23 +1959,36 @@ function CauseEffectReportRow({
     }
   };
 
+  // The detail drawer is always wired by Reports.tsx — the prop is
+  // typed optional for safety, but in practice this row is only
+  // rendered when the drawer is plumbed. Fall back to a no-op so the
+  // tap target stays button-shaped even if a future caller forgets to
+  // wire it.
+  const openDrawer = onOpenDrawer ?? (() => {});
+
   return (
     <div className="p-4 sm:p-6 hover:bg-muted/30 transition-colors">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+        {/* Tap the info section (icon + title + meta) to open the
+            detail drawer. Mirrors the standard row's pattern at the
+            top of this file — same role / tabIndex / className so the
+            two rows behave identically. The previous version wrapped
+            each attribute in `onOpenDrawer ? ... : undefined`; that
+            was visually equivalent but made the role / tabIndex /
+            cursor-pointer classes all depend on the same prop being
+            truthy at render time. With the prop guaranteed wired,
+            unconditional matches the working standard row 1:1. */}
         <div
-          role={onOpenDrawer ? "button" : undefined}
-          tabIndex={onOpenDrawer ? 0 : undefined}
-          onClick={onOpenDrawer}
-          onKeyDown={onOpenDrawer ? (e) => {
+          role="button"
+          tabIndex={0}
+          onClick={openDrawer}
+          onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onOpenDrawer();
+              openDrawer();
             }
-          } : undefined}
-          className={cn(
-            "flex items-start gap-3 sm:gap-4 min-w-0",
-            onOpenDrawer && "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md",
-          )}
+          }}
+          className="flex items-start gap-3 sm:gap-4 min-w-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
         >
           {/* C&E rows always use the cause_effect type style — same
               amber treatment as in the standard row's mapping. */}
