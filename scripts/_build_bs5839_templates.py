@@ -533,11 +533,11 @@ def build_commissioning_cert(out: Path) -> None:
     header = tbl.rows[0].cells
     for cell, label in zip(header, ["Item", "Description", "Y", "N", "N/A"]):
         _set_cell_shading(cell, CHECKLIST_HDR)
-        _set_cell_margin(cell, top=80, bottom=80, left=80, right=80)
+        _set_cell_margin(cell, top=100, bottom=100, left=120, right=120)
         run = cell.paragraphs[0].add_run(label)
         run.bold = True
         run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
-        run.font.size = Pt(9)
+        run.font.size = Pt(10)
         run.font.name = BODY_FONT
         cell.paragraphs[0].alignment = (
             WD_ALIGN_PARAGRAPH.CENTER if label in ("Y", "N", "N/A", "Item")
@@ -546,14 +546,21 @@ def build_commissioning_cert(out: Path) -> None:
 
     for row_idx, (item_num, description) in enumerate(items, start=1):
         cells = tbl.rows[row_idx].cells
+        # Generous vertical padding per row so the 33-item list reads
+        # comfortably — readability beats single-page fit; the table
+        # will spill onto a follow-on page if needed.
+        for c in cells:
+            _set_cell_margin(c, top=100, bottom=100, left=120, right=120)
+
         num_p = cells[0].paragraphs[0]
         num_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         nr = num_p.add_run(str(item_num))
-        nr.font.size = Pt(9)
+        nr.font.size = Pt(10)
         nr.font.name = BODY_FONT
+        nr.bold = True
 
         desc = cells[1].paragraphs[0].add_run(description)
-        desc.font.size = Pt(9)
+        desc.font.size = Pt(10)
         desc.font.name = BODY_FONT
         desc.font.color.rgb = BODY_DARK
 
@@ -561,7 +568,7 @@ def build_commissioning_cert(out: Path) -> None:
             p = cells[box_col].paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             r = p.add_run(CHECKBOX_EMPTY)
-            r.font.size = Pt(11)
+            r.font.size = Pt(14)
             r.font.name = BODY_FONT
 
     # ── Page 3 — incomplete work + sign-off ─────────────────────────
