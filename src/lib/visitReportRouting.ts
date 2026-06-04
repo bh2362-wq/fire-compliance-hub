@@ -5,7 +5,7 @@
 //
 // Rationale per the operational rules:
 //   maintenance (quarterly/biannual/annual)  → Service Report (BS 5839 checklist)
-//   reactive   (remedial/emergency)          → Callout Report
+//   reactive   (remedial/callout)            → Callout Report
 //   install                                   → Modification Certificate
 //   supply_only / subcontract                 → no automatic default
 
@@ -14,7 +14,10 @@ export type VisitType =
   | "biannual_service"
   | "annual_inspection"
   | "remedial"
-  | "emergency"
+  | "callout"
+  | "emergency"      // legacy alias — kept so RECOMMENDATIONS lookup
+                     // still resolves for any pre-rename rows that
+                     // escaped migration 20260605200000.
   | "supply_only"
   | "subcontract"
   | "installation"   // not yet a CHECK-allowed value; mapping is future-proofed
@@ -49,6 +52,12 @@ const RECOMMENDATIONS: Record<string, ReportRecommendation> = {
     label: "Callout Report",
     reason: "Reactive attendance — fault narrative, response time and SLA.",
   },
+  callout: {
+    kind: "callout_report",
+    label: "Callout Report",
+    reason: "Reactive attendance — fault narrative, response time and SLA.",
+  },
+  // Legacy alias for any pre-rename rows the migration missed.
   emergency: {
     kind: "callout_report",
     label: "Callout Report",

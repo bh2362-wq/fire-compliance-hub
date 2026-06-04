@@ -92,7 +92,10 @@ export function IntentReviewQueue({ onRouteToFlow, sourceEmailId }: Props) {
       site_address: p.site_address ?? null,
       site_city: p.site_city ?? null,
       site_postcode: p.site_postcode ?? null,
-      visit_type: it.intent_type === "callout" ? "emergency" : (p.visit_type ?? null),
+      // Email-scanner intent "callout" maps to the visit_type of the
+      // same name (post the 20260605200000 rename). Pre-rename this
+      // line set "emergency" — both ends now align.
+      visit_type: it.intent_type === "callout" ? "callout" : (p.visit_type ?? null),
       urgency: it.priority === "urgent" || it.priority === "high" ? "high" : it.priority,
       preferred_date: it.suggested_date,
       description: p.description ?? it.summary ?? null,

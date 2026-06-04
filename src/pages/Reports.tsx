@@ -144,8 +144,8 @@ const TYPE_STYLE: Record<string, { icon: typeof FileText; tint: string; ink: str
   disabled_refuge: { icon: Megaphone,  tint: "bg-orange-500/10",   ink: "text-orange-600 dark:text-orange-400", label: "Disabled Refuge" },
   // Work / job report — green (a billable job)
   job:             { icon: Briefcase,  tint: "bg-emerald-500/10",  ink: "text-emerald-600 dark:text-emerald-400", label: "Works" },
-  // Emergency callout — red (urgent)
-  emergency:       { icon: Siren,      tint: "bg-red-500/10",      ink: "text-red-600 dark:text-red-400", label: "Emergency Callout" },
+  // Callout — red (urgent)
+  callout:         { icon: Siren,      tint: "bg-red-500/10",      ink: "text-red-600 dark:text-red-400", label: "Callout" },
 };
 
 const FALLBACK_TYPE_STYLE = TYPE_STYLE.bs5839;
@@ -1307,9 +1307,9 @@ const Reports = () => {
                       {(() => {
                         // Pick the styling per detected report type so
                         // each kind reads visually distinct in the list.
-                        // Visit type "emergency" can override a generic
-                        // bs5839 row since an emergency callout deserves
-                        // its own colour treatment.
+                        // Visit type "callout" can override a generic
+                        // bs5839 row since a callout deserves its own
+                        // colour treatment.
                         let typeKey = "bs5839";
                         try {
                           const notes = JSON.parse(report.notes || "{}");
@@ -1321,10 +1321,14 @@ const Reports = () => {
                         }
                         if (isAsdReport) typeKey = "asd";
                         if (isCauseEffectVisit) typeKey = "cause_effect";
-                        // Visit-type override: emergency callouts get red
-                        // urgency colouring regardless of the underlying
-                        // report type.
-                        if ((report as any).visits?.visit_type === "emergency") typeKey = "emergency";
+                        // Visit-type override: callouts get red urgency
+                        // colouring regardless of the underlying report
+                        // type. 'emergency' accepted for any pre-rename
+                        // rows the migration missed.
+                        if (
+                          (report as any).visits?.visit_type === "callout" ||
+                          (report as any).visits?.visit_type === "emergency"
+                        ) typeKey = "callout";
                         const style = TYPE_STYLE[typeKey] ?? FALLBACK_TYPE_STYLE;
                         const Icon = style.icon;
                         return (

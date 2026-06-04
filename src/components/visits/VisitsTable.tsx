@@ -870,17 +870,19 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
 
   // Helper to render a visit row
   // ── Visit type → CSS class helpers ─────────────────────────────────────
+  // 'emergency' accepted alongside 'callout' for any pre-rename rows
+  // that escaped migration 20260605200000.
   const getVRowClass = (vt: string) => {
     if (["quarterly_service","biannual_service","annual_inspection"].includes(vt)) return "vrow-quarterly";
     if (["remedial","supply_only"].includes(vt)) return "vrow-remedial";
-    if (vt === "emergency") return "vrow-emergency";
+    if (vt === "callout" || vt === "emergency") return "vrow-callout";
     if (["installation","commissioning"].includes(vt)) return "vrow-install";
     return "vrow-other";
   };
   const getVTypeClass = (vt: string) => {
     if (["quarterly_service","biannual_service","annual_inspection"].includes(vt)) return "vtype-quarterly";
     if (["remedial","supply_only"].includes(vt)) return "vtype-remedial";
-    if (vt === "emergency") return "vtype-emergency";
+    if (vt === "callout" || vt === "emergency") return "vtype-callout";
     if (["installation","commissioning"].includes(vt)) return "vtype-install";
     if (vt === "subcontract") return "vtype-subcon";
     return "vtype-other";
@@ -1840,7 +1842,7 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
                 return;
               }
               // All known existingReportType values are handled above.
-            } else if (previewVisit.visit_type === "remedial" || previewVisit.visit_type === "emergency" || previewVisit.visit_type === "supply_only") {
+            } else if (previewVisit.visit_type === "remedial" || previewVisit.visit_type === "callout" || previewVisit.visit_type === "emergency" || previewVisit.visit_type === "supply_only") {
               const visitId = previewVisit.id;
               setReportVisit(null);
               navigate(`/dashboard/visits/${visitId}/work-report/capture`);

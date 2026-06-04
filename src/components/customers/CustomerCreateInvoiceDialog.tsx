@@ -73,7 +73,7 @@ const SERVICE_TYPES = [
   { value: "quarterly_service", label: "Quarterly Service" },
   { value: "biannual_service", label: "6-Monthly Service" },
   { value: "annual_inspection", label: "Annual Inspection" },
-  { value: "emergency", label: "Emergency Callout" },
+  { value: "callout", label: "Callout" },
   { value: "remedial", label: "Remedial Works" },
   { value: "supply_only", label: "Supply Only" },
 ];
@@ -160,7 +160,9 @@ export function CustomerCreateInvoiceDialog({
         }
         
         if (jobReportData.jobType === "emergency") {
-          setServiceType("emergency");
+          // External jobType uses the legacy "emergency" tag from the
+          // job-report source; we map to the renamed internal value.
+          setServiceType("callout");
         } else if (jobReportData.jobType === "service") {
           setServiceType("quarterly_service");
         } else if (jobReportData.jobType === "repair" || jobReportData.jobType === "remedial") {
@@ -224,7 +226,7 @@ export function CustomerCreateInvoiceDialog({
     
     // First line: job type + site name
     if (jobReportData.jobType === "emergency") {
-      lines.push(`Emergency Callout - ${jobReportData.siteName || "Site"}`);
+      lines.push(`Callout - ${jobReportData.siteName || "Site"}`);
     } else {
       const typeLabel = SERVICE_TYPES.find(s => s.value === serviceType)?.label || jobReportData.jobType || "Service";
       lines.push(`${typeLabel} - ${jobReportData.siteName || "Site"}`);

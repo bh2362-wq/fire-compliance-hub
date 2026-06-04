@@ -1910,7 +1910,7 @@ const JOB_TYPES_PDF = [
   { value: "inspection", label: "Inspection" },
   { value: "commissioning", label: "Commissioning" },
   { value: "remedial", label: "Remedial" },
-  { value: "emergency", label: "Emergency" },
+  { value: "callout", label: "Callout" },
   { value: "supply_only", label: "Supply Only" },
   { value: "room_integrity", label: "Room Integrity" },
   { value: "gas_suppression", label: "Gas Suppression" },

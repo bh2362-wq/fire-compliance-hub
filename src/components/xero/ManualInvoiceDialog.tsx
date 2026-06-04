@@ -70,7 +70,7 @@ const SERVICE_TYPES = [
   { value: "quarterly_service", label: "Quarterly Service" },
   { value: "biannual_service", label: "6-Monthly Service" },
   { value: "annual_inspection", label: "Annual Inspection" },
-  { value: "emergency", label: "Emergency Callout" },
+  { value: "callout", label: "Callout" },
   { value: "remedial", label: "Remedial Works" },
   { value: "supply_only", label: "Supply Only" },
 ];
