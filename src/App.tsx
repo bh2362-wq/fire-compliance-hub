@@ -22,6 +22,7 @@ import Customers from "./pages/Customers";
 import CustomerDetail from "./pages/CustomerDetail";
 import Visits from "./pages/Visits";
 import BAFEPage from "./pages/BAFE";
+import BS5839CommissioningCapture from "./pages/BS5839CommissioningCapture";
 import ServiceReportCapture from "./pages/ServiceReportCapture";
 import CauseEffectTestCapture from "./pages/CauseEffectTestCapture";
 import DisabledRefugeReportCapture from "./pages/DisabledRefugeReportCapture";
@@ -156,6 +157,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <BAFEPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/visits/:visitId/bs5839-commissioning/capture"
+              element={
+                <ProtectedRoute>
+                  <BS5839CommissioningCapture />
                 </ProtectedRoute>
               }
             />
