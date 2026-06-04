@@ -57,7 +57,7 @@ INPUT_BORDER   = "C7CCD3"                       # thin grey border around inputs
 SUBMIT_BLUE    = "3D5AFE"                       # the bright blue of the SUBMIT button
 BODY_DARK      = RGBColor(0x1A, 0x1F, 0x2C)     # near-black body text
 CHECKLIST_HDR  = "1F2937"                       # dark grey for the 33-item table header
-BODY_FONT      = "Calibri"                      # universal Word font
+BODY_FONT      = "Verdana"                     # matches the Churches source forms; ships with Windows + macOS so every engineer's Word renders correctly
 
 CHECKBOX_EMPTY = "☐"
 
