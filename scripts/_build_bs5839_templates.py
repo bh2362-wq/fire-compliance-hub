@@ -564,10 +564,14 @@ def build_commissioning_cert(out: Path) -> None:
         desc.font.name = BODY_FONT
         desc.font.color.rgb = BODY_DARK
 
-        for box_col in (2, 3, 4):
+        # Per-row unique placeholders so the substitution engine can
+        # tick the right cell by exact-match. Pattern: [Q{n}{Y|N|NA}].
+        # The engine replaces these with the empty / ticked checkbox
+        # glyph depending on the engineer's response.
+        for box_col, suffix in zip((2, 3, 4), ("Y", "N", "NA")):
             p = cells[box_col].paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            r = p.add_run(CHECKBOX_EMPTY)
+            r = p.add_run(f"[Q{item_num}{suffix}]")
             r.font.size = Pt(14)
             r.font.name = BODY_FONT
 
