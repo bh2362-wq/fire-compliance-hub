@@ -87,8 +87,10 @@ const VISIT_TYPE_TO_SERVICE_TYPE: Record<string, string> = {
   nurse_call_service: "nurse_call",
 };
 
-// Visit types that should NOT auto-fill from contracts
-const SKIP_CONTRACT_AUTOFILL = ["emergency", "remedial", "callout"];
+// Visit types that should NOT auto-fill from contracts. "emergency"
+// kept alongside "callout" so any pre-rename rows that escaped the
+// migration are still treated correctly.
+const SKIP_CONTRACT_AUTOFILL = ["callout", "emergency", "remedial"];
 
 // Frequency labels for reference
 const FREQUENCY_LABELS: Record<string, string> = {

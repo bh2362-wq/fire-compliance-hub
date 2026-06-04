@@ -113,9 +113,14 @@ export function OpenVisitsCard({ siteId, customerId, onVisitClick }: OpenVisitsC
       onVisitClick(visit.id);
       return;
     }
-    // Remedial / emergency visits skip the report-type selector and go
-    // straight to the Work Report wizard (job sheet only).
-    if (visit.visit_type === "remedial" || visit.visit_type === "emergency") {
+    // Remedial / callout visits skip the report-type selector and go
+    // straight to the Work Report wizard (job sheet only). 'emergency'
+    // accepted for any pre-rename rows the migration missed.
+    if (
+      visit.visit_type === "remedial" ||
+      visit.visit_type === "callout" ||
+      visit.visit_type === "emergency"
+    ) {
       navigate(`/dashboard/visits/${visit.id}/work-report/capture`);
       return;
     }
