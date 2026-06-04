@@ -5,7 +5,7 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench, RefreshCw, Briefcase
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench, RefreshCw, Briefcase, ShieldCheck
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -49,6 +49,11 @@ interface DashboardLayoutProps {
 const coreNav = [
   { name: "Dashboard",  href: "/dashboard",           icon: LayoutDashboard, end: true },
   { name: "Visits",     href: "/dashboard/visits",    icon: ClipboardList },
+  // BAFE SP203-1 compliance landing — placed beside Visits per
+  // navigation priority (engineers + admins reach it most often
+  // alongside the visits list). Composes the five components from
+  // PRs #142 and #143 into a tabbed page (src/pages/BAFE.tsx).
+  { name: "BAFE",       href: "/dashboard/bafe",      icon: ShieldCheck },
   { name: "Asset Maintenance", href: "/dashboard/asset-maintenance", icon: Wrench },
   { name: "Reports",    href: "/dashboard/reports",   icon: BarChart3 },
   { name: "Defects",    href: "/dashboard/defects",   icon: ShieldAlert },
