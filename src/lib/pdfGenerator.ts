@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { format, addMonths } from "date-fns";
+import { BHO_LOGO_DATA_URL } from "@/lib/assets/bhoLogoDataUrl";
 import {
   ServiceReport,
   BS5839Checklist,
@@ -93,8 +94,13 @@ function drawStatusBox(
   return x + boxSize + (showLabel ? 20 : 7);
 }
 
-// Compact branded header for Service Reports — matches PO style
-function addCompactHeader(doc: jsPDF, pageWidth: number, margin: number, logoImg: HTMLImageElement | null) {
+// Compact branded header for Service Reports — matches PO style.
+// `logoImg` accepts either a data-URL string (preferred — see
+// BHO_LOGO_DATA_URL; jsPDF handles strings synchronously) or an
+// HTMLImageElement that's been fully decoded. The previous
+// "new Image() with .src" pattern raced jsPDF's addImage call,
+// producing a blank logo slot in some browsers.
+function addCompactHeader(doc: jsPDF, pageWidth: number, margin: number, logoImg: HTMLImageElement | string | null) {
   let yPos = 14;
 
   // Company logo — left side (32x28 matching PO)
@@ -292,9 +298,8 @@ export function generateServiceReportPDF(
   const margin = 12;
   const contentWidth = pageWidth - 2 * margin;
 
-  const logoImg = new Image();
-  logoImg.src = "/bho-fire-logo.png";
-
+  // Synchronous data URL — see BHO_LOGO_DATA_URL comment for why.
+  const logoImg = BHO_LOGO_DATA_URL;
   let yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
 
   // === Title Row ===
@@ -1170,10 +1175,8 @@ export async function generateWorkReportPDF(
     return formatMinutesToTime(startMins + durMins);
   };
 
-  // Load logo
-  const logoImg = new Image();
-  logoImg.src = "/bho-fire-logo.png";
-
+  // Synchronous data URL — see BHO_LOGO_DATA_URL comment for why.
+  const logoImg = BHO_LOGO_DATA_URL;
   let yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
 
   // === Title Row ===
@@ -1967,9 +1970,8 @@ export function generateASDReportPDF(
   const margin = 12;
   const contentWidth = pageWidth - 2 * margin;
 
-  const logoImg = new Image();
-  logoImg.src = "/bho-fire-logo.png";
-
+  // Synchronous data URL — see BHO_LOGO_DATA_URL comment for why.
+  const logoImg = BHO_LOGO_DATA_URL;
   let yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
 
   // === Title Row ===
