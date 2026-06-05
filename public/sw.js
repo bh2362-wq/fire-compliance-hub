@@ -9,7 +9,7 @@
 // Bump on every release that ships changes to index.html / manifest /
 // other shell assets — the activate handler nukes older caches so users
 // don't get stuck on a stale app shell.
-const CACHE_NAME = "fcc-shell-v3-pwa";
+const CACHE_NAME = "fcc-shell-v4-pwa";
 const STATIC_DESTINATIONS = new Set(["document", "script", "style", "image", "font"]);
 
 self.addEventListener("install", (event) => {

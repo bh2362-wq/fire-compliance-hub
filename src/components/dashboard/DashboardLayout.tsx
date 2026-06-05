@@ -128,13 +128,13 @@ const NavItem = ({
     end={(item as any).end}
     className={({ isActive }) =>
       cn(
-        "relative flex items-center gap-3 rounded-md text-sm font-medium transition-all duration-150 group",
+        "relative flex items-center gap-2.5 rounded-md text-[13.5px] font-medium transition-all duration-150 group",
         // Bump tap targets on mobile (~44px) without growing desktop rows.
         sub
-          ? "px-3 py-2 sm:py-1.5"
+          ? "px-2.5 py-1.5 sm:py-1"
           : isMobile
-            ? "px-3 py-3"
-            : "px-3 py-2",
+            ? "px-2.5 py-2.5"
+            : "px-2.5 py-1.5",
         isActive
           ? "bg-sidebar-accent text-sidebar-foreground"
           : "text-sidebar-foreground/55 hover:text-sidebar-foreground/90 hover:bg-sidebar-accent/60"
@@ -144,10 +144,10 @@ const NavItem = ({
     {({ isActive }) => (
       <>
         {isActive && !sub && (
-          <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-primary" />
+          <span className="absolute left-0 top-1 bottom-1 w-[2px] rounded-r bg-primary" />
         )}
         <item.icon
-          className={cn("flex-shrink-0", sub ? "w-4 h-4" : "w-[17px] h-[17px]")}
+          className={cn("flex-shrink-0", sub ? "w-3.5 h-3.5" : "w-[15px] h-[15px]")}
         />
         {(!collapsed || isMobile) && <span>{item.name}</span>}
       </>
@@ -165,7 +165,7 @@ const SectionLabel = ({
   isMobile: boolean;
 }) =>
   !collapsed || isMobile ? (
-    <p className="px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-sidebar-foreground/30 select-none">{label}</p>
+    <p className="px-2.5 pt-4 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/30 select-none">{label}</p>
   ) : (
     <div className="my-3 mx-3 border-t border-sidebar-border/50" />
   );
@@ -505,11 +505,18 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full" />
             </button>
 
-            {/* New Visit button */}
+            {/* New Visit — top-bar copy.
+                Demoted from solid-orange to outline so the hero (or
+                any page-level orange CTA) remains the single solid
+                orange in the viewport. The affordance is preserved
+                for users scrolled past the hero. Mobile keeps the
+                icon-only orange variant since the hero falls below
+                the fold faster on phones. */}
             <VisitFormDialog
               trigger={
                 <Button
-                  className="hidden sm:flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md text-sm font-semibold h-9 px-4"
+                  variant="outline"
+                  className="hidden sm:flex items-center gap-1.5 border-primary/30 text-primary hover:bg-primary/5 text-sm font-semibold h-9 px-3"
                 >
                   <Plus className="w-4 h-4" />
                   New Visit

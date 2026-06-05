@@ -6,20 +6,17 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-// Hero strip at the top of the dashboard. Replaces the plain
-// "Welcome back" header with a richer panel:
+// Hero strip at the top of the dashboard.
 //
-//   - Personalised greeting + the full date (engineers checking on a
-//     phone tend to lose track of which day it is mid-week)
-//   - Today's visit count with a one-click chip per type
-//     (callout / remedial / service) so the most urgent items are
-//     glanceable without scrolling to TodaySchedule
-//   - "Tomorrow" preview when today is wrapping up
-//   - Primary CTA (New Visit) lives here so the engineer doesn't
-//     hunt for it
+// Visual reading: a deep slate-blue block — deliberately *not* the
+// peach-orange gradient that's the Lovable / shadcn-dashboard cliché.
+// Slate gives the orange "New Visit" CTA something high-contrast to
+// pop off, and keeps the brand-orange role exclusive to actions.
 //
-// Uses a subtle BHO-orange gradient so it reads as a branded surface
-// rather than a Lovable default card.
+// Content stays the same:
+//   - Personalised greeting + full date
+//   - Today / Tomorrow visit counts with per-type chips
+//   - Primary CTA (New Visit)
 
 interface TodayVisit {
   id: string;
@@ -77,19 +74,20 @@ export function DashboardHero() {
   const greeting = pickGreeting();
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-card p-5 sm:p-7">
-      {/* Decorative corner — barely there but breaks the flat-card feel */}
-      <div className="absolute -right-12 -top-12 w-48 h-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+    <div className="relative overflow-hidden rounded-lg bg-secondary text-secondary-foreground p-5 sm:p-7">
+      {/* A barely-there light wash in the corner — adds depth on solid
+          slate without reading as a gradient hero. */}
+      <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/[0.04] pointer-events-none" />
 
       <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">
             {greeting}
           </p>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
             {format(new Date(), "EEEE")}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-white/65">
             {format(new Date(), "d MMMM yyyy")}
           </p>
         </div>
@@ -155,36 +153,36 @@ function SnapshotCard({
   return (
     <div
       className={cn(
-        "rounded-xl border bg-card/70 backdrop-blur-sm p-4",
+        "rounded-md border border-white/10 bg-white/[0.06] backdrop-blur-sm p-4",
         subdued && "opacity-90",
       )}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={cn("text-muted-foreground")}>{icon}</span>
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+        <div className="flex items-center gap-2 text-white/65">
+          <span>{icon}</span>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em]">
             {label}
           </p>
         </div>
         <button
           onClick={onView}
-          className="text-xs font-semibold text-primary inline-flex items-center gap-0.5 hover:gap-1 transition-all"
+          className="text-xs font-semibold text-white/80 hover:text-white inline-flex items-center gap-0.5 hover:gap-1 transition-all"
         >
           View <ArrowRight className="w-3 h-3" />
         </button>
       </div>
 
       <div className="flex items-baseline gap-2 mt-2">
-        <p className="text-3xl font-bold">
+        <p className="text-3xl font-bold text-white">
           {loading ? "—" : count}
         </p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-white/55">
           {count === 1 ? "visit" : "visits"}
         </p>
       </div>
 
       {!loading && count === 0 && (
-        <p className="text-xs text-muted-foreground mt-1.5">{empty}</p>
+        <p className="text-xs text-white/55 mt-1.5">{empty}</p>
       )}
 
       {chips.length > 0 && (
@@ -194,7 +192,7 @@ function SnapshotCard({
             return (
               <span
                 key={chip.type}
-                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium"
+                className="inline-flex items-center gap-1 rounded-full bg-white/12 text-white px-2 py-0.5 text-[11px] font-medium"
               >
                 <Icon className="w-3 h-3" />
                 {chip.count} {chip.type.replace(/_/g, " ")}
