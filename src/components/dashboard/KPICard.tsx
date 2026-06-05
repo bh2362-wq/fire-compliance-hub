@@ -2,37 +2,42 @@ import { LucideIcon, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
-// Enhanced version of StatsCard with optional inline sparkline + a
-// week-over-week delta chip. Use this for KPIs where we have a real
-// time series; fall back to StatsCard for static numbers. The
-// sparkline is a tiny inline SVG — no recharts overhead — so it
-// composes cleanly inside the existing grid without layout shift.
+// Technical-tool KPI card — replaces the icon-chip-in-tinted-box
+// pattern (the shadcn-dashboard cliché) with:
+//
+//   - A 2px top accent strip in a category colour. Reads like a
+//     dashboard widget header rather than a marketing card.
+//   - Inline small icon next to the eyebrow — scanability without
+//     the icon-chip box
+//   - Solid `bg-card`, no gradient washes
+//   - Tighter typography, denser block
+//
+// `iconTint` / `iconInk` are accepted for API compatibility with
+// callers from the previous design but are no longer used (the icon
+// is now monochrome, sized to match the eyebrow).
 
 interface KPICardProps {
   title: string;
   value: string | number;
-  // Optional 14-30 point series for the sparkline. Latest value last.
   trend?: number[];
-  // Optional week-over-week percentage delta. Positive numbers
-  // render with up-arrow + (default) green; flip `goodDirection` to
-  // 'down' for metrics where lower is better (e.g. overdue invoices).
   deltaPercent?: number | null;
   goodDirection?: "up" | "down";
-  // Subtitle line below the value — same role as StatsCard.change.
   subtitle?: string;
   icon: LucideIcon;
-  iconTint?: string;        // Tailwind bg class for icon wrapper
-  iconInk?: string;         // Tailwind text class for icon colour
+  iconTint?: string;        // deprecated — kept for caller compat
+  iconInk?: string;         // deprecated — kept for caller compat
   accent?: "default" | "primary" | "danger" | "warning" | "success";
   href?: string;
 }
 
-const ACCENT_STYLES: Record<NonNullable<KPICardProps["accent"]>, string> = {
-  default: "bg-card border-border",
-  primary: "bg-gradient-to-br from-primary/8 via-primary/4 to-card border-primary/25",
-  danger:  "bg-gradient-to-br from-destructive/8 via-destructive/4 to-card border-destructive/25",
-  warning: "bg-gradient-to-br from-warning/8 via-warning/4 to-card border-warning/25",
-  success: "bg-gradient-to-br from-success/8 via-success/4 to-card border-success/25",
+// Top accent strip colour per tone. Default leans on the new
+// slate-blue secondary so neutral KPIs still get a hint of structure.
+const ACCENT_STRIP: Record<NonNullable<KPICardProps["accent"]>, string> = {
+  default: "bg-secondary",
+  primary: "bg-primary",
+  danger:  "bg-destructive",
+  warning: "bg-warning",
+  success: "bg-success",
 };
 
 export function KPICard({
@@ -43,8 +48,6 @@ export function KPICard({
   goodDirection = "up",
   subtitle,
   icon: Icon,
-  iconTint = "bg-primary/10",
-  iconInk = "text-primary",
   accent = "default",
   href,
 }: KPICardProps) {
@@ -54,24 +57,24 @@ export function KPICard({
     <div
       onClick={() => href && navigate(href)}
       className={cn(
-        "rounded-xl border p-5 transition-all duration-200 relative overflow-hidden",
-        ACCENT_STYLES[accent],
-        href && "cursor-pointer hover:shadow-md hover:scale-[1.01]",
+        "relative overflow-hidden rounded-md border border-border bg-card p-4 transition-all duration-150",
+        href && "cursor-pointer hover:border-foreground/25 hover:shadow-sm",
       )}
     >
-      <div className="flex items-start justify-between mb-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+      {/* Top accent strip */}
+      <div className={cn("absolute inset-x-0 top-0 h-[2px]", ACCENT_STRIP[accent])} />
+
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <Icon className="w-3.5 h-3.5" />
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em]">
           {title}
         </p>
-        <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", iconTint)}>
-          <Icon className={cn(iconInk)} style={{ width: 18, height: 18 }} />
-        </div>
       </div>
 
-      <div className="flex items-end gap-3 justify-between">
+      <div className="mt-3 flex items-end gap-3 justify-between">
         <p
-          className="text-3xl font-bold text-foreground tracking-tight"
-          style={{ letterSpacing: "-0.025em" }}
+          className="text-[2rem] leading-none font-bold text-foreground tracking-tight"
+          style={{ letterSpacing: "-0.03em" }}
         >
           {value}
         </p>
@@ -112,7 +115,7 @@ function Sparkline({
     : accent === "danger" ? "stroke-destructive"
     : accent === "warning" ? "stroke-warning"
     : accent === "success" ? "stroke-success"
-    : "stroke-foreground/60";
+    : "stroke-secondary";
   // Use bars rather than a path — looks more deliberate at this size
   // and reads as a "count per day" intuitively.
   const barWidth = SPARK_WIDTH / values.length;
