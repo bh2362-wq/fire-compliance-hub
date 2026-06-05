@@ -44,9 +44,9 @@ export function EmailActionItemsWidget() {
           <div className="space-y-1.5">
             {(urgentCount > 0 || highCount > 0) && (
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                {urgentCount > 0 && <span className="text-red-600 font-semibold">{urgentCount} urgent</span>}
+                {urgentCount > 0 && <span className="text-destructive font-semibold">{urgentCount} urgent</span>}
                 {urgentCount > 0 && highCount > 0 && " · "}
-                {highCount > 0 && <span className="text-orange-600 font-semibold">{highCount} high</span>}
+                {highCount > 0 && <span className="text-warning font-semibold">{highCount} high</span>}
               </p>
             )}
             {items.slice(0, 6).map((it) => (
@@ -57,10 +57,10 @@ export function EmailActionItemsWidget() {
               >
                 <Badge
                   className={`text-[9px] uppercase tracking-wide flex-shrink-0 ${
-                    it.priority === "urgent" ? "bg-red-600 text-white" :
-                    it.priority === "high" ? "bg-orange-500 text-white" :
-                    it.priority === "medium" ? "bg-amber-100 text-amber-900" :
-                    "bg-slate-100 text-slate-700"
+                    it.priority === "urgent" ? "bg-destructive text-destructive-foreground" :
+                    it.priority === "high" ? "bg-warning text-warning-foreground" :
+                    it.priority === "medium" ? "bg-warning/15 text-warning" :
+                    "bg-muted text-muted-foreground"
                   }`}
                 >
                   {it.intent_type}

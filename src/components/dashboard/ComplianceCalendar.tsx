@@ -48,10 +48,13 @@ function getBand(daysUntil: number): Band {
   return "within90";
 }
 
+// RAG tone via theme tokens. The 60-day band uses the warning token
+// at attenuated strength so it reads as a step softer than the 30-day
+// band but still in the warning family (vs the neutral 90-day band).
 const BAND_CONFIG: Record<Band, { label: string; color: string; bg: string; icon: typeof AlertTriangle }> = {
-  overdue:  { label: "Overdue",       color: "text-red-600 dark:text-red-400",    bg: "bg-red-50 dark:bg-red-950/20 border-red-200/60",    icon: AlertTriangle },
-  within30: { label: "Due ≤ 30 days", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/20 border-amber-200/60", icon: Clock },
-  within60: { label: "Due 31–60 days",color: "text-yellow-600 dark:text-yellow-500", bg: "bg-yellow-50/60 dark:bg-yellow-950/10 border-yellow-200/40", icon: CalendarDays },
+  overdue:  { label: "Overdue",       color: "text-destructive", bg: "bg-destructive/10 border-destructive/20",    icon: AlertTriangle },
+  within30: { label: "Due ≤ 30 days", color: "text-warning",     bg: "bg-warning/10 border-warning/20",            icon: Clock },
+  within60: { label: "Due 31–60 days",color: "text-warning/80",  bg: "bg-warning/5 border-warning/15",             icon: CalendarDays },
   within90: { label: "Due 61–90 days",color: "text-muted-foreground", bg: "bg-muted/30 border-border/60", icon: CalendarDays },
 };
 
@@ -230,9 +233,9 @@ function SiteRow({ site, onClick }: { site: DueSite; onClick: () => void }) {
           variant="outline"
           className={cn(
             "text-[10px] font-bold px-2 py-0.5 whitespace-nowrap",
-            band === "overdue"  && "border-red-300 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400 dark:border-red-700/40",
-            band === "within30" && "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-700/40",
-            band === "within60" && "border-yellow-300 bg-yellow-50 text-yellow-700 dark:bg-yellow-950/20 dark:text-yellow-500 dark:border-yellow-700/30",
+            band === "overdue"  && "border-destructive/25 bg-destructive/10 text-destructive",
+            band === "within30" && "border-warning/25 bg-warning/10 text-warning",
+            band === "within60" && "border-warning/20 bg-warning/5 text-warning/85",
             band === "within90" && "border-border text-muted-foreground",
           )}
         >
@@ -286,11 +289,11 @@ export function ComplianceCalendar() {
         <div className="flex items-center gap-2.5">
           <div className={cn(
             "w-8 h-8 rounded-lg flex items-center justify-center",
-            totalUrgent > 0 ? "bg-amber-100 dark:bg-amber-950/30" : "bg-green-100 dark:bg-green-950/30"
+            totalUrgent > 0 ? "bg-warning/15" : "bg-success/15"
           )}>
             <CalendarDays className={cn(
               "w-4 h-4",
-              totalUrgent > 0 ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400"
+              totalUrgent > 0 ? "text-warning" : "text-success"
             )} />
           </div>
           <div>
@@ -312,9 +315,9 @@ export function ComplianceCalendar() {
       {/* Summary pills */}
       <div className="flex gap-2 mb-4 flex-wrap">
         {[
-          { count: overdue.length,  label: "Overdue",   color: "border-red-300 bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 dark:border-red-700/30" },
-          { count: within30.length, label: "≤ 30 days", color: "border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700/30" },
-          { count: within60.length, label: "31–60 days", color: "border-yellow-200 bg-yellow-50/60 text-yellow-700 dark:bg-yellow-950/10 dark:text-yellow-500 dark:border-yellow-700/20" },
+          { count: overdue.length,  label: "Overdue",   color: "border-destructive/25 bg-destructive/10 text-destructive" },
+          { count: within30.length, label: "≤ 30 days", color: "border-warning/25 bg-warning/10 text-warning" },
+          { count: within60.length, label: "31–60 days", color: "border-warning/20 bg-warning/5 text-warning/85" },
           { count: within90.length, label: "61–90 days", color: "border-border text-muted-foreground" },
         ].map(({ count, label, color }) => (
           <div key={label} className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium", color)}>
@@ -327,7 +330,7 @@ export function ComplianceCalendar() {
       {/* Site list */}
       {sites.length === 0 ? (
         <div className="py-8 text-center">
-          <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-500/60" />
+          <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-success/60" />
           <p className="text-sm font-medium text-muted-foreground">All sites are up to date</p>
           <p className="text-xs text-muted-foreground mt-0.5">No services due within 90 days</p>
         </div>
@@ -336,8 +339,8 @@ export function ComplianceCalendar() {
           {/* Overdue */}
           {overdue.length > 0 && (
             <>
-              <div className="px-4 py-1.5 bg-red-50 dark:bg-red-950/20 border-b border-red-200/60">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
+              <div className="px-4 py-1.5 bg-destructive/10 border-b border-destructive/20">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-destructive flex items-center gap-1.5">
                   <AlertTriangle className="w-3 h-3" /> Overdue ({overdue.length})
                 </p>
               </div>
@@ -348,8 +351,8 @@ export function ComplianceCalendar() {
           {/* Due within 30 days */}
           {within30.length > 0 && (
             <>
-              <div className="px-4 py-1.5 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200/60">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+              <div className="px-4 py-1.5 bg-warning/10 border-b border-warning/20">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-warning flex items-center gap-1.5">
                   <Clock className="w-3 h-3" /> Due within 30 days ({within30.length})
                 </p>
               </div>
