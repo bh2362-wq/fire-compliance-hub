@@ -5,12 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Send, FileText, Upload, Loader2, Bot, User, FileSearch } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Sparkles, Send, FileText, Upload, Loader2, Bot, User, FileSearch, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type Msg = { role: "user" | "assistant"; content: string };
+interface Citation {
+  chunk_id: string;
+  document_id: string;
+  document_title: string;
+  standard_reference: string | null;
+  page_number: number | null;
+  section_title: string | null;
+  similarity: number;
+}
+
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+  sources?: Citation[];
+};
 
 async function extractPdfText(file: File): Promise<string> {
   const pdfjs: any = await import("pdfjs-dist");
@@ -58,6 +73,11 @@ export default function AIAssistant() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  // BAFE grounding: when on, every chat message is augmented server-side
+  // with top-K chunks from the BAFE-tagged docs in the reference library.
+  // Default ON — the page-level CTA for this assistant is the BAFE
+  // knowledge work, vanilla chat is the backup.
+  const [groundInBafe, setGroundInBafe] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Document analysis state
@@ -71,23 +91,38 @@ export default function AIAssistant() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const callClaude = async (payload: any) => {
+  const callClaude = async (payload: any): Promise<{ content: string; sources?: Citation[] }> => {
     const { data, error } = await supabase.functions.invoke("claude-chat", { body: payload });
     if (error) throw new Error(error.message);
     if (data?.error) throw new Error(data.error);
-    return data?.content as string;
+    return {
+      content: (data?.content as string) || "",
+      sources: Array.isArray(data?.sources) ? (data.sources as Citation[]) : undefined,
+    };
   };
 
   const sendChat = async () => {
     const text = input.trim();
     if (!text || chatLoading) return;
+    // Strip sources from the messages sent to the server — they're UI-only.
+    const wireMessages = [...messages, { role: "user" as const, content: text }].map(
+      ({ role, content }) => ({ role, content })
+    );
     const next: Msg[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setInput("");
     setChatLoading(true);
     try {
-      const reply = await callClaude({ messages: next, mode: "chat" });
-      setMessages([...next, { role: "assistant", content: reply || "(no response)" }]);
+      const { content, sources } = await callClaude({
+        messages: wireMessages,
+        mode: "chat",
+        useReferenceLibrary: groundInBafe,
+        referenceDocTypes: ["bafe"],
+      });
+      setMessages([
+        ...next,
+        { role: "assistant", content: content || "(no response)", sources },
+      ]);
     } catch (e: any) {
       toast.error(e.message || "Claude request failed");
       setMessages(next);
@@ -125,7 +160,7 @@ export default function AIAssistant() {
     setDocLoading(true);
     setDocResult("");
     try {
-      const result = await callClaude({
+      const { content } = await callClaude({
         mode: docMode,
         documentText: docText,
         messages: [
@@ -138,7 +173,7 @@ export default function AIAssistant() {
           },
         ],
       });
-      setDocResult(result);
+      setDocResult(content);
     } catch (e: any) {
       toast.error(e.message || "Claude request failed");
     } finally {
@@ -172,11 +207,37 @@ export default function AIAssistant() {
           {/* Chat */}
           <TabsContent value="chat" className="mt-4">
             <Card className="flex flex-col h-[calc(100vh-280px)] min-h-[500px]">
+              {/* BAFE grounding toggle — when on, answers are restricted
+                  to the BAFE-tagged documents in the reference library
+                  and every claim is cited. */}
+              <div className="flex items-center justify-between border-b px-4 py-2.5 gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <BookOpen className="w-4 h-4 text-secondary flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold leading-tight">BAFE knowledge grounding</p>
+                    <p className="text-xs text-muted-foreground leading-tight truncate">
+                      {groundInBafe
+                        ? "Answers restricted to BAFE-tagged docs in the reference library, with citations."
+                        : "Vanilla chat — Claude answers from training data, no library lookup."}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={groundInBafe}
+                  onCheckedChange={setGroundInBafe}
+                  aria-label="Ground answers in BAFE library"
+                />
+              </div>
+
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.length === 0 && (
                   <div className="text-center text-sm text-muted-foreground py-12">
                     <Bot className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                    <p>Ask Claude anything about fire safety, BS 5839/BS 5266, BAFE, or compliance.</p>
+                    <p>
+                      {groundInBafe
+                        ? "Ask about BAFE SP203 requirements, scopes, audit criteria — answers will cite the library."
+                        : "Ask Claude anything about fire safety, BS 5839/BS 5266, BAFE, or compliance."}
+                    </p>
                   </div>
                 )}
                 {messages.map((m, i) => (
@@ -188,10 +249,13 @@ export default function AIAssistant() {
                       {m.role === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                     </div>
                     <div className={cn(
-                      "rounded-lg px-3 py-2 max-w-[80%]",
+                      "rounded-lg px-3 py-2 max-w-[80%] space-y-2",
                       m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
                     )}>
                       <MarkdownLite text={m.content} />
+                      {m.role === "assistant" && m.sources && m.sources.length > 0 && (
+                        <SourcesPanel sources={m.sources} />
+                      )}
                     </div>
                   </div>
                 ))}
@@ -217,7 +281,11 @@ export default function AIAssistant() {
                       sendChat();
                     }
                   }}
-                  placeholder="Ask about BS 5839, fire alarm zones, BAFE requirements…"
+                  placeholder={
+                    groundInBafe
+                      ? "Ask about BAFE SP203 modules, audit scope, evidence requirements…"
+                      : "Ask about BS 5839, fire alarm zones, BAFE requirements…"
+                  }
                   className="min-h-[44px] max-h-[120px] resize-none"
                   disabled={chatLoading}
                 />
@@ -260,6 +328,30 @@ export default function AIAssistant() {
         </Tabs>
       </div>
     </DashboardLayout>
+  );
+}
+
+function SourcesPanel({ sources }: { sources: Citation[] }) {
+  return (
+    <div className="mt-2 pt-2 border-t border-foreground/10 space-y-1">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        Sources ({sources.length})
+      </p>
+      <ol className="space-y-1">
+        {sources.map((s, i) => {
+          const ref = s.standard_reference ? ` · ${s.standard_reference}` : "";
+          const page = s.page_number ? ` · p.${s.page_number}` : "";
+          const section = s.section_title ? ` — ${s.section_title}` : "";
+          return (
+            <li key={s.chunk_id} className="text-xs leading-snug">
+              <span className="font-semibold">[{i + 1}]</span>{" "}
+              <span className="text-foreground/85">{s.document_title}</span>
+              <span className="text-muted-foreground">{ref}{page}{section}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 

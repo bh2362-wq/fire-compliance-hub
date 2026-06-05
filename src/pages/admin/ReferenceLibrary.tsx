@@ -27,9 +27,10 @@ import { extractPdfInBrowser, extractTxtInBrowser, ocrPdfInBrowser, ScannedPdfEr
 
 type DocType =
   | "standard" | "fia_guidance" | "manufacturer_doc" | "past_quote"
-  | "sop" | "tender_template" | "compliance_pack" | "other";
+  | "sop" | "tender_template" | "compliance_pack" | "bafe" | "other";
 
 const DOC_TYPES: { value: DocType; label: string }[] = [
+  { value: "bafe", label: "BAFE standard (SP203 etc.)" },
   { value: "standard", label: "Standard (BS / EN / ISO)" },
   { value: "fia_guidance", label: "FIA guidance" },
   { value: "manufacturer_doc", label: "Manufacturer doc" },
