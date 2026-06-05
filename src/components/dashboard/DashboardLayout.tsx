@@ -128,12 +128,14 @@ const NavItem = ({
     end={(item as any).end}
     className={({ isActive }) =>
       cn(
-        "relative flex items-center gap-2.5 rounded-md text-[13.5px] font-medium transition-all duration-150 group",
-        // Bump tap targets on mobile (~44px) without growing desktop rows.
+        "relative flex items-center gap-3 rounded-md font-medium transition-all duration-150 group",
+        // Mobile rows are bigger + use a 15px font for legibility; desktop
+        // stays tight at 13.5px so the dense nav still fits.
+        isMobile ? "text-[15px]" : "text-[13.5px]",
         sub
-          ? "px-2.5 py-1.5 sm:py-1"
+          ? isMobile ? "px-3 py-2.5" : "px-2.5 py-1"
           : isMobile
-            ? "px-2.5 py-2.5"
+            ? "px-3 py-3.5"  // ≈ 48px tap target on phone
             : "px-2.5 py-1.5",
         isActive
           ? "bg-sidebar-accent text-sidebar-foreground"
@@ -144,10 +146,18 @@ const NavItem = ({
     {({ isActive }) => (
       <>
         {isActive && !sub && (
-          <span className="absolute left-0 top-1 bottom-1 w-[2px] rounded-r bg-primary" />
+          <span className={cn(
+            "absolute left-0 rounded-r bg-primary",
+            isMobile ? "top-2 bottom-2 w-[3px]" : "top-1 bottom-1 w-[2px]",
+          )} />
         )}
         <item.icon
-          className={cn("flex-shrink-0", sub ? "w-3.5 h-3.5" : "w-[15px] h-[15px]")}
+          className={cn(
+            "flex-shrink-0",
+            sub
+              ? isMobile ? "w-4 h-4" : "w-3.5 h-3.5"
+              : isMobile ? "w-5 h-5" : "w-[15px] h-[15px]",
+          )}
         />
         {(!collapsed || isMobile) && <span>{item.name}</span>}
       </>
@@ -474,35 +484,42 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             {isMobile && (
               <button
                 onClick={() => setMobileOpen(true)}
-                className="p-2 -ml-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                className="p-2.5 -ml-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Open menu"
               >
-                <Menu className="w-5 h-5" />
+                <Menu className="w-6 h-6 sm:w-5 sm:h-5" />
               </button>
             )}
-            <span className="text-base md:text-[15px] font-semibold text-foreground truncate">
+            <span className="text-[17px] sm:text-base md:text-[15px] font-semibold text-foreground truncate">
               {isMobile ? "FireLogbook" : `Welcome back, ${userName.split(" ")[0]}`}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
             <GlobalSearch />
 
-            {/* Clear cache is a rare admin-style action; hide on mobile to
-                reclaim header space — engineers can still trigger it from
-                a tablet/desktop session if needed. */}
+            {/* Clear cache — reachable on mobile too. iOS Safari is
+                aggressive about holding onto an old service worker, and
+                without this button a stale PWA shell can only be fixed
+                by clearing site data in Safari settings, which most
+                users won't find. The icon is small and muted so it
+                doesn't compete with the primary nav. */}
             <button
               onClick={clearAppCacheAndReload}
               title="Refresh app (clear cache)"
               aria-label="Refresh app (clear cache)"
-              className="hidden sm:inline-flex p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex p-2.5 sm:p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             >
-              <RefreshCw className="w-5 h-5" />
+              <RefreshCw className="w-6 h-6 sm:w-5 sm:h-5" />
             </button>
 
             {/* Notification bell */}
-            <button className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full" />
+            <button
+              className="relative p-2.5 sm:p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Notifications"
+            >
+              <Bell className="w-6 h-6 sm:w-5 sm:h-5" />
+              <span className="absolute top-2 right-2 sm:top-1.5 sm:right-1.5 w-2 h-2 bg-destructive rounded-full" />
             </button>
 
             {/* New Visit — top-bar copy.
@@ -523,18 +540,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 </Button>
               }
             />
-            {isMobile && (
-              <VisitFormDialog
-                trigger={
-                  <Button
-                    size="icon"
-                    className="h-9 w-9 sm:hidden bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                }
-              />
-            )}
+            {/* Mobile + button removed — was redundant with the hero
+                New Visit CTA (above the fold) and the FAB that pops
+                up the multi-action menu (always reachable). Three
+                "+" buttons in one mobile viewport was the worst of
+                the clutter. */}
           </div>
         </header>
 

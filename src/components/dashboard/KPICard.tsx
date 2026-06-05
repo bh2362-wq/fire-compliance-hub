@@ -57,23 +57,23 @@ export function KPICard({
     <div
       onClick={() => href && navigate(href)}
       className={cn(
-        "relative overflow-hidden rounded-md border border-border bg-card p-4 transition-all duration-150",
-        href && "cursor-pointer hover:border-foreground/25 hover:shadow-sm",
+        "relative overflow-hidden rounded-md border border-border bg-card p-5 sm:p-4 transition-all duration-150",
+        href && "cursor-pointer hover:border-foreground/25 hover:shadow-sm active:scale-[0.98]",
       )}
     >
       {/* Top accent strip */}
       <div className={cn("absolute inset-x-0 top-0 h-[2px]", ACCENT_STRIP[accent])} />
 
       <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon className="w-3.5 h-3.5" />
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em]">
+        <Icon className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+        <p className="text-[11px] sm:text-[10px] font-bold uppercase tracking-[0.12em] sm:tracking-[0.14em]">
           {title}
         </p>
       </div>
 
       <div className="mt-3 flex items-end gap-3 justify-between">
         <p
-          className="text-[2rem] leading-none font-bold text-foreground tracking-tight"
+          className="text-[2.25rem] sm:text-[2rem] leading-none font-bold text-foreground tracking-tight"
           style={{ letterSpacing: "-0.03em" }}
         >
           {value}
@@ -91,7 +91,7 @@ export function KPICard({
           />
         )}
         {subtitle && (
-          <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+          <p className="text-[13px] sm:text-xs text-muted-foreground truncate">{subtitle}</p>
         )}
       </div>
     </div>
