@@ -487,14 +487,17 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="flex items-center gap-2 md:gap-3">
             <GlobalSearch />
 
-            {/* Clear cache is a rare admin-style action; hide on mobile to
-                reclaim header space — engineers can still trigger it from
-                a tablet/desktop session if needed. */}
+            {/* Clear cache — reachable on mobile too. iOS Safari is
+                aggressive about holding onto an old service worker, and
+                without this button a stale PWA shell can only be fixed
+                by clearing site data in Safari settings, which most
+                users won't find. The icon is small and muted so it
+                doesn't compete with the primary nav. */}
             <button
               onClick={clearAppCacheAndReload}
               title="Refresh app (clear cache)"
               aria-label="Refresh app (clear cache)"
-              className="hidden sm:inline-flex p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             >
               <RefreshCw className="w-5 h-5" />
             </button>
