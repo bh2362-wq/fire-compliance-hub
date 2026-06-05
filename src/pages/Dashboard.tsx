@@ -34,20 +34,20 @@ interface AlertStripProps {
 const AlertStrip = ({ type, message, action, onClick }: AlertStripProps) => (
   <div
     className={cn(
-      "flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium",
+      "flex items-center gap-3 px-4 py-3.5 sm:py-3 rounded-md border text-[15px] sm:text-sm font-medium",
       type === "danger"
         ? "bg-destructive/8 border-destructive/20 text-destructive"
         : "bg-warning/8 border-warning/20 text-warning"
     )}
   >
-    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+    <AlertTriangle className="w-5 h-5 sm:w-4 sm:h-4 flex-shrink-0" />
     <span className="flex-1">{message}</span>
     {action && (
       <button
         onClick={onClick}
-        className="flex items-center gap-1 text-xs font-semibold opacity-70 hover:opacity-100 transition-opacity ml-2 whitespace-nowrap"
+        className="flex items-center gap-1 text-sm sm:text-xs font-semibold opacity-80 hover:opacity-100 transition-opacity ml-2 whitespace-nowrap py-1"
       >
-        {action} <ArrowRight className="w-3 h-3" />
+        {action} <ArrowRight className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
       </button>
     )}
   </div>
@@ -264,13 +264,22 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* ── Service Due pulled up — most actionable list, deserves
-              first-screen real estate. ─────────────────────────────────── */}
-        <ServiceDueDashboard />
+        {/* ── Service Due — desk-only.
+              The widget is rendered as a dense spreadsheet with
+              hard-coded 11–12px fonts that don't respect the
+              theme. Until it has a mobile-card variant, hide it
+              on phones — TodaySchedule below covers today-focus,
+              and the canonical list is at /dashboard/visits. */}
+        <div className="hidden md:block">
+          <ServiceDueDashboard />
+        </div>
 
-        {/* ── BAFE summary card ────────────────────────────────────────── */}
+        {/* ── BAFE summary card.
+              Hidden on mobile — the BAFE Compliance KPI tile above
+              already shows the percentage; the full breakdown is
+              desk work and the cert-tracker page is one tap away. */}
         <div
-          className="section-card cursor-pointer hover:border-primary/30 transition-all"
+          className="section-card cursor-pointer hover:border-primary/30 transition-all hidden md:block"
           onClick={() => navigate("/dashboard/cert-tracker")}
         >
           <div className="flex items-center justify-between mb-4">
@@ -330,21 +339,32 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* ── Quick actions + schedule ─────────────────────────────────── */}
+        {/* ── Today's schedule — kept on mobile.
+              Quick actions hidden on mobile (most actions are
+              desk-bias, and the FAB / hero CTA cover the key one). */}
         <div className="grid md:grid-cols-2 gap-3 md:gap-5">
-          <QuickActions />
+          <div className="hidden md:block">
+            <QuickActions />
+          </div>
           <TodaySchedule />
         </div>
 
-        {/* ── RAMS reminders ───────────────────────────────────────────── */}
-        <RamsRemindersWidget />
+        {/* ── RAMS reminders — desk work, hide on mobile ───────────────── */}
+        <div className="hidden md:block">
+          <RamsRemindersWidget />
+        </div>
 
-        {/* ── Email action items ───────────────────────────────────────── */}
-        <EmailActionItemsWidget />
+        {/* ── Email action items — desk work, hide on mobile ──────────── */}
+        <div className="hidden md:block">
+          <EmailActionItemsWidget />
+        </div>
 
 
-        {/* ── Charts + financial ───────────────────────────────────────── */}
-        <div className="grid lg:grid-cols-3 gap-3 md:gap-5">
+        {/* ── Charts + financial — all desk work, hide on mobile.
+              ComplianceCalendar / Chart / Financial / Reconciliation
+              are dense visualisations that don't read well on a
+              phone and aren't engineer-in-the-field tasks. ─────────── */}
+        <div className="hidden md:grid lg:grid-cols-3 gap-3 md:gap-5">
           <div className="lg:col-span-2 space-y-3 md:space-y-5">
             <ComplianceChart />
             <div id="compliance-calendar">
@@ -358,8 +378,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* ── New Feature Callouts ─────────────────────────────────────── */}
-        <div className="grid md:grid-cols-2 gap-3 md:gap-4 pt-2">
+        {/* ── New Feature Callouts — marketing copy, hide on mobile ──── */}
+        <div className="hidden md:grid md:grid-cols-2 gap-3 md:gap-4 pt-2">
           <div
             className="new-feature-callout"
             onClick={() => navigate("/dashboard/cert-tracker")}
