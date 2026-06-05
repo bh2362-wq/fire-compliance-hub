@@ -1,5 +1,6 @@
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import StatsCard from "@/components/dashboard/StatsCard";
+import { KPICard } from "@/components/dashboard/KPICard";
+import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import RecentVisits from "@/components/dashboard/RecentVisits";
 import QuickActions from "@/components/dashboard/QuickActions";
 import TodaySchedule from "@/components/dashboard/TodaySchedule";
@@ -12,11 +13,11 @@ import { RamsRemindersWidget } from "@/components/dashboard/RamsRemindersWidget"
 import { EmailActionItemsWidget } from "@/components/dashboard/EmailActionItemsWidget";
 import {
   Building2, ClipboardCheck, AlertTriangle, ShieldCheck,
-  CreditCard, Award, TrendingUp, ArrowRight
+  Award, ArrowRight
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { startOfMonth, endOfMonth, format, subDays } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { getAllBafeCertificates } from "@/services/bafeCertificateService";
 import { useNavigate } from "react-router-dom";
@@ -63,6 +64,11 @@ const Dashboard = () => {
     overdueCount: 0,
     overdueTotalGbp: 0,
   });
+  // 30-day visit-per-day trend feeding the Visits This Month sparkline.
+  // Latest day last (Sparkline expects oldest-first order).
+  const [visitTrend, setVisitTrend] = useState<number[]>([]);
+  // Week-over-week delta on visits (this 7d count vs previous 7d).
+  const [visitsWowDelta, setVisitsWowDelta] = useState<number | null>(null);
   const [complianceOverdue, setComplianceOverdue] = useState(0);
 
   useEffect(() => {
@@ -76,8 +82,9 @@ const Dashboard = () => {
       const now = new Date();
       const monthStart = format(startOfMonth(now), "yyyy-MM-dd");
       const monthEnd   = format(endOfMonth(now),   "yyyy-MM-dd");
+      const trendStart = format(subDays(now, 29), "yyyy-MM-dd");
 
-      const [sitesResult, visitsThisMonthResult, openVisitsResult, overdueResult] =
+      const [sitesResult, visitsThisMonthResult, openVisitsResult, overdueResult, trendResult] =
         await Promise.all([
           supabase.from("sites").select("id", { count: "exact", head: true }).eq("status", "active"),
           supabase.from("service_visits").select("id, status", { count: "exact" })
@@ -89,6 +96,9 @@ const Dashboard = () => {
           supabase.from("xero_invoices")
             .select("id, total_amount, status")
             .in("status", ["AUTHORISED", "OVERDUE"]),
+          // Last 30 days of visit dates for the sparkline.
+          supabase.from("service_visits").select("visit_date")
+            .gte("visit_date", trendStart),
         ]);
 
       const pendingCount = visitsThisMonthResult.data?.filter(
@@ -101,6 +111,20 @@ const Dashboard = () => {
       const overdueTotal = overdueInvoices.reduce(
         (sum: number, inv: any) => sum + (inv.total_amount || 0), 0
       );
+
+      // Build a 30-bucket histogram (oldest-first) from the trend rows.
+      const buckets: number[] = Array.from({ length: 30 }, () => 0);
+      for (const row of (trendResult.data ?? []) as { visit_date: string }[]) {
+        const d = new Date(row.visit_date);
+        const diff = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+        const idx = 29 - diff;
+        if (idx >= 0 && idx < 30) buckets[idx] += 1;
+      }
+      setVisitTrend(buckets);
+      // WoW delta: last 7 buckets vs the 7 before that.
+      const last7 = buckets.slice(-7).reduce((a, b) => a + b, 0);
+      const prev7 = buckets.slice(-14, -7).reduce((a, b) => a + b, 0);
+      setVisitsWowDelta(prev7 > 0 ? ((last7 - prev7) / prev7) * 100 : (last7 > 0 ? 100 : null));
 
       setStats({
         activeSites:      sitesResult.count || 0,
@@ -150,6 +174,9 @@ const Dashboard = () => {
     <DashboardLayout>
       <div className="space-y-5">
 
+        {/* ── Hero — date + today/tomorrow snapshot + New Visit CTA ────── */}
+        <DashboardHero />
+
         {/* ── Alert strip ─────────────────────────────────────────────── */}
         {hasAlerts && (
           <div className="space-y-2">
@@ -187,54 +214,59 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* ── Stats grid ──────────────────────────────────────────────── */}
+        {/* ── KPI strip — sparkline + WoW delta where we have data ────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-          <StatsCard
+          <KPICard
             title="Active Sites"
             value={stats.activeSites}
-            change="Fire alarm installations"
-            changeType="neutral"
+            subtitle="Fire alarm installations"
             icon={Building2}
-            iconColor="bg-primary/10"
-            iconStroke="text-primary"
+            iconTint="bg-primary/10"
+            iconInk="text-primary"
             href="/sites"
           />
-          <StatsCard
+          <KPICard
             title="Visits This Month"
             value={stats.visitsThisMonth}
-            change={stats.pendingVisits > 0 ? `${stats.pendingVisits} pending confirmation` : "All confirmed"}
-            changeType={stats.pendingVisits > 0 ? "neutral" : "positive"}
+            trend={visitTrend}
+            deltaPercent={visitsWowDelta}
+            goodDirection="up"
+            subtitle={stats.pendingVisits > 0 ? `${stats.pendingVisits} pending` : "all confirmed"}
             icon={ClipboardCheck}
-            iconColor="bg-success/10"
-            iconStroke="text-success"
+            iconTint="bg-success/10"
+            iconInk="text-success"
+            accent="success"
             href="/dashboard/visits"
           />
-          <StatsCard
+          <KPICard
             title="Open Visits"
             value={stats.openVisits}
-            change={stats.openVisits > 0 ? "Awaiting completion" : "All clear"}
-            changeType={stats.openVisits > 0 ? "negative" : "positive"}
+            subtitle={stats.openVisits > 0 ? "Awaiting completion" : "All clear"}
             icon={AlertTriangle}
-            iconColor={stats.openVisits > 0 ? "bg-destructive/10" : "bg-success/10"}
-            iconStroke={stats.openVisits > 0 ? "text-destructive" : "text-success"}
+            iconTint={stats.openVisits > 0 ? "bg-destructive/10" : "bg-success/10"}
+            iconInk={stats.openVisits > 0 ? "text-destructive" : "text-success"}
+            accent={stats.openVisits > 0 ? "danger" : "success"}
             href="/dashboard/visits"
-            accent={stats.openVisits > 0}
           />
-          <StatsCard
+          <KPICard
             title="BAFE Compliance"
             value={`${bafeCompliantPct}%`}
-            change={
+            subtitle={
               bafeExpiring > 0
                 ? `${bafeExpiring} cert${bafeExpiring !== 1 ? "s" : ""} expiring soon`
-                : `${bafeCompliant} of ${bafeTotalSites} sites fully compliant`
+                : `${bafeCompliant} of ${bafeTotalSites} sites compliant`
             }
-            changeType={bafeExpiring > 0 ? "negative" : "positive"}
             icon={Award}
-            iconColor="bg-primary/10"
-            iconStroke="text-primary"
+            iconTint="bg-primary/10"
+            iconInk="text-primary"
+            accent={bafeExpired > 0 ? "danger" : bafeExpiring > 0 ? "warning" : "primary"}
             href="/dashboard/cert-tracker"
           />
         </div>
+
+        {/* ── Service Due pulled up — most actionable list, deserves
+              first-screen real estate. ─────────────────────────────────── */}
+        <ServiceDueDashboard />
 
         {/* ── BAFE summary card ────────────────────────────────────────── */}
         <div
@@ -297,9 +329,6 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-
-        {/* ── Service Due ──────────────────────────────────────────────── */}
-        <ServiceDueDashboard />
 
         {/* ── Quick actions + schedule ─────────────────────────────────── */}
         <div className="grid md:grid-cols-2 gap-3 md:gap-5">
