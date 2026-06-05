@@ -41,19 +41,19 @@ function rag(days: number): RAG {
 function RAGBadge({ days }: { days: number }) {
   const r = rag(days);
   if (r === "red") return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+    <span className="inline-flex items-center gap-1 text-xs font-bold text-destructive bg-destructive/10 border border-destructive/25 px-2 py-0.5 rounded-full whitespace-nowrap">
       <AlertTriangle className="w-3 h-3" />
       {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d`}
     </span>
   );
   if (r === "amber") return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+    <span className="inline-flex items-center gap-1 text-xs font-bold text-warning bg-warning/10 border border-warning/25 px-2 py-0.5 rounded-full whitespace-nowrap">
       <Clock className="w-3 h-3" />
       {days}d
     </span>
   );
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-success bg-success/10 border border-success/25 px-2 py-0.5 rounded-full whitespace-nowrap">
       <CheckCircle2 className="w-3 h-3" />
       {days}d
     </span>
@@ -208,35 +208,40 @@ export default function ServiceDueDashboard() {
     green: rows.filter((r) => rag(r.daysUntil) === "green").length,
   }), [rows]);
 
+  // RAG filter pills — semantic colour per tone, theme-token-based so
+  // the previous hard-coded slate/google-mail palette is gone.
+  const pills = [
+    { key: "all",   label: `All (${rows.length})`,       cls: "bg-card border-border text-foreground" },
+    { key: "red",   label: `Overdue (${counts.red})`,    cls: "bg-destructive/10 border-destructive/25 text-destructive" },
+    { key: "amber", label: `Due soon (${counts.amber})`, cls: "bg-warning/10 border-warning/25 text-warning" },
+    { key: "green", label: `On track (${counts.green})`, cls: "bg-success/10 border-success/25 text-success" },
+  ];
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-[#1a1a1a]">Service Due</h2>
-          <p className="text-[12px] text-[#5f6368]">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-foreground">Service Due</h2>
+          <p className="text-sm text-muted-foreground">
             {rows.length} site{rows.length !== 1 ? "s" : ""} with upcoming service dates
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={loadData} className="h-8 text-xs">
+        <Button variant="outline" size="sm" onClick={loadData}>
           Refresh
         </Button>
       </div>
 
-      {/* RAG summary pills */}
-      <div className="flex gap-3">
-        {[
-          { key: "all",   label: `All (${rows.length})`,       cls: "bg-white border-[#dadce0] text-[#1a1a1a]" },
-          { key: "red",   label: `Overdue / urgent (${counts.red})`,   cls: "bg-red-50 border-red-200 text-red-700" },
-          { key: "amber", label: `Due soon (${counts.amber})`,  cls: "bg-amber-50 border-amber-200 text-amber-700" },
-          { key: "green", label: `On track (${counts.green})`,  cls: "bg-green-50 border-green-200 text-green-700" },
-        ].map((f) => (
+      {/* RAG summary pills — wrap on mobile rather than horizontal-scroll
+          so all four tones are visible without swiping. */}
+      <div className="flex flex-wrap gap-2">
+        {pills.map((f) => (
           <button
             key={f.key}
             onClick={() => setFilter(f.key as any)}
-            className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-all ${f.cls} ${filter === f.key ? "ring-2 ring-offset-1 ring-[#e85c2c]" : "opacity-70 hover:opacity-100"}`}
+            className={`text-[13px] sm:text-xs font-semibold px-3 py-1.5 sm:py-1 rounded-full border transition-all ${f.cls} ${filter === f.key ? "ring-2 ring-offset-1 ring-primary" : "opacity-75 hover:opacity-100"}`}
           >
             {f.label}
           </button>
@@ -245,92 +250,157 @@ export default function ServiceDueDashboard() {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9aa0a6]" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
-          className="pl-8 h-8 text-sm border-[#dadce0]"
+          className="pl-9 h-11 sm:h-9 text-base sm:text-sm"
           placeholder="Search sites or customers…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {/* Table */}
+      {/* Loading / empty */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-[#e85c2c]" />
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-[#9aa0a6] text-sm">
+        <div className="text-center py-16 text-muted-foreground text-sm">
           {rows.length === 0 ? "No completed certificates with next service dates found." : "No results match your filter."}
         </div>
       ) : (
-        <div className="border border-[#e0e0e0] rounded-sm overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-[#3c3c3c] text-white text-[11px] font-semibold">
-                <th className="text-left px-4 py-2.5">Site</th>
-                <th className="text-left px-3 py-2.5">Customer</th>
-                <th className="text-center px-3 py-2.5">Last Service</th>
-                <th className="text-center px-3 py-2.5">Next Due</th>
-                <th className="text-center px-3 py-2.5">Status</th>
-                <th className="text-center px-3 py-2.5">Open Defects</th>
-                <th className="text-center px-3 py-2.5">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((row, i) => (
-                <tr
-                  key={row.siteId}
-                  className={`border-b border-[#f0f0f0] text-[12px] ${i % 2 === 0 ? "bg-white" : "bg-[#fafafa]"} hover:bg-[#f9fbe7] transition-colors`}
-                >
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-[#1a1a1a]">{row.siteName}</p>
+        <>
+          {/* Mobile: card list. The desktop table is too dense for a
+              phone and the hardcoded-hex palette didn't respect the
+              theme — this layout shows the same data row-by-row with
+              proper tap targets. */}
+          <div className="md:hidden space-y-2.5">
+            {filtered.map((row) => (
+              <div
+                key={row.siteId}
+                className="rounded-md border border-border bg-card p-4 space-y-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground text-[15px] truncate">{row.siteName}</p>
+                    {row.customerName && (
+                      <p className="text-sm text-muted-foreground truncate">{row.customerName}</p>
+                    )}
                     {row.siteAddress && (
-                      <p className="text-[11px] text-[#9aa0a6] truncate max-w-[200px]">{row.siteAddress}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{row.siteAddress}</p>
                     )}
-                  </td>
-                  <td className="px-3 py-3 text-[#5f6368]">
-                    {row.customerName || "—"}
-                  </td>
-                  <td className="px-3 py-3 text-center text-[#5f6368]">
-                    {row.lastServiceDate
-                      ? format(parseISO(row.lastServiceDate), "dd MMM yyyy")
-                      : "—"}
-                  </td>
-                  <td className="px-3 py-3 text-center font-medium text-[#1a1a1a]">
-                    {format(parseISO(row.nextServiceDate), "dd MMM yyyy")}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <RAGBadge days={row.daysUntil} />
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    {row.openDefects > 0 ? (
-                      <span className="text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                        {row.openDefects}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-[#9aa0a6]">0</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <Button
-                      size="sm"
-                      className="h-7 text-[11px] gap-1.5 bg-[#e85c2c] hover:bg-[#d24e1f] text-white font-semibold px-3 shadow-sm"
-                      disabled={scheduling === row.siteId}
-                      onClick={() => createVisit(row)}
-                      title={`Schedule fire alarm visit for ${row.siteName} on ${format(parseISO(row.nextServiceDate), "dd MMM yyyy")}`}
-                    >
-                      {scheduling === row.siteId
-                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        : <CalendarPlus className="w-3.5 h-3.5" />}
-                      Schedule visit
-                    </Button>
-                  </td>
+                  </div>
+                  <RAGBadge days={row.daysUntil} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Last</p>
+                    <p className="text-foreground mt-0.5">
+                      {row.lastServiceDate
+                        ? format(parseISO(row.lastServiceDate), "dd MMM yyyy")
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Next due</p>
+                    <p className="text-foreground font-semibold mt-0.5">
+                      {format(parseISO(row.nextServiceDate), "dd MMM yyyy")}
+                    </p>
+                  </div>
+                </div>
+
+                {row.openDefects > 0 && (
+                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-destructive bg-destructive/10 border border-destructive/25 px-2 py-1 rounded-full">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {row.openDefects} open defect{row.openDefects !== 1 ? "s" : ""}
+                  </div>
+                )}
+
+                <Button
+                  className="w-full h-11 gap-2"
+                  disabled={scheduling === row.siteId}
+                  onClick={() => createVisit(row)}
+                >
+                  {scheduling === row.siteId
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <CalendarPlus className="w-4 h-4" />}
+                  Schedule visit
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table — same data, now driven by theme tokens
+              (was a fixed slate / google-mail palette). */}
+          <div className="hidden md:block border border-border rounded-md overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-muted text-foreground text-xs font-semibold uppercase tracking-wider">
+                  <th className="text-left px-4 py-2.5">Site</th>
+                  <th className="text-left px-3 py-2.5">Customer</th>
+                  <th className="text-center px-3 py-2.5">Last Service</th>
+                  <th className="text-center px-3 py-2.5">Next Due</th>
+                  <th className="text-center px-3 py-2.5">Status</th>
+                  <th className="text-center px-3 py-2.5">Open Defects</th>
+                  <th className="text-center px-3 py-2.5">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((row) => (
+                  <tr
+                    key={row.siteId}
+                    className="border-t border-border text-sm bg-card hover:bg-muted/40 transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-foreground">{row.siteName}</p>
+                      {row.siteAddress && (
+                        <p className="text-xs text-muted-foreground truncate max-w-[260px]">{row.siteAddress}</p>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-muted-foreground">
+                      {row.customerName || "—"}
+                    </td>
+                    <td className="px-3 py-3 text-center text-muted-foreground">
+                      {row.lastServiceDate
+                        ? format(parseISO(row.lastServiceDate), "dd MMM yyyy")
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-3 text-center font-medium text-foreground">
+                      {format(parseISO(row.nextServiceDate), "dd MMM yyyy")}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <RAGBadge days={row.daysUntil} />
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {row.openDefects > 0 ? (
+                        <span className="text-xs font-bold text-destructive bg-destructive/10 border border-destructive/25 px-2 py-0.5 rounded-full">
+                          {row.openDefects}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <Button
+                        size="sm"
+                        className="gap-1.5 font-semibold"
+                        disabled={scheduling === row.siteId}
+                        onClick={() => createVisit(row)}
+                        title={`Schedule fire alarm visit for ${row.siteName} on ${format(parseISO(row.nextServiceDate), "dd MMM yyyy")}`}
+                      >
+                        {scheduling === row.siteId
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <CalendarPlus className="w-3.5 h-3.5" />}
+                        Schedule visit
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
