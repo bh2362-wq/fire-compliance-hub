@@ -264,15 +264,10 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* ── Service Due — desk-only.
-              The widget is rendered as a dense spreadsheet with
-              hard-coded 11–12px fonts that don't respect the
-              theme. Until it has a mobile-card variant, hide it
-              on phones — TodaySchedule below covers today-focus,
-              and the canonical list is at /dashboard/visits. */}
-        <div className="hidden md:block">
-          <ServiceDueDashboard />
-        </div>
+        {/* ── Service Due — most actionable list, deserves
+              first-screen real estate. Renders as a card list on
+              mobile, table on desktop. */}
+        <ServiceDueDashboard />
 
         {/* ── BAFE summary card.
               Hidden on mobile — the BAFE Compliance KPI tile above
