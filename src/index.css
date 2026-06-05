@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,51 +6,60 @@
 
 @layer base {
   :root {
-    /* ── Page: clean cool white ── */
-    --background:  220 20% 97%;
-    --foreground:  222 30% 11%;
+    /* ── Page: cool slate-tinged off-white. Distinct from the
+          pastel-blue Lovable default (was 220 20% 97%). ── */
+    --background:  220 14% 97%;
+    --foreground:  216 30% 10%;
 
     --card:            0 0% 100%;
-    --card-foreground: 222 30% 11%;
+    --card-foreground: 216 30% 10%;
 
     --popover:            0 0% 100%;
-    --popover-foreground: 222 30% 11%;
+    --popover-foreground: 216 30% 10%;
 
-    /* ── Brand: BHO Fire Orange ── */
+    /* ── Brand: BHO Fire Orange (unchanged — it's the brand) ── */
     --primary:            22 91% 52%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary:          220 16% 94%;
-    --secondary-foreground: 222 25% 18%;
+    /* Secondary: slate-blue. Pairs with the orange for the
+       "bold + technical" reading — used for accent chips, links,
+       data-viz contrast against the orange. Was a near-white
+       muted blue; now a confident dark slate. */
+    --secondary:          215 35% 32%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted:            220 16% 95%;
-    --muted-foreground: 220 12% 46%;
+    --muted:            220 14% 94%;
+    --muted-foreground: 218 14% 42%;
 
-    --accent:            220 16% 93%;
-    --accent-foreground: 222 25% 12%;
+    --accent:            215 35% 32%;
+    --accent-foreground: 0 0% 100%;
 
     /* ── Semantic ── */
     --destructive:            0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --success:            152 55% 35%;
+    --success:            152 58% 32%;
     --success-foreground: 0 0% 100%;
-    --warning:            38 90% 46%;
-    --warning-foreground: 222 25% 12%;
+    --warning:            38 92% 45%;
+    --warning-foreground: 216 30% 10%;
 
-    /* ── Structure ── */
-    --border: 220 16% 91%;
-    --input:  220 16% 92%;
+    /* ── Structure ── thicker, more confident borders. Was
+       220 16% 91% — too soft for the technical reading. New
+       value reads as a definite boundary without being heavy. */
+    --border: 220 14% 86%;
+    --input:  220 14% 88%;
     --ring:   22 91% 52%;
-    --radius: 0.4375rem;
+    /* Sharper edges. Was 0.4375rem (7px) — slightly tighter at
+       6px so corners feel more deliberate. */
+    --radius: 0.375rem;
 
     /* ── Sidebar: deep navy — Commusoft-grade ── */
-    --sidebar-background:         222 47% 11%;
+    --sidebar-background:         216 50% 9%;
     --sidebar-foreground:         215 25% 78%;
     --sidebar-primary:            22 91% 52%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent:             222 40% 17%;
+    --sidebar-accent:             216 40% 15%;
     --sidebar-accent-foreground:  215 30% 92%;
-    --sidebar-border:             222 38% 17%;
+    --sidebar-border:             216 38% 16%;
     --sidebar-ring:               22 91% 52%;
 
     /* ── Elevation system ── */
@@ -70,8 +79,8 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-    font-feature-settings: 'cv01', 'cv03', 'ss01';
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-feature-settings: 'cv11', 'ss01', 'ss02';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-size: 15px;
@@ -80,10 +89,10 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-weight: 600;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-weight: 700;
     letter-spacing: -0.025em;
-    line-height: 1.2;
+    line-height: 1.15;
     color: hsl(var(--foreground));
   }
 
