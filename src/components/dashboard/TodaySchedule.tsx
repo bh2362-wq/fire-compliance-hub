@@ -16,8 +16,8 @@ interface TodayAppointment {
 }
 
 const statusColors: Record<string, string> = {
-  scheduled: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  confirmed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  scheduled: "bg-secondary/10 text-secondary border-secondary/20",
+  confirmed: "bg-success/10 text-success border-success/20",
   in_progress: "bg-warning/10 text-warning border-warning/20",
   completed: "bg-success/10 text-success border-success/20",
 };
