@@ -5,6 +5,7 @@ import RecentVisits from "@/components/dashboard/RecentVisits";
 import QuickActions from "@/components/dashboard/QuickActions";
 import TodaySchedule from "@/components/dashboard/TodaySchedule";
 import ServiceDueDashboard from "@/components/dashboard/ServiceDueDashboard";
+import { WeekStrip } from "@/components/dashboard/WeekStrip";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { BankReconciliation } from "@/components/xero/BankReconciliation";
@@ -264,6 +265,9 @@ const Dashboard = () => {
           />
         </div>
 
+        {/* ── 7-day strip — glanceable workload across the week ───────── */}
+        <WeekStrip />
+
         {/* ── Service Due pulled up — most actionable list, deserves
               first-screen real estate. ─────────────────────────────────── */}
         <ServiceDueDashboard />
@@ -358,27 +362,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* ── New Feature Callouts ─────────────────────────────────────── */}
-        <div className="grid md:grid-cols-2 gap-3 md:gap-4 pt-2">
-          <div
-            className="new-feature-callout"
-            onClick={() => navigate("/dashboard/cert-tracker")}
-          >
-            <p className="new-feature-label">✦ Suggested feature</p>
-            <p className="text-sm font-semibold text-foreground mb-1">Client Compliance Portal</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Give each client a shareable link to see their site's live compliance status, certificate history, and upcoming visits — no login needed. Reduces inbound calls and positions BHO Fire as proactive.
-            </p>
-          </div>
-
-          <div className="new-feature-callout">
-            <p className="new-feature-label">✦ Suggested feature</p>
-            <p className="text-sm font-semibold text-foreground mb-1">Site Profitability Dashboard</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Revenue vs. cost per site and per customer. Track labour hours against contract value. Instantly see your most and least profitable clients so you can prioritise renewals strategically.
-            </p>
-          </div>
-        </div>
 
       </div>
     </DashboardLayout>
