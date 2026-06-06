@@ -1,0 +1,58 @@
+# Heartbeat for cron-tick.
+#
+# Runs every 15 minutes and pings the cron-tick Edge Function. cron-tick
+# reads cron_state, decides which tasks are due, runs them, and updates
+# state. The actual schedule for each task is defined in TASKS inside
+# supabase/functions/cron-tick/index.ts — this workflow is just the
+# heartbeat that wakes it up.
+#
+# Adding / changing tasks
+#   Edit supabase/functions/cron-tick/index.ts. No workflow change needed.
+#
+# Why no auth header
+#   The deployment doesn't have GitHub Actions secrets available (Lovable
+#   only exposes Supabase Edge Function secrets). cron-tick is safe to
+#   expose publicly because:
+#     • Per-task throttling via the cron_state table means hitting the
+#       endpoint repeatedly only runs each task at its scheduled cadence.
+#     • All called functions are either idempotent (pull / sync) or are
+#       guarded by once-per-day write semantics in the daily-* tasks.
+#
+#   To harden later: set CRON_SECRET in Supabase Edge Function env, then
+#   add `-H "X-Cron-Secret: <value>"` below with the secret pasted in
+#   (or move to GitHub Actions secrets when access becomes available).
+
+name: cron-tick
+
+on:
+  schedule:
+    # Every 15 minutes. cron-tick is cheap when nothing is due (a single
+    # SELECT from cron_state + per-task date math).
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+# Always replace the previous heartbeat — no point queuing duplicates.
+concurrency:
+  group: cron-tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping cron-tick
+        # Edge Function URL. The project ref is public (it's in
+        # supabase/config.toml and the deployed app's network calls).
+        run: |
+          set -euo pipefail
+          URL="https://qtsboanwhzskkdvkfcdt.supabase.co/functions/v1/cron-tick"
+          # --fail-with-body returns non-zero on 4xx/5xx and prints the body,
+          # so workflow logs show what cron-tick reported.
+          curl --fail-with-body \
+               --max-time 90 \
+               --retry 2 --retry-delay 5 \
+               -X POST \
+               -H "Content-Type: application/json" \
+               -d '{}' \
+               "$URL"
