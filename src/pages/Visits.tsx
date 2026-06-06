@@ -25,6 +25,10 @@ const Visits = () => {
   const [showAISweep, setShowAISweep] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const initialVisitId = searchParams.get("visitId");
+  // Dashboard's OpenActionsWidget routes "Needs invoice" actions here
+  // with ?invoiceVisit=<id> so we open CreateInvoiceDialog directly
+  // without making the user hunt for the row and click the action.
+  const initialInvoiceVisitId = searchParams.get("invoiceVisit");
 
   const { visits: allVisits, loading, error: visitsError, refetch } = useVisits({
     siteId: selectedSiteId && selectedSiteId !== "all" ? selectedSiteId : undefined,
@@ -44,6 +48,13 @@ const Visits = () => {
   const handleVisitOpened = () => {
     if (initialVisitId) {
       searchParams.delete("visitId");
+      setSearchParams(searchParams, { replace: true });
+    }
+  };
+
+  const handleInvoiceVisitOpened = () => {
+    if (initialInvoiceVisitId) {
+      searchParams.delete("invoiceVisit");
       setSearchParams(searchParams, { replace: true });
     }
   };
@@ -227,6 +238,8 @@ const Visits = () => {
             onRefresh={refetch}
             initialEditVisitId={initialVisitId || undefined}
             onInitialVisitOpened={handleVisitOpened}
+            initialInvoiceVisitId={initialInvoiceVisitId || undefined}
+            onInitialInvoiceVisitOpened={handleInvoiceVisitOpened}
             viewMode={statusFilter === "invoiced" ? "invoiced" : "active"}
           />
         </div>

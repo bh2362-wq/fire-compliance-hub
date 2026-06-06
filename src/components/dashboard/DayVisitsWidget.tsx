@@ -177,7 +177,7 @@ export function DayVisitsWidget() {
             return (
               <button
                 key={v.id}
-                onClick={() => navigate(`/dashboard/visits/${v.id}`)}
+                onClick={() => navigate(`/dashboard/visits?visitId=${v.id}`)}
                 className="w-full text-left rounded-md border border-border bg-card p-3 hover:border-foreground/25 hover:shadow-sm transition-all active:scale-[0.99]"
               >
                 <div className="flex items-start gap-3">
