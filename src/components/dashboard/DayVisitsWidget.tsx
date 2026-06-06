@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, Calendar, CalendarDays, MapPin,
   User, Clock, Siren, Wrench, FilePen, ArrowRight,
@@ -10,6 +9,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { VisitActionsDrawer } from "./VisitActionsDrawer";
 
 // Day-navigable visit list — replaces the older "Today's Schedule"
 // widget. Joblogic-style: one widget that shows the visits for a single
@@ -59,10 +59,13 @@ function dateLabel(d: Date): string {
 }
 
 export function DayVisitsWidget() {
-  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(() => startOfDay(new Date()));
   const [visits, setVisits] = useState<DayVisit[]>([]);
   const [loading, setLoading] = useState(true);
+  // Drawer state — tapping a visit opens an action menu instead of
+  // jumping straight to the edit dialog. The drawer resolves the
+  // right per-visit action set (open / invoice / view invoice etc.)
+  const [drawerVisitId, setDrawerVisitId] = useState<string | null>(null);
 
   const iso = useMemo(() => format(selectedDate, "yyyy-MM-dd"), [selectedDate]);
 
@@ -177,7 +180,7 @@ export function DayVisitsWidget() {
             return (
               <button
                 key={v.id}
-                onClick={() => navigate(`/dashboard/visits?visitId=${v.id}`)}
+                onClick={() => setDrawerVisitId(v.id)}
                 className="w-full text-left rounded-md border border-border bg-card p-3 hover:border-foreground/25 hover:shadow-sm transition-all active:scale-[0.99]"
               >
                 <div className="flex items-start gap-3">
@@ -219,6 +222,12 @@ export function DayVisitsWidget() {
           })}
         </div>
       )}
+
+      <VisitActionsDrawer
+        visitId={drawerVisitId}
+        open={drawerVisitId !== null}
+        onOpenChange={(o) => { if (!o) setDrawerVisitId(null); }}
+      />
     </div>
   );
 }
