@@ -1,5 +1,18 @@
 project_id = "qtsboanwhzskkdvkfcdt"
 
+# cron-tick is publicly callable but protected at two layers:
+#   1. cron_state in the DB throttles each task to its scheduled cadence —
+#      hitting the endpoint repeatedly only runs tasks at most as often as
+#      they'd run normally.
+#   2. Optional X-Cron-Secret header (CRON_SECRET env). Set the env in
+#      Supabase and the function will require the header.
+[functions.cron-tick]
+verify_jwt = false
+
+# daily-compliance-digest is invoked function-to-function from cron-tick
+# with a service-role JWT, so the platform JWT check is satisfied.
+# Disabled here purely so the X-Cron-Secret check inside the function is
+# the only auth gate (matches the cron-tick model).
 [functions.daily-compliance-digest]
 verify_jwt = false
 
