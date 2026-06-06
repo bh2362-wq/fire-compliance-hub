@@ -85,6 +85,10 @@ interface ReportInfo {
   report_number: string | null;
   status: string | null;
   report_date: string | null;
+  // Which table the linked report lives in. Drives whether the
+  // "Open report" button knows how to actually open it (currently only
+  // service_reports has a wired-up open flow on this page).
+  source: "service_reports" | "smart_form_submissions" | "ce_audibility_reports" | null;
 }
 
 interface VisitsTableProps {
@@ -261,8 +265,13 @@ const VisitsTable = ({
       
       const visitIds = visits.map(v => v.id);
       
-      // Fetch invoices and reports in parallel
-      const [invoicesResult, reportsResult] = await Promise.all([
+      // Fetch invoices and reports in parallel. The "report" can live
+      // in one of three tables — service_reports (BS5839 etc.),
+      // smart_form_submissions (BAFE certs etc.) or
+      // ce_audibility_reports (C&E / audibility). The 'No report' badge
+      // used to only look at service_reports, so a visit with a
+      // perfectly good linked BAFE cert still flagged as missing.
+      const [invoicesResult, serviceReportsResult, smartFormsResult, ceReportsResult] = await Promise.all([
         supabase
           .from("xero_invoices")
           .select("visit_id, xero_invoice_number, status")
@@ -270,7 +279,16 @@ const VisitsTable = ({
         supabase
           .from("service_reports")
           .select("visit_id, report_number, id, status, report_date")
+          .in("visit_id", visitIds),
+        supabase
+          .from("smart_form_submissions")
+          .select("visit_id, certificate_reference, id, status, completed_at")
           .in("visit_id", visitIds)
+          .eq("status", "completed"),
+        supabase
+          .from("ce_audibility_reports")
+          .select("visit_id, report_number, id, status, created_at")
+          .in("visit_id", visitIds),
       ]);
 
       if (invoicesResult.data) {
@@ -284,19 +302,48 @@ const VisitsTable = ({
         setInvoiceMap(map);
       }
 
-      if (reportsResult.data) {
+      // Merge across the three report tables. Priority service_reports
+      // → smart_form_submissions → ce_audibility_reports so the row
+      // chooses the source with the most-wired-up open flow first.
+      {
         const map: Record<string, ReportInfo> = {};
-        reportsResult.data.forEach((rep) => {
-          // Include all reports; prefer ones with report_number if multiple exist
+
+        (serviceReportsResult.data ?? []).forEach((rep: any) => {
           if (!map[rep.visit_id] || rep.report_number) {
             map[rep.visit_id] = {
               id: rep.id,
               report_number: rep.report_number,
               status: rep.status,
               report_date: rep.report_date,
+              source: "service_reports",
             };
           }
         });
+
+        (smartFormsResult.data ?? []).forEach((rep: any) => {
+          if (!map[rep.visit_id]) {
+            map[rep.visit_id] = {
+              id: rep.id,
+              report_number: rep.certificate_reference ?? null,
+              status: rep.status,
+              report_date: rep.completed_at ?? null,
+              source: "smart_form_submissions",
+            };
+          }
+        });
+
+        (ceReportsResult.data ?? []).forEach((rep: any) => {
+          if (!map[rep.visit_id]) {
+            map[rep.visit_id] = {
+              id: rep.id,
+              report_number: rep.report_number,
+              status: rep.status,
+              report_date: rep.created_at ?? null,
+              source: "ce_audibility_reports",
+            };
+          }
+        });
+
         setReportMap(map);
       }
     };
