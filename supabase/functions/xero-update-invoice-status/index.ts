@@ -297,29 +297,165 @@
 
       console.log("Invoice approved successfully");
 
-      // Auto-send email to customer
+      // Auto-send a custom email with the invoice PDF attached.
+      //
+      // Was: POST /Invoices/{id}/Email which uses Xero's built-in email.
+      // That sends a "view online" HTML link with no PDF attached unless
+      // online invoicing is configured in the Xero tenant — which it
+      // often isn't. Result: customers got bare links instead of the
+      // PDF the user expected.
+      //
+      // Now: fetch the rendered PDF from Xero directly, look up the
+      // contact's email, and send via Resend with the PDF as an
+      // attachment. Falls back to Xero's /Email endpoint if Resend isn't
+      // configured. Returns a structured emailDelivery field so the UI
+      // can surface what actually happened.
       let emailSent = false;
+      let emailMethod: "resend_pdf" | "xero_link" | "none" = "none";
+      let emailDetail: string | null = null;
+
+      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+      const INVOICE_FROM_EMAIL =
+        Deno.env.get("INVOICE_FROM_EMAIL") || "BHO Fire Ltd <accounts@bhofire.com>";
+
       try {
-        const emailResponse = await fetch(
-          `https://api.xero.com/api.xro/2.0/Invoices/${invoiceId}/Email`,
-          {
+        // 1. Fetch the contact so we have an email + a clean name. The
+        //    full Contact endpoint always includes EmailAddress; the
+        //    embedded contact on an invoice does not.
+        const contactId = invoice.Contact?.ContactID;
+        let customerEmail: string | null = null;
+        let customerName: string | null = invoice.Contact?.Name ?? null;
+
+        if (contactId) {
+          const contactResp = await fetch(
+            `https://api.xero.com/api.xro/2.0/Contacts/${contactId}`,
+            {
+              headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "Xero-Tenant-Id": connection.tenant_id,
+                "Accept": "application/json",
+              },
+            }
+          );
+          if (contactResp.ok) {
+            const c = (await contactResp.json()).Contacts?.[0];
+            customerEmail = (c?.EmailAddress as string | undefined) || null;
+            customerName = (c?.Name as string | undefined) || customerName;
+          }
+        }
+
+        if (RESEND_API_KEY && customerEmail) {
+          // 2. Fetch the rendered PDF from Xero (binary).
+          const pdfResp = await fetch(
+            `https://api.xero.com/api.xro/2.0/Invoices/${invoiceId}`,
+            {
+              headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "Xero-Tenant-Id": connection.tenant_id,
+                "Accept": "application/pdf",
+              },
+            }
+          );
+
+          if (!pdfResp.ok) {
+            const t = await pdfResp.text().catch(() => "");
+            throw new Error(`PDF fetch failed: ${pdfResp.status} ${t.slice(0, 200)}`);
+          }
+
+          const pdfBytes = new Uint8Array(await pdfResp.arrayBuffer());
+          // Base64-encode in chunks so we don't blow the call stack on
+          // larger PDFs.
+          let binary = "";
+          const chunk = 0x8000;
+          for (let i = 0; i < pdfBytes.length; i += chunk) {
+            binary += String.fromCharCode.apply(
+              null,
+              Array.from(pdfBytes.subarray(i, i + chunk)) as any,
+            );
+          }
+          const pdfBase64 = btoa(binary);
+
+          const subject = `Invoice ${invoice.InvoiceNumber ?? ""} from BHO Fire Ltd`;
+          const total = typeof invoice.Total === "number"
+            ? `£${invoice.Total.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : "(see attached)";
+          const due = invoice.DueDate
+            ? new Date(invoice.DueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+            : "see attached";
+
+          const html =
+            `<div style="font-family:Inter,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:560px">` +
+            `<p>Hi ${customerName ?? "there"},</p>` +
+            `<p>Please find attached invoice <strong>${invoice.InvoiceNumber ?? ""}</strong> from BHO Fire Ltd.</p>` +
+            `<table style="border-collapse:collapse;margin:14px 0;font-size:14px">` +
+            `<tr><td style="padding:4px 12px 4px 0;color:#666">Total</td><td style="padding:4px 0;font-weight:600">${total}</td></tr>` +
+            `<tr><td style="padding:4px 12px 4px 0;color:#666">Due</td><td style="padding:4px 0">${due}</td></tr>` +
+            `</table>` +
+            `<p>If you have any questions about this invoice please reply to this email.</p>` +
+            `<p style="color:#666;font-size:12px;margin-top:24px">Sent automatically when the invoice was authorised in our system.</p>` +
+            `</div>`;
+
+          const resendResp = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${accessToken}`,
-              "Xero-Tenant-Id": connection.tenant_id,
+              Authorization: `Bearer ${RESEND_API_KEY}`,
               "Content-Type": "application/json",
-              "Accept": "application/json",
             },
+            body: JSON.stringify({
+              from: INVOICE_FROM_EMAIL,
+              to: [customerEmail],
+              subject,
+              html,
+              attachments: [{
+                filename: `Invoice-${invoice.InvoiceNumber ?? invoiceId}.pdf`,
+                content: pdfBase64,
+              }],
+            }),
+          });
+
+          if (!resendResp.ok) {
+            const t = await resendResp.text().catch(() => "");
+            throw new Error(`Resend send failed: ${resendResp.status} ${t.slice(0, 200)}`);
           }
-        );
-        if (emailResponse.ok) {
-          console.log("Invoice emailed to customer after approval");
+
           emailSent = true;
-        } else {
-          console.error("Failed to email invoice:", await emailResponse.text());
+          emailMethod = "resend_pdf";
+          emailDetail = `PDF emailed to ${customerEmail}`;
+          console.log("Invoice PDF emailed via Resend to", customerEmail);
+        } else if (!customerEmail) {
+          emailDetail = "No email address on Xero contact — skipping email.";
+          console.warn(emailDetail);
         }
-      } catch (emailErr) {
-        console.error("Error sending invoice email:", emailErr);
+      } catch (resendErr) {
+        // Resend / PDF path failed. Fall back to Xero's built-in /Email
+        // endpoint so something still goes out, even if it's just a
+        // "view online" link.
+        const errMsg = resendErr instanceof Error ? resendErr.message : "Unknown send error";
+        console.error("Resend PDF send failed, falling back to Xero /Email:", errMsg);
+        try {
+          const xeroEmailResp = await fetch(
+            `https://api.xero.com/api.xro/2.0/Invoices/${invoiceId}/Email`,
+            {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "Xero-Tenant-Id": connection.tenant_id,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+              },
+            }
+          );
+          if (xeroEmailResp.ok) {
+            emailSent = true;
+            emailMethod = "xero_link";
+            emailDetail = "Sent via Xero (online-invoice link, no PDF attached).";
+          } else {
+            emailDetail = `Resend failed and Xero /Email returned ${xeroEmailResp.status}.`;
+          }
+        } catch (xeroErr) {
+          const x = xeroErr instanceof Error ? xeroErr.message : "Unknown error";
+          emailDetail = `Resend failed (${errMsg}). Xero fallback also failed: ${x}`;
+        }
       }
 
       // Update local record status
@@ -328,14 +464,20 @@
         .update({ status: "AUTHORISED" })
         .eq("xero_invoice_id", invoiceId);
 
+      const summary = emailSent
+        ? (emailMethod === "resend_pdf"
+            ? "Invoice authorised and PDF emailed to customer."
+            : "Invoice authorised and sent via Xero (no PDF attached).")
+        : `Invoice authorised. Email not sent: ${emailDetail ?? "unknown reason"}.`;
+
       return new Response(
         JSON.stringify({
           success: true,
           action: "approve",
-          message: emailSent
-            ? `Invoice approved and emailed to customer`
-            : `Invoice approved successfully`,
+          message: summary,
           emailSent,
+          emailMethod,
+          emailDetail,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

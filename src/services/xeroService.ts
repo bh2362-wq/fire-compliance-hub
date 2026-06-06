@@ -295,7 +295,16 @@ export async function voidInvoice(invoiceId: string): Promise<{ success: boolean
    return data;
 }
 
-export async function approveInvoice(invoiceId: string): Promise<{ success: boolean; message: string; emailSent: boolean }> {
+export async function approveInvoice(invoiceId: string): Promise<{
+  success: boolean;
+  message: string;
+  emailSent: boolean;
+  /** "resend_pdf" — custom email with PDF attached.
+   *  "xero_link"  — Xero's built-in /Email endpoint (online-invoice link, no attachment).
+   *  "none"       — nothing went out. */
+  emailMethod?: "resend_pdf" | "xero_link" | "none";
+  emailDetail?: string | null;
+}> {
   const { data, error } = await supabase.functions.invoke("xero-update-invoice-status", {
     body: {
       invoiceId,
