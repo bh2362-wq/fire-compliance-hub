@@ -1439,7 +1439,7 @@ const VisitsTable = ({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setLinkCertVisit(visit)}>
                   <Link2 className="w-4 h-4 mr-2" />
-                  Link Existing Certificate & Close
+                  Link Existing Report &amp; Close
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate(`/dashboard/schedule`)}>
                   <CalendarDays className="w-4 h-4 mr-2" />
