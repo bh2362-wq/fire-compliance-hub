@@ -1,5 +1,8 @@
 project_id = "qtsboanwhzskkdvkfcdt"
 
+[functions.daily-compliance-digest]
+verify_jwt = false
+
 [functions.parse-pdf]
 verify_jwt = false
 
