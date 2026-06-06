@@ -93,6 +93,9 @@ interface VisitsTableProps {
   onRefresh?: () => void;
   initialEditVisitId?: string;
   onInitialVisitOpened?: () => void;
+  /** Dashboard's "Needs invoice" deep-link — opens CreateInvoiceDialog on mount for this visit. */
+  initialInvoiceVisitId?: string;
+  onInitialInvoiceVisitOpened?: () => void;
   /** 'invoiced' hides active groups and shows only the invoiced jobs (with their report status). */
   viewMode?: 'active' | 'invoiced';
 }
@@ -174,7 +177,12 @@ const STATUS_GROUP_ORDER = [
   'pending_review',
 ];
 
-const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitialVisitOpened, viewMode = 'active' }: VisitsTableProps) => {
+const VisitsTable = ({
+  visits, loading, onRefresh,
+  initialEditVisitId, onInitialVisitOpened,
+  initialInvoiceVisitId, onInitialInvoiceVisitOpened,
+  viewMode = 'active',
+}: VisitsTableProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -307,6 +315,21 @@ const VisitsTable = ({ visits, loading, onRefresh, initialEditVisitId, onInitial
       }
     }
   }, [initialEditVisitId, visits, initialVisitHandled, onInitialVisitOpened]);
+
+  // Auto-open invoice dialog for initial invoice-visit ID from URL.
+  // Same pattern as initialEditVisitId, separate handled-flag so the
+  // two deep-links don't interfere with each other.
+  const [initialInvoiceHandled, setInitialInvoiceHandled] = useState(false);
+  useEffect(() => {
+    if (initialInvoiceVisitId && !initialInvoiceHandled && visits.length > 0) {
+      const visitToInvoice = visits.find(v => v.id === initialInvoiceVisitId);
+      if (visitToInvoice) {
+        setInvoiceVisit(visitToInvoice);
+        setInitialInvoiceHandled(true);
+        onInitialInvoiceVisitOpened?.();
+      }
+    }
+  }, [initialInvoiceVisitId, visits, initialInvoiceHandled, onInitialInvoiceVisitOpened]);
 
   const handleDeleteVisit = async () => {
     if (!deleteVisit) return;

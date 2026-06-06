@@ -115,7 +115,8 @@ export function OpenActionsWidget() {
 
         const list: ActionItem[] = [];
 
-        // 1. Visit pending review
+        // 1. Visit pending review — opens the visit edit dialog via the
+        //    Visits page's `?visitId=` deep-link param.
         for (const v of (reviewQ.data ?? []) as any[]) {
           const daysAgo = differenceInDays(now, parseISO(v.visit_date));
           list.push({
@@ -123,13 +124,15 @@ export function OpenActionsWidget() {
             kind: "visit_review",
             title: v.site?.name ?? "Unknown site",
             subtitle: `Visited ${format(parseISO(v.visit_date), "d MMM")} · ${daysAgo}d since`,
-            href: `/dashboard/visits/${v.id}`,
+            href: `/dashboard/visits?visitId=${v.id}`,
             urgencyScore: 50 + daysAgo,
             urgencyLabel: daysAgo > 7 ? "urgent" : daysAgo > 3 ? "soon" : "normal",
           });
         }
 
-        // 2. Visit completed, no invoice
+        // 2. Visit completed, no invoice. Routes via `?invoiceVisit=`
+        //    so the Visits page opens CreateInvoiceDialog directly
+        //    without the user having to find the row + click again.
         for (const v of (completedQ.data ?? []) as any[]) {
           if (invoicedVisitIds.has(v.id)) continue;
           const daysAgo = differenceInDays(now, parseISO(v.visit_date));
@@ -138,7 +141,7 @@ export function OpenActionsWidget() {
             kind: "visit_invoice",
             title: v.site?.name ?? "Unknown site",
             subtitle: `Completed ${format(parseISO(v.visit_date), "d MMM")} · ${daysAgo}d since`,
-            href: `/dashboard/visits/${v.id}`,
+            href: `/dashboard/visits?invoiceVisit=${v.id}`,
             urgencyScore: 30 + daysAgo,
             urgencyLabel: daysAgo > 14 ? "urgent" : daysAgo > 7 ? "soon" : "normal",
           });
@@ -153,7 +156,7 @@ export function OpenActionsWidget() {
             kind: "email_decision",
             title: e.title ?? "(untitled email)",
             subtitle: e.source_from ?? null,
-            href: `/email-scanner`,
+            href: `/dashboard/email-scanner`,
             urgencyScore: isUrgent ? 90 : isHigh ? 70 : 40,
             urgencyLabel: isUrgent ? "urgent" : isHigh ? "soon" : "normal",
           });
