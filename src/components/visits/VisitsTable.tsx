@@ -88,7 +88,7 @@ interface ReportInfo {
   // Which table the linked report lives in. Drives whether the
   // "Open report" button knows how to actually open it (currently only
   // service_reports has a wired-up open flow on this page).
-  source: "service_reports" | "smart_form_submissions" | "ce_audibility_reports" | null;
+  source: "service_reports" | "smart_form_submissions" | "ce_audibility_reports" | "file_uploads" | null;
 }
 
 interface VisitsTableProps {
@@ -265,13 +265,20 @@ const VisitsTable = ({
       
       const visitIds = visits.map(v => v.id);
       
-      // Fetch invoices and reports in parallel. The "report" can live
-      // in one of three tables — service_reports (BS5839 etc.),
-      // smart_form_submissions (BAFE certs etc.) or
-      // ce_audibility_reports (C&E / audibility). The 'No report' badge
-      // used to only look at service_reports, so a visit with a
-      // perfectly good linked BAFE cert still flagged as missing.
-      const [invoicesResult, serviceReportsResult, smartFormsResult, ceReportsResult] = await Promise.all([
+      // Fetch invoices and reports in parallel. A "report" for a visit
+      // can live in four places:
+      //   • service_reports          (BS5839, work-sheet, ASD)
+      //   • smart_form_submissions   (BAFE / cert-style)
+      //   • ce_audibility_reports    (C&E / audibility tests)
+      //   • file_uploads             (manually-attached PDFs / device
+      //                               test files / engineer uploads —
+      //                               anything attached against the
+      //                               visit_id)
+      // Callout-DOCX outputs from generate-callout-docx land in the
+      // callout-outputs storage bucket but DON'T currently write a
+      // DB row, so the file_uploads check won't catch them either —
+      // those need the new "Mark as reported & close" action below.
+      const [invoicesResult, serviceReportsResult, smartFormsResult, ceReportsResult, fileUploadsResult] = await Promise.all([
         supabase
           .from("xero_invoices")
           .select("visit_id, xero_invoice_number, status")
@@ -289,6 +296,10 @@ const VisitsTable = ({
           .from("ce_audibility_reports")
           .select("visit_id, report_number, id, status, created_at")
           .in("visit_id", visitIds),
+        supabase
+          .from("file_uploads")
+          .select("visit_id, id, file_name, file_type, created_at")
+          .in("visit_id", visitIds),
       ]);
 
       if (invoicesResult.data) {
@@ -302,9 +313,13 @@ const VisitsTable = ({
         setInvoiceMap(map);
       }
 
-      // Merge across the three report tables. Priority service_reports
-      // → smart_form_submissions → ce_audibility_reports so the row
-      // chooses the source with the most-wired-up open flow first.
+      // Merge across the four report tables. Priority is:
+      //   service_reports → smart_form_submissions → ce_audibility_reports
+      //   → file_uploads
+      // The order matters because the row's 'Open report' button
+      // starts from the highest-priority source — file_uploads is last
+      // because the open flow doesn't have a viewer for a generic
+      // attached PDF yet (it just clears the badge).
       {
         const map: Record<string, ReportInfo> = {};
 
@@ -344,6 +359,23 @@ const VisitsTable = ({
           }
         });
 
+        // file_uploads catches manually-attached PDFs / device test
+        // files that prove a report exists even though there's no row
+        // in the structured report tables. Treated as evidence-of-work
+        // rather than a real report row: the badge clears but the
+        // 'Open report' button can't open it (no viewer wired).
+        (fileUploadsResult.data ?? []).forEach((f: any) => {
+          if (!map[f.visit_id]) {
+            map[f.visit_id] = {
+              id: f.id,
+              report_number: f.file_name ?? null,
+              status: "attached",
+              report_date: f.created_at ?? null,
+              source: "file_uploads",
+            };
+          }
+        });
+
         setReportMap(map);
       }
     };
@@ -377,6 +409,62 @@ const VisitsTable = ({
       }
     }
   }, [initialInvoiceVisitId, visits, initialInvoiceHandled, onInitialInvoiceVisitOpened]);
+
+  // "Mark as Reported & Close" — writes a stub service_reports row for
+  // the visit so the badge clears, then transitions the visit to
+  // completed. Used for callout / remedial visits where the engineer
+  // generated a PDF (sitting in the callout-outputs bucket) but no DB
+  // row was ever created. The picker can't link what doesn't exist as
+  // a row, so this is the escape hatch.
+  const markAsReportedAndClose = async (visit: Visit) => {
+    try {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData?.user) {
+        toast({
+          title: "Not signed in",
+          description: "Couldn't read your session — please refresh and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Stub row. status: "manual" so a downstream consumer can tell
+      // these apart from real generated reports. checklist required by
+      // schema — empty JSON object is the minimum acceptable value.
+      const { error: insertErr } = await supabase
+        .from("service_reports")
+        .insert({
+          visit_id: visit.id,
+          site_id: visit.site_id,
+          created_by: userData.user.id,
+          report_date: visit.visit_date,
+          status: "manual",
+          checklist: {},
+        });
+      if (insertErr) throw insertErr;
+
+      // Close out the visit so it stops appearing in "in progress" /
+      // "pending review" lists.
+      const { error: visitErr } = await supabase
+        .from("service_visits")
+        .update({ status: "completed" })
+        .eq("id", visit.id);
+      if (visitErr) throw visitErr;
+
+      toast({
+        title: "Marked as reported",
+        description: `${visit.site?.name ?? "Visit"} closed — a stub report row was created so it stops flagging.`,
+      });
+      onRefresh?.();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast({
+        title: "Couldn't mark as reported",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleDeleteVisit = async () => {
     if (!deleteVisit) return;
@@ -1487,6 +1575,14 @@ const VisitsTable = ({
                 <DropdownMenuItem onClick={() => setLinkCertVisit(visit)}>
                   <Link2 className="w-4 h-4 mr-2" />
                   Link Existing Report &amp; Close
+                </DropdownMenuItem>
+                {/* Escape hatch for callout / remedial PDFs that were
+                    generated and emailed but never recorded in any
+                    report table — writes a stub service_reports row so
+                    the badge clears and the visit can be closed. */}
+                <DropdownMenuItem onClick={() => markAsReportedAndClose(visit)}>
+                  <CheckSquare className="w-4 h-4 mr-2 text-success" />
+                  Mark as Reported &amp; Close
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate(`/dashboard/schedule`)}>
                   <CalendarDays className="w-4 h-4 mr-2" />
