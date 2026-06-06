@@ -7,6 +7,7 @@ import {
 import { differenceInDays, format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { VisitActionsDrawer } from "./VisitActionsDrawer";
 
 // Unified "Open Actions" view. Aggregates outstanding work from five
 // sources so the user has one place to see everything that needs a
@@ -34,7 +35,12 @@ interface ActionItem {
   kind: ActionKind;
   title: string;
   subtitle: string | null;
-  href: string;
+  // For visit-related actions we open the drawer with the visit_id so
+  // the user picks from a menu (View vs Create invoice, etc.) instead
+  // of being shoved into the wrong action. Non-visit actions navigate
+  // to their href on click.
+  visitId?: string;
+  href?: string;
   // For sorting — higher = more urgent.
   urgencyScore: number;
   urgencyLabel: "urgent" | "soon" | "normal";
@@ -58,6 +64,7 @@ export function OpenActionsWidget() {
   const navigate = useNavigate();
   const [items, setItems] = useState<ActionItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [drawerVisitId, setDrawerVisitId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,21 +109,30 @@ export function OpenActionsWidget() {
         ]);
 
         // For visit_invoice: take completed visits, drop the ones that
-        // already have a matching xero_invoices row by visit_id.
+        // already have a non-voided / non-deleted invoice. A VOIDED or
+        // DELETED invoice means the work is still uninvoiced — anything
+        // else (DRAFT / SUBMITTED / AUTHORISED / PAID / OVERDUE) means
+        // someone has already started invoicing this visit.
         const completedVisitIds = (completedQ.data ?? []).map((v: any) => v.id as string);
         let invoicedVisitIds = new Set<string>();
         if (completedVisitIds.length > 0) {
           const { data: invRows } = await supabase
             .from("xero_invoices")
-            .select("visit_id")
-            .in("visit_id", completedVisitIds);
-          invoicedVisitIds = new Set((invRows ?? []).map((r: any) => r.visit_id as string));
+            .select("visit_id, status")
+            .in("visit_id", completedVisitIds)
+            .not("status", "in", "(VOIDED,DELETED)");
+          invoicedVisitIds = new Set(
+            (invRows ?? [])
+              .map((r: any) => r.visit_id as string)
+              .filter(Boolean),
+          );
         }
 
         const list: ActionItem[] = [];
 
-        // 1. Visit pending review — opens the visit edit dialog via the
-        //    Visits page's `?visitId=` deep-link param.
+        // 1. Visit pending review — opens the visit actions drawer so
+        //    the user can pick Open / Edit / Create invoice / View
+        //    site, rather than being shoved straight into one action.
         for (const v of (reviewQ.data ?? []) as any[]) {
           const daysAgo = differenceInDays(now, parseISO(v.visit_date));
           list.push({
@@ -124,15 +140,16 @@ export function OpenActionsWidget() {
             kind: "visit_review",
             title: v.site?.name ?? "Unknown site",
             subtitle: `Visited ${format(parseISO(v.visit_date), "d MMM")} · ${daysAgo}d since`,
-            href: `/dashboard/visits?visitId=${v.id}`,
+            visitId: v.id,
             urgencyScore: 50 + daysAgo,
             urgencyLabel: daysAgo > 7 ? "urgent" : daysAgo > 3 ? "soon" : "normal",
           });
         }
 
-        // 2. Visit completed, no invoice. Routes via `?invoiceVisit=`
-        //    so the Visits page opens CreateInvoiceDialog directly
-        //    without the user having to find the row + click again.
+        // 2. Visit completed, no invoice. Drawer-driven again: if the
+        //    drawer finds an existing invoice (e.g. created via Xero
+        //    directly, not via the visit flow) it shows "View invoice"
+        //    instead of "Create invoice".
         for (const v of (completedQ.data ?? []) as any[]) {
           if (invoicedVisitIds.has(v.id)) continue;
           const daysAgo = differenceInDays(now, parseISO(v.visit_date));
@@ -141,7 +158,7 @@ export function OpenActionsWidget() {
             kind: "visit_invoice",
             title: v.site?.name ?? "Unknown site",
             subtitle: `Completed ${format(parseISO(v.visit_date), "d MMM")} · ${daysAgo}d since`,
-            href: `/dashboard/visits?invoiceVisit=${v.id}`,
+            visitId: v.id,
             urgencyScore: 30 + daysAgo,
             urgencyLabel: daysAgo > 14 ? "urgent" : daysAgo > 7 ? "soon" : "normal",
           });
@@ -236,7 +253,15 @@ export function OpenActionsWidget() {
             return (
               <button
                 key={it.id}
-                onClick={() => navigate(it.href)}
+                onClick={() => {
+                  // Visit-related actions open the drawer; everything
+                  // else navigates to its target page.
+                  if (it.visitId && (it.kind === "visit_review" || it.kind === "visit_invoice")) {
+                    setDrawerVisitId(it.visitId);
+                  } else if (it.href) {
+                    navigate(it.href);
+                  }
+                }}
                 className={cn(
                   "w-full text-left rounded-md border p-3 hover:shadow-sm transition-all active:scale-[0.99] flex items-center gap-3",
                   meta.tone,
@@ -270,6 +295,12 @@ export function OpenActionsWidget() {
           )}
         </div>
       )}
+
+      <VisitActionsDrawer
+        visitId={drawerVisitId}
+        open={drawerVisitId !== null}
+        onOpenChange={(o) => { if (!o) setDrawerVisitId(null); }}
+      />
     </div>
   );
 }
