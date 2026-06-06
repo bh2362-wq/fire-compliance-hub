@@ -2,15 +2,18 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import RecentVisits from "@/components/dashboard/RecentVisits";
-import QuickActions from "@/components/dashboard/QuickActions";
-import TodaySchedule from "@/components/dashboard/TodaySchedule";
 import ServiceDueDashboard from "@/components/dashboard/ServiceDueDashboard";
 import ComplianceChart from "@/components/dashboard/ComplianceChart";
 import { FinancialSummary } from "@/components/dashboard/FinancialSummary";
 import { BankReconciliation } from "@/components/xero/BankReconciliation";
 import { ComplianceCalendar, getComplianceAlertCount } from "@/components/dashboard/ComplianceCalendar";
 import { RamsRemindersWidget } from "@/components/dashboard/RamsRemindersWidget";
-import { EmailActionItemsWidget } from "@/components/dashboard/EmailActionItemsWidget";
+// Joblogic-style command-centre widgets — replace the previous
+// TodaySchedule + EmailActionItemsWidget + QuickActions trio with a
+// day-navigable diary, a unified open-actions list, and recommendations.
+import { DayVisitsWidget } from "@/components/dashboard/DayVisitsWidget";
+import { OpenActionsWidget } from "@/components/dashboard/OpenActionsWidget";
+import { RecommendationsWidget } from "@/components/dashboard/RecommendationsWidget";
 import {
   Building2, ClipboardCheck, AlertTriangle, ShieldCheck,
   Award, ArrowRight
@@ -334,26 +337,31 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* ── Today's schedule — kept on mobile.
-              Quick actions hidden on mobile (most actions are
-              desk-bias, and the FAB / hero CTA cover the key one). */}
-        <div className="grid md:grid-cols-2 gap-3 md:gap-5">
-          <div className="hidden md:block">
-            <QuickActions />
+        {/* ── Joblogic-style command centre ──────────────────────────────
+              Three widgets that replace the previous "today's schedule +
+              email items + quick actions" trio:
+                • DayVisitsWidget    — day-navigable diary (visits live
+                                       here on the dashboard now; full
+                                       diary page lives at /visits)
+                • OpenActionsWidget  — unified outstanding work, folds
+                                       in the email scanner queue
+                • RecommendationsWidget — day-to-day business advice
+              On desktop, diary on the left (2/3) + actions on the right
+              (1/3). Mobile stacks them. Recommendations span full width
+              below.                                                  */}
+        <div className="grid lg:grid-cols-3 gap-3 lg:gap-5">
+          <div className="lg:col-span-2">
+            <DayVisitsWidget />
           </div>
-          <TodaySchedule />
+          <OpenActionsWidget />
         </div>
+
+        <RecommendationsWidget />
 
         {/* ── RAMS reminders — desk work, hide on mobile ───────────────── */}
         <div className="hidden md:block">
           <RamsRemindersWidget />
         </div>
-
-        {/* ── Email action items — desk work, hide on mobile ──────────── */}
-        <div className="hidden md:block">
-          <EmailActionItemsWidget />
-        </div>
-
 
         {/* ── Charts + financial — all desk work, hide on mobile.
               ComplianceCalendar / Chart / Financial / Reconciliation
