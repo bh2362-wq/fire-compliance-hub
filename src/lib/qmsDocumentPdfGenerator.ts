@@ -339,29 +339,77 @@ async function buildQMSDocumentPDF(document: QMSDocument): Promise<jsPDF> {
   }
 
   // ===== AUTHORISATION =====
+  // Director details come from company_settings (director_name,
+  // director_role, director_signature_url) so every QMS PDF carries
+  // the same signature block — solves the inconsistency between the
+  // health-and-safety policy and the rest of the library. When any
+  // field is null the corresponding line falls back to a blank
+  // underline so legacy / unconfigured tenants keep working.
   yPos += 8;
-  yPos = ensureSpace(doc, yPos, 50, maxY, pageWidth, margin, logoImg, company);
+  yPos = ensureSpace(doc, yPos, 60, maxY, pageWidth, margin, logoImg, company);
   yPos = drawSectionTitle(doc, "AUTHORISATION", yPos, margin, pageWidth);
   yPos += 4;
 
   const sigWidth = (contentWidth - 10) / 2;
+  const directorName = (company as CompanySettings & { director_name?: string | null }).director_name ?? null;
+  const directorRole = (company as CompanySettings & { director_role?: string | null }).director_role ?? null;
+  const directorSigUrl = (company as CompanySettings & { director_signature_url?: string | null }).director_signature_url ?? null;
+
+  // Embed the signature image if present. Image sits ABOVE the
+  // "Signed:" line — same visual logic as a wet-ink signature on a
+  // printed form. Width capped at 50mm, height capped at 18mm so a
+  // tall PNG can't blow out the page. Uses the same load pattern as
+  // the logo above — Image element + onload race with a 2s timeout
+  // so a failed CDN doesn't hang the whole PDF.
+  let sigLoaded = false;
+  if (directorSigUrl) {
+    const sigImg = new Image();
+    sigImg.crossOrigin = "anonymous";
+    sigImg.src = directorSigUrl;
+    await new Promise<void>((resolve) => {
+      sigImg.onload = () => { sigLoaded = true; resolve(); };
+      sigImg.onerror = () => resolve();
+      setTimeout(() => resolve(), 2000);
+    });
+    if (sigLoaded) {
+      try {
+        const fmt = directorSigUrl.toLowerCase().includes("jpeg")
+          || directorSigUrl.toLowerCase().includes("jpg") ? "JPEG" : "PNG";
+        doc.addImage(sigImg, fmt, margin + 25, yPos - 6, 50, 18);
+      } catch {
+        sigLoaded = false; // fall through to blank lines
+      }
+    }
+  }
 
   doc.setTextColor(...COLORS.textMuted);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
 
-  const sigLine = (label: string) => {
+  const sigLine = (label: string, value: string | null) => {
     doc.text(label, margin + 4, yPos);
     doc.setDrawColor(...COLORS.borderDark);
     doc.setLineWidth(0.3);
     doc.line(margin + 25, yPos + 1, margin + sigWidth, yPos + 1);
+    if (value) {
+      doc.setTextColor(...COLORS.textPrimary);
+      doc.setFont("helvetica", "bold");
+      doc.text(value, margin + 27, yPos);
+      doc.setTextColor(...COLORS.textMuted);
+      doc.setFont("helvetica", "normal");
+    }
     yPos += 8;
   };
 
-  sigLine("Signed:");
-  sigLine("Name:");
-  sigLine("Position:");
-  sigLine("Date:");
+  // Push the first line down past the signature image so it doesn't
+  // sit on top of it. Only when the image actually loaded — a failed
+  // fetch should not leave a gap.
+  if (sigLoaded) yPos += 14;
+
+  sigLine("Signed:", null);
+  sigLine("Name:", directorName);
+  sigLine("Position:", directorRole);
+  sigLine("Date:", format(new Date(), "dd MMM yyyy"));
 
   // Footer (page numbers + company line)
   addFooter(doc, pageWidth, margin, company);

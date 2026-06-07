@@ -17,6 +17,11 @@
    report_logo_url: z.string().optional(),
    report_footer_text: z.string().optional(),
    default_engineer_signature: z.string().optional(),
+   // Director signing fields — pre-fill the AUTHORISATION block on
+   // every QMS document PDF (qmsDocumentPdfGenerator.ts).
+   director_name: z.string().optional(),
+   director_role: z.string().optional(),
+   director_signature_url: z.string().optional(),
  });
  
  type FormValues = z.infer<typeof formSchema>;
@@ -40,6 +45,9 @@
        report_logo_url: settings?.report_logo_url || "",
        report_footer_text: settings?.report_footer_text || "",
        default_engineer_signature: settings?.default_engineer_signature || "",
+       director_name: settings?.director_name || "",
+       director_role: settings?.director_role || "",
+       director_signature_url: settings?.director_signature_url || "",
      },
    });
  
@@ -297,6 +305,71 @@
                )}
              />
  
+             {/* Director signing details — pre-filled into the
+                 AUTHORISATION block on every QMS document PDF. Without
+                 these the block renders blank lines and auditors see
+                 unsigned policies / procedures. */}
+             <div className="rounded-md border border-border p-4 space-y-3 bg-muted/30">
+               <div>
+                 <h4 className="text-sm font-semibold">Director signing (QMS documents)</h4>
+                 <p className="text-xs text-muted-foreground">
+                   Populates the AUTHORISATION block at the bottom of every generated
+                   QMS PDF, so every policy / procedure / work instruction is signed
+                   off consistently.
+                 </p>
+               </div>
+
+               <FormField
+                 control={form.control}
+                 name="director_name"
+                 render={({ field }) => (
+                   <FormItem>
+                     <FormLabel>Director name</FormLabel>
+                     <FormControl>
+                       <Input placeholder="Ben Holden" {...field} />
+                     </FormControl>
+                     <FormMessage />
+                   </FormItem>
+                 )}
+               />
+
+               <FormField
+                 control={form.control}
+                 name="director_role"
+                 render={({ field }) => (
+                   <FormItem>
+                     <FormLabel>Director role</FormLabel>
+                     <FormControl>
+                       <Input placeholder="Managing Director" {...field} />
+                     </FormControl>
+                     <FormMessage />
+                   </FormItem>
+                 )}
+               />
+
+               <FormField
+                 control={form.control}
+                 name="director_signature_url"
+                 render={({ field }) => (
+                   <FormItem>
+                     <FormLabel>Director signature image URL or data URL</FormLabel>
+                     <FormControl>
+                       <Input
+                         placeholder="data:image/png;base64,…  or  https://…/signature.png"
+                         {...field}
+                       />
+                     </FormControl>
+                     <FormDescription>
+                       Paste a base64 data URL (PNG / JPEG) or a hosted image URL.
+                       Embedded at the top of the AUTHORISATION block. Cap is
+                       50×18 mm — a tightly-cropped image looks best.
+                     </FormDescription>
+                     <FormMessage />
+                   </FormItem>
+                 )}
+               />
+             </div>
+
              <div className="flex justify-end">
                <Button type="submit" disabled={isSaving}>
                  {isSaving ? (
