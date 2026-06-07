@@ -83,15 +83,30 @@ Deno.serve(async (req) => {
       looksLikeRemittance(e.subject, e.from_address),
     );
 
-    // Skip ones we've already turned into a remittance_advices row.
+    // Skip ones we've already turned into a healthy remittance_advices row.
+    // Rows created before the PDF parser fix have pdf_count=0 and no
+    // attachment diagnostics even when the source email had a PDF; allow
+    // those non-applied rows through so parse-remittance-email can re-read
+    // the attachments instead of permanently hiding them here.
     const messageIds = heuristicallyRelevant.map((e) => e.message_id);
     const { data: existingMatches } = messageIds.length > 0
       ? await supabase
           .from("remittance_advices")
-          .select("message_id")
+          .select("message_id, pdf_count, ai_raw_extract, line_items:remittance_line_items(status)")
           .in("message_id", messageIds)
       : { data: [] };
-    const seen = new Set((existingMatches ?? []).map((r) => r.message_id));
+    const seen = new Set(
+      (existingMatches ?? [])
+        .filter((r) => {
+          const hasDiagnostics = Array.isArray(
+            (r.ai_raw_extract as Record<string, unknown> | null)?.attachment_diagnostics,
+          );
+          const hasAppliedLine = ((r.line_items as Array<{ status?: string }> | null) ?? [])
+            .some((line) => line.status === "applied");
+          return hasAppliedLine || (Number(r.pdf_count ?? 0) > 0 || hasDiagnostics);
+        })
+        .map((r) => r.message_id),
+    );
 
     const toProcess = heuristicallyRelevant.filter((e) => !seen.has(e.message_id));
 
