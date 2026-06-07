@@ -4834,6 +4834,152 @@ export type Database = {
         }
         Relationships: []
       }
+      remittance_advices: {
+        Row: {
+          ai_raw_extract: Json | null
+          applied_at: string | null
+          applied_by: string | null
+          created_at: string
+          currency: string
+          error_message: string | null
+          from_address: string | null
+          from_name: string | null
+          id: string
+          mailbox: string
+          message_id: string
+          payer_name: string | null
+          payment_date: string | null
+          received_at: string | null
+          scanned_email_id: string | null
+          status: string
+          subject: string | null
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          ai_raw_extract?: Json | null
+          applied_at?: string | null
+          applied_by?: string | null
+          created_at?: string
+          currency?: string
+          error_message?: string | null
+          from_address?: string | null
+          from_name?: string | null
+          id?: string
+          mailbox: string
+          message_id: string
+          payer_name?: string | null
+          payment_date?: string | null
+          received_at?: string | null
+          scanned_email_id?: string | null
+          status?: string
+          subject?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ai_raw_extract?: Json | null
+          applied_at?: string | null
+          applied_by?: string | null
+          created_at?: string
+          currency?: string
+          error_message?: string | null
+          from_address?: string | null
+          from_name?: string | null
+          id?: string
+          mailbox?: string
+          message_id?: string
+          payer_name?: string | null
+          payment_date?: string | null
+          received_at?: string | null
+          scanned_email_id?: string | null
+          status?: string
+          subject?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "remittance_advices_scanned_email_id_fkey"
+            columns: ["scanned_email_id"]
+            isOneToOne: false
+            referencedRelation: "scanned_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      remittance_line_items: {
+        Row: {
+          amount: number | null
+          applied_at: string | null
+          applied_by: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          invoice_number: string | null
+          match_confidence: string | null
+          matched_contact_name: string | null
+          matched_xero_invoice_id: string | null
+          raw_text: string | null
+          remittance_id: string
+          status: string
+          updated_at: string
+          xero_invoice_id: string | null
+          xero_payment_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          applied_at?: string | null
+          applied_by?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          invoice_number?: string | null
+          match_confidence?: string | null
+          matched_contact_name?: string | null
+          matched_xero_invoice_id?: string | null
+          raw_text?: string | null
+          remittance_id: string
+          status?: string
+          updated_at?: string
+          xero_invoice_id?: string | null
+          xero_payment_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          applied_at?: string | null
+          applied_by?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          invoice_number?: string | null
+          match_confidence?: string | null
+          matched_contact_name?: string | null
+          matched_xero_invoice_id?: string | null
+          raw_text?: string | null
+          remittance_id?: string
+          status?: string
+          updated_at?: string
+          xero_invoice_id?: string | null
+          xero_payment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "remittance_line_items_matched_xero_invoice_id_fkey"
+            columns: ["matched_xero_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "xero_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "remittance_line_items_remittance_id_fkey"
+            columns: ["remittance_id"]
+            isOneToOne: false
+            referencedRelation: "remittance_advices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scanned_emails: {
         Row: {
           body_preview: string | null
