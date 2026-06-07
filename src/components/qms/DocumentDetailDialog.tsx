@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { generateQMSDocumentPDF } from "@/lib/qmsDocumentPdfGenerator";
 import { EmailDocumentDialog } from "./EmailDocumentDialog";
+import { RecreateFromUploadDialog } from "./RecreateFromUploadDialog";
 
 interface DocumentDetailDialogProps {
   open: boolean;
@@ -62,6 +63,7 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [recreateOpen, setRecreateOpen] = useState(false);
 
   const handleGeneratePDF = async () => {
     if (!document) return;
@@ -179,10 +181,34 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
           </Button>
         </div>
 
+        {/* Recreate as template — converts a doc whose body lives in
+            an uploaded file (legacy H&S policy etc.) into a real
+            template document so it picks up the BHO header +
+            AUTHORISATION block + director signature. */}
+        <div className="pt-1">
+          <Button
+            onClick={() => setRecreateOpen(true)}
+            variant="ghost"
+            className="w-full justify-start text-xs text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-2" />
+            Recreate as template document (apply standard layout + director signature)
+          </Button>
+        </div>
+
         <EmailDocumentDialog
           open={emailDialogOpen}
           onOpenChange={setEmailDialogOpen}
           document={document}
+        />
+
+        <RecreateFromUploadDialog
+          source={document}
+          open={recreateOpen}
+          onOpenChange={(o) => {
+            setRecreateOpen(o);
+            if (!o) onOpenChange(false); // close the detail dialog too on success/cancel
+          }}
         />
 
         {/* Description */}

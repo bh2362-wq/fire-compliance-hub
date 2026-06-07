@@ -95,9 +95,44 @@ export const fetchDocumentVersions = async (documentId: string): Promise<QMSDocu
     .select('*')
     .eq('document_id', documentId)
     .order('version_number', { ascending: false });
-  
+
   if (error) throw error;
   return data || [];
+};
+
+/** For documents whose body lives in an uploaded file rather than the
+ *  description column (the H&S policy and similar legacy uploads),
+ *  return a short-lived signed URL to the latest version's file so a
+ *  client-side PDF extractor can pull the text. Returns null when the
+ *  document has no uploaded versions on file. */
+export const getLatestDocumentVersionSignedUrl = async (
+  documentId: string,
+): Promise<{ url: string; fileName: string | null } | null> => {
+  const { data: versions, error: vErr } = await supabase
+    .from('qms_document_versions')
+    .select('id, file_url, file_name, version_number')
+    .eq('document_id', documentId)
+    .order('version_number', { ascending: false })
+    .limit(1);
+  if (vErr) throw vErr;
+  const latest = (versions ?? [])[0] as { file_url: string | null; file_name: string | null } | undefined;
+  if (!latest?.file_url) return null;
+  const { data: signed, error: sErr } = await supabase.storage
+    .from('qms-attachments')
+    .createSignedUrl(latest.file_url, 300);
+  if (sErr || !signed) return null;
+  return { url: signed.signedUrl, fileName: latest.file_name ?? null };
+};
+
+/** Mark a document as obsolete — used when its content has been
+ *  re-created as a fresh standard-template document so the old
+ *  uploaded-file row stops showing up in the active list. */
+export const markDocumentObsolete = async (documentId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('qms_documents')
+    .update({ status: 'obsolete' })
+    .eq('id', documentId);
+  if (error) throw error;
 };
 
 export const uploadDocumentVersion = async (
