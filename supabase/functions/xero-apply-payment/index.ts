@@ -122,11 +122,60 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Find the bank account - prefer specified code, then from transaction, then first active
-    let bankAccountId = null;
-    let bankAccountName = null;
+    // Pre-flight: fetch the invoice. If it's already paid, short-circuit
+    // so we don't get a ValidationException from Xero.
+    const invoiceUrl = `https://api.xero.com/api.xro/2.0/Invoices/${invoiceId}`;
+    const invoiceResponse = await fetch(invoiceUrl, {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Xero-Tenant-Id": connection.tenant_id,
+        "Accept": "application/json",
+      },
+    });
+    if (!invoiceResponse.ok) {
+      const errText = await invoiceResponse.text();
+      throw new Error(`Failed to fetch invoice from Xero: ${errText}`);
+    }
+    const invoiceData = await invoiceResponse.json();
+    const xeroInvoice = invoiceData.Invoices?.[0];
+    if (!xeroInvoice) throw new Error("Invoice not found in Xero");
 
-    // First, fetch all accounts and filter for bank accounts
+    const amountDue = Number(xeroInvoice.AmountDue ?? 0);
+    const invoiceStatus = xeroInvoice.Status;
+
+    if (invoiceStatus === "PAID" || amountDue <= 0) {
+      console.log(`Invoice ${xeroInvoice.InvoiceNumber} already PAID (AmountDue=${amountDue}). Marking as applied without re-posting.`);
+      await supabase.from("xero_invoices").update({ status: "PAID" }).eq("xero_invoice_id", invoiceId);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          alreadyPaid: true,
+          message: `Invoice ${xeroInvoice.InvoiceNumber} is already marked as paid in Xero. No new payment created.`,
+          payment: { invoiceId, amount: Number(amount), date: date || new Date().toISOString().split("T")[0], status: "PAID" },
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (invoiceStatus !== "AUTHORISED") {
+      return new Response(
+        JSON.stringify({ error: `Invoice ${xeroInvoice.InvoiceNumber} has status '${invoiceStatus}'. Payments can only be applied to AUTHORISED invoices. Approve the draft in Xero first.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const payAmount = Number(amount);
+    if (payAmount > amountDue + 0.001) {
+      return new Response(
+        JSON.stringify({ error: `Payment amount £${payAmount.toFixed(2)} exceeds outstanding balance £${amountDue.toFixed(2)} on invoice ${xeroInvoice.InvoiceNumber}.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Find the bank account - prefer specified code, then from transaction, then first active
+    let bankAccountId: string | null = null;
+    let bankAccountName: string | null = null;
+
     const allAccountsUrl = `https://api.xero.com/api.xro/2.0/Accounts`;
     const allAccountsResponse = await fetch(allAccountsUrl, {
       headers: {
@@ -139,25 +188,30 @@ Deno.serve(async (req) => {
     let bankAccounts: any[] = [];
     if (allAccountsResponse.ok) {
       const allAccountsData = await allAccountsResponse.json();
-      // Filter for active bank accounts
+      // Only accept payment-enabled accounts so we never pick a card account by mistake.
       bankAccounts = (allAccountsData.Accounts || []).filter(
-        (acc: any) => acc.Type === "BANK" && acc.Status === "ACTIVE"
+        (acc: any) => acc.Type === "BANK" && acc.Status === "ACTIVE" && acc.EnablePaymentsToAccount !== false
       );
-      console.log(`Found ${bankAccounts.length} active bank accounts:`, bankAccounts.map((a: any) => a.Name));
+      console.log(`Found ${bankAccounts.length} payment-enabled bank accounts:`, bankAccounts.map((a: any) => `${a.Name} (Code=${a.Code})`));
     } else {
       console.error("Failed to fetch accounts:", await allAccountsResponse.text());
     }
 
-    // If bank account code is specified, find matching account
     if (bankAccountCode && bankAccounts.length > 0) {
       const matchedAccount = bankAccounts.find((acc: any) => acc.Code === bankAccountCode);
       if (matchedAccount) {
         bankAccountId = matchedAccount.AccountID;
         bankAccountName = matchedAccount.Name;
+      } else {
+        return new Response(
+          JSON.stringify({
+            error: `Bank account with code '${bankAccountCode}' not found among payment-enabled Xero bank accounts. Available codes: ${bankAccounts.map((a: any) => a.Code).filter(Boolean).join(", ") || "(none)"}. Update the code in Remittance settings.`,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
-    // Try to get bank account from the transaction if provided
     if (!bankAccountId && bankTransactionId) {
       const txUrl = `https://api.xero.com/api.xro/2.0/BankTransactions/${bankTransactionId}`;
       const txResponse = await fetch(txUrl, {
@@ -167,16 +221,15 @@ Deno.serve(async (req) => {
           "Accept": "application/json",
         },
       });
-      
       if (txResponse.ok) {
         const txData = await txResponse.json();
-        bankAccountId = txData.BankTransactions?.[0]?.BankAccount?.AccountID;
-        bankAccountName = txData.BankTransactions?.[0]?.BankAccount?.Name;
+        bankAccountId = txData.BankTransactions?.[0]?.BankAccount?.AccountID ?? null;
+        bankAccountName = txData.BankTransactions?.[0]?.BankAccount?.Name ?? null;
       }
     }
 
-    // Fallback to first active bank account from our fetched list
-    if (!bankAccountId && bankAccounts.length > 0) {
+    // Only fall back to "first available" when no code was specified by the caller.
+    if (!bankAccountId && !bankAccountCode && bankAccounts.length > 0) {
       bankAccountId = bankAccounts[0].AccountID;
       bankAccountName = bankAccounts[0].Name;
       console.log(`Using first available bank account: ${bankAccountName}`);
@@ -184,7 +237,7 @@ Deno.serve(async (req) => {
 
     if (!bankAccountId) {
       return new Response(
-        JSON.stringify({ error: "No bank account found in Xero. Please ensure you have an active bank account set up." }),
+        JSON.stringify({ error: "No payment-enabled bank account found in Xero." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
