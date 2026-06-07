@@ -101,7 +101,7 @@ export function DayVisitsWidget() {
       if (cancelled) return;
 
       const fromVisits: DayVisit[] = (visitsQ.data ?? []) as unknown as DayVisit[];
-      const fromAppts: DayVisit[] = ((apptsQ.data ?? []) as Array<Record<string, unknown>>).map((a) => ({
+      const fromAppts: DayVisit[] = ((apptsQ.data ?? []) as unknown as Array<Record<string, unknown>>).map((a) => ({
         id: String(a.id),
         visit_date: String(a.appointment_date),
         appointment_time: (a.start_time as string | null) ?? null,
