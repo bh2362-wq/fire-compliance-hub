@@ -182,52 +182,49 @@ Deno.serve(async (req) => {
 
     const toProcess = heuristicallyRelevant.filter((e) => !seen.has(e.message_id));
 
-    const results: Array<{ scanned_email_id: string; status: string; error?: string }> = [];
-    for (const email of toProcess) {
-      try {
-        const { data, error } = await supabase.functions.invoke("parse-remittance-email", {
-          body: { scanned_email_id: email.id },
-          headers: { Authorization: authHeader },
-        });
-        if (error) {
-          results.push({ scanned_email_id: email.id, status: "error", error: error.message });
-        } else {
-          results.push({
-            scanned_email_id: email.id,
-            status: (data?.status as string) ?? "queued",
-            error: data?.error as string | undefined,
-          });
+    // Long-running: invoking parse-remittance-email sequentially across
+    // 30 days of mail blows past the 150s edge idle timeout. Kick the
+    // work off in the background with limited concurrency and return
+    // immediately so the UI can poll remittance_advices for updates.
+    const CONCURRENCY = 4;
+    const runBatch = async () => {
+      let cursor = 0;
+      const workers = Array.from({ length: Math.min(CONCURRENCY, toProcess.length) }, async () => {
+        while (cursor < toProcess.length) {
+          const email = toProcess[cursor++];
+          try {
+            await supabase.functions.invoke("parse-remittance-email", {
+              body: { scanned_email_id: email.id },
+              headers: { Authorization: authHeader },
+            });
+          } catch (e) {
+            console.error("parse-remittance-email failed", email.id, (e as Error).message);
+          }
         }
-      } catch (e) {
-        results.push({ scanned_email_id: email.id, status: "error", error: (e as Error).message });
-      }
-    }
+      });
+      await Promise.all(workers);
+    };
 
-    // Roll-up so the "Scan now" button can show a useful summary
-    // (e.g. "scanned 42, parsed 3, 1 duplicate") rather than just a
-    // raw count of dispatched jobs. 'duplicates' counts the
-    // content-hash collisions caught by parse-remittance-email.
-    const parsedCount    = results.filter((r) => r.status === "parsed").length;
-    const reviewCount    = results.filter((r) => r.status === "needs_review").length;
-    const dismissedCount = results.filter((r) => r.status === "dismissed").length;
-    const duplicateCount = results.filter((r) => r.status === "duplicate").length;
-    const failedCount    = results.filter((r) => r.status === "failed" || r.status === "error").length;
+    // @ts-ignore EdgeRuntime is available in Supabase edge runtime
+    if (typeof EdgeRuntime !== "undefined" && toProcess.length > 0) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(runBatch());
+    }
 
     return new Response(
       JSON.stringify({
         scanned: candidates?.length ?? 0,
         relevant: heuristicallyRelevant.length,
         already_parsed: seen.size,
-        queued: results.length,
-        parsed_count: parsedCount,
-        needs_review_count: reviewCount,
-        dismissed_count: dismissedCount,
-        duplicate_count: duplicateCount,
-        failed_count: failedCount,
-        results,
+        queued: toProcess.length,
+        status: "processing",
+        message: toProcess.length === 0
+          ? "Nothing new to parse."
+          : `Parsing ${toProcess.length} email(s) in the background. Refresh in a moment.`,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 400,
