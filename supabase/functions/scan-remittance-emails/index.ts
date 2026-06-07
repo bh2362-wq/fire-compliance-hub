@@ -29,6 +29,18 @@ const DEFAULT_MAILBOXES = ["accounts@bhofire.com", "ben@bhofire.com"];
 // Cheap pre-filter so we don't burn AI credit on every newsletter that
 // lands in the accounts inbox. The actual is_remittance decision is made
 // by Claude — these are just heuristics for "worth showing to the model".
+//
+// History
+//   v1 (initial): /remittance/i, /payment\s+advice/i, /payment\s+received/i,
+//                 /payment\s+confirmation/i, /funds\s+transferred/i, /bibby/i
+//
+//   v2 (this version): broadened after the user reported the email
+//   scanner full-text search finding remittances that this function
+//   was rejecting — e.g. Solar Fire's "Payment has been made by …",
+//   RS Components' "Monthly Account Statement", and client replies
+//   threaded as "Re: Reconcile". The bar is intentionally generous;
+//   if Claude says is_remittance=false the row is marked dismissed
+//   and doesn't show in the user's queue.
 const REMITTANCE_HINTS = [
   /remittance/i,
   /payment\s+advice/i,
@@ -37,10 +49,39 @@ const REMITTANCE_HINTS = [
   /payment\s+confirmation/i,
   /funds\s+transferred/i,
   /bibby/i,
+  // New patterns the user flagged:
+  /payment\s+has\s+been\s+made/i,        // "Payment has been made by Solar Fire …"
+  /\bpayment\s+made\s+(by|for|of)/i,     // "Payment made by …"
+  /^reconcile\b|\breconcile\s+(of|for)/i,// "Reconcile" / "Re: Reconcile of invoice …"
+  /monthly\s+account\s+statement/i,      // "RS Components Monthly Account Statement"
+  /\bstatement\s+of\s+account/i,         // generic statement subject
+  /paid\s+invoice/i,
+  /payment\s+for\s+£/i,                  // "Payment for £4,164 …"
+  /credit\s+note/i,
+  /factoring/i,                          // generic factoring subject
 ];
 
-function looksLikeRemittance(subject: string | null, from: string | null): boolean {
-  const haystack = `${subject ?? ""} ${from ?? ""}`;
+// Known payers / collection mailboxes whose every email is worth
+// showing to Claude. Belt and braces — even if the subject misses
+// all the heuristics, an email from one of these always queues.
+// Lowercase comparison.
+const KNOWN_PAYER_ADDRESSES = [
+  "accounts@solarfireservices.co.uk",
+  "collectionsuk@rs-components.com",
+  // Add more here as you spot recurring payers.
+];
+
+function looksLikeRemittance(
+  subject: string | null,
+  from: string | null,
+  bodyPreview: string | null,
+): boolean {
+  const fromLower = (from ?? "").toLowerCase();
+  if (KNOWN_PAYER_ADDRESSES.some((addr) => fromLower.includes(addr))) return true;
+  // Body preview catches forwarded remittances where the original
+  // subject is buried under "Fw:" / "Fwd:" — the remittance language
+  // lives in the body instead.
+  const haystack = `${subject ?? ""} ${from ?? ""} ${bodyPreview ?? ""}`;
   return REMITTANCE_HINTS.some((re) => re.test(haystack));
 }
 
@@ -69,10 +110,13 @@ Deno.serve(async (req) => {
 
     const cutoff = new Date(Date.now() - hoursBack * 3600_000).toISOString();
 
-    // Pull candidate emails from the configured mailboxes.
+    // Pull candidate emails from the configured mailboxes. body_preview
+    // gives looksLikeRemittance a third haystack — catches forwarded
+    // remittances where the subject is just "Fw: …" but the body holds
+    // the remittance language.
     const { data: candidates, error: candidatesErr } = await supabase
       .from("scanned_emails")
-      .select("id, message_id, mailbox, subject, from_address")
+      .select("id, message_id, mailbox, subject, from_address, body_preview")
       .in("mailbox", mailboxes)
       .gte("received_at", cutoff)
       .order("received_at", { ascending: false })
@@ -80,7 +124,7 @@ Deno.serve(async (req) => {
     if (candidatesErr) throw new Error(`Failed to list scanned_emails: ${candidatesErr.message}`);
 
     const heuristicallyRelevant = (candidates ?? []).filter((e) =>
-      looksLikeRemittance(e.subject, e.from_address),
+      looksLikeRemittance(e.subject, e.from_address, e.body_preview),
     );
 
     // Skip ones we've already turned into a healthy remittance_advices row.

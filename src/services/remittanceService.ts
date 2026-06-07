@@ -57,7 +57,27 @@ export interface RemittanceAdvice {
   applied_at: string | null;
   applied_by: string | null;
   created_at: string;
+  /** How many PDF attachments were sent to Claude for this remittance.
+   *  0 = body-only parse; >0 = PDFs were included. Populated by
+   *  parse-remittance-email. */
+  pdf_count: number | null;
+  /** Echo of the parser's per-attachment audit. Lives under
+   *  ai_raw_extract.attachment_diagnostics in the DB; surfaced here so
+   *  the UI can render a "PDF×2 (1 inline)" badge or a hover-tip with
+   *  the skip reasons. */
+  attachment_diagnostics: AttachmentDiag[] | null;
+  has_attachments_flag: boolean | null;
   line_items: RemittanceLineItem[];
+}
+
+export interface AttachmentDiag {
+  name: string;
+  content_type: string;
+  size: number | null;
+  is_inline: boolean;
+  status: "included" | "skipped_not_pdf" | "skipped_empty_bytes" | "fetch_error";
+  reason?: string;
+  fallback_used?: boolean;
 }
 
 export const REMITTANCE_STATUS_LABELS: Record<RemittanceStatus, string> = {
@@ -91,7 +111,23 @@ export async function listRemittances(opts?: {
   }
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as RemittanceAdvice[];
+  // attachment_diagnostics + has_attachments_flag live under
+  // ai_raw_extract on the DB row. Lift them onto the typed object so
+  // the UI can render the diagnostics without poking into JSON.
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
+    const raw = (row.ai_raw_extract as Record<string, unknown> | null) ?? null;
+    const diag = Array.isArray(raw?.attachment_diagnostics)
+      ? (raw.attachment_diagnostics as AttachmentDiag[])
+      : null;
+    const flag = typeof raw?.has_attachments_flag === "boolean"
+      ? (raw.has_attachments_flag as boolean)
+      : null;
+    return {
+      ...(row as unknown as RemittanceAdvice),
+      attachment_diagnostics: diag,
+      has_attachments_flag: flag,
+    };
+  });
 }
 
 export async function dismissRemittance(id: string): Promise<void> {
