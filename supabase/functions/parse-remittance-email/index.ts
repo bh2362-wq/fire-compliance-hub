@@ -57,6 +57,40 @@ interface ParsedRemittance {
   confidence_notes: string | null;
 }
 
+// Content hash for remittance dedup. Same remittance arriving via two
+// mailboxes (CC) or as a later recap will produce the same hash and
+// hit the unique partial index on remittance_advices(content_hash),
+// so the second insert returns a 23505 unique-violation which we
+// translate to a "duplicate" response instead of a hard failure.
+//
+// Hash inputs (all normalised):
+//   • payer_name        — lowercased, trimmed
+//   • total_amount      — fixed to 2 decimals so 100 vs 100.0 vs 100.00 don't drift
+//   • payment_date      — ISO yyyy-mm-dd
+//   • invoice_numbers   — sorted, joined with "|"
+async function buildContentHash(parsed: ParsedRemittance): Promise<string | null> {
+  // Need at least one of these to be meaningful. Empty remittances
+  // (no amount, no invoices) get a null hash so they don't collide.
+  const hasSignal = parsed.total_amount != null || parsed.payment_date != null
+    || (parsed.line_items ?? []).some((li) => li.invoice_number);
+  if (!hasSignal) return null;
+
+  const payer = (parsed.payer_name ?? "").toLowerCase().trim();
+  const amount = parsed.total_amount != null ? Number(parsed.total_amount).toFixed(2) : "";
+  const date = parsed.payment_date ?? "";
+  const invoices = (parsed.line_items ?? [])
+    .map((li) => li.invoice_number)
+    .filter((n): n is string => !!n)
+    .map((n) => n.toLowerCase().trim())
+    .sort()
+    .join("|");
+  const canonical = `${payer}::${amount}::${date}::${invoices}`;
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 // Strip the common BHO / Xero invoice-number variations down to a
 // comparable shape. Catches: case differences ("inv-1234" vs "INV-1234"),
 // separator differences ("INV-1234" vs "INV/1234" vs "INV 1234"),
@@ -261,6 +295,7 @@ Deno.serve(async (req) => {
     }
 
     let parsed: ParsedRemittance;
+    let pdfCount = 0;
     try {
       const { body, pdfs } = await fetchEmailWithAttachments(
         supabase,
@@ -268,6 +303,7 @@ Deno.serve(async (req) => {
         emailRow.mailbox,
         authHeader,
       );
+      pdfCount = pdfs.length;
       parsed = await callClaude(body, pdfs, emailRow);
     } catch (parseErr) {
       // Record the failed attempt so the office can see it in the review queue.
@@ -299,6 +335,8 @@ Deno.serve(async (req) => {
       ? "needs_review"
       : "parsed";
 
+    const contentHash = await buildContentHash(parsed);
+
     const { data: header, error: headerErr } = await supabase
       .from("remittance_advices")
       .insert({
@@ -315,9 +353,31 @@ Deno.serve(async (req) => {
         payer_name: parsed.payer_name,
         ai_raw_extract: parsed as unknown as Record<string, unknown>,
         status: headerStatus,
+        content_hash: contentHash,
+        pdf_count: pdfCount,
       })
       .select("id")
       .single();
+
+    // Content-hash collision = same remittance arrived twice (CC across
+    // mailboxes, recap email, PDF-then-text). Tell the caller it was a
+    // duplicate so the scan-remittance-emails counter shows it under
+    // 'duplicates' instead of a noisy error.
+    if (headerErr && headerErr.code === "23505" && contentHash) {
+      const { data: existing } = await supabase
+        .from("remittance_advices")
+        .select("id")
+        .eq("content_hash", contentHash)
+        .maybeSingle();
+      return new Response(
+        JSON.stringify({
+          remittance_id: existing?.id ?? null,
+          status: "duplicate",
+          reason: "matching content_hash already on file",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     if (headerErr || !header) throw new Error(`Header insert failed: ${headerErr?.message}`);
 
     // Line items + best-effort xero_invoices match by exact invoice number.
