@@ -467,32 +467,34 @@ function ContractDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div>
-            <Label className="text-xs">Site</Label>
-            <Select
+            <Label className="text-xs" htmlFor="contract-site">Site</Label>
+            {/* Native <select> instead of the radix shadcn Select. The
+                shadcn variant has well-known interaction bugs inside a
+                <Dialog>: focus trap blocks the SelectContent portal in
+                some browsers (clicks register on the trigger but the
+                onValueChange never fires). Native element is zero
+                portal layers, zero focus-trap conflicts, every browser. */}
+            <select
+              id="contract-site"
               value={form.site_id}
-              onValueChange={(v) => setForm((s) => ({ ...s, site_id: v }))}
-              disabled={isEdit}
+              onChange={(e) => setForm((s) => ({ ...s, site_id: e.target.value }))}
+              disabled={isEdit || localSites.length === 0}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <SelectTrigger>
-                <SelectValue placeholder={localSites.length === 0 ? "Loading sites…" : "Pick a site"} />
-              </SelectTrigger>
-              {/* z-[200] sits above the Dialog's z-50 backdrop / content
-                  even when a stacking-context ancestor (overflow on the
-                  DialogContent) would otherwise clip the portal. */}
-              <SelectContent className="z-[200] max-h-[300px]">
-                {localSites.length === 0 ? (
-                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    No sites found. Add a site first.
-                  </div>
-                ) : (
-                  localSites.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+              <option value="" disabled>
+                {localSites.length === 0 ? "Loading sites…" : "Pick a site"}
+              </option>
+              {localSites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            {localSites.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                No sites found. Add a site under Sites first.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2">
