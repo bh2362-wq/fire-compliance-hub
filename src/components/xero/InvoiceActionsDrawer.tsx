@@ -85,31 +85,38 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
     setPayAccountCode("");
   }, [open, invoice?.invoiceId]);
 
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
+  const loadAccounts = async () => {
     setAccountsLoading(true);
     setAccountsError(null);
-    (async () => {
-      try {
-        const list = await listXeroBankAccounts();
-        if (cancelled) return;
-        setAccounts(list);
-        // Default to last-used account (persisted), falling back to
-        // the first one returned by Xero. Keeps the picker out of the
-        // user's way when they always pay into the same account.
-        const remembered = localStorage.getItem("lastPaymentAccountCode") || "";
-        const pick = list.find((a) => a.code === remembered) ?? list[0];
-        if (pick?.code) setPayAccountCode(pick.code);
-      } catch (err) {
-        if (cancelled) return;
-        const msg = err instanceof Error ? err.message : "Failed to load bank accounts";
-        setAccountsError(msg);
-      } finally {
-        if (!cancelled) setAccountsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    try {
+      const list = await listXeroBankAccounts();
+      setAccounts(list);
+      // Default to last-used account (persisted), falling back to
+      // the first one returned by Xero. Keeps the picker out of the
+      // user's way when they always pay into the same account.
+      const remembered = localStorage.getItem("lastPaymentAccountCode") || "";
+      const pick = list.find((a) => a.code === remembered) ?? list[0];
+      if (pick?.code) setPayAccountCode(pick.code);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load bank accounts";
+      // Keep the raw error in the console for diagnosis; surface a
+      // friendlier note in the UI. Common cause: the xero-bank-accounts
+      // Edge Function hasn't deployed yet (404 from Lovable's deploy
+      // lag on a brand-new function). The user can still proceed —
+      // xero-apply-payment falls back to Xero's default bank account
+      // when no bankAccountCode is supplied.
+      // eslint-disable-next-line no-console
+      console.warn("[InvoiceActionsDrawer] listXeroBankAccounts failed:", msg);
+      setAccountsError(msg);
+    } finally {
+      setAccountsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    loadAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const close = () => onOpenChange(false);
@@ -298,9 +305,24 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
                 {accountsLoading ? (
                   <Skeleton className="h-9 w-full mt-1" />
                 ) : accountsError ? (
-                  <p className="text-xs text-destructive mt-1">
-                    {accountsError} — Xero will use its default bank account.
-                  </p>
+                  // Most likely cause: the xero-bank-accounts Edge
+                  // Function hasn't deployed yet on a brand-new
+                  // function. Render an info-tone hint so the user
+                  // knows the payment will still go through (Xero
+                  // falls back to its default bank account) and
+                  // offer a retry rather than a scary red error.
+                  <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5">
+                    <p className="text-xs text-muted-foreground">
+                      Couldn't load accounts. Xero will use its default.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={loadAccounts}
+                      className="text-xs font-semibold text-primary hover:underline shrink-0"
+                    >
+                      Retry
+                    </button>
+                  </div>
                 ) : accounts.length === 0 ? (
                   <p className="text-xs text-muted-foreground mt-1">
                     No active bank accounts found — Xero will use its default.
