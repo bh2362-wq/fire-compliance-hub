@@ -186,15 +186,24 @@ Deno.serve(async (req) => {
     });
 
     let bankAccounts: any[] = [];
+    let allAccountsCount = 0;
+    let rawAccountsError = "";
     if (allAccountsResponse.ok) {
       const allAccountsData = await allAccountsResponse.json();
-      // Only accept payment-enabled accounts so we never pick a card account by mistake.
-      bankAccounts = (allAccountsData.Accounts || []).filter(
-        (acc: any) => acc.Type === "BANK" && acc.Status === "ACTIVE" && acc.EnablePaymentsToAccount !== false
+      const allAccounts = allAccountsData.Accounts || [];
+      allAccountsCount = allAccounts.length;
+      // Accept BANK accounts; also accept ACTIVE accounts whose Code matches the
+      // user-supplied bankAccountCode (some orgs map "bank" to a CURRENT asset).
+      bankAccounts = allAccounts.filter(
+        (acc: any) =>
+          acc.Status === "ACTIVE" &&
+          acc.EnablePaymentsToAccount !== false &&
+          (acc.Type === "BANK" || (bankAccountCode && acc.Code === bankAccountCode))
       );
-      console.log(`Found ${bankAccounts.length} payment-enabled bank accounts:`, bankAccounts.map((a: any) => `${a.Name} (Code=${a.Code})`));
+      console.log(`Fetched ${allAccountsCount} total accounts; ${bankAccounts.length} usable:`, bankAccounts.map((a: any) => `${a.Name} (Code=${a.Code}, Type=${a.Type})`));
     } else {
-      console.error("Failed to fetch accounts:", await allAccountsResponse.text());
+      rawAccountsError = await allAccountsResponse.text();
+      console.error("Failed to fetch accounts:", rawAccountsError);
     }
 
     if (bankAccountCode && bankAccounts.length > 0) {
@@ -236,8 +245,11 @@ Deno.serve(async (req) => {
     }
 
     if (!bankAccountId) {
+      const hint = allAccountsCount === 0
+        ? "Xero returned 0 accounts. The Xero connection is likely missing the 'accounting.settings' OAuth scope — disconnect and reconnect Xero to grant it."
+        : `Xero returned ${allAccountsCount} accounts but none are an ACTIVE BANK account with payments enabled${bankAccountCode ? ` matching code '${bankAccountCode}'` : ""}.`;
       return new Response(
-        JSON.stringify({ error: "No payment-enabled bank account found in Xero." }),
+        JSON.stringify({ error: `No payment-enabled bank account found in Xero. ${hint}${rawAccountsError ? ` Raw: ${rawAccountsError.slice(0, 200)}` : ""}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
