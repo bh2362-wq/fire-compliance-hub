@@ -302,6 +302,414 @@ export type Database = {
           },
         ]
       }
+      bafe_backup_cover: {
+        Row: {
+          active: boolean
+          backup_bafe_number: string | null
+          backup_org_name: string
+          contract_expiry: string | null
+          contract_ref: string | null
+          contract_start: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          backup_bafe_number?: string | null
+          backup_org_name: string
+          contract_expiry?: string | null
+          contract_ref?: string | null
+          contract_start?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          backup_bafe_number?: string | null
+          backup_org_name?: string
+          contract_expiry?: string | null
+          contract_ref?: string | null
+          contract_start?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bafe_defect_complaints: {
+        Row: {
+          corrective_action: string | null
+          created_at: string
+          customer_id: string | null
+          customer_prohibited_remedial: boolean
+          description: string | null
+          id: string
+          kpi_month: number | null
+          kpi_year: number | null
+          reported_date: string
+          resolution_date: string | null
+          site_id: string | null
+          type: string
+          updated_at: string
+          visit_id: string | null
+        }
+        Insert: {
+          corrective_action?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_prohibited_remedial?: boolean
+          description?: string | null
+          id?: string
+          kpi_month?: number | null
+          kpi_year?: number | null
+          reported_date: string
+          resolution_date?: string | null
+          site_id?: string | null
+          type: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Update: {
+          corrective_action?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_prohibited_remedial?: boolean
+          description?: string | null
+          id?: string
+          kpi_month?: number | null
+          kpi_year?: number | null
+          reported_date?: string
+          resolution_date?: string | null
+          site_id?: string | null
+          type?: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bafe_defect_complaints_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bafe_defect_complaints_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bafe_defect_complaints_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bafe_false_alarms: {
+        Row: {
+          cause: string | null
+          corrective_action: string | null
+          created_at: string
+          customer_notified: boolean
+          customer_prohibited_action: boolean
+          id: string
+          occurrence_date: string
+          remotely_connected: boolean
+          site_id: string | null
+        }
+        Insert: {
+          cause?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          customer_notified?: boolean
+          customer_prohibited_action?: boolean
+          id?: string
+          occurrence_date: string
+          remotely_connected?: boolean
+          site_id?: string | null
+        }
+        Update: {
+          cause?: string | null
+          corrective_action?: string | null
+          created_at?: string
+          customer_notified?: boolean
+          customer_prohibited_action?: boolean
+          id?: string
+          occurrence_date?: string
+          remotely_connected?: boolean
+          site_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bafe_false_alarms_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bafe_kpi_records: {
+        Row: {
+          actual: number | null
+          created_at: string
+          id: string
+          met: boolean | null
+          metric: string
+          period_month: number
+          period_year: number
+          reviewed_by: string | null
+          reviewed_date: string | null
+          target: number | null
+          variance_notes: string | null
+        }
+        Insert: {
+          actual?: number | null
+          created_at?: string
+          id?: string
+          met?: boolean | null
+          metric: string
+          period_month: number
+          period_year: number
+          reviewed_by?: string | null
+          reviewed_date?: string | null
+          target?: number | null
+          variance_notes?: string | null
+        }
+        Update: {
+          actual?: number | null
+          created_at?: string
+          id?: string
+          met?: boolean | null
+          metric?: string
+          period_month?: number
+          period_year?: number
+          reviewed_by?: string | null
+          reviewed_date?: string | null
+          target?: number | null
+          variance_notes?: string | null
+        }
+        Relationships: []
+      }
+      bafe_lead_individuals: {
+        Row: {
+          cb_notified_date: string | null
+          cpd_records: Json
+          created_at: string
+          departed_date: string | null
+          id: string
+          module: string
+          name: string
+          notes: string | null
+          qualification_body: string | null
+          qualification_date: string | null
+          qualification_level: string | null
+          qualification_name: string | null
+          replacement_deadline: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          cb_notified_date?: string | null
+          cpd_records?: Json
+          created_at?: string
+          departed_date?: string | null
+          id?: string
+          module: string
+          name: string
+          notes?: string | null
+          qualification_body?: string | null
+          qualification_date?: string | null
+          qualification_level?: string | null
+          qualification_name?: string | null
+          replacement_deadline?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          cb_notified_date?: string | null
+          cpd_records?: Json
+          created_at?: string
+          departed_date?: string | null
+          id?: string
+          module?: string
+          name?: string
+          notes?: string | null
+          qualification_body?: string | null
+          qualification_date?: string | null
+          qualification_level?: string | null
+          qualification_name?: string | null
+          replacement_deadline?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      bafe_maintenance_contracts: {
+        Row: {
+          arc_agreement: boolean
+          arc_cert_body: string | null
+          arc_notification_within_24h: boolean
+          arc_provider: string | null
+          clause_1412_inspection_complete: boolean
+          clause_1412_inspection_date: string | null
+          clause_1412_variations_documented: boolean
+          contract_review: string | null
+          contract_start: string | null
+          created_at: string
+          customer_id: string | null
+          fault_attendance_sla_hours: number
+          id: string
+          inherited_system: boolean
+          site_id: string
+          spare_parts_access: boolean
+          spare_parts_notification_date: string | null
+          spare_parts_unavailable_notified: boolean
+          updated_at: string
+        }
+        Insert: {
+          arc_agreement?: boolean
+          arc_cert_body?: string | null
+          arc_notification_within_24h?: boolean
+          arc_provider?: string | null
+          clause_1412_inspection_complete?: boolean
+          clause_1412_inspection_date?: string | null
+          clause_1412_variations_documented?: boolean
+          contract_review?: string | null
+          contract_start?: string | null
+          created_at?: string
+          customer_id?: string | null
+          fault_attendance_sla_hours?: number
+          id?: string
+          inherited_system?: boolean
+          site_id: string
+          spare_parts_access?: boolean
+          spare_parts_notification_date?: string | null
+          spare_parts_unavailable_notified?: boolean
+          updated_at?: string
+        }
+        Update: {
+          arc_agreement?: boolean
+          arc_cert_body?: string | null
+          arc_notification_within_24h?: boolean
+          arc_provider?: string | null
+          clause_1412_inspection_complete?: boolean
+          clause_1412_inspection_date?: string | null
+          clause_1412_variations_documented?: boolean
+          contract_review?: string | null
+          contract_start?: string | null
+          created_at?: string
+          customer_id?: string | null
+          fault_attendance_sla_hours?: number
+          id?: string
+          inherited_system?: boolean
+          site_id?: string
+          spare_parts_access?: boolean
+          spare_parts_notification_date?: string | null
+          spare_parts_unavailable_notified?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bafe_maintenance_contracts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bafe_maintenance_contracts_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: true
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bafe_ms_reviews: {
+        Row: {
+          changes_made: string | null
+          created_at: string
+          id: string
+          next_review_due: string
+          review_date: string
+          reviewed_by: string | null
+        }
+        Insert: {
+          changes_made?: string | null
+          created_at?: string
+          id?: string
+          next_review_due: string
+          review_date: string
+          reviewed_by?: string | null
+        }
+        Update: {
+          changes_made?: string | null
+          created_at?: string
+          id?: string
+          next_review_due?: string
+          review_date?: string
+          reviewed_by?: string | null
+        }
+        Relationships: []
+      }
+      bafe_surveillance_audits: {
+        Row: {
+          audit_type: string
+          certification_body: string | null
+          completed_date: string | null
+          created_at: string
+          id: string
+          next_audit_due: string | null
+          non_compliance_details: string | null
+          outcome: string | null
+          remedial_completed_date: string | null
+          remedial_deadline: string | null
+          scheduled_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          audit_type: string
+          certification_body?: string | null
+          completed_date?: string | null
+          created_at?: string
+          id?: string
+          next_audit_due?: string | null
+          non_compliance_details?: string | null
+          outcome?: string | null
+          remedial_completed_date?: string | null
+          remedial_deadline?: string | null
+          scheduled_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audit_type?: string
+          certification_body?: string | null
+          completed_date?: string | null
+          created_at?: string
+          id?: string
+          next_audit_due?: string | null
+          non_compliance_details?: string | null
+          outcome?: string | null
+          remedial_completed_date?: string | null
+          remedial_deadline?: string | null
+          scheduled_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cause_effect_matrices: {
         Row: {
           id: string
@@ -795,6 +1203,15 @@ export type Database = {
       company_settings: {
         Row: {
           address: string | null
+          bafe_cb_certificate_ref: string | null
+          bafe_certification_body: string | null
+          bafe_modules_certified: string[] | null
+          bafe_primary_contact_id: string | null
+          bafe_registration_expiry: string | null
+          bafe_registration_number: string | null
+          bafe_suspended: boolean | null
+          bafe_suspension_date: string | null
+          bafe_suspension_reason: string | null
           bank_account_name: string | null
           bank_account_number: string | null
           bank_name: string | null
@@ -819,6 +1236,15 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          bafe_cb_certificate_ref?: string | null
+          bafe_certification_body?: string | null
+          bafe_modules_certified?: string[] | null
+          bafe_primary_contact_id?: string | null
+          bafe_registration_expiry?: string | null
+          bafe_registration_number?: string | null
+          bafe_suspended?: boolean | null
+          bafe_suspension_date?: string | null
+          bafe_suspension_reason?: string | null
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
@@ -843,6 +1269,15 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          bafe_cb_certificate_ref?: string | null
+          bafe_certification_body?: string | null
+          bafe_modules_certified?: string[] | null
+          bafe_primary_contact_id?: string | null
+          bafe_registration_expiry?: string | null
+          bafe_registration_number?: string | null
+          bafe_suspended?: boolean | null
+          bafe_suspension_date?: string | null
+          bafe_suspension_reason?: string | null
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
@@ -5542,9 +5977,16 @@ export type Database = {
       }
       site_bafe_certificates: {
         Row: {
+          bafe_cert_type: string | null
+          bafe_modules_covered: string[] | null
+          bafe_registered_org_ref: string | null
+          bs5839_cert_issued: boolean
           certificate_number: string
           certificate_type: string
+          certification_body: string | null
+          completion_date: string | null
           created_at: string
+          customer_id: string | null
           expiry_date: string | null
           id: string
           issued_by: string
@@ -5552,14 +5994,27 @@ export type Database = {
           linked_form_submission_id: string | null
           linked_report_id: string | null
           notes: string | null
+          retained_copy: boolean
+          signed_by: string | null
+          site_address_snapshot: string | null
           site_id: string
           status: string
           updated_at: string
+          variations_list: string | null
+          voided: boolean
+          voided_reason: string | null
         }
         Insert: {
+          bafe_cert_type?: string | null
+          bafe_modules_covered?: string[] | null
+          bafe_registered_org_ref?: string | null
+          bs5839_cert_issued?: boolean
           certificate_number: string
           certificate_type: string
+          certification_body?: string | null
+          completion_date?: string | null
           created_at?: string
+          customer_id?: string | null
           expiry_date?: string | null
           id?: string
           issued_by: string
@@ -5567,14 +6022,27 @@ export type Database = {
           linked_form_submission_id?: string | null
           linked_report_id?: string | null
           notes?: string | null
+          retained_copy?: boolean
+          signed_by?: string | null
+          site_address_snapshot?: string | null
           site_id: string
           status?: string
           updated_at?: string
+          variations_list?: string | null
+          voided?: boolean
+          voided_reason?: string | null
         }
         Update: {
+          bafe_cert_type?: string | null
+          bafe_modules_covered?: string[] | null
+          bafe_registered_org_ref?: string | null
+          bs5839_cert_issued?: boolean
           certificate_number?: string
           certificate_type?: string
+          certification_body?: string | null
+          completion_date?: string | null
           created_at?: string
+          customer_id?: string | null
           expiry_date?: string | null
           id?: string
           issued_by?: string
@@ -5582,11 +6050,24 @@ export type Database = {
           linked_form_submission_id?: string | null
           linked_report_id?: string | null
           notes?: string | null
+          retained_copy?: boolean
+          signed_by?: string | null
+          site_address_snapshot?: string | null
           site_id?: string
           status?: string
           updated_at?: string
+          variations_list?: string | null
+          voided?: boolean
+          voided_reason?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "site_bafe_certificates_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "site_bafe_certificates_linked_form_submission_id_fkey"
             columns: ["linked_form_submission_id"]
@@ -6070,17 +6551,27 @@ export type Database = {
       subcontractors: {
         Row: {
           address: string | null
+          bafe_expiry_date: string | null
+          bafe_modules_held: string[] | null
+          bafe_registration_number: string | null
+          bafe_verified_date: string | null
           city: string | null
           company_name: string
+          competency_notes: string | null
           contact_name: string | null
           created_at: string
           created_by: string
           day_rate: number | null
+          electrical_cert_body: string | null
+          electrical_cert_ref: string | null
+          electrical_only: boolean
           email: string | null
           hourly_rate: number | null
           id: string
           insurance_document_url: string | null
           insurance_expiry: string | null
+          iso17065_cert_ref: string | null
+          iso17065_equivalent: boolean
           notes: string | null
           phone: string | null
           postcode: string | null
@@ -6090,17 +6581,27 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          bafe_expiry_date?: string | null
+          bafe_modules_held?: string[] | null
+          bafe_registration_number?: string | null
+          bafe_verified_date?: string | null
           city?: string | null
           company_name: string
+          competency_notes?: string | null
           contact_name?: string | null
           created_at?: string
           created_by: string
           day_rate?: number | null
+          electrical_cert_body?: string | null
+          electrical_cert_ref?: string | null
+          electrical_only?: boolean
           email?: string | null
           hourly_rate?: number | null
           id?: string
           insurance_document_url?: string | null
           insurance_expiry?: string | null
+          iso17065_cert_ref?: string | null
+          iso17065_equivalent?: boolean
           notes?: string | null
           phone?: string | null
           postcode?: string | null
@@ -6110,17 +6611,27 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          bafe_expiry_date?: string | null
+          bafe_modules_held?: string[] | null
+          bafe_registration_number?: string | null
+          bafe_verified_date?: string | null
           city?: string | null
           company_name?: string
+          competency_notes?: string | null
           contact_name?: string | null
           created_at?: string
           created_by?: string
           day_rate?: number | null
+          electrical_cert_body?: string | null
+          electrical_cert_ref?: string | null
+          electrical_only?: boolean
           email?: string | null
           hourly_rate?: number | null
           id?: string
           insurance_document_url?: string | null
           insurance_expiry?: string | null
+          iso17065_cert_ref?: string | null
+          iso17065_equivalent?: boolean
           notes?: string | null
           phone?: string | null
           postcode?: string | null
@@ -6713,6 +7224,17 @@ export type Database = {
       }
     }
     Views: {
+      bafe_compliance_alerts: {
+        Row: {
+          alert_kind: string | null
+          deadline: string | null
+          detail: Json | null
+          message: string | null
+          severity: string | null
+          subject_id: string | null
+        }
+        Relationships: []
+      }
       microsoft_tokens_safe: {
         Row: {
           connected_at: string | null
