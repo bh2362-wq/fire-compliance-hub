@@ -393,8 +393,20 @@ Deno.serve(async (req) => {
       // so PDFs are actually fed to Claude instead of permanently
       // short-circuiting on a stale header row.
       if (emailRow.raw?.hasAttachments === true && (existing.pdf_count ?? 0) === 0 && !hasAttachmentDiagnostics) {
-        await supabase.from("remittance_line_items").delete().eq("remittance_id", existing.id);
-        await supabase.from("remittance_advices").delete().eq("id", existing.id);
+        const { data: existingLines } = await supabase
+          .from("remittance_line_items")
+          .select("status")
+          .eq("remittance_id", existing.id);
+        const hasAppliedLine = (existingLines ?? []).some((line) => line.status === "applied");
+        if (!hasAppliedLine) {
+          await supabase.from("remittance_line_items").delete().eq("remittance_id", existing.id);
+          await supabase.from("remittance_advices").delete().eq("id", existing.id);
+        } else {
+          return new Response(
+            JSON.stringify({ remittance_id: existing.id, status: existing.status, line_item_count: 0, matched_count: 0, already_parsed: true }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
       } else {
       return new Response(
         JSON.stringify({ remittance_id: existing.id, status: existing.status, line_item_count: 0, matched_count: 0, already_parsed: true }),
