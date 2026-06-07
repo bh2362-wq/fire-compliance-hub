@@ -192,15 +192,17 @@ Deno.serve(async (req) => {
       const allAccountsData = await allAccountsResponse.json();
       const allAccounts = allAccountsData.Accounts || [];
       allAccountsCount = allAccounts.length;
-      // Accept BANK accounts; also accept ACTIVE accounts whose Code matches the
-      // user-supplied bankAccountCode (some orgs map "bank" to a CURRENT asset).
-      bankAccounts = allAccounts.filter(
-        (acc: any) =>
-          acc.Status === "ACTIVE" &&
-          acc.EnablePaymentsToAccount !== false &&
-          (acc.Type === "BANK" || (bankAccountCode && acc.Code === bankAccountCode))
-      );
+      // When the caller supplies an explicit bankAccountCode (e.g. the Bibby
+      // factoring control account "791"), trust it: match any ACTIVE account
+      // with that code regardless of Type/EnablePaymentsToAccount. Otherwise
+      // fall back to standard BANK + payments-enabled accounts.
+      bankAccounts = allAccounts.filter((acc: any) => {
+        if (acc.Status !== "ACTIVE") return false;
+        if (bankAccountCode && acc.Code === bankAccountCode) return true;
+        return acc.Type === "BANK" && acc.EnablePaymentsToAccount !== false;
+      });
       console.log(`Fetched ${allAccountsCount} total accounts; ${bankAccounts.length} usable:`, bankAccounts.map((a: any) => `${a.Name} (Code=${a.Code}, Type=${a.Type})`));
+
     } else {
       rawAccountsError = await allAccountsResponse.text();
       console.error("Failed to fetch accounts:", rawAccountsError);
