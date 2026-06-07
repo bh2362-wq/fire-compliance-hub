@@ -349,6 +349,28 @@ function ContractDialog({
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
+  // Defensive: if the dialog opens before the parent finished loading
+  // sites (race on initial mount → click "Add" before sites land), the
+  // dropdown would be empty and the user can't pick anything. Refetch
+  // here on open so the picker is always populated.
+  const [localSites, setLocalSites] = useState<{ id: string; name: string }[]>(sites);
+  useEffect(() => {
+    setLocalSites(sites);
+  }, [sites]);
+  useEffect(() => {
+    if (!state || localSites.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("sites")
+        .select("id, name")
+        .order("name");
+      if (cancelled) return;
+      setLocalSites(data ?? []);
+    })();
+    return () => { cancelled = true; };
+  }, [state, localSites.length]);
+
   useEffect(() => {
     if (state?.mode === "edit") {
       const c = state.contract;
@@ -452,14 +474,23 @@ function ContractDialog({
               disabled={isEdit}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Pick a site" />
+                <SelectValue placeholder={localSites.length === 0 ? "Loading sites…" : "Pick a site"} />
               </SelectTrigger>
-              <SelectContent>
-                {sites.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
+              {/* z-[200] sits above the Dialog's z-50 backdrop / content
+                  even when a stacking-context ancestor (overflow on the
+                  DialogContent) would otherwise clip the portal. */}
+              <SelectContent className="z-[200] max-h-[300px]">
+                {localSites.length === 0 ? (
+                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    No sites found. Add a site first.
+                  </div>
+                ) : (
+                  localSites.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
