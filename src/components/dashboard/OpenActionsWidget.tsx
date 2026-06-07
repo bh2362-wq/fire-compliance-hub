@@ -270,17 +270,32 @@ export function OpenActionsWidget() {
               }
             };
             const handleDismissEmail = async (e: React.MouseEvent) => {
+              // Aggressive event-stopping. The X sits inside an outer
+              // div that's also clickable — without all three of these
+              // the parent's navigate-to-email-scanner click can fire
+              // immediately after and the dismiss never appears to
+              // happen even though it was queued.
               e.stopPropagation();
-              if (!it.emailActionId) return;
+              e.preventDefault();
+              e.nativeEvent?.stopImmediatePropagation?.();
+              if (!it.emailActionId) {
+                console.warn("[OpenActions] dismiss clicked but no emailActionId", it);
+                toast.error("Couldn't dismiss — missing email action id");
+                return;
+              }
+              // Optimistic drop so the row vanishes the moment the X is
+              // hit, even before the server round-trip. If the update
+              // errors we'll surface a toast (the item will reappear on
+              // the next refetch).
+              setItems((prev) => prev.filter((p) => p.id !== it.id));
               try {
                 await dismissActionItem(it.emailActionId);
                 toast.success("Email action dismissed", {
                   description: "This email won't reappear here.",
                 });
-                // Drop it locally without waiting for a refetch.
-                setItems((prev) => prev.filter((p) => p.id !== it.id));
               } catch (err) {
                 const msg = err instanceof Error ? err.message : "Couldn't dismiss";
+                console.error("[OpenActions] dismissActionItem failed:", err);
                 toast.error("Couldn't dismiss", { description: msg });
               }
             };
@@ -317,8 +332,10 @@ export function OpenActionsWidget() {
                   <button
                     type="button"
                     onClick={handleDismissEmail}
+                    onMouseDown={(e) => { e.stopPropagation(); }}
+                    onPointerDown={(e) => { e.stopPropagation(); }}
                     aria-label="Dismiss email action"
-                    className="w-7 h-7 rounded-md hover:bg-foreground/10 flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                    className="w-7 h-7 rounded-md hover:bg-foreground/10 flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground transition-colors relative z-10"
                   >
                     <X className="w-4 h-4" />
                   </button>
