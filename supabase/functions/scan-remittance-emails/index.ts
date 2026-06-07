@@ -180,28 +180,55 @@ Deno.serve(async (req) => {
         .map((r) => r.message_id),
     );
 
-    const toProcess = heuristicallyRelevant.filter((e) => !seen.has(e.message_id));
+    const toProcessAll = heuristicallyRelevant.filter((e) => !seen.has(e.message_id));
+
+    // Edge Functions have a hard execution budget (~150s on Supabase),
+    // and each parse-remittance-email call is dominated by a Claude
+    // request (~5–15s). With the 30-day window we now routinely see
+    // 20+ candidates per scan — sequential processing blows through
+    // the budget and the response never reaches the UI (spinner hangs).
+    //
+    // Fix: process AT MOST N candidates per call, with concurrency C.
+    // Anything beyond N is left in the queue — the next 'Scan now'
+    // press picks them up (dedup means already-parsed ones are
+    // smart-skipped). UI surfaces how many are still pending.
+    const PARSE_CAP_PER_SCAN = 10;
+    const PARSE_CONCURRENCY  = 3;
+
+    const toProcess = toProcessAll.slice(0, PARSE_CAP_PER_SCAN);
+    const deferred  = toProcessAll.length - toProcess.length;
 
     const results: Array<{ scanned_email_id: string; status: string; error?: string }> = [];
-    for (const email of toProcess) {
-      try {
-        const { data, error } = await supabase.functions.invoke("parse-remittance-email", {
-          body: { scanned_email_id: email.id },
-          headers: { Authorization: authHeader },
-        });
-        if (error) {
-          results.push({ scanned_email_id: email.id, status: "error", error: error.message });
-        } else {
-          results.push({
-            scanned_email_id: email.id,
-            status: (data?.status as string) ?? "queued",
-            error: data?.error as string | undefined,
+
+    // Concurrent worker pool — keeps up to PARSE_CONCURRENCY calls
+    // in flight at once. Roughly cuts wall-clock to total/concurrency.
+    let cursor = 0;
+    async function worker() {
+      while (cursor < toProcess.length) {
+        const idx = cursor++;
+        const email = toProcess[idx];
+        try {
+          const { data, error } = await supabase.functions.invoke("parse-remittance-email", {
+            body: { scanned_email_id: email.id },
+            headers: { Authorization: authHeader },
           });
+          if (error) {
+            results.push({ scanned_email_id: email.id, status: "error", error: error.message });
+          } else {
+            results.push({
+              scanned_email_id: email.id,
+              status: (data?.status as string) ?? "queued",
+              error: data?.error as string | undefined,
+            });
+          }
+        } catch (e) {
+          results.push({ scanned_email_id: email.id, status: "error", error: (e as Error).message });
         }
-      } catch (e) {
-        results.push({ scanned_email_id: email.id, status: "error", error: (e as Error).message });
       }
     }
+    await Promise.all(
+      Array.from({ length: Math.min(PARSE_CONCURRENCY, toProcess.length) }, () => worker()),
+    );
 
     // Roll-up so the "Scan now" button can show a useful summary
     // (e.g. "scanned 42, parsed 3, 1 duplicate") rather than just a
@@ -219,6 +246,9 @@ Deno.serve(async (req) => {
         relevant: heuristicallyRelevant.length,
         already_parsed: seen.size,
         queued: results.length,
+        /** Candidates left after the per-scan parse cap. > 0 means
+         *  the user should press Scan again to drain the queue. */
+        deferred,
         parsed_count: parsedCount,
         needs_review_count: reviewCount,
         dismissed_count: dismissedCount,

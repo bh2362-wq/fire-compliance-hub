@@ -421,12 +421,17 @@ export default function RemittanceAdvicePage() {
       if ((result.failed_count ?? 0) > 0) breakdownParts.push(`${result.failed_count} failed`);
       const breakdown = breakdownParts.length > 0 ? ` · ${breakdownParts.join(", ")}` : "";
 
+      const deferredSuffix = (result.deferred ?? 0) > 0
+        ? ` · ${result.deferred} more — press Scan again`
+        : "";
+
       toast({
         title: "Scan complete",
         description:
           `Last ${Math.round(HOURS_BACK / 24)} days · ${result.scanned} emails · ` +
           `${result.relevant} looked like remittances · ${result.queued} queued · ` +
-          `${result.already_parsed} already known${breakdown}.`,
+          `${result.already_parsed} already known${breakdown}${deferredSuffix}.`,
+        duration: (result.deferred ?? 0) > 0 ? 10_000 : 6_000,
       });
       await loadEverything();
     } catch (e) {

@@ -174,6 +174,9 @@ export async function scanRemittanceEmails(opts?: { hours_back?: number }): Prom
   dismissed_count?: number;
   duplicate_count?: number;
   failed_count?: number;
+  /** Candidates left after the per-scan cap. >0 means another Scan press
+   *  is needed to drain the queue. */
+  deferred?: number;
   results: Array<{ scanned_email_id: string; status: string; error?: string }>;
 }> {
   const { data, error } = await supabase.functions.invoke("scan-remittance-emails", {
