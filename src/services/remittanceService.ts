@@ -154,10 +154,74 @@ export async function countRemittancesByStatus(): Promise<Record<RemittanceStatu
   return totals;
 }
 
-export async function dismissRemittance(id: string): Promise<void> {
+export type DismissRuleKind = "from_address" | "from_domain" | "subject_contains";
+
+export interface DismissRule {
+  id: string;
+  match_kind: DismissRuleKind;
+  match_value: string;
+  hit_count: number;
+  last_hit_at: string | null;
+  note: string | null;
+  source_remittance_id: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+/** Dismiss a remittance + optionally create a learning rule so future
+ *  emails matching the same sender / subject are auto-dismissed
+ *  without burning an AI call. The "remember" path is what gets the
+ *  scanner toward autopilot — every false positive the user clears
+ *  trains the next scan.
+ */
+export async function dismissRemittance(
+  id: string,
+  opts?: {
+    rule?: {
+      kind: DismissRuleKind;
+      value: string;
+      note?: string;
+    };
+  },
+): Promise<void> {
   const { error } = await (supabase as unknown as { from: (t: string) => any })
     .from("remittance_advices")
     .update({ status: "dismissed" })
+    .eq("id", id);
+  if (error) throw error;
+
+  if (opts?.rule) {
+    const cleaned = opts.rule.value.trim().toLowerCase();
+    if (!cleaned) return;
+    // Best-effort: if a rule for this {kind, value} already exists the
+    // UNIQUE constraint trips and we silently move on — the desired
+    // outcome either way is "this thing is blocked".
+    const { data: userData } = await supabase.auth.getUser();
+    await (supabase as unknown as { from: (t: string) => any })
+      .from("remittance_dismiss_rules")
+      .insert({
+        match_kind: opts.rule.kind,
+        match_value: cleaned,
+        note: opts.rule.note ?? null,
+        source_remittance_id: id,
+        created_by: userData?.user?.id ?? null,
+      });
+  }
+}
+
+export async function listDismissRules(): Promise<DismissRule[]> {
+  const { data, error } = await (supabase as unknown as { from: (t: string) => any })
+    .from("remittance_dismiss_rules")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as DismissRule[];
+}
+
+export async function deleteDismissRule(id: string): Promise<void> {
+  const { error } = await (supabase as unknown as { from: (t: string) => any })
+    .from("remittance_dismiss_rules")
+    .delete()
     .eq("id", id);
   if (error) throw error;
 }
