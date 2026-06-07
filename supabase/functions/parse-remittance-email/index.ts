@@ -121,9 +121,21 @@ function normaliseInvoiceNumber(raw: string): string {
   return raw
     .toUpperCase()
     .replace(/\s+/g, "")
-    .replace(/[/-]/g, "")
     .replace(/\/\d{4}$/, "") // strip trailing /YYYY before separator removal would have eaten it
+    .replace(/[/-]/g, "")
     .replace(/^0+(?=\d)/, ""); // drop leading zeros so 0001234 == 1234
+}
+
+function amountKey(amount: number | null | undefined): string | null {
+  if (amount == null || Number.isNaN(Number(amount))) return null;
+  return Number(amount).toFixed(2);
+}
+
+function allocationKey(invoiceNumber: string | null | undefined, amount: number | null | undefined): string | null {
+  if (!invoiceNumber) return null;
+  const amt = amountKey(amount);
+  if (!amt) return null;
+  return `${normaliseInvoiceNumber(invoiceNumber)}::${amt}`;
 }
 
 const SYSTEM_PROMPT = `You are an accounts assistant at BHO Fire Ltd. Your job is to extract structured remittance-advice data from an email (and any attached PDF). Remittance advices tell BHO that one or more of their invoices have been paid.
