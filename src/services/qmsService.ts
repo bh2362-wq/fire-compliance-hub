@@ -573,9 +573,80 @@ export const fetchManagementReviews = async (): Promise<QMSManagementReview[]> =
     .from('qms_management_reviews')
     .select('*')
     .order('review_date', { ascending: false });
-  
+
   if (error) throw error;
   return (data || []) as unknown as QMSManagementReview[];
+};
+
+export const fetchManagementReview = async (id: string): Promise<QMSManagementReview> => {
+  const { data, error } = await supabase
+    .from('qms_management_reviews')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return data as unknown as QMSManagementReview;
+};
+
+/** Schedule a new management review. Returns the freshly-created row.
+ *  review_number is generated via the get_next_qms_number RPC so the
+ *  series matches the rest of the QMS module (NCR-, CAPA-, etc.).
+ */
+export const createManagementReview = async (input: {
+  review_date: string;
+  attendees: string[];
+  next_review_date?: string | null;
+  agenda?: unknown[];
+}): Promise<QMSManagementReview> => {
+  const { data: numData, error: numErr } = await supabase.rpc('get_next_qms_number', { prefix: 'MR' });
+  if (numErr) throw numErr;
+  const reviewNumber = (numData as string) || `MR-${new Date().getFullYear()}-001`;
+
+  const { data: u } = await supabase.auth.getUser();
+  if (!u?.user) throw new Error('Not signed in');
+
+  const { data, error } = await supabase
+    .from('qms_management_reviews')
+    .insert({
+      review_number: reviewNumber,
+      review_date: input.review_date,
+      attendees: input.attendees,
+      next_review_date: input.next_review_date ?? null,
+      agenda: (input.agenda ?? []) as never,
+      status: 'scheduled',
+      created_by: u.user.id,
+      kpi_data: {} as never,
+      decisions: [] as never,
+      action_items: [] as never,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as unknown as QMSManagementReview;
+};
+
+/** Patch a review row. Used to save in-progress edits and to mark
+ *  the row as completed. Generic shape so the detail dialog can push
+ *  whichever subset of fields it has dirtied.
+ */
+export const updateManagementReview = async (
+  id: string,
+  patch: Partial<{
+    status: 'scheduled' | 'in_progress' | 'completed';
+    attendees: string[];
+    agenda: unknown[];
+    kpi_data: Record<string, unknown>;
+    decisions: unknown[];
+    action_items: unknown[];
+    minutes: string | null;
+    next_review_date: string | null;
+  }>,
+): Promise<void> => {
+  const { error } = await supabase
+    .from('qms_management_reviews')
+    .update(patch as never)
+    .eq('id', id);
+  if (error) throw error;
 };
 
 // ============================================

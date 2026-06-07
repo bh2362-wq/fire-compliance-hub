@@ -1,30 +1,45 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { 
-  BarChart3, 
-  Plus, 
+import {
+  BarChart3,
+  Plus,
   Calendar,
   TrendingUp,
   TrendingDown,
   Users,
-  FileText
+  FileText,
 } from "lucide-react";
-import { fetchManagementReviews, fetchQMSKPIs, QMSManagementReview } from "@/services/qmsService";
+import { fetchManagementReviews, fetchQMSKPIs } from "@/services/qmsService";
 import { format } from "date-fns";
+import { ScheduleReviewDialog } from "@/components/qms/ScheduleReviewDialog";
+import { ManagementReviewDetailDialog } from "@/components/qms/ManagementReviewDetailDialog";
 
 const ManagementReview = () => {
+  const queryClient = useQueryClient();
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  // null = dialog closed. Setting to a row id opens the detail dialog
+  // for that row (works for scheduled, in-progress, and completed
+  // reviews — the dialog flips to read-only on completed).
+  const [detailReviewId, setDetailReviewId] = useState<string | null>(null);
+
+  const refreshReviews = () => {
+    queryClient.invalidateQueries({ queryKey: ['qms-management-reviews'] });
+    queryClient.invalidateQueries({ queryKey: ['qms-kpis'] });
+  };
+
   const { data: reviews, isLoading } = useQuery({
     queryKey: ['qms-management-reviews'],
     queryFn: fetchManagementReviews,
@@ -44,7 +59,7 @@ const ManagementReview = () => {
     }
   };
 
-  const upcomingReview = reviews?.find(r => r.status === 'scheduled');
+  const upcomingReview = reviews?.find(r => r.status === 'scheduled' || r.status === 'in_progress');
   const completedReviews = reviews?.filter(r => r.status === 'completed') || [];
 
   return (
@@ -56,7 +71,7 @@ const ManagementReview = () => {
             <h2 className="text-2xl font-bold text-foreground">Management Review</h2>
             <p className="text-muted-foreground">QMS performance review and strategic decisions</p>
           </div>
-          <Button>
+          <Button onClick={() => setScheduleOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Schedule Review
           </Button>
@@ -75,10 +90,15 @@ const ManagementReview = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap">
                 <Badge className="text-sm">{upcomingReview.review_number}</Badge>
-                <Button variant="outline" size="sm">View Agenda</Button>
-                <Button size="sm">Start Review</Button>
+                <Badge variant="outline" className="capitalize">{upcomingReview.status.replace("_", " ")}</Badge>
+                <Button
+                  size="sm"
+                  onClick={() => setDetailReviewId(upcomingReview.id)}
+                >
+                  {upcomingReview.status === 'scheduled' ? 'Start Review' : 'Open Review'}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -226,7 +246,11 @@ const ManagementReview = () => {
                 </TableHeader>
                 <TableBody>
                   {completedReviews.map((review) => (
-                    <TableRow key={review.id} className="cursor-pointer hover:bg-muted/50">
+                    <TableRow
+                      key={review.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setDetailReviewId(review.id)}
+                    >
                       <TableCell className="font-mono">{review.review_number}</TableCell>
                       <TableCell>{format(new Date(review.review_date), 'dd MMM yyyy')}</TableCell>
                       <TableCell>{review.attendees?.length || 0} attendees</TableCell>
@@ -245,6 +269,24 @@ const ManagementReview = () => {
           </CardContent>
         </Card>
       </div>
+
+      <ScheduleReviewDialog
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        onScheduled={(id) => {
+          refreshReviews();
+          // Drop the user straight into the detail editor so they can
+          // populate inputs/outputs immediately.
+          setDetailReviewId(id);
+        }}
+      />
+
+      <ManagementReviewDetailDialog
+        reviewId={detailReviewId}
+        open={detailReviewId !== null}
+        onOpenChange={(o) => { if (!o) setDetailReviewId(null); }}
+        onChanged={refreshReviews}
+      />
     </DashboardLayout>
   );
 };
