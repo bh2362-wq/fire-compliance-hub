@@ -15,6 +15,15 @@ export interface CompanySettings {
   report_logo_url: string | null;
   report_footer_text: string | null;
   default_engineer_signature: string | null;
+  /** Director name pre-filled into the AUTHORISATION block on every
+   *  QMS document PDF. Falls back to a blank line when null. */
+  director_name: string | null;
+  /** Director role (e.g. "Managing Director") printed under the name. */
+  director_role: string | null;
+  /** Director signature image — base64 data URL or storage URL.
+   *  Same shape as default_engineer_signature so the upload widget
+   *  in ReportBrandingTab reuses the same path. */
+  director_signature_url: string | null;
   default_payment_terms: number | null;
   bank_name: string | null;
   bank_account_name: string | null;
