@@ -26,48 +26,60 @@ const corsHeaders = {
 
 const DEFAULT_MAILBOXES = ["accounts@bhofire.com", "ben@bhofire.com"];
 
-// Cheap pre-filter so we don't burn AI credit on every newsletter that
-// lands in the accounts inbox. The actual is_remittance decision is made
-// by Claude — these are just heuristics for "worth showing to the model".
+// Two-tier pre-filter so we don't burn AI credit on every newsletter
+// but also don't reject real remittances whose subject lines are
+// generic ("Re: Reconcile", "ADI GLOBAL DISTRIBUTION-1701552").
 //
-// History
-//   v1 (initial): /remittance/i, /payment\s+advice/i, /payment\s+received/i,
-//                 /payment\s+confirmation/i, /funds\s+transferred/i, /bibby/i
+//   STRONG_HINTS — definite remittance signals. A subject / body
+//                  match on any of these queues the email outright.
+//   POSSIBLE_HINTS — weaker signals (just "payment" / "paid" /
+//                    "reconcile" anywhere). Queues only if the
+//                    haystack ALSO contains a currency amount —
+//                    cuts down false positives from "I haven't been
+//                    paid yet" supplier chases.
+//   KNOWN_PAYER_ADDRESSES — sender allowlist. Every email from these
+//                           queues regardless of subject / body.
 //
-//   v2 (this version): broadened after the user reported the email
-//   scanner full-text search finding remittances that this function
-//   was rejecting — e.g. Solar Fire's "Payment has been made by …",
-//   RS Components' "Monthly Account Statement", and client replies
-//   threaded as "Re: Reconcile". The bar is intentionally generous;
-//   if Claude says is_remittance=false the row is marked dismissed
-//   and doesn't show in the user's queue.
-const REMITTANCE_HINTS = [
+// Claude makes the final is_remittance decision — anything that
+// queues but isn't a remittance gets marked 'dismissed' in
+// parse-remittance-email and never pollutes the user's queue.
+const STRONG_HINTS = [
   /remittance/i,
   /payment\s+advice/i,
   /payment\s+notification/i,
-  /payment\s+received/i,
   /payment\s+confirmation/i,
+  /payment\s+received/i,
+  /payment\s+has\s+been\s+made/i,
+  /\bpayment\s+made\s+(by|for|of)/i,
   /funds\s+transferred/i,
   /bibby/i,
-  // New patterns the user flagged:
-  /payment\s+has\s+been\s+made/i,        // "Payment has been made by Solar Fire …"
-  /\bpayment\s+made\s+(by|for|of)/i,     // "Payment made by …"
-  /^reconcile\b|\breconcile\s+(of|for)/i,// "Reconcile" / "Re: Reconcile of invoice …"
-  /monthly\s+account\s+statement/i,      // "RS Components Monthly Account Statement"
-  /\bstatement\s+of\s+account/i,         // generic statement subject
+  /monthly\s+account\s+statement/i,
+  /\bstatement\s+of\s+account/i,
   /paid\s+invoice/i,
-  /payment\s+for\s+£/i,                  // "Payment for £4,164 …"
+  /payment\s+for\s+£/i,
   /credit\s+note/i,
-  /factoring/i,                          // generic factoring subject
+  /factoring/i,
+  /allocated\s+to/i,                     // "Payment allocated to invoice …"
 ];
 
-// Known payers / collection mailboxes whose every email is worth
-// showing to Claude. Belt and braces — even if the subject misses
-// all the heuristics, an email from one of these always queues.
-// Lowercase comparison.
+// Weaker tier — must co-occur with a currency amount.
+const POSSIBLE_HINTS = [
+  /\breconcile\b/i,                      // "Re: Reconcile" / "Reconcile" — needed an amount nearby
+  /\bpayment\b/i,                        // bare "payment"
+  /\bpaid\b/i,                           // bare "paid"
+  /\bsettled\b/i,                        // "invoice settled"
+  /\breceived\b/i,                       // bare "received"
+];
+
+// Currency / amount mention — co-required for the POSSIBLE tier.
+// Matches £1234, GBP 1234, $1234, etc.
+const AMOUNT_PATTERN = /(?:£|gbp|eur|usd|\$)\s*\d/i;
+
 const KNOWN_PAYER_ADDRESSES = [
   "accounts@solarfireservices.co.uk",
   "collectionsuk@rs-components.com",
+  "adi-global.com",          // ADI GLOBAL DISTRIBUTION — any address @adi-global.com
+  "adiglobaldistribution",   // safety net for variant domains
   // Add more here as you spot recurring payers.
 ];
 
@@ -82,7 +94,17 @@ function looksLikeRemittance(
   // subject is buried under "Fw:" / "Fwd:" — the remittance language
   // lives in the body instead.
   const haystack = `${subject ?? ""} ${from ?? ""} ${bodyPreview ?? ""}`;
-  return REMITTANCE_HINTS.some((re) => re.test(haystack));
+  if (STRONG_HINTS.some((re) => re.test(haystack))) return true;
+  // Possible-tier: need a weak signal AND a currency amount in the
+  // same haystack. A "Re: Reconcile" subject alone won't match, but
+  // "Re: Reconcile … £4,164" will.
+  if (
+    POSSIBLE_HINTS.some((re) => re.test(haystack)) &&
+    AMOUNT_PATTERN.test(haystack)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 Deno.serve(async (req) => {

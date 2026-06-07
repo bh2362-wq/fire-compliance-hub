@@ -398,11 +398,22 @@ export default function RemittanceAdvicePage() {
     setScanning(true);
     try {
       const result = await scanRemittanceEmails({ hours_back: 168 });
+      // Build a sharper breakdown so when "0 newly parsed" comes
+      // back we can see *why* — claude dismissed them, they
+      // duplicated something, the parse failed, etc.
+      const breakdownParts: string[] = [];
+      if ((result.parsed_count ?? 0) > 0) breakdownParts.push(`${result.parsed_count} parsed`);
+      if ((result.needs_review_count ?? 0) > 0) breakdownParts.push(`${result.needs_review_count} need review`);
+      if ((result.duplicate_count ?? 0) > 0) breakdownParts.push(`${result.duplicate_count} duplicate`);
+      if ((result.dismissed_count ?? 0) > 0) breakdownParts.push(`${result.dismissed_count} dismissed by AI`);
+      if ((result.failed_count ?? 0) > 0) breakdownParts.push(`${result.failed_count} failed`);
+      const breakdown = breakdownParts.length > 0 ? ` · ${breakdownParts.join(", ")}` : "";
+
       toast({
         title: "Scan complete",
         description:
           `Checked ${result.scanned} emails · ${result.relevant} looked like remittances · ` +
-          `${result.queued} newly parsed · ${result.already_parsed} already known.`,
+          `${result.queued} queued · ${result.already_parsed} already known${breakdown}.`,
       });
       await loadEverything();
     } catch (e) {
