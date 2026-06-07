@@ -121,9 +121,21 @@ function normaliseInvoiceNumber(raw: string): string {
   return raw
     .toUpperCase()
     .replace(/\s+/g, "")
-    .replace(/[/-]/g, "")
     .replace(/\/\d{4}$/, "") // strip trailing /YYYY before separator removal would have eaten it
+    .replace(/[/-]/g, "")
     .replace(/^0+(?=\d)/, ""); // drop leading zeros so 0001234 == 1234
+}
+
+function amountKey(amount: number | null | undefined): string | null {
+  if (amount == null || Number.isNaN(Number(amount))) return null;
+  return Number(amount).toFixed(2);
+}
+
+function allocationKey(invoiceNumber: string | null | undefined, amount: number | null | undefined): string | null {
+  if (!invoiceNumber) return null;
+  const amt = amountKey(amount);
+  if (!amt) return null;
+  return `${normaliseInvoiceNumber(invoiceNumber)}::${amt}`;
 }
 
 const SYSTEM_PROMPT = `You are an accounts assistant at BHO Fire Ltd. Your job is to extract structured remittance-advice data from an email (and any attached PDF). Remittance advices tell BHO that one or more of their invoices have been paid.
@@ -367,15 +379,40 @@ Deno.serve(async (req) => {
     // Idempotency: short-circuit if we've already parsed this message.
     const { data: existing } = await supabase
       .from("remittance_advices")
-      .select("id, status")
+      .select("id, status, pdf_count, ai_raw_extract")
       .eq("message_id", emailRow.message_id)
       .eq("mailbox", emailRow.mailbox)
       .maybeSingle();
     if (existing) {
+      const hasAttachmentDiagnostics = Array.isArray(
+        (existing.ai_raw_extract as Record<string, unknown> | null)?.attachment_diagnostics,
+      );
+      // Older rows were created before PDF diagnostics/content-hash
+      // support landed. If the source email has attachments but the row
+      // says pdf_count=0 and has no diagnostics, allow a one-time reparse
+      // so PDFs are actually fed to Claude instead of permanently
+      // short-circuiting on a stale header row.
+      if (emailRow.raw?.hasAttachments === true && (existing.pdf_count ?? 0) === 0 && !hasAttachmentDiagnostics) {
+        const { data: existingLines } = await supabase
+          .from("remittance_line_items")
+          .select("status")
+          .eq("remittance_id", existing.id);
+        const hasAppliedLine = (existingLines ?? []).some((line) => line.status === "applied");
+        if (!hasAppliedLine) {
+          await supabase.from("remittance_line_items").delete().eq("remittance_id", existing.id);
+          await supabase.from("remittance_advices").delete().eq("id", existing.id);
+        } else {
+          return new Response(
+            JSON.stringify({ remittance_id: existing.id, status: existing.status, line_item_count: 0, matched_count: 0, already_parsed: true }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      } else {
       return new Response(
         JSON.stringify({ remittance_id: existing.id, status: existing.status, line_item_count: 0, matched_count: 0, already_parsed: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+      }
     }
 
     let parsed: ParsedRemittance;
@@ -424,6 +461,85 @@ Deno.serve(async (req) => {
       : "parsed";
 
     const contentHash = await buildContentHash(parsed);
+    const parsedAllocationKeys = new Set(
+      (parsed.line_items ?? [])
+        .map((li) => allocationKey(li.invoice_number, li.amount))
+        .filter((key): key is string => Boolean(key)),
+    );
+
+    if (parsedAllocationKeys.size > 0) {
+      const { data: historicalLines } = await supabase
+        .from("remittance_line_items")
+        .select("remittance_id, invoice_number, amount, status, remittance:remittance_advices!inner(id, status, total_amount, content_hash)")
+        .limit(5000);
+
+      const byRemittance = new Map<string, { keys: Set<string>; hasApplied: boolean; status: string | null; contentHash: string | null; totalAmount: number | null }>();
+      for (const row of (historicalLines ?? []) as Array<Record<string, unknown>>) {
+        const key = allocationKey(String(row.invoice_number ?? ""), row.amount == null ? null : Number(row.amount));
+        if (!key) continue;
+        const parent = row.remittance as Record<string, unknown> | null;
+        if (!parent || parent.status === "dismissed" || parent.status === "failed") continue;
+        const remittanceId = String(row.remittance_id);
+        const existingGroup = byRemittance.get(remittanceId) ?? {
+          keys: new Set<string>(),
+          hasApplied: false,
+          status: String(parent.status ?? ""),
+          contentHash: typeof parent.content_hash === "string" ? parent.content_hash : null,
+          totalAmount: parent.total_amount == null ? null : Number(parent.total_amount),
+        };
+        existingGroup.keys.add(key);
+        existingGroup.hasApplied = existingGroup.hasApplied || row.status === "applied";
+        byRemittance.set(remittanceId, existingGroup);
+      }
+
+      for (const [remittanceId, group] of byRemittance.entries()) {
+        const sameAllocations = group.keys.size === parsedAllocationKeys.size
+          && [...parsedAllocationKeys].every((key) => group.keys.has(key));
+        const sameTotal = parsed.total_amount == null || group.totalAmount == null
+          || Number(parsed.total_amount).toFixed(2) === Number(group.totalAmount).toFixed(2);
+        if (sameAllocations && sameTotal) {
+          if (contentHash && !group.contentHash) {
+            await supabase.from("remittance_advices").update({ content_hash: contentHash }).eq("id", remittanceId);
+          }
+          await supabase.from("remittance_advices").insert({
+            scanned_email_id: emailRow.id,
+            message_id: emailRow.message_id,
+            mailbox: emailRow.mailbox,
+            from_address: emailRow.from_address,
+            from_name: emailRow.from_name,
+            subject: emailRow.subject,
+            received_at: emailRow.received_at,
+            payment_date: parsed.payment_date,
+            total_amount: parsed.total_amount,
+            currency: parsed.currency ?? "GBP",
+            payer_name: parsed.payer_name,
+            ai_raw_extract: {
+              ...(parsed as unknown as Record<string, unknown>),
+              attachment_diagnostics: attachmentDiagnostics,
+              duplicate_of: remittanceId,
+              duplicate_reason: group.hasApplied
+                ? "matching remittance allocations have already been applied"
+                : "matching remittance allocations already exist",
+            },
+            status: "dismissed",
+            error_message: group.hasApplied
+              ? "Duplicate remittance: matching allocations have already been applied."
+              : "Duplicate remittance: matching allocations already exist.",
+            pdf_count: pdfCount,
+          });
+          return new Response(
+            JSON.stringify({
+              remittance_id: remittanceId,
+              status: "duplicate",
+              reason: group.hasApplied
+                ? "matching remittance allocations have already been applied"
+                : "matching remittance allocations already exist",
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+    }
 
     const { data: header, error: headerErr } = await supabase
       .from("remittance_advices")
