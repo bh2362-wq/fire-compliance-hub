@@ -145,7 +145,7 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
     }
     setPaying(true);
     try {
-      await applyInvoicePayment({
+      const result = await applyInvoicePayment({
         invoiceId: invoice.invoiceId,
         amount,
         date: payDate,
@@ -156,9 +156,17 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
       if (payAccountCode) {
         localStorage.setItem("lastPaymentAccountCode", payAccountCode);
       }
-      const acct = accounts.find((a) => a.code === payAccountCode);
+      // The Edge Function echoes the actual account Xero credited
+      // (result.payment.bankAccount). Prefer that over the picker
+      // label — it tells the truth even when the supplied code
+      // didn't match and Xero fell back to its default.
+      const actualAccount =
+        result?.payment?.bankAccount
+        ?? accounts.find((a) => a.code === payAccountCode)?.name
+        ?? "Xero's default bank account";
       toast.success("Payment recorded", {
-        description: `£${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} → ${acct?.name ?? "default bank account"}`,
+        description: `£${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} → ${actualAccount}`,
+        duration: 6000,
       });
       onActionTaken?.();
       close();
