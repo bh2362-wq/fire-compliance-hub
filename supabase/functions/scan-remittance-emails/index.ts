@@ -116,12 +116,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Roll-up so the "Scan now" button can show a useful summary
+    // (e.g. "scanned 42, parsed 3, 1 duplicate") rather than just a
+    // raw count of dispatched jobs. 'duplicates' counts the
+    // content-hash collisions caught by parse-remittance-email.
+    const parsedCount    = results.filter((r) => r.status === "parsed").length;
+    const reviewCount    = results.filter((r) => r.status === "needs_review").length;
+    const dismissedCount = results.filter((r) => r.status === "dismissed").length;
+    const duplicateCount = results.filter((r) => r.status === "duplicate").length;
+    const failedCount    = results.filter((r) => r.status === "failed" || r.status === "error").length;
+
     return new Response(
       JSON.stringify({
         scanned: candidates?.length ?? 0,
         relevant: heuristicallyRelevant.length,
         already_parsed: seen.size,
         queued: results.length,
+        parsed_count: parsedCount,
+        needs_review_count: reviewCount,
+        dismissed_count: dismissedCount,
+        duplicate_count: duplicateCount,
+        failed_count: failedCount,
         results,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
