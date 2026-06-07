@@ -270,13 +270,34 @@ interface RemittanceCardProps {
 function RemittanceCard({ remittance, bibbyCode, onChanged }: RemittanceCardProps) {
   const { toast } = useToast();
   const [dismissing, setDismissing] = useState(false);
+  // When true, dismissing this row also writes a rule that auto-dismisses
+  // every future email from the same sender — the learning step for
+  // the autopilot scan.
+  const [rememberSender, setRememberSender] = useState(false);
   const locked = remittance.status === "applied" || remittance.status === "dismissed";
 
   const handleDismiss = async () => {
     setDismissing(true);
     try {
-      await dismissRemittance(remittance.id);
-      toast({ title: "Dismissed" });
+      const fromAddr = (remittance.from_address ?? "").trim().toLowerCase();
+      await dismissRemittance(
+        remittance.id,
+        rememberSender && fromAddr
+          ? {
+              rule: {
+                kind: "from_address",
+                value: fromAddr,
+                note: `Added from "${remittance.subject ?? remittance.payer_name ?? "unnamed"}"`,
+              },
+            }
+          : undefined,
+      );
+      toast({
+        title: rememberSender ? "Dismissed and remembered" : "Dismissed",
+        description: rememberSender && fromAddr
+          ? `Future emails from ${fromAddr} will auto-dismiss.`
+          : undefined,
+      });
       onChanged();
     } catch (e) {
       toast({ title: "Couldn't dismiss", description: (e as Error).message, variant: "destructive" });
@@ -349,7 +370,23 @@ function RemittanceCard({ remittance, bibbyCode, onChanged }: RemittanceCardProp
       )}
 
       {!locked && (
-        <div className="flex items-center justify-end gap-2 pt-1">
+        <div className="flex items-center justify-end gap-3 pt-1 flex-wrap">
+          {/* "Block sender" — when ticked, the Dismiss action also writes
+              a rule so future emails from this address auto-dismiss
+              without burning a Claude call. Disabled when no
+              from_address is parseable. */}
+          {(remittance.from_address ?? "").trim() && (
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5 rounded border-border accent-primary"
+                checked={rememberSender}
+                onChange={(e) => setRememberSender(e.target.checked)}
+                disabled={dismissing}
+              />
+              Block future emails from {remittance.from_address}
+            </label>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -357,7 +394,11 @@ function RemittanceCard({ remittance, bibbyCode, onChanged }: RemittanceCardProp
             disabled={dismissing}
             className="text-muted-foreground"
           >
-            {dismissing ? "Dismissing…" : "Not a remittance"}
+            {dismissing
+              ? "Dismissing…"
+              : rememberSender
+                ? "Not a remittance — block sender"
+                : "Not a remittance"}
           </Button>
         </div>
       )}

@@ -85,6 +85,22 @@ const TASKS: Task[] = [
     action: { kind: "invoke", functionName: "poll-mailbox" },
   },
   {
+    // Autopilot for the remittance scanner — runs hourly, picks up
+    // the newest emails from each mailbox, auto-dismisses any that
+    // match a dismiss rule, and kicks parse-remittance-email in the
+    // background for the rest. Combined with the dismiss-rule
+    // learning system, this is what gets the accounts queue to
+    // drain itself.
+    key: "remittance_scan",
+    kind: "interval",
+    every_minutes: 60,
+    action: {
+      kind: "invoke",
+      functionName: "scan-remittance-emails",
+      payload: { hours_back: 168 }, // 7 days for cron (UI button uses 30)
+    },
+  },
+  {
     key: "xero_invoice_sync",
     kind: "interval",
     every_minutes: 240, // every 4h
