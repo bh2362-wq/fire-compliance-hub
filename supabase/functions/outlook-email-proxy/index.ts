@@ -111,7 +111,13 @@ serve(async (req) => {
     // ── list_attachments ───────────────────────────────────────────────────────
     if (action === "list_attachments") {
       if (!messageId) throw new Error("messageId required");
-      const url = `${GRAPH}/users/${mailbox}/messages/${messageId}/attachments?$select=id,name,contentType,size`;
+      // Include isInline + @odata.type so callers can tell file
+      // attachments apart from inline images, reference attachments
+      // (OneDrive links), and item attachments (forwarded emails).
+      // Adding isInline to $select was the missing piece for ben@'s
+      // mailbox — Outlook reports hasAttachments=false when the only
+      // attachments are inline, so callers were skipping the list.
+      const url = `${GRAPH}/users/${mailbox}/messages/${messageId}/attachments?$select=id,name,contentType,size,isInline`;
       const r = await fetch(url, { headers: auth });
       if (!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
       const data = await r.json();
@@ -119,18 +125,54 @@ serve(async (req) => {
     }
 
     // ── get_attachment ─────────────────────────────────────────────────────────
-    // Returns base64-encoded file content for Excel/CSV price lists
+    // Returns base64-encoded file content. Large file attachments
+    // (>3MB-ish) return null contentBytes from the bare /attachments/{id}
+    // endpoint — for those, GET /$value gives the raw bytes which we
+    // re-encode to base64. This is the second piece that was missing
+    // for ben@'s mailbox: Bibby's PDF remittances are routinely over
+    // the inline threshold and were silently returning empty bytes.
     if (action === "get_attachment") {
       if (!messageId || !attachmentId) throw new Error("messageId and attachmentId required");
-      const url = `${GRAPH}/users/${mailbox}/messages/${messageId}/attachments/${attachmentId}`;
-      const r = await fetch(url, { headers: auth });
+      const metaUrl = `${GRAPH}/users/${mailbox}/messages/${messageId}/attachments/${attachmentId}`;
+      const r = await fetch(metaUrl, { headers: auth });
       if (!r.ok) throw new Error(`Graph error ${r.status}: ${await r.text()}`);
       const att = await r.json();
+
+      let contentBytes = att.contentBytes as string | null | undefined;
+      let fallbackUsed = false;
+
+      // Fallback for attachments where contentBytes wasn't returned —
+      // happens for large file attachments and for some message
+      // forwarding flows. /$value gives the raw bytes regardless.
+      if (!contentBytes) {
+        const valueUrl = `${metaUrl}/$value`;
+        const rv = await fetch(valueUrl, { headers: auth });
+        if (rv.ok) {
+          const buf = new Uint8Array(await rv.arrayBuffer());
+          let bin = "";
+          const chunk = 0x8000;
+          for (let i = 0; i < buf.length; i += chunk) {
+            bin += String.fromCharCode.apply(
+              null,
+              Array.from(buf.subarray(i, i + chunk)) as any,
+            );
+          }
+          contentBytes = btoa(bin);
+          fallbackUsed = true;
+        } else {
+          console.warn(
+            `[outlook-email-proxy] /$value fallback failed for ${mailbox}/${messageId}/${attachmentId}: ${rv.status}`,
+          );
+        }
+      }
+
       return json({
         name: att.name,
         contentType: att.contentType,
         size: att.size,
-        contentBytes: att.contentBytes, // base64
+        isInline: att.isInline ?? false,
+        contentBytes: contentBytes ?? "",
+        fallback_used: fallbackUsed,
       });
     }
 

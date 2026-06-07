@@ -38,9 +38,29 @@ interface PdfAttachment {
   contentBytes: string;
 }
 
+interface AttachmentDiag {
+  name: string;
+  content_type: string;
+  size: number | null;
+  is_inline: boolean;
+  // Why this attachment was / wasn't included
+  status: "included" | "skipped_not_pdf" | "skipped_empty_bytes" | "fetch_error";
+  reason?: string;
+  // Whether the proxy had to fall back to /$value for the bytes —
+  // useful for spotting large PDFs that would have returned null
+  // contentBytes via the bare endpoint.
+  fallback_used?: boolean;
+}
+
 interface FetchedEmail {
   body: string;
   pdfs: PdfAttachment[];
+  // Per-attachment audit. Surfaced into ai_raw_extract on the
+  // remittance_advices row so you can tell at a glance whether a
+  // particular email had attachments at all, what they were, and why
+  // each one was / wasn't fed to Claude.
+  attachment_diagnostics: AttachmentDiag[];
+  has_attachments_flag: boolean;
 }
 
 interface ParsedRemittance {
@@ -153,40 +173,104 @@ async function fetchEmailWithAttachments(
 
   // The proxy already strips HTML to plain text.
   const body = String(msgData?.body ?? "");
-  const hasAttachments = Boolean(msgData?.hasAttachments);
+  const hasAttachmentsFlag = Boolean(msgData?.hasAttachments);
 
   const pdfs: PdfAttachment[] = [];
-  if (hasAttachments) {
-    // Step 2: list attachments (metadata only).
-    const { data: listData, error: listErr } = await supabase.functions.invoke("outlook-email-proxy", {
-      body: { action: "list_attachments", mailbox, messageId },
+  const diagnostics: AttachmentDiag[] = [];
+
+  // Step 2: ALWAYS list attachments. Previously this was gated on
+  // hasAttachments, but Outlook reports hasAttachments=false when the
+  // only attachments are inline (HTML body refs) — Bibby remittances
+  // arriving in ben@'s mailbox often fall into this bucket. Calling
+  // /attachments unconditionally is cheap (one extra Graph call) and
+  // guarantees we never silently skip a PDF.
+  const { data: listData, error: listErr } = await supabase.functions.invoke("outlook-email-proxy", {
+    body: { action: "list_attachments", mailbox, messageId },
+    headers: { Authorization: authHeader },
+  });
+  if (listErr) throw new Error(`outlook-email-proxy list_attachments: ${listErr.message}`);
+
+  const items = (listData?.attachments as Array<Record<string, unknown>>) ?? [];
+  console.log(
+    `[parse-remittance-email] ${mailbox}/${messageId} hasAttachmentsFlag=${hasAttachmentsFlag}`,
+    `attachments_listed=${items.length}`,
+    items.map((a) => ({
+      name: a.name, contentType: a.contentType, size: a.size, isInline: a.isInline,
+    })),
+  );
+
+  const isPdfLike = (a: Record<string, unknown>): boolean => {
+    const ct = String(a.contentType ?? "").toLowerCase();
+    const name = String(a.name ?? "").toLowerCase();
+    return ct.includes("pdf") || name.endsWith(".pdf");
+  };
+
+  // Step 3: walk every attachment, recording a diagnostic for each.
+  // Capped at 5 PDFs included (Anthropic doc-attachment limit) but
+  // diagnostics are recorded for everything we saw — including the
+  // ones we skipped — so we can debug from the row alone.
+  let pdfsIncluded = 0;
+  for (const att of items) {
+    const baseDiag: AttachmentDiag = {
+      name: String(att.name ?? "(unnamed)"),
+      content_type: String(att.contentType ?? ""),
+      size: typeof att.size === "number" ? att.size : null,
+      is_inline: Boolean(att.isInline),
+      status: "skipped_not_pdf",
+    };
+
+    if (!isPdfLike(att)) {
+      diagnostics.push(baseDiag);
+      continue;
+    }
+
+    if (pdfsIncluded >= 5) {
+      diagnostics.push({
+        ...baseDiag,
+        status: "skipped_not_pdf",
+        reason: "PDF limit (5) reached for this message",
+      });
+      continue;
+    }
+
+    const { data: attData, error: attErr } = await supabase.functions.invoke("outlook-email-proxy", {
+      body: { action: "get_attachment", mailbox, messageId, attachmentId: String(att.id) },
       headers: { Authorization: authHeader },
     });
-    if (listErr) throw new Error(`outlook-email-proxy list_attachments: ${listErr.message}`);
 
-    const items = (listData?.attachments as Array<Record<string, unknown>>) ?? [];
-    const pdfMeta = items.filter((a) => {
-      const ct = String(a.contentType ?? "").toLowerCase();
-      const name = String(a.name ?? "").toLowerCase();
-      return ct.includes("pdf") || name.endsWith(".pdf");
-    });
-
-    // Step 3: fetch each PDF's contentBytes individually. Capped at 5 to
-    // avoid blowing through the Claude attachment limit on a single email.
-    for (const att of pdfMeta.slice(0, 5)) {
-      const { data: attData, error: attErr } = await supabase.functions.invoke("outlook-email-proxy", {
-        body: { action: "get_attachment", mailbox, messageId, attachmentId: String(att.id) },
-        headers: { Authorization: authHeader },
+    if (attErr || attData?.error) {
+      diagnostics.push({
+        ...baseDiag,
+        status: "fetch_error",
+        reason: attErr?.message ?? String(attData?.error ?? "unknown"),
       });
-      if (attErr || attData?.error) continue; // best-effort — skip a failing attachment
-      const contentBytes = String(attData?.contentBytes ?? "");
-      if (contentBytes) {
-        pdfs.push({ name: String(attData?.name ?? att.name ?? "attachment.pdf"), contentBytes });
-      }
+      continue;
     }
+
+    const contentBytes = String(attData?.contentBytes ?? "");
+    if (!contentBytes) {
+      diagnostics.push({
+        ...baseDiag,
+        status: "skipped_empty_bytes",
+        reason: "proxy returned no contentBytes even after /$value fallback",
+        fallback_used: Boolean(attData?.fallback_used),
+      });
+      continue;
+    }
+
+    pdfs.push({
+      name: String(attData?.name ?? att.name ?? "attachment.pdf"),
+      contentBytes,
+    });
+    pdfsIncluded += 1;
+    diagnostics.push({
+      ...baseDiag,
+      status: "included",
+      fallback_used: Boolean(attData?.fallback_used),
+    });
   }
 
-  return { body, pdfs };
+  return { body, pdfs, attachment_diagnostics: diagnostics, has_attachments_flag: hasAttachmentsFlag };
 }
 
 async function callClaude(
@@ -296,15 +380,19 @@ Deno.serve(async (req) => {
 
     let parsed: ParsedRemittance;
     let pdfCount = 0;
+    let attachmentDiagnostics: AttachmentDiag[] = [];
+    let hasAttachmentsFlag = false;
     try {
-      const { body, pdfs } = await fetchEmailWithAttachments(
+      const fetched = await fetchEmailWithAttachments(
         supabase,
         emailRow.message_id,
         emailRow.mailbox,
         authHeader,
       );
-      pdfCount = pdfs.length;
-      parsed = await callClaude(body, pdfs, emailRow);
+      pdfCount = fetched.pdfs.length;
+      attachmentDiagnostics = fetched.attachment_diagnostics;
+      hasAttachmentsFlag = fetched.has_attachments_flag;
+      parsed = await callClaude(fetched.body, fetched.pdfs, emailRow);
     } catch (parseErr) {
       // Record the failed attempt so the office can see it in the review queue.
       const { data: failedRow } = await supabase
@@ -351,7 +439,13 @@ Deno.serve(async (req) => {
         total_amount: parsed.total_amount,
         currency: parsed.currency ?? "GBP",
         payer_name: parsed.payer_name,
-        ai_raw_extract: parsed as unknown as Record<string, unknown>,
+        ai_raw_extract: {
+          ...(parsed as unknown as Record<string, unknown>),
+          // Per-row debug context — useful when "this remittance had a
+          // PDF but pdf_count is 0" lands in the inbox.
+          attachment_diagnostics: attachmentDiagnostics,
+          has_attachments_flag: hasAttachmentsFlag,
+        },
         status: headerStatus,
         content_hash: contentHash,
         pdf_count: pdfCount,
