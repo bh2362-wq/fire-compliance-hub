@@ -70,16 +70,24 @@ export const createDocument = async (doc: Partial<QMSDocument>): Promise<QMSDocu
   const { data: numData, error: numError } = await supabase.rpc('get_next_qms_number', { prefix: 'DOC' });
   if (numError) throw numError;
 
+  // created_by is a UUID column — never send '' (Postgres rejects with 22P02).
+  // Fall back to the current auth user if the caller didn't pass one.
+  let createdBy = doc.created_by;
+  if (!createdBy) {
+    const { data: auth } = await supabase.auth.getUser();
+    createdBy = auth.user?.id ?? null as unknown as string;
+  }
+
   const { data, error } = await supabase
     .from('qms_documents')
     .insert({
-      category_id: doc.category_id,
+      category_id: doc.category_id || null,
       title: doc.title || '',
       description: doc.description,
       status: doc.status || 'draft',
       review_frequency_months: doc.review_frequency_months,
       next_review_date: doc.next_review_date,
-      created_by: doc.created_by || '',
+      created_by: createdBy,
       document_number: numData,
     })
     .select()
@@ -88,6 +96,7 @@ export const createDocument = async (doc: Partial<QMSDocument>): Promise<QMSDocu
   if (error) throw error;
   return data as unknown as QMSDocument;
 };
+
 
 export const fetchDocumentVersions = async (documentId: string): Promise<QMSDocumentVersion[]> => {
   const { data, error } = await supabase
