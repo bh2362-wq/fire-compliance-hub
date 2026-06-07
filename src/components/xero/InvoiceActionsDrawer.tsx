@@ -57,6 +57,31 @@ function invoiceTone(status: string): string {
 const XERO_INVOICE_URL = (invoiceId: string) =>
   `https://go.xero.com/AccountsReceivable/View.aspx?InvoiceID=${invoiceId}`;
 
+// "Pays into…" default account behaviour
+//
+//   This deployment has a factoring account (Xero code 971) that all
+//   incoming customer payments should hit by default. The picker now
+//   initialises to whatever the user has saved as their default; if
+//   they haven't saved one yet, it falls back to 971 so a fresh
+//   browser/incognito session still picks the right account.
+//
+//   Override per-payment via the dropdown. Tick "Save as default for
+//   future payments" to update the sticky default to the new pick.
+const DEFAULT_PAYMENT_ACCOUNT_CODE = "971";
+const DEFAULT_PAYMENT_ACCOUNT_STORAGE_KEY = "defaultPaymentAccountCode";
+
+function getDefaultAccountCode(): string {
+  if (typeof window === "undefined") return DEFAULT_PAYMENT_ACCOUNT_CODE;
+  return (
+    localStorage.getItem(DEFAULT_PAYMENT_ACCOUNT_STORAGE_KEY) ||
+    DEFAULT_PAYMENT_ACCOUNT_CODE
+  );
+}
+function setDefaultAccountCode(code: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(DEFAULT_PAYMENT_ACCOUNT_STORAGE_KEY, code);
+}
+
 export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTaken }: InvoiceActionsDrawerProps) {
   const [accounts, setAccounts] = useState<XeroBankAccount[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
@@ -66,7 +91,12 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
   const [payOpen, setPayOpen] = useState(false);
   const [payAmount, setPayAmount] = useState("");
   const [payDate, setPayDate] = useState("");
-  const [payAccountCode, setPayAccountCode] = useState<string>("");
+  // Pre-fill with the saved default (or the 971 fallback) so the user
+  // doesn't have to pick. They can still override per-payment.
+  const [payAccountCode, setPayAccountCode] = useState<string>(getDefaultAccountCode());
+  // When ticked on submit, the chosen account becomes the new sticky
+  // default for future payments.
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [paying, setPaying] = useState(false);
 
   // Per-action busy flags.
@@ -82,7 +112,10 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
     setPayOpen(false);
     setPayAmount(invoice?.amountDue?.toString() ?? "");
     setPayDate(format(new Date(), "yyyy-MM-dd"));
-    setPayAccountCode("");
+    // Re-read the default each open in case the user changed it on a
+    // previous invoice in the same session.
+    setPayAccountCode(getDefaultAccountCode());
+    setSaveAsDefault(false);
   }, [open, invoice?.invoiceId]);
 
   const loadAccounts = async () => {
@@ -91,12 +124,16 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
     try {
       const list = await listXeroBankAccounts();
       setAccounts(list);
-      // Default to last-used account (persisted), falling back to
-      // the first one returned by Xero. Keeps the picker out of the
-      // user's way when they always pay into the same account.
-      const remembered = localStorage.getItem("lastPaymentAccountCode") || "";
-      const pick = list.find((a) => a.code === remembered) ?? list[0];
-      if (pick?.code) setPayAccountCode(pick.code);
+      // Reconcile the saved default with the live list. If the saved
+      // code matches one of the accounts, keep it (the picker will
+      // resolve to the real name). If it doesn't match (e.g. the user
+      // hasn't set one yet and the 971 fallback isn't in their chart),
+      // fall back to list[0] so the dropdown isn't empty.
+      const saved = getDefaultAccountCode();
+      const found = list.find((a) => a.code === saved);
+      if (!found && list[0]?.code) {
+        setPayAccountCode(list[0].code);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load bank accounts";
       // Keep the raw error in the console for diagnosis; surface a
@@ -158,8 +195,15 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
         date: payDate,
         bankAccountCode: payAccountCode || null,
       });
-      // Persist the picked account for next time so the picker
-      // pre-fills correctly on the next invoice the user opens.
+      // Update the sticky default if the user ticked the box. This
+      // changes what every future invoice pre-selects, not just the
+      // next one — matches the "factoring account" reading where one
+      // account is the standing rule until you explicitly change it.
+      if (saveAsDefault && payAccountCode) {
+        setDefaultAccountCode(payAccountCode);
+      }
+      // Also persist as "last used" for backwards-compat with the
+      // previous behaviour — anything else reading that key still works.
       if (payAccountCode) {
         localStorage.setItem("lastPaymentAccountCode", payAccountCode);
       }
@@ -265,6 +309,25 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
         </SheetHeader>
 
         <div className="mt-6 space-y-2">
+          {/* "Pays into…" indicator. Shows the standing-default account
+              before the user expands the form so they can press Record
+              without thinking about which account it'll land in. Falls
+              back to "Account <code>" when the list hasn't loaded yet
+              (the code itself is still what gets sent to Xero). */}
+          {canMarkPaid && !payOpen && (
+            <div className="text-xs text-muted-foreground px-1 -mb-1">
+              Will pay into:{" "}
+              <span className="font-semibold text-foreground">
+                {(() => {
+                  const matched = accounts.find((a) => a.code === payAccountCode);
+                  if (matched) return matched.name;
+                  if (payAccountCode) return `Account ${payAccountCode}`;
+                  return "Xero's default bank account";
+                })()}
+              </span>
+            </div>
+          )}
+
           {/* Mark as paid — inline form so the user picks the bank
               account without leaving the drawer. */}
           {canMarkPaid && !payOpen && (
@@ -315,13 +378,14 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
                 ) : accountsError ? (
                   // Most likely cause: the xero-bank-accounts Edge
                   // Function hasn't deployed yet on a brand-new
-                  // function. Render an info-tone hint so the user
-                  // knows the payment will still go through (Xero
-                  // falls back to its default bank account) and
-                  // offer a retry rather than a scary red error.
+                  // function. We still send the saved default code
+                  // ({payAccountCode}) to xero-apply-payment though,
+                  // so Xero will match it by Code if the account
+                  // exists in their chart. Calm hint + retry.
                   <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5">
                     <p className="text-xs text-muted-foreground">
-                      Couldn't load accounts. Xero will use its default.
+                      Couldn't load account list — sending code{" "}
+                      <strong>{payAccountCode || "(none)"}</strong> to Xero.
                     </p>
                     <button
                       type="button"
@@ -350,6 +414,24 @@ export function InvoiceActionsDrawer({ invoice, open, onOpenChange, onActionTake
                   </Select>
                 )}
               </div>
+
+              {/* Stickify the chosen account so future invoices
+                  pre-fill the same way. Only meaningful when the
+                  user actually changed the picker, so we hide it
+                  when the current selection already equals the
+                  saved default. */}
+              {payAccountCode && payAccountCode !== getDefaultAccountCode() && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-border accent-primary"
+                    checked={saveAsDefault}
+                    onChange={(e) => setSaveAsDefault(e.target.checked)}
+                    disabled={paying}
+                  />
+                  Save as default for future payments
+                </label>
+              )}
 
               <div className="flex gap-2 pt-1">
                 <Button
