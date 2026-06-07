@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   AlertCircle,
   CheckCircle2,
+  FileText,
   Loader2,
   Mail,
   RefreshCw,
@@ -14,6 +15,12 @@ import {
   Sparkles,
   XCircle,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
   RemittanceAdvice as RemittanceAdviceModel,
@@ -48,6 +55,81 @@ function StatusBadge({ status }: { status: RemittanceStatus }) {
     <Badge variant="outline" className={variants[status]}>
       {REMITTANCE_STATUS_LABELS[status]}
     </Badge>
+  );
+}
+
+// Surfaces whether the parser sent any PDFs to Claude for this
+// remittance + a hover-tip with the per-attachment audit. Lets the
+// user diagnose "PDF wasn't read" cases without poking at the DB.
+function PdfBadge({ remittance }: { remittance: RemittanceAdviceModel }) {
+  const count = remittance.pdf_count ?? 0;
+  const diagnostics = remittance.attachment_diagnostics ?? [];
+
+  // Older rows from before the diagnostics shipped have no data at all
+  // — render nothing so the badge isn't a sea of "n/a" on history.
+  if (count === 0 && diagnostics.length === 0 && remittance.has_attachments_flag == null) {
+    return null;
+  }
+
+  const tone =
+    count > 0
+      ? "bg-secondary/10 text-secondary border-secondary/25"
+      : diagnostics.length > 0
+        ? "bg-warning/10 text-warning border-warning/25"
+        : "bg-muted text-muted-foreground border-border";
+
+  const label =
+    count > 0 ? `PDF×${count}` : diagnostics.length > 0 ? "PDF skipped" : "Body only";
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className={`${tone} cursor-help inline-flex items-center gap-1`}>
+            <FileText className="w-3 h-3" />
+            {label}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-xs text-xs space-y-1">
+          <p className="font-semibold text-foreground">
+            {count} PDF{count === 1 ? "" : "s"} sent to Claude
+          </p>
+          {remittance.has_attachments_flag === false && diagnostics.length > 0 && (
+            <p className="text-muted-foreground">
+              Outlook reported <code>hasAttachments=false</code>, but the parser found {diagnostics.length} inline attachment{diagnostics.length === 1 ? "" : "s"}.
+            </p>
+          )}
+          {diagnostics.length === 0 ? (
+            <p className="text-muted-foreground">No attachments on the email.</p>
+          ) : (
+            <ul className="space-y-1 mt-1">
+              {diagnostics.map((d, i) => (
+                <li key={i} className="flex items-start gap-1.5">
+                  <span
+                    className={`mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${
+                      d.status === "included" ? "bg-success" : "bg-warning"
+                    }`}
+                  />
+                  <span className="min-w-0">
+                    <span className="font-medium">{d.name}</span>
+                    {" — "}
+                    <span className="text-muted-foreground">
+                      {d.status === "included"
+                        ? `included${d.fallback_used ? " (via /$value)" : ""}`
+                        : d.status === "skipped_not_pdf"
+                          ? `skipped (${d.content_type || "unknown type"})`
+                          : d.status === "skipped_empty_bytes"
+                            ? `empty bytes${d.reason ? ` — ${d.reason}` : ""}`
+                            : `fetch error${d.reason ? ` — ${d.reason}` : ""}`}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -216,6 +298,7 @@ function RemittanceCard({ remittance, bibbyCode, onChanged }: RemittanceCardProp
               {remittance.payer_name ?? remittance.from_name ?? remittance.from_address ?? "Unknown sender"}
             </h3>
             <StatusBadge status={remittance.status} />
+            <PdfBadge remittance={remittance} />
           </div>
           <p className="text-xs text-muted-foreground truncate mt-0.5">
             <Mail className="w-3 h-3 inline mr-1" />
