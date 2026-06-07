@@ -277,10 +277,53 @@ export async function getNextInvoiceNumber(): Promise<string | null> {
  
    if (error) throw new Error(error.message);
    if (data.error) throw new Error(data.error);
-   
+
    return data;
  }
- 
+
+export interface XeroBankAccount {
+  account_id: string;
+  code: string | null;
+  name: string;
+  currency_code: string | null;
+  bank_account_number: string | null;
+}
+
+/** Lists active Xero BANK accounts so a UI can render a "pay into…"
+ *  picker. The payment itself is still recorded by applyInvoicePayment
+ *  (xero-apply-payment), which accepts a bankAccountCode arg. */
+export async function listXeroBankAccounts(): Promise<XeroBankAccount[]> {
+  const { data, error } = await supabase.functions.invoke("xero-bank-accounts", {
+    body: {},
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return (data?.accounts ?? []) as XeroBankAccount[];
+}
+
+/** Records a payment against an invoice via the existing
+ *  xero-apply-payment Edge Function. Wrapper so the new
+ *  InvoiceActionsDrawer doesn't have to know about Edge Function
+ *  names directly. */
+export async function applyInvoicePayment(args: {
+  invoiceId: string;
+  amount: number;
+  date: string;          // ISO yyyy-mm-dd
+  bankAccountCode?: string | null;
+}): Promise<{ success: boolean; message?: string; paymentId?: string }> {
+  const { data, error } = await supabase.functions.invoke("xero-apply-payment", {
+    body: {
+      invoiceId: args.invoiceId,
+      amount: args.amount,
+      date: args.date,
+      bankAccountCode: args.bankAccountCode ?? undefined,
+    },
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
 export async function voidInvoice(invoiceId: string): Promise<{ success: boolean; message: string }> {
    const { data, error } = await supabase.functions.invoke("xero-update-invoice-status", {
      body: {

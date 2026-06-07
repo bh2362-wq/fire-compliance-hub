@@ -34,6 +34,7 @@
  } from "@/services/xeroService";
  import { format, parseISO, isValid, differenceInDays, differenceInMonths } from "date-fns";
  import { InvoiceInsightsDialog } from "./InvoiceInsightsDialog";
+ import { InvoiceActionsDrawer } from "@/components/xero/InvoiceActionsDrawer";
  
  interface CustomerFinancialDashboardProps {
    open: boolean;
@@ -69,6 +70,9 @@
    const [loading, setLoading] = useState(true);
    const [invoices, setInvoices] = useState<XeroOutstandingInvoice[]>([]);
    const [selectedInvoice, setSelectedInvoice] = useState<XeroOutstandingInvoice | null>(null);
+   // Action drawer (Mark as paid + record to bank account, Void,
+   // Download PDF, View in Xero). Set by tapping an invoice row.
+   const [actionInvoice, setActionInvoice] = useState<XeroOutstandingInvoice | null>(null);
    const [error, setError] = useState<string | null>(null);
  
    useEffect(() => {
@@ -512,7 +516,7 @@
                          return (
                            <div
                              key={invoice.invoiceId}
-                             onClick={() => setSelectedInvoice(invoice)}
+                             onClick={() => setActionInvoice(invoice)}
                              className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors hover:bg-muted/50 ${
                                invoice.isOverdue ? "border-destructive/30 bg-destructive/5" : "bg-card"
                              }`}
@@ -669,6 +673,20 @@
          invoice={selectedInvoice}
          customerName={customerName}
          allInvoices={invoices}
+       />
+
+       <InvoiceActionsDrawer
+         invoice={actionInvoice}
+         open={!!actionInvoice}
+         onOpenChange={(open) => !open && setActionInvoice(null)}
+         onActionTaken={() => {
+           // Refetch the customer's outstanding invoices so the row
+           // either updates its status (mark as paid → PAID badge,
+           // amountDue=0) or disappears (void) without a full page
+           // reload.
+           setActionInvoice(null);
+           loadFinancialData();
+         }}
        />
      </>
    );
