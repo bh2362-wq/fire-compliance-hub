@@ -1223,6 +1223,9 @@ export type Database = {
           created_by: string | null
           default_engineer_signature: string | null
           default_payment_terms: number | null
+          director_name: string | null
+          director_role: string | null
+          director_signature_url: string | null
           email: string | null
           id: string
           phone: string | null
@@ -1256,6 +1259,9 @@ export type Database = {
           created_by?: string | null
           default_engineer_signature?: string | null
           default_payment_terms?: number | null
+          director_name?: string | null
+          director_role?: string | null
+          director_signature_url?: string | null
           email?: string | null
           id?: string
           phone?: string | null
@@ -1289,6 +1295,9 @@ export type Database = {
           created_by?: string | null
           default_engineer_signature?: string | null
           default_payment_terms?: number | null
+          director_name?: string | null
+          director_role?: string | null
+          director_signature_url?: string | null
           email?: string | null
           id?: string
           phone?: string | null
