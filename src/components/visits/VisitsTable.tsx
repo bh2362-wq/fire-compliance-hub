@@ -428,20 +428,44 @@ const VisitsTable = ({
         return;
       }
 
-      // Stub row. status: "manual" so a downstream consumer can tell
-      // these apart from real generated reports. checklist required by
-      // schema — empty JSON object is the minimum acceptable value.
+      // Defensive: the visit prop should always carry site_id (useVisits
+      // does select *), but a few code paths pass partially-loaded
+      // visits. Bail with a clear message rather than letting a NOT NULL
+      // violation surface from the server.
+      if (!visit.site_id) {
+        toast({
+          title: "Couldn't mark as reported",
+          description: "This visit is missing its site link — open the visit and reassign it first.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // service_reports has a NOT NULL status with no CHECK constraint —
+      // 'completed' matches the real-report path so any downstream
+      // consumer treats this stub the same way it'd treat a generated
+      // BS5839 row. (The earlier 'manual' status was a guess that
+      // some deployments rejected via a constraint added post-schema.)
+      //
+      // checklist is NOT NULL Json — minimal valid value is {}.
+      // report_date is NOT NULL — fall back to today if the visit row
+      // is somehow missing visit_date.
+      const stubReport = {
+        visit_id: visit.id,
+        site_id: visit.site_id,
+        created_by: userData.user.id,
+        report_date: visit.visit_date || new Date().toISOString().slice(0, 10),
+        status: "completed",
+        checklist: {},
+      };
+
       const { error: insertErr } = await supabase
         .from("service_reports")
-        .insert({
-          visit_id: visit.id,
-          site_id: visit.site_id,
-          created_by: userData.user.id,
-          report_date: visit.visit_date,
-          status: "manual",
-          checklist: {},
-        });
-      if (insertErr) throw insertErr;
+        .insert(stubReport);
+      if (insertErr) {
+        console.error("[markAsReportedAndClose] service_reports insert failed:", insertErr, "payload:", stubReport);
+        throw new Error(`${insertErr.message}${insertErr.details ? ` — ${insertErr.details}` : ""}`);
+      }
 
       // Close out the visit so it stops appearing in "in progress" /
       // "pending review" lists.
@@ -449,7 +473,10 @@ const VisitsTable = ({
         .from("service_visits")
         .update({ status: "completed" })
         .eq("id", visit.id);
-      if (visitErr) throw visitErr;
+      if (visitErr) {
+        console.error("[markAsReportedAndClose] service_visits update failed:", visitErr);
+        throw new Error(`${visitErr.message}${visitErr.details ? ` — ${visitErr.details}` : ""}`);
+      }
 
       toast({
         title: "Marked as reported",
@@ -458,6 +485,7 @@ const VisitsTable = ({
       onRefresh?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("[markAsReportedAndClose] caught:", err);
       toast({
         title: "Couldn't mark as reported",
         description: message,
