@@ -61,6 +61,23 @@ export interface SourceEmailMeta {
 
 export async function saveScannedIntents(intents: ScannedIntent[], source: SourceEmailMeta) {
   if (!intents.length) return [];
+
+  // Dedupe by source_email_id — once a user has dismissed (or actioned)
+  // an intent from a given email, the cron-driven re-scans shouldn't
+  // resurrect it on the dashboard. If ANY row exists for this
+  // source_email_id (any status), skip the insert entirely. Without
+  // an emailId we can't dedupe and accept the row as new.
+  if (source.emailId) {
+    const { data: existing } = await supabase
+      .from("email_action_items")
+      .select("id, status")
+      .eq("source_email_id", source.emailId)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      return [] as EmailActionItemRow[];
+    }
+  }
+
   const { data: u } = await supabase.auth.getUser();
   const userId = u?.user?.id ?? null;
   const rows = intents.map((i) => ({

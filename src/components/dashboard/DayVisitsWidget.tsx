@@ -77,20 +77,77 @@ export function DayVisitsWidget() {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const { data } = await supabase
-        .from("service_visits")
-        .select(
-          "id, visit_date, appointment_time, status, visit_type, notes, " +
-          "site:sites(id, name, address), engineer:profiles!service_visits_engineer_id_fkey(full_name)",
-        )
-        .eq("visit_date", iso)
-        .order("appointment_time", { ascending: true, nullsFirst: false });
+      // Pull from BOTH service_visits and appointments. Visits booked
+      // straight into the calendar (appointments table) were invisible
+      // here — that's why "No visits scheduled" was showing despite
+      // calendar entries for the day. Merge + dedupe by id.
+      const [visitsQ, apptsQ] = await Promise.all([
+        supabase
+          .from("service_visits")
+          .select(
+            "id, visit_date, appointment_time, status, visit_type, notes, " +
+            "site:sites(id, name, address), engineer:profiles!service_visits_engineer_id_fkey(full_name)",
+          )
+          .eq("visit_date", iso),
+        supabase
+          .from("appointments")
+          .select(
+            "id, appointment_date, start_time, status, visit_type, description, " +
+            "site:sites(id, name, address), engineer:profiles!appointments_engineer_id_fkey(full_name)",
+          )
+          .eq("appointment_date", iso),
+      ]);
+
       if (cancelled) return;
-      setVisits((data ?? []) as unknown as DayVisit[]);
+
+      const fromVisits: DayVisit[] = (visitsQ.data ?? []) as unknown as DayVisit[];
+      const fromAppts: DayVisit[] = ((apptsQ.data ?? []) as Array<Record<string, unknown>>).map((a) => ({
+        id: String(a.id),
+        visit_date: String(a.appointment_date),
+        appointment_time: (a.start_time as string | null) ?? null,
+        status: (a.status as string | null) ?? "scheduled",
+        visit_type: (a.visit_type as string | null) ?? null,
+        notes: (a.description as string | null) ?? null,
+        site: (a.site as DayVisit["site"]) ?? null,
+        engineer: (a.engineer as DayVisit["engineer"]) ?? null,
+      }));
+
+      // Dedupe — appointments linked to a service_visit show the same id;
+      // visits take priority over standalone calendar entries.
+      const byId = new Map<string, DayVisit>();
+      for (const a of fromAppts) byId.set(a.id, a);
+      for (const v of fromVisits) byId.set(v.id, v);
+      const merged = Array.from(byId.values()).sort((a, b) => {
+        const at = a.appointment_time ?? "";
+        const bt = b.appointment_time ?? "";
+        return at.localeCompare(bt);
+      });
+      setVisits(merged);
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [iso, refreshKey]);
+
+  // Auto-refresh when service_visits or appointments mutate anywhere
+  // in the app. Realtime subscription on the two tables — any insert /
+  // update / delete bumps refreshKey, the effect above re-runs, the
+  // dashboard reflects the change without the user pressing refresh.
+  useEffect(() => {
+    const channel = supabase
+      .channel("day-visits-widget")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_visits" },
+        () => setRefreshKey((k) => k + 1),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "appointments" },
+        () => setRefreshKey((k) => k + 1),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const today = startOfDay(new Date());
   const onToday = format(selectedDate, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
