@@ -379,15 +379,28 @@ Deno.serve(async (req) => {
     // Idempotency: short-circuit if we've already parsed this message.
     const { data: existing } = await supabase
       .from("remittance_advices")
-      .select("id, status")
+      .select("id, status, pdf_count, ai_raw_extract")
       .eq("message_id", emailRow.message_id)
       .eq("mailbox", emailRow.mailbox)
       .maybeSingle();
     if (existing) {
+      const hasAttachmentDiagnostics = Array.isArray(
+        (existing.ai_raw_extract as Record<string, unknown> | null)?.attachment_diagnostics,
+      );
+      // Older rows were created before PDF diagnostics/content-hash
+      // support landed. If the source email has attachments but the row
+      // says pdf_count=0 and has no diagnostics, allow a one-time reparse
+      // so PDFs are actually fed to Claude instead of permanently
+      // short-circuiting on a stale header row.
+      if (emailRow.raw?.hasAttachments === true && (existing.pdf_count ?? 0) === 0 && !hasAttachmentDiagnostics) {
+        await supabase.from("remittance_line_items").delete().eq("remittance_id", existing.id);
+        await supabase.from("remittance_advices").delete().eq("id", existing.id);
+      } else {
       return new Response(
         JSON.stringify({ remittance_id: existing.id, status: existing.status, line_item_count: 0, matched_count: 0, already_parsed: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+      }
     }
 
     let parsed: ParsedRemittance;
