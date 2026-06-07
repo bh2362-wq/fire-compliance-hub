@@ -144,6 +144,82 @@ export const markDocumentObsolete = async (documentId: string): Promise<void> =>
   if (error) throw error;
 };
 
+/** Approve + lock a QMS document. Calls the SECURITY DEFINER RPC which
+ *  asserts the caller has the 'owner' role, writes the approval audit
+ *  row tied to the latest version, and sets status='approved'. */
+export const approveDocument = async (
+  documentId: string,
+  comments?: string,
+): Promise<void> => {
+  const { error } = await (supabase as any).rpc('approve_qms_document', {
+    p_document_id: documentId,
+    p_comments: comments ?? null,
+  });
+  if (error) throw error;
+};
+
+/** Revert an approved document back to draft so a new version can be
+ *  prepared. Owner-only; mirrors approveDocument. */
+export const unlockDocument = async (
+  documentId: string,
+  reason?: string,
+): Promise<void> => {
+  const { error } = await (supabase as any).rpc('unlock_qms_document', {
+    p_document_id: documentId,
+    p_reason: reason ?? null,
+  });
+  if (error) throw error;
+};
+
+/** Latest approval row for a document, joined back through the latest
+ *  version. Used to render "Approved by X on Y" in the detail dialog. */
+export interface DocumentApprovalRecord {
+  id: string;
+  approver_id: string;
+  approved_at: string | null;
+  comments: string | null;
+  status: string;
+  approver_name?: string | null;
+}
+
+export const fetchLatestApproval = async (
+  documentId: string,
+): Promise<DocumentApprovalRecord | null> => {
+  // Find latest version
+  const { data: latestVersion, error: vErr } = await supabase
+    .from('qms_document_versions')
+    .select('id')
+    .eq('document_id', documentId)
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (vErr) throw vErr;
+  if (!latestVersion?.id) return null;
+
+  const { data: approval, error: aErr } = await supabase
+    .from('qms_document_approvals')
+    .select('id, approver_id, approved_at, comments, status')
+    .eq('document_version_id', latestVersion.id)
+    .eq('status', 'approved')
+    .order('approved_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (aErr) throw aErr;
+  if (!approval) return null;
+
+  // Best-effort name lookup. Profile read is RLS-permissive.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('user_id', approval.approver_id)
+    .maybeSingle();
+
+  return {
+    ...approval,
+    approver_name: profile?.full_name ?? null,
+  };
+};
+
 export const uploadDocumentVersion = async (
   documentId: string,
   file: File,
