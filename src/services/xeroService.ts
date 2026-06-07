@@ -310,7 +310,22 @@ export async function applyInvoicePayment(args: {
   amount: number;
   date: string;          // ISO yyyy-mm-dd
   bankAccountCode?: string | null;
-}): Promise<{ success: boolean; message?: string; paymentId?: string }> {
+}): Promise<{
+  success: boolean;
+  message?: string;
+  /** Echo of which bank account Xero actually credited. Useful when
+   *  the caller didn't supply a bankAccountCode (or the supplied code
+   *  didn't match) and Xero fell back to its default — surfaces the
+   *  real name so the UI can show the user where the money went. */
+  payment?: {
+    paymentId?: string;
+    invoiceId?: string;
+    amount?: number;
+    date?: string;
+    status?: string;
+    bankAccount?: string;
+  };
+}> {
   const { data, error } = await supabase.functions.invoke("xero-apply-payment", {
     body: {
       invoiceId: args.invoiceId,
