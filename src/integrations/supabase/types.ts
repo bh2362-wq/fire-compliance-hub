@@ -4839,6 +4839,7 @@ export type Database = {
           ai_raw_extract: Json | null
           applied_at: string | null
           applied_by: string | null
+          content_hash: string | null
           created_at: string
           currency: string
           error_message: string | null
@@ -4849,6 +4850,7 @@ export type Database = {
           message_id: string
           payer_name: string | null
           payment_date: string | null
+          pdf_count: number
           received_at: string | null
           scanned_email_id: string | null
           status: string
@@ -4860,6 +4862,7 @@ export type Database = {
           ai_raw_extract?: Json | null
           applied_at?: string | null
           applied_by?: string | null
+          content_hash?: string | null
           created_at?: string
           currency?: string
           error_message?: string | null
@@ -4870,6 +4873,7 @@ export type Database = {
           message_id: string
           payer_name?: string | null
           payment_date?: string | null
+          pdf_count?: number
           received_at?: string | null
           scanned_email_id?: string | null
           status?: string
@@ -4881,6 +4885,7 @@ export type Database = {
           ai_raw_extract?: Json | null
           applied_at?: string | null
           applied_by?: string | null
+          content_hash?: string | null
           created_at?: string
           currency?: string
           error_message?: string | null
@@ -4891,6 +4896,7 @@ export type Database = {
           message_id?: string
           payer_name?: string | null
           payment_date?: string | null
+          pdf_count?: number
           received_at?: string | null
           scanned_email_id?: string | null
           status?: string
