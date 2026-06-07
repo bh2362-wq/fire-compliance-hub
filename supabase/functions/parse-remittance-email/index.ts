@@ -461,6 +461,59 @@ Deno.serve(async (req) => {
       : "parsed";
 
     const contentHash = await buildContentHash(parsed);
+    const parsedAllocationKeys = new Set(
+      (parsed.line_items ?? [])
+        .map((li) => allocationKey(li.invoice_number, li.amount))
+        .filter((key): key is string => Boolean(key)),
+    );
+
+    if (parsedAllocationKeys.size > 0) {
+      const { data: historicalLines } = await supabase
+        .from("remittance_line_items")
+        .select("remittance_id, invoice_number, amount, status, remittance:remittance_advices!inner(id, status, total_amount, content_hash)")
+        .limit(5000);
+
+      const byRemittance = new Map<string, { keys: Set<string>; hasApplied: boolean; status: string | null; contentHash: string | null; totalAmount: number | null }>();
+      for (const row of (historicalLines ?? []) as Array<Record<string, unknown>>) {
+        const key = allocationKey(String(row.invoice_number ?? ""), row.amount == null ? null : Number(row.amount));
+        if (!key) continue;
+        const parent = row.remittance as Record<string, unknown> | null;
+        if (!parent || parent.status === "dismissed" || parent.status === "failed") continue;
+        const remittanceId = String(row.remittance_id);
+        const existingGroup = byRemittance.get(remittanceId) ?? {
+          keys: new Set<string>(),
+          hasApplied: false,
+          status: String(parent.status ?? ""),
+          contentHash: typeof parent.content_hash === "string" ? parent.content_hash : null,
+          totalAmount: parent.total_amount == null ? null : Number(parent.total_amount),
+        };
+        existingGroup.keys.add(key);
+        existingGroup.hasApplied = existingGroup.hasApplied || row.status === "applied";
+        byRemittance.set(remittanceId, existingGroup);
+      }
+
+      for (const [remittanceId, group] of byRemittance.entries()) {
+        const sameAllocations = group.keys.size === parsedAllocationKeys.size
+          && [...parsedAllocationKeys].every((key) => group.keys.has(key));
+        const sameTotal = parsed.total_amount == null || group.totalAmount == null
+          || Number(parsed.total_amount).toFixed(2) === Number(group.totalAmount).toFixed(2);
+        if (sameAllocations && sameTotal) {
+          if (contentHash && !group.contentHash) {
+            await supabase.from("remittance_advices").update({ content_hash: contentHash }).eq("id", remittanceId);
+          }
+          return new Response(
+            JSON.stringify({
+              remittance_id: remittanceId,
+              status: "duplicate",
+              reason: group.hasApplied
+                ? "matching remittance allocations have already been applied"
+                : "matching remittance allocations already exist",
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+    }
 
     const { data: header, error: headerErr } = await supabase
       .from("remittance_advices")
