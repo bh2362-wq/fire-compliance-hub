@@ -136,13 +136,18 @@ Deno.serve(async (req) => {
     // gives looksLikeRemittance a third haystack — catches forwarded
     // remittances where the subject is just "Fw: …" but the body holds
     // the remittance language.
+    //
+    // Limit raised 200 → 1000 to match the 30-day default window from
+    // the UI button. At ~30 inbound/day across both mailboxes that's
+    // ~900 candidates; the previous 200 cap was silently truncating
+    // older remittances before they ever hit the heuristic.
     const { data: candidates, error: candidatesErr } = await supabase
       .from("scanned_emails")
       .select("id, message_id, mailbox, subject, from_address, body_preview")
       .in("mailbox", mailboxes)
       .gte("received_at", cutoff)
       .order("received_at", { ascending: false })
-      .limit(200);
+      .limit(1000);
     if (candidatesErr) throw new Error(`Failed to list scanned_emails: ${candidatesErr.message}`);
 
     const heuristicallyRelevant = (candidates ?? []).filter((e) =>

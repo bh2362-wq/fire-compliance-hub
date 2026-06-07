@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
+  countRemittancesByStatus,
   RemittanceAdvice as RemittanceAdviceModel,
   RemittanceLineItem,
   RemittanceStatus,
@@ -372,16 +373,22 @@ export default function RemittanceAdvicePage() {
   const [scanning, setScanning] = useState(false);
   const [bibbyCode, setBibbyCode] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Per-status counts for the tab badges. Bumps on every scan and
+  // every load so the user can spot when their remittances were
+  // pushed into Applied or Dismissed by the dedup.
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
 
   const loadEverything = async () => {
     setLoading(true);
     try {
-      const [list, code] = await Promise.all([
+      const [list, code, counts] = await Promise.all([
         listRemittances({ statuses: TAB_STATUSES[tab] }),
         getBibbyAccountCode(),
+        countRemittancesByStatus().catch(() => null),
       ]);
       setRemittances(list);
       setBibbyCode(code);
+      if (counts) setStatusCounts(counts);
     } catch (e) {
       toast({ title: "Couldn't load remittances", description: (e as Error).message, variant: "destructive" });
     } finally {
@@ -397,7 +404,12 @@ export default function RemittanceAdvicePage() {
   const handleScan = async () => {
     setScanning(true);
     try {
-      const result = await scanRemittanceEmails({ hours_back: 168 });
+      // 30-day window. Was 7 days, which dropped older remittances
+      // (e.g. ADI Global at 17+ days old) before the heuristic could
+      // even see them — explained why broadening the regex didn't
+      // help on the user's history.
+      const HOURS_BACK = 720;
+      const result = await scanRemittanceEmails({ hours_back: HOURS_BACK });
       // Build a sharper breakdown so when "0 newly parsed" comes
       // back we can see *why* — claude dismissed them, they
       // duplicated something, the parse failed, etc.
@@ -412,8 +424,9 @@ export default function RemittanceAdvicePage() {
       toast({
         title: "Scan complete",
         description:
-          `Checked ${result.scanned} emails · ${result.relevant} looked like remittances · ` +
-          `${result.queued} queued · ${result.already_parsed} already known${breakdown}.`,
+          `Last ${Math.round(HOURS_BACK / 24)} days · ${result.scanned} emails · ` +
+          `${result.relevant} looked like remittances · ${result.queued} queued · ` +
+          `${result.already_parsed} already known${breakdown}.`,
       });
       await loadEverything();
     } catch (e) {
@@ -473,9 +486,24 @@ export default function RemittanceAdvicePage() {
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
-            <TabsTrigger value="applied">Applied</TabsTrigger>
-            <TabsTrigger value="other">Dismissed / failed</TabsTrigger>
+            <TabsTrigger value="pending">
+              Pending
+              <span className="ml-1.5 text-xs text-muted-foreground">
+                ({(statusCounts.parsed ?? 0) + (statusCounts.needs_review ?? 0)})
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="applied">
+              Applied
+              <span className="ml-1.5 text-xs text-muted-foreground">
+                ({statusCounts.applied ?? 0})
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="other">
+              Dismissed / failed
+              <span className="ml-1.5 text-xs text-muted-foreground">
+                ({(statusCounts.dismissed ?? 0) + (statusCounts.failed ?? 0)})
+              </span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value={tab} className="mt-4 space-y-3">
