@@ -144,6 +144,12 @@ export async function scanRemittanceEmails(opts?: { hours_back?: number }): Prom
   relevant: number;
   already_parsed: number;
   queued: number;
+  /** Per-status roll-up from the new summary fields the Edge Function returns. */
+  parsed_count?: number;
+  needs_review_count?: number;
+  dismissed_count?: number;
+  duplicate_count?: number;
+  failed_count?: number;
   results: Array<{ scanned_email_id: string; status: string; error?: string }>;
 }> {
   const { data, error } = await supabase.functions.invoke("scan-remittance-emails", {
