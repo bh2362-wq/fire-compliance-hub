@@ -130,6 +130,30 @@ export async function listRemittances(opts?: {
   });
 }
 
+/** Lightweight count-by-status — for the tab badges so the user can
+ *  see at a glance whether Pending is empty because nothing's there
+ *  or because everything was already auto-dismissed / applied. One
+ *  query that hits the small remittance_advices table with no joins.
+ */
+export async function countRemittancesByStatus(): Promise<Record<RemittanceStatus, number>> {
+  const totals: Record<RemittanceStatus, number> = {
+    parsed: 0,
+    needs_review: 0,
+    applied: 0,
+    dismissed: 0,
+    failed: 0,
+  };
+  const { data, error } = await (supabase as unknown as { from: (t: string) => any })
+    .from("remittance_advices")
+    .select("status");
+  if (error) throw error;
+  for (const row of (data as Array<{ status: string }>)) {
+    const s = row.status as RemittanceStatus;
+    if (s in totals) totals[s] += 1;
+  }
+  return totals;
+}
+
 export async function dismissRemittance(id: string): Promise<void> {
   const { error } = await (supabase as unknown as { from: (t: string) => any })
     .from("remittance_advices")
