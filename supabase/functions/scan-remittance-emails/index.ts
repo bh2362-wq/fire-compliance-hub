@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     const { data: existingMatches } = messageIds.length > 0
       ? await supabase
           .from("remittance_advices")
-          .select("message_id, pdf_count, ai_raw_extract, line_items:remittance_line_items(status)")
+          .select("message_id, status, pdf_count, ai_raw_extract, line_items:remittance_line_items(status)")
           .in("message_id", messageIds)
       : { data: [] };
     const seen = new Set(
@@ -103,7 +103,8 @@ Deno.serve(async (req) => {
           );
           const hasAppliedLine = ((r.line_items as Array<{ status?: string }> | null) ?? [])
             .some((line) => line.status === "applied");
-          return hasAppliedLine || (Number(r.pdf_count ?? 0) > 0 || hasDiagnostics);
+          return r.status === "dismissed" || r.status === "failed" || hasAppliedLine
+            || (Number(r.pdf_count ?? 0) > 0 || hasDiagnostics);
         })
         .map((r) => r.message_id),
     );
