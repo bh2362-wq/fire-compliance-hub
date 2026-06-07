@@ -7297,6 +7297,10 @@ export type Database = {
       }
     }
     Functions: {
+      approve_qms_document: {
+        Args: { p_comments?: string; p_document_id: string }
+        Returns: undefined
+      }
       auto_capa_from_overdue_reviews: { Args: never; Returns: undefined }
       check_works_type_alignment: {
         Args: { p_typescript_values: string[] }
@@ -7415,6 +7419,10 @@ export type Database = {
         }[]
       }
       reset_stuck_ref_lib_ingests: { Args: never; Returns: number }
+      unlock_qms_document: {
+        Args: { p_document_id: string; p_reason?: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role:
