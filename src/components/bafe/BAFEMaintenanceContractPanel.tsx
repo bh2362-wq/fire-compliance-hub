@@ -411,9 +411,28 @@ function ContractDialog({
     }
     setSaving(true);
     try {
+      // bafe_maintenance_contracts.customer_id is nullable but the user
+      // explicitly wants the contract linked to the customer for cross-
+      // referencing on the customer file. The site already carries
+      // customer_id — pull it through here so the FK is set on insert
+      // and never goes stale on edit (a re-save after the site moves
+      // customer also refreshes the link).
+      let customerId: string | null = null;
+      const { data: siteRow, error: siteErr } = await supabase
+        .from("sites")
+        .select("customer_id")
+        .eq("id", form.site_id)
+        .maybeSingle();
+      if (siteErr) {
+        console.error("[handleSave] site lookup failed:", siteErr);
+      } else if (siteRow) {
+        customerId = (siteRow as { customer_id: string | null }).customer_id ?? null;
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payload: any = {
         site_id: form.site_id,
+        customer_id: customerId,
         contract_start: form.contract_start || null,
         contract_review: form.contract_review || null,
         fault_attendance_sla_hours: sla,
@@ -449,9 +468,27 @@ function ContractDialog({
       await onSaved();
       onClose();
     } catch (e) {
-      toast.error("Couldn't save maintenance contract", {
-        description: e instanceof Error ? e.message : String(e),
-      });
+      // PostgrestError is a plain object, not an Error instance, so
+      // `e instanceof Error` is false and `String(e)` returns
+      // '[object Object]'. Extract the structured fields explicitly
+      // so the toast shows the real reason. Full object goes to
+      // devtools via console.error for deeper diagnosis if needed.
+      console.error("[handleSave] save failed:", e);
+      let description = "Unknown error";
+      if (e instanceof Error) {
+        description = e.message;
+      } else if (e && typeof e === "object") {
+        const obj = e as { message?: string; details?: string; hint?: string; code?: string };
+        const parts: string[] = [];
+        if (obj.message) parts.push(obj.message);
+        if (obj.details) parts.push(obj.details);
+        if (obj.hint) parts.push(`hint: ${obj.hint}`);
+        if (obj.code) parts.push(`[${obj.code}]`);
+        description = parts.length > 0 ? parts.join(" — ") : JSON.stringify(e);
+      } else {
+        description = String(e);
+      }
+      toast.error("Couldn't save maintenance contract", { description });
     } finally {
       setSaving(false);
     }
