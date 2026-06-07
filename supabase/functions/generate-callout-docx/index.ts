@@ -856,6 +856,117 @@ Deno.serve(async (req) => {
       console.error("[generate-callout-docx] storage upload failed:", uploadError);
     }
 
+    // ── Auto-record a service_reports row so the visit's "No report"
+    // badge clears without the user having to use the "Mark as
+    // Reported & Close" escape hatch. Only runs when (a) the upload
+    // landed successfully (no point recording a row pointing at a
+    // file that doesn't exist) and (b) we have a visitId to attach
+    // to. status="callout" discriminates these from real BS5839
+    // service_reports rows so they can be filtered separately later.
+    //
+    // The visit is looked up for site_id + engineer_id (both required
+    // by the schema). If either is missing we skip rather than guess
+    // — better to leave the badge firing than to insert a row pointing
+    // at the wrong site/engineer.
+    let tracking: {
+      recorded: boolean;
+      service_report_id?: string;
+      skip_reason?: string;
+    } = { recorded: false };
+
+    if (!uploadError && bundle.visitId) {
+      try {
+        const trackingClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+
+        // 1. Pull site_id + engineer_id off the visit. Without an
+        //    engineer we can't satisfy service_reports.created_by
+        //    (NOT NULL) — skip in that case.
+        const { data: visit, error: visitErr } = await trackingClient
+          .from("service_visits")
+          .select("site_id, engineer_id")
+          .eq("id", bundle.visitId)
+          .maybeSingle();
+
+        if (visitErr) throw new Error(`visit lookup: ${visitErr.message}`);
+        if (!visit) {
+          tracking.skip_reason = "visit not found";
+        } else if (!visit.engineer_id) {
+          tracking.skip_reason = "visit has no engineer_id (created_by would be null)";
+        } else {
+          // 2. Upsert. If a callout-status row already exists for this
+          //    visit we refresh it (regenerate case). If a real
+          //    BS5839 service_reports row exists we leave it alone —
+          //    those are populated by the dedicated capture flow.
+          const { data: existing } = await trackingClient
+            .from("service_reports")
+            .select("id")
+            .eq("visit_id", bundle.visitId)
+            .eq("status", "callout")
+            .maybeSingle();
+
+          const payload: Record<string, unknown> = {
+            visit_id: bundle.visitId,
+            site_id: visit.site_id,
+            created_by: visit.engineer_id,
+            report_date: bundle.visitDate ?? new Date().toISOString().slice(0, 10),
+            status: "callout",
+            // checklist is NOT NULL on the schema — keep an empty
+            // object so the row satisfies the constraint without
+            // pretending we ran a checklist.
+            checklist: {},
+            // Populate the narrative fields we already have so the
+            // row is queryable / reportable, not just a flag.
+            engineer_name:      bundle.engineerName ?? null,
+            client_name:        bundle.clientName ?? null,
+            client_sign_position: bundle.clientSignPosition ?? null,
+            arrival_time:       bundle.arrivedAt ?? null,
+            departure_time:     bundle.departedAt ?? null,
+            arc_connected:      bundle.arcConnected ?? null,
+            isolation_details:  bundle.isolationDetails ?? null,
+            parts_used:         bundle.partsUsed ?? null,
+            recommendations:    bundle.recommendations ?? null,
+            defects_found:      bundle.defectsFound ?? null,
+            mileage_miles:      bundle.mileageMiles ?? null,
+            notes:              bundle.workCarriedOut ?? null,
+            outstanding_works:  bundle.followupNotes ?? null,
+          };
+
+          let reportId: string | undefined;
+          if (existing?.id) {
+            const { error: upErr } = await trackingClient
+              .from("service_reports")
+              .update(payload)
+              .eq("id", existing.id);
+            if (upErr) throw new Error(`update: ${upErr.message}`);
+            reportId = existing.id;
+          } else {
+            const { data: inserted, error: insErr } = await trackingClient
+              .from("service_reports")
+              .insert(payload)
+              .select("id")
+              .single();
+            if (insErr) throw new Error(`insert: ${insErr.message}`);
+            reportId = inserted?.id;
+          }
+          tracking = { recorded: true, service_report_id: reportId };
+        }
+      } catch (trErr) {
+        // Don't fail the whole generation if tracking fails — the PDF
+        // still exists in storage, the user can use "Mark as Reported
+        // & Close" as the escape hatch. Just log + echo in diagnostics.
+        const msg = trErr instanceof Error ? trErr.message : String(trErr);
+        console.error("[generate-callout-docx] tracking row write failed:", msg);
+        tracking.skip_reason = msg;
+      }
+    } else if (!bundle.visitId) {
+      tracking.skip_reason = "no visitId in bundle";
+    } else if (uploadError) {
+      tracking.skip_reason = "skipped because upload failed";
+    }
+
     return new Response(
       JSON.stringify({
         // Storage path + signed URL for the cloud DOCX→PDF chain.
@@ -877,6 +988,10 @@ Deno.serve(async (req) => {
           output_bytes: out.length,
           fault_narrative_filled: !!composeFaultNarrative(bundle.fault),
           storage_upload_error: uploadError,
+          // Tracking row status — recorded/skipped + reason — so the
+          // frontend can surface whether the visit's "No report" badge
+          // will clear on next refresh.
+          tracking_row: tracking,
         },
         // Signature-specific echo. Mirrors C&E so the frontend can
         // toast a clear "didn't embed because X" message when a
