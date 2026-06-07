@@ -501,6 +501,32 @@ Deno.serve(async (req) => {
           if (contentHash && !group.contentHash) {
             await supabase.from("remittance_advices").update({ content_hash: contentHash }).eq("id", remittanceId);
           }
+          await supabase.from("remittance_advices").insert({
+            scanned_email_id: emailRow.id,
+            message_id: emailRow.message_id,
+            mailbox: emailRow.mailbox,
+            from_address: emailRow.from_address,
+            from_name: emailRow.from_name,
+            subject: emailRow.subject,
+            received_at: emailRow.received_at,
+            payment_date: parsed.payment_date,
+            total_amount: parsed.total_amount,
+            currency: parsed.currency ?? "GBP",
+            payer_name: parsed.payer_name,
+            ai_raw_extract: {
+              ...(parsed as unknown as Record<string, unknown>),
+              attachment_diagnostics: attachmentDiagnostics,
+              duplicate_of: remittanceId,
+              duplicate_reason: group.hasApplied
+                ? "matching remittance allocations have already been applied"
+                : "matching remittance allocations already exist",
+            },
+            status: "dismissed",
+            error_message: group.hasApplied
+              ? "Duplicate remittance: matching allocations have already been applied."
+              : "Duplicate remittance: matching allocations already exist.",
+            pdf_count: pdfCount,
+          });
           return new Response(
             JSON.stringify({
               remittance_id: remittanceId,
