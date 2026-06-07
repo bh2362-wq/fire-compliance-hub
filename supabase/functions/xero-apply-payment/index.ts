@@ -245,8 +245,11 @@ Deno.serve(async (req) => {
     }
 
     if (!bankAccountId) {
+      const hint = allAccountsCount === 0
+        ? "Xero returned 0 accounts. The Xero connection is likely missing the 'accounting.settings' OAuth scope — disconnect and reconnect Xero to grant it."
+        : `Xero returned ${allAccountsCount} accounts but none are an ACTIVE BANK account with payments enabled${bankAccountCode ? ` matching code '${bankAccountCode}'` : ""}.`;
       return new Response(
-        JSON.stringify({ error: "No payment-enabled bank account found in Xero." }),
+        JSON.stringify({ error: `No payment-enabled bank account found in Xero. ${hint}${rawAccountsError ? ` Raw: ${rawAccountsError.slice(0, 200)}` : ""}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
