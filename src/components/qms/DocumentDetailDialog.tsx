@@ -26,13 +26,22 @@ import {
   Mail,
 } from "lucide-react";
 import { format } from "date-fns";
-import { QMSDocument, fetchDocumentVersions, uploadDocumentVersion } from "@/services/qmsService";
+import {
+  QMSDocument,
+  fetchDocumentVersions,
+  uploadDocumentVersion,
+  approveDocument,
+  unlockDocument,
+  fetchLatestApproval,
+} from "@/services/qmsService";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { generateQMSDocumentPDF } from "@/lib/qmsDocumentPdfGenerator";
 import { EmailDocumentDialog } from "./EmailDocumentDialog";
 import { RecreateFromUploadDialog } from "./RecreateFromUploadDialog";
+import { Lock, ShieldCheck, Unlock } from "lucide-react";
 
 interface DocumentDetailDialogProps {
   open: boolean;
@@ -57,6 +66,7 @@ const getStatusBadge = (status: string) => {
 
 export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentDetailDialogProps) => {
   const { user } = useAuth();
+  const { isOwner } = useUserRole();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [changesSummary, setChangesSummary] = useState("");
@@ -64,6 +74,45 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [recreateOpen, setRecreateOpen] = useState(false);
+  const isApproved = document?.status === "approved";
+
+  const approveMutation = useMutation({
+    mutationFn: () => approveDocument(document!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qms-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["qms-document-approval", document?.id] });
+      toast.success("Document approved and locked");
+    },
+    onError: (err) => {
+      const obj = err as { message?: string; code?: string; details?: string };
+      toast.error("Couldn't approve document", {
+        description: [obj.message, obj.details, obj.code && `[${obj.code}]`]
+          .filter(Boolean).join(" — ") || "Unknown error",
+      });
+    },
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: () => unlockDocument(document!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qms-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["qms-document-approval", document?.id] });
+      toast.success("Document unlocked for revision");
+    },
+    onError: (err) => {
+      const obj = err as { message?: string; code?: string; details?: string };
+      toast.error("Couldn't unlock document", {
+        description: [obj.message, obj.details, obj.code && `[${obj.code}]`]
+          .filter(Boolean).join(" — ") || "Unknown error",
+      });
+    },
+  });
+
+  const { data: approval } = useQuery({
+    queryKey: ["qms-document-approval", document?.id],
+    queryFn: () => fetchLatestApproval(document!.id),
+    enabled: !!document?.id && isApproved,
+  });
 
   const handleGeneratePDF = async () => {
     if (!document) return;
@@ -165,6 +214,50 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
           )}
         </div>
 
+        {/* Approval — director-only. The RPC asserts the role server-side,
+            but we hide the button for non-owners to keep the UI clean. */}
+        {isApproved ? (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+            <div className="flex items-center gap-2 font-medium text-emerald-900">
+              <ShieldCheck className="h-4 w-4" />
+              Approved &amp; locked
+            </div>
+            {approval && (
+              <p className="text-xs text-emerald-800/80 mt-1">
+                Approved by <span className="font-medium">{approval.approver_name || "Director"}</span>
+                {approval.approved_at && (
+                  <> on {format(new Date(approval.approved_at), "dd MMM yyyy 'at' HH:mm")}</>
+                )}
+              </p>
+            )}
+            {isOwner && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="mt-2 h-7 text-xs text-emerald-900 hover:bg-emerald-100"
+                onClick={() => unlockMutation.mutate()}
+                disabled={unlockMutation.isPending}
+              >
+                <Unlock className="h-3.5 w-3.5 mr-1.5" />
+                {unlockMutation.isPending ? "Unlocking…" : "Unlock for revision"}
+              </Button>
+            )}
+          </div>
+        ) : isOwner ? (
+          <Button
+            onClick={() => approveMutation.mutate()}
+            disabled={approveMutation.isPending}
+            className="w-full"
+          >
+            <Lock className="h-4 w-4 mr-2" />
+            {approveMutation.isPending ? "Approving…" : "Approve & lock as Director"}
+          </Button>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Only the Director can approve this document.
+          </p>
+        )}
+
         {/* Generate / Email Branded PDF */}
         <div className="grid grid-cols-2 gap-2">
           <Button
@@ -262,6 +355,14 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
         {/* Upload New Version */}
         <div>
           <h4 className="text-sm font-medium mb-3">Upload New Version</h4>
+          {isApproved ? (
+            <p className="text-xs text-muted-foreground rounded-md border bg-muted/40 p-3">
+              <Lock className="inline h-3.5 w-3.5 mr-1.5 -mt-0.5" />
+              This document is approved and locked. {isOwner
+                ? "Unlock it above to upload a revised version."
+                : "Ask the Director to unlock it before uploading a new version."}
+            </p>
+          ) : (
           <div className="space-y-3">
             <input
               ref={fileInputRef}
@@ -311,6 +412,7 @@ export const DocumentDetailDialog = ({ open, onOpenChange, document }: DocumentD
               </div>
             )}
           </div>
+          )}
         </div>
 
         <Separator />
