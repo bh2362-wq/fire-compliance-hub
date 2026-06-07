@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Eye, Receipt, MapPin, Calendar,
-  CheckCircle2, ArrowRight,
+  CheckCircle2, ArrowRight, BadgeCheck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 // Action drawer for visit rows on the dashboard widgets.
@@ -52,6 +53,10 @@ interface VisitActionsDrawerProps {
   visitId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Fires after a mutating action (e.g. Mark as invoiced) succeeds —
+   *  the parent widget should refetch its list so the action item
+   *  disappears immediately rather than the user having to refresh. */
+  onActionTaken?: () => void;
 }
 
 function statusTone(status: string | null): string {
@@ -77,11 +82,12 @@ function invoiceTone(status: string | null): string {
   }
 }
 
-export function VisitActionsDrawer({ visitId, open, onOpenChange }: VisitActionsDrawerProps) {
+export function VisitActionsDrawer({ visitId, open, onOpenChange, onActionTaken }: VisitActionsDrawerProps) {
   const navigate = useNavigate();
   const [visit, setVisit] = useState<VisitInfo | null>(null);
   const [invoice, setInvoice] = useState<InvoiceInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [marking, setMarking] = useState(false);
 
   useEffect(() => {
     if (!open || !visitId) return;
@@ -134,6 +140,35 @@ export function VisitActionsDrawer({ visitId, open, onOpenChange }: VisitActions
     if (!visit?.site?.id) return;
     close();
     navigate(`/sites`);
+  };
+
+  // "Mark as invoiced" — for when the work has been invoiced outside
+  // the system (paper invoice, raised in Xero directly, etc.) and the
+  // user wants to clear the "Needs invoice" action from the dashboard
+  // without going through CreateInvoiceDialog. Flips the visit's
+  // status to 'invoiced' which is the existing status the
+  // OpenActionsWidget's "completed visits without an invoice" query
+  // excludes, so the action item disappears on the next refetch.
+  const markAsInvoiced = async () => {
+    if (!visitId || !visit) return;
+    setMarking(true);
+    try {
+      const { error } = await supabase
+        .from("service_visits")
+        .update({ status: "invoiced" })
+        .eq("id", visitId);
+      if (error) throw error;
+      toast.success("Marked as invoiced", {
+        description: `${visit.site?.name ?? "Visit"} removed from the needs-invoice list.`,
+      });
+      onActionTaken?.();
+      close();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Update failed";
+      toast.error("Couldn't mark as invoiced", { description: message });
+    } finally {
+      setMarking(false);
+    }
   };
 
   const visitStatusLabel = (() => {
@@ -222,6 +257,20 @@ export function VisitActionsDrawer({ visitId, open, onOpenChange }: VisitActions
               hint={visit && visit.status !== "completed"
                 ? "Visit must be completed first."
                 : undefined}
+            />
+          )}
+
+          {/* Escape hatch when the work was invoiced outside the system
+              (paper, Xero direct, legacy). Only offered when there's no
+              active invoice for this visit AND the visit isn't already
+              marked as invoiced — otherwise it'd be a no-op. */}
+          {!invoice && visit?.status !== "invoiced" && (
+            <ActionRow
+              icon={BadgeCheck}
+              label={marking ? "Marking…" : "Mark as invoiced"}
+              description="Invoiced outside the system — clears the Needs invoice action."
+              onClick={markAsInvoiced}
+              disabled={!visit || marking}
             />
           )}
 
