@@ -66,6 +66,10 @@ export function DayVisitsWidget() {
   // jumping straight to the edit dialog. The drawer resolves the
   // right per-visit action set (open / invoice / view invoice etc.)
   const [drawerVisitId, setDrawerVisitId] = useState<string | null>(null);
+  // Bumped by mutating drawer actions (e.g. Mark as invoiced) so the
+  // visit list refetches and its status badge updates without a full
+  // page reload.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const iso = useMemo(() => format(selectedDate, "yyyy-MM-dd"), [selectedDate]);
 
@@ -86,7 +90,7 @@ export function DayVisitsWidget() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [iso]);
+  }, [iso, refreshKey]);
 
   const today = startOfDay(new Date());
   const onToday = format(selectedDate, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
@@ -227,6 +231,7 @@ export function DayVisitsWidget() {
         visitId={drawerVisitId}
         open={drawerVisitId !== null}
         onOpenChange={(o) => { if (!o) setDrawerVisitId(null); }}
+        onActionTaken={() => setRefreshKey((k) => k + 1)}
       />
     </div>
   );

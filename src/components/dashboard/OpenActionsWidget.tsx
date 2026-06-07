@@ -65,6 +65,10 @@ export function OpenActionsWidget() {
   const [items, setItems] = useState<ActionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [drawerVisitId, setDrawerVisitId] = useState<string | null>(null);
+  // Bumped by mutating actions in the drawer (e.g. Mark as invoiced)
+  // so the actions list refetches and the item disappears without a
+  // full page reload.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -215,7 +219,7 @@ export function OpenActionsWidget() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [refreshKey]);
 
   return (
     <div className="section-card">
@@ -300,6 +304,7 @@ export function OpenActionsWidget() {
         visitId={drawerVisitId}
         open={drawerVisitId !== null}
         onOpenChange={(o) => { if (!o) setDrawerVisitId(null); }}
+        onActionTaken={() => setRefreshKey((k) => k + 1)}
       />
     </div>
   );
