@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2, ClipboardCheck, Receipt, Mail, ShieldAlert, AlertTriangle,
-  ArrowRight,
+  ArrowRight, X,
 } from "lucide-react";
 import { differenceInDays, format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { dismissActionItem } from "@/services/emailActionItemsService";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VisitActionsDrawer } from "./VisitActionsDrawer";
 
@@ -33,6 +35,9 @@ type ActionKind =
 interface ActionItem {
   id: string;
   kind: ActionKind;
+  /** For email_decision items: the underlying email_action_items row id
+   *  so the X button can call dismissActionItem on it directly. */
+  emailActionId?: string;
   title: string;
   subtitle: string | null;
   // For visit-related actions we open the drawer with the visit_id so
@@ -175,6 +180,7 @@ export function OpenActionsWidget() {
           list.push({
             id: `em-${e.id}`,
             kind: "email_decision",
+            emailActionId: e.id as string,
             title: e.title ?? "(untitled email)",
             subtitle: e.source_from ?? null,
             href: `/dashboard/email-scanner`,
@@ -254,20 +260,39 @@ export function OpenActionsWidget() {
             const meta = KIND_META[it.kind];
             const Icon = meta.icon;
             const badge = urgencyBadge(it.urgencyLabel);
+            const handleRowClick = () => {
+              // Visit-related actions open the drawer; everything
+              // else navigates to its target page.
+              if (it.visitId && (it.kind === "visit_review" || it.kind === "visit_invoice")) {
+                setDrawerVisitId(it.visitId);
+              } else if (it.href) {
+                navigate(it.href);
+              }
+            };
+            const handleDismissEmail = async (e: React.MouseEvent) => {
+              e.stopPropagation();
+              if (!it.emailActionId) return;
+              try {
+                await dismissActionItem(it.emailActionId);
+                toast.success("Email action dismissed", {
+                  description: "This email won't reappear here.",
+                });
+                // Drop it locally without waiting for a refetch.
+                setItems((prev) => prev.filter((p) => p.id !== it.id));
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : "Couldn't dismiss";
+                toast.error("Couldn't dismiss", { description: msg });
+              }
+            };
             return (
-              <button
+              <div
                 key={it.id}
-                onClick={() => {
-                  // Visit-related actions open the drawer; everything
-                  // else navigates to its target page.
-                  if (it.visitId && (it.kind === "visit_review" || it.kind === "visit_invoice")) {
-                    setDrawerVisitId(it.visitId);
-                  } else if (it.href) {
-                    navigate(it.href);
-                  }
-                }}
+                role="button"
+                tabIndex={0}
+                onClick={handleRowClick}
+                onKeyDown={(e) => { if (e.key === "Enter") handleRowClick(); }}
                 className={cn(
-                  "w-full text-left rounded-md border p-3 hover:shadow-sm transition-all active:scale-[0.99] flex items-center gap-3",
+                  "w-full text-left rounded-md border p-3 hover:shadow-sm transition-all active:scale-[0.99] flex items-center gap-3 cursor-pointer",
                   meta.tone,
                 )}
               >
@@ -288,8 +313,19 @@ export function OpenActionsWidget() {
                     <p className="text-xs text-muted-foreground truncate">{it.subtitle}</p>
                   )}
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              </button>
+                {it.kind === "email_decision" && it.emailActionId ? (
+                  <button
+                    type="button"
+                    onClick={handleDismissEmail}
+                    aria-label="Dismiss email action"
+                    className="w-7 h-7 rounded-md hover:bg-foreground/10 flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                )}
+              </div>
             );
           })}
           {items.length > 25 && (
