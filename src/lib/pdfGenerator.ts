@@ -101,47 +101,41 @@ function drawStatusBox(
 // "new Image() with .src" pattern raced jsPDF's addImage call,
 // producing a blank logo slot in some browsers.
 function addCompactHeader(doc: jsPDF, pageWidth: number, margin: number, logoImg: HTMLImageElement | string | null) {
-  let yPos = 14;
+  const yPos = 14;
+  const logoW = 32;
+  const logoH = 28;
 
-  // Company logo — left side (32x28 matching PO)
+  // Company logo — top-right. Base64 inline (BHO_LOGO_DATA_URL) so
+  // there's no network/auth dependency at render time; renders identically
+  // on desktop + mobile PWAs that may be offline when the user downloads.
   if (logoImg) {
     try {
-      doc.addImage(logoImg, "PNG", margin, yPos - 2, 32, 28);
+      doc.addImage(logoImg, "PNG", pageWidth - margin - logoW, yPos - 2, logoW, logoH);
     } catch {
-      doc.setTextColor(...COLORS.charcoal);
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text(COMPANY.name, margin, yPos + 10);
+      // Intentionally no plain-text fallback — emitting "BHO FIRE LTD"
+      // as a stretched header was worse than a blank space. With the
+      // base64 inline path this catch is now effectively unreachable.
     }
   }
 
-  // Company details — right-aligned (matching PO style)
-  const rightX = pageWidth - margin;
-  let contactY = yPos;
-
-  doc.setTextColor(...COLORS.darkGrey);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bold");
-  doc.text(COMPANY.name, rightX, contactY, { align: "right" });
-  contactY += 5;
-
+  // Company contact details — top-left
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...COLORS.mediumGrey);
-  doc.text(COMPANY.address, rightX, contactY, { align: "right" });
+  let contactY = yPos + 2;
+  doc.text(COMPANY.address, margin, contactY);
   contactY += 4;
-
-  doc.text(`T: ${COMPANY.phone}`, rightX, contactY, { align: "right" });
+  doc.text(`T: ${COMPANY.phone}`, margin, contactY);
   contactY += 4;
-  doc.text(`E: ${COMPANY.email}`, rightX, contactY, { align: "right" });
+  doc.text(`E: ${COMPANY.email}`, margin, contactY);
 
   // Separator line
-  yPos = 44;
+  const sepY = 44;
   doc.setDrawColor(...COLORS.borderGrey);
   doc.setLineWidth(0.3);
-  doc.line(margin, yPos, pageWidth - margin, yPos);
+  doc.line(margin, sepY, pageWidth - margin, sepY);
 
-  return yPos + 4;
+  return sepY + 4;
 }
 
 // Professional footer — matches PO style
@@ -2542,20 +2536,10 @@ export async function generateDisabledRefugeReportPDF(
   const margin = 10;
   const contentWidth = pageWidth - 2 * margin;
 
-  // Load logo
-  let logoImg: HTMLImageElement | null = null;
-  try {
-    logoImg = await new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = "/bho-fire-logo.png";
-    });
-  } catch {
-    // Logo load failed
-  }
-
+  // Synchronous data URL — see BHO_LOGO_DATA_URL comment for why.
+  // Previously fetched /bho-fire-logo.png via new Image(), which raced
+  // jsPDF.addImage and dropped the logo on mobile PWAs without network.
+  const logoImg = BHO_LOGO_DATA_URL;
   let yPos = addCompactHeader(doc, pageWidth, margin, logoImg);
 
   // Report title
