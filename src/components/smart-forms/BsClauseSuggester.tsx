@@ -185,15 +185,15 @@ export function BsClauseSuggester({
       )}
 
       {suggestions.length > 0 && (
-        <div className="rounded-md border bg-popover overflow-hidden">
+        <div className="rounded-md border bg-popover overflow-hidden pointer-events-auto relative z-10">
           <div className="px-2.5 py-1.5 border-b bg-muted/40 flex items-center justify-between">
             <span className="text-[11px] text-muted-foreground">
               Tap a clause to add it to the justification — tap again to remove.
             </span>
             <button
               type="button"
-              onClick={() => setSuggestions([])}
-              className="text-[10px] text-muted-foreground hover:text-foreground"
+              onPointerDown={(e) => { e.stopPropagation(); setSuggestions([]); }}
+              className="text-[10px] text-muted-foreground hover:text-foreground pointer-events-auto"
             >
               Close
             </button>
@@ -204,15 +204,19 @@ export function BsClauseSuggester({
               <button
                 key={`${s.clause}-${i}`}
                 type="button"
-                onClick={() => toggleSuggestion(s)}
+                // Use onPointerDown so the toggle fires even if a stale
+                // Radix overlay has left `pointer-events: none` on the
+                // body after a Select/Popover close — touch/click events
+                // can otherwise be swallowed inside the Dialog.
+                onPointerDown={(e) => { e.stopPropagation(); toggleSuggestion(s); }}
                 className={cn(
-                  "w-full text-left px-2.5 py-2 transition-colors border-b last:border-b-0",
+                  "w-full text-left px-2.5 py-2 transition-colors border-b last:border-b-0 pointer-events-auto cursor-pointer",
                   selected
                     ? "bg-primary/10 hover:bg-primary/15"
                     : "hover:bg-accent",
                 )}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pointer-events-none">
                   {selected ? (
                     <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
                   ) : (
@@ -224,7 +228,7 @@ export function BsClauseSuggester({
                   </Badge>
                   <span className="text-xs text-muted-foreground truncate flex-1">{s.title}</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1 leading-snug pl-5">
+                <p className="text-[11px] text-muted-foreground mt-1 leading-snug pl-5 pointer-events-none">
                   {s.reasoning}
                 </p>
               </button>
