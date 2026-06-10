@@ -232,6 +232,26 @@ export default function SmartForms() {
     catch { toast.error("Failed to delete"); }
   };
 
+  // Cloud-rendered cert generators (currently just modification) return
+  // base64 instead of triggering a download themselves the way jsPDF's
+  // doc.save() does. Decode and trigger the browser save here so the
+  // contract from the list-row Download button is the same regardless
+  // of which renderer is behind the cert type.
+  const triggerBase64Download = (base64: string, fileName: string) => {
+    const bin = atob(base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
   const handleDownload = async (sub: SmartFormSubmission) => {
     try {
       const p = sub.payload as any;
@@ -241,7 +261,8 @@ export default function SmartForms() {
       } else if (ft === "bs5839_commissioning") {
         await generateCommissioningCertificatePDF(p, { autoSign: true });
       } else if (ft === "bs5839_modification") {
-        await generateModificationCertificatePDF(p, { autoSign: true });
+        const { base64, fileName } = await generateModificationCertificatePDF(p, { autoSign: true });
+        triggerBase64Download(base64, fileName);
       } else if (ft.startsWith("el_")) {
         const { generateELCertificatePDF } = await import("@/lib/emergencyLightingPdfGenerator");
         await generateELCertificatePDF(p);
