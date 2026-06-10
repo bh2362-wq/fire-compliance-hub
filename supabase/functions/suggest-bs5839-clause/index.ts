@@ -106,9 +106,12 @@ Deno.serve(async (req) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        // Haiku is plenty for this single-shot classification — fast,
-        // cheap, and the system prompt does the heavy lifting.
-        model: "claude-haiku-4-5-20251001",
+        // Match the model id every other edge function in this repo
+        // uses (claude-chat, scan-email, extract-report-notes, etc.) —
+        // Haiku 4.5 isn't enabled on this Anthropic account and
+        // returned a non-200 the engineer saw as an edge-function
+        // error in the wizard.
+        model: "claude-sonnet-4-5",
         max_tokens: 800,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: variationText }],
@@ -118,8 +121,21 @@ Deno.serve(async (req) => {
     if (!resp.ok) {
       const errText = await resp.text();
       console.error("[suggest-bs5839-clause] Claude error:", resp.status, errText);
+      // Surface the upstream Anthropic message so the engineer sees
+      // (e.g.) "model not found" or "credit balance is too low" rather
+      // than a generic edge-function failure.
+      let upstreamMessage = "";
+      try {
+        const parsed = JSON.parse(errText);
+        upstreamMessage = parsed?.error?.message ?? "";
+      } catch {
+        upstreamMessage = errText.slice(0, 200);
+      }
       return new Response(
-        JSON.stringify({ suggestions: [], error: `AI service returned ${resp.status}` }),
+        JSON.stringify({
+          suggestions: [],
+          error: upstreamMessage || `AI service returned ${resp.status}`,
+        }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
