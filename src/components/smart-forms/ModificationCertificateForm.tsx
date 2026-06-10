@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { SmartSignature } from "@/components/ui/smart-signature";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { BsClauseSuggester } from "./BsClauseSuggester";
 import { Save, FileDown, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock, SitePrefillBlock, PhotoAnalysisBlock, PdfPreviewBlock } from "./_DocLayout";
 import { toast } from "sonner";
@@ -370,7 +371,15 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <div className="space-y-1.5"><Label className="text-xs">Description</Label><Textarea rows={2} value={v.description} onChange={(e) => patch(v.id, { description: e.target.value })} /></div>
                       <div className="space-y-1.5"><Label className="text-xs">Justification</Label><Textarea rows={2} value={v.justification} onChange={(e) => patch(v.id, { justification: e.target.value })} /></div>
-                      <div className="space-y-1.5"><Label className="text-xs">BS Clause Reference</Label><Input value={v.bs_clause || ""} onChange={(e) => patch(v.id, { bs_clause: e.target.value })} /></div>
+                      {/* BS clause suggester — sends ONLY this variation's
+                          description + justification to the suggest-bs5839-clause
+                          edge function, never any other field on the form. */}
+                      <BsClauseSuggester
+                        description={v.description}
+                        justification={v.justification}
+                        value={v.bs_clause || ""}
+                        onChange={(val) => patch(v.id, { bs_clause: val })}
+                      />
                       <div className="space-y-1.5"><Label className="text-xs">Agreed with RP?</Label>
                         <Select value={v.agreed_with_rp || undefined} onValueChange={(val) => patch(v.id, { agreed_with_rp: val as any })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
