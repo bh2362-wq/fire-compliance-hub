@@ -82,6 +82,25 @@ def text_run(text: str, *, bold=False, color=NAVY, size_pt=10) -> str:
     )
 
 
+def signature_run(text: str, *, color=NAVY, size_pt=18) -> str:
+    """Cursive run for signature placeholders so the rendered PDF
+    actually reads as a signature instead of a faint label. Brush Script
+    MT is the standard Word handwriting font and is shipped with the
+    MS Graph headless renderer the cloud conversion uses. Falls back to
+    Lucida Handwriting / Segoe Script if the renderer is missing it
+    (both are in the typical Office font set)."""
+    sz = size_pt * 2
+    return (
+        '<w:r><w:rPr>'
+        '<w:rFonts w:ascii="Brush Script MT" w:cs="Brush Script MT" '
+        'w:eastAsia="Brush Script MT" w:hAnsi="Brush Script MT"/>'
+        f'<w:color w:val="{color}"/><w:sz w:val="{sz}"/><w:szCs w:val="{sz}"/>'
+        '<w:i/><w:iCs/>'
+        '</w:rPr>'
+        f'<w:t xml:space="preserve">{xe(text)}</w:t></w:r>'
+    )
+
+
 def para(*runs, align="left", after=120, shading=None, indent=None):
     align_xml = f'<w:jc w:val="{align}"/>'
     shading_xml = f'<w:shd w:val="clear" w:fill="{shading}"/>' if shading else ''
@@ -316,7 +335,7 @@ body_parts.append(two_pair_row(
 ))
 body_parts.append(two_pair_row(
     "Signature",
-    para(text_run("[ENGINEER_SIGNATURE]", color=GREY, size_pt=9), after=0),
+    para(signature_run("[ENGINEER_SIGNATURE]"), after=0),
     "Date",
     para(text_run("[ENGINEER_SIGNED_DATE]", color=NAVY, size_pt=10), after=0),
 ))
@@ -425,7 +444,7 @@ body_parts.append(
 body_parts.append(open_table([ROW2_LBL_W, ROW2_VAL_W, ROW2_LBL_W, ROW2_VAL_W]))
 body_parts.append(two_pair_row(
     "Signed customer",
-    para(text_run("[CUSTOMER_NAME]", color=GREY, size_pt=9), after=0),
+    para(signature_run("[CUSTOMER_NAME]"), after=0),
     "Print name",
     para(text_run("[CUSTOMER_PRINT]", color=NAVY, size_pt=10), after=0),
 ))
