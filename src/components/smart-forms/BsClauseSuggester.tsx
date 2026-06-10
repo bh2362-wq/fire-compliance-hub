@@ -200,13 +200,32 @@ export function BsClauseSuggester({
           </div>
           {suggestions.map((s, i) => {
             const selected = isSelected(s);
+            // div role=button instead of <button> — iOS Safari sometimes
+            // refuses to fire click on a real <button> when it's the
+            // descendant of complex nested containers (this dialog +
+            // grid + card). cursor-pointer + touch-manipulation +
+            // select-none let iOS treat the row as a tappable target,
+            // not text to select. Keyboard access is preserved via
+            // tabIndex + Enter/Space handler.
             return (
-              <button
+              <div
                 key={`${s.clause}-${i}`}
-                type="button"
-                onClick={() => toggleSuggestion(s)}
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleSuggestion(s);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleSuggestion(s);
+                  }
+                }}
                 className={cn(
-                  "w-full text-left px-2.5 py-2 transition-colors border-b last:border-b-0",
+                  "block w-full text-left px-2.5 py-2 transition-colors border-b last:border-b-0",
+                  "cursor-pointer select-none touch-manipulation",
                   selected
                     ? "bg-primary/10 hover:bg-primary/15"
                     : "hover:bg-accent",
@@ -227,7 +246,7 @@ export function BsClauseSuggester({
                 <p className="text-[11px] text-muted-foreground mt-1 leading-snug pl-5">
                   {s.reasoning}
                 </p>
-              </button>
+              </div>
             );
           })}
         </div>
