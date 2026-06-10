@@ -182,9 +182,19 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
                 value={payload.premises_address || ""}
                 onChange={(v) => up("premises_address", v)}
                 onAddressSelect={(details) => {
+                  // AddressAutocomplete fires onChange BEFORE this
+                  // callback with whatever it considers the best
+                  // street string. Only overwrite premises_address if
+                  // we can compose something materially better —
+                  // otherwise we'd blank a populated field when Google
+                  // returned just a city (e.g. "York House" had no
+                  // street_number, so address was empty and we ended
+                  // up writing just "Wembley").
                   const joined = [details.address, details.city]
                     .filter(Boolean).join(", ");
-                  up("premises_address", joined || details.address);
+                  if (details.address) {
+                    up("premises_address", joined);
+                  }
                   if (details.postcode) up("premises_postcode", details.postcode);
                   if (details.businessName && !payload.premises_name) {
                     up("premises_name", details.businessName);
