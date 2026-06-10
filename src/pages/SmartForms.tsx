@@ -411,11 +411,13 @@ export default function SmartForms() {
       <InstallationCertificateForm
         open={activeForm === "bs5839_installation"}
         onOpenChange={(o) => { if (!o) closeForm(); }}
+        existing={editing?.form_type === "bs5839_installation" ? editing : null}
         onSaved={load}
       />
       <CommissioningCertificateForm
         open={activeForm === "bs5839_commissioning"}
         onOpenChange={(o) => { if (!o) closeForm(); }}
+        existing={editing?.form_type === "bs5839_commissioning" ? editing : null}
         onSaved={load}
       />
       <ModificationCertificateForm

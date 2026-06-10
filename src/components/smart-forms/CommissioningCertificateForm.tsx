@@ -21,6 +21,7 @@ import {
   createNewCertSubmission, updateNewCertSubmission, validateCommissioning,
 } from "@/services/newCertificateService";
 import { checkDuplicateJobCert, autoRegisterCertToSite } from "@/services/newCertificateService";
+import type { SmartFormSubmission } from "@/services/smartFormService";
 import { generateCommissioningCertificatePDF } from "@/lib/commissioningCertificatePdfGenerator";
 
 const STEPS = [
@@ -44,10 +45,15 @@ interface Props {
   siteId?: string | null;
   customerId?: string | null;
   prefill?: Partial<CommissioningPayload>;
+  /** When set, the wizard opens in edit-existing mode — rehydrates
+   *  every field from the saved payload and wires submissionId so
+   *  the next save updates the same cert row instead of creating a
+   *  duplicate. Same pattern as BS5839CertificateForm / Modification. */
+  existing?: SmartFormSubmission | null;
   onSaved?: () => void;
 }
 
-export default function CommissioningCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
+export default function CommissioningCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, existing, onSaved }: Props) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
@@ -55,12 +61,16 @@ export default function CommissioningCertificateForm({ open, onOpenChange, visit
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) {
-      setStep(0);
+    if (!open) return;
+    setStep(0);
+    if (existing) {
+      setSubmissionId(existing.id);
+      setPayload({ ...emptyPayload(), ...(existing.payload as CommissioningPayload) });
+    } else {
       setSubmissionId(null);
       setPayload(prefill ? { ...emptyPayload(), ...prefill } : emptyPayload());
     }
-  }, [open, prefill]);
+  }, [open, prefill, existing]);
 
   const errors = useMemo(() => validateCommissioning(payload), [payload]);
   const errorsByStep = useMemo(() => {
