@@ -421,6 +421,7 @@ export default function SmartForms() {
       <ModificationCertificateForm
         open={activeForm === "bs5839_modification"}
         onOpenChange={(o) => { if (!o) closeForm(); }}
+        existing={editing?.form_type === "bs5839_modification" ? editing : null}
         onSaved={load}
       />
       <EmergencyLightingForm

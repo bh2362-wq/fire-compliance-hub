@@ -23,6 +23,7 @@ import {
   createNewCertSubmission, updateNewCertSubmission, validateModification,
 } from "@/services/newCertificateService";
 import { checkDuplicateJobCert, autoRegisterCertToSite } from "@/services/newCertificateService";
+import type { SmartFormSubmission } from "@/services/smartFormService";
 import { generateModificationCertificatePDF } from "@/lib/modificationCertificatePdfGenerator";
 import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
@@ -52,6 +53,12 @@ interface Props {
   siteId?: string | null;
   customerId?: string | null;
   prefill?: Partial<ModificationPayload>;
+  /** When set, the form opens in edit-existing mode: the saved payload
+   *  re-populates every field, the submissionId is wired so persist()
+   *  takes the update path (instead of creating a new row), and the
+   *  next save lands on the same cert ref. Mirrors BS5839CertificateForm's
+   *  existing-prop pattern. */
+  existing?: SmartFormSubmission | null;
   onSaved?: () => void;
 }
 
@@ -64,7 +71,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
   );
 }
 
-export default function ModificationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, onSaved }: Props) {
+export default function ModificationCertificateForm({ open, onOpenChange, visitId, siteId, customerId, prefill, existing, onSaved }: Props) {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
@@ -72,12 +79,21 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) {
-      setStep(0);
+    if (!open) return;
+    setStep(0);
+    if (existing) {
+      // Edit-existing: re-hydrate the form from the saved payload and
+      // wire submissionId so persist() takes the UPDATE branch (was
+      // creating a duplicate row each time before — engineer reported
+      // all fields blanking on re-open and the file vanishing on
+      // re-download).
+      setSubmissionId(existing.id);
+      setPayload({ ...emptyPayload(), ...(existing.payload as ModificationPayload) });
+    } else {
       setSubmissionId(null);
       setPayload(prefill ? { ...emptyPayload(), ...prefill } : emptyPayload());
     }
-  }, [open, prefill]);
+  }, [open, prefill, existing]);
 
   const errors = useMemo(() => validateModification(payload), [payload]);
   const errorsByStep = useMemo(() => {
