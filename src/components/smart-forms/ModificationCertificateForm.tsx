@@ -374,15 +374,15 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
                       {/* BS clause suggester — sends ONLY this variation's
                           description + justification to the suggest-bs5839-clause
                           edge function, never any other field on the form.
-                          Multi-select: clicking a suggestion appends the clause
-                          to bs_clause and "Cl. X — reasoning" to justification;
-                          clicking again removes both. */}
+                          onApplyEdit is a single atomic update for the
+                          suggestion-click flow (writes bs_clause + justification
+                          together so neither clobbers the other via stale state). */}
                       <BsClauseSuggester
                         description={v.description}
                         justification={v.justification}
                         value={v.bs_clause || ""}
                         onChange={(val) => patch(v.id, { bs_clause: val })}
-                        onJustificationChange={(val) => patch(v.id, { justification: val })}
+                        onApplyEdit={(updates) => patch(v.id, updates)}
                       />
                       <div className="space-y-1.5"><Label className="text-xs">Agreed with RP?</Label>
                         <Select value={v.agreed_with_rp || undefined} onValueChange={(val) => patch(v.id, { agreed_with_rp: val as any })}>

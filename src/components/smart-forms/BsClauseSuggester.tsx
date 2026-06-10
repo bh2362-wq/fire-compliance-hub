@@ -42,11 +42,15 @@ interface Props {
   justification: string;
   /** Current BS Clause Reference value. */
   value: string;
-  /** Setter for BS Clause Reference. */
+  /** Setter for BS Clause Reference — used for manual typing into the
+   *  Input. Single-field update; safe because it doesn't race with
+   *  any other field on the same tick. */
   onChange: (v: string) => void;
-  /** Setter for Justification — required for multi-select to write the
-   *  reasoning into the right field. */
-  onJustificationChange: (v: string) => void;
+  /** Single atomic update for suggestion-click flows that need to
+   *  change BOTH bs_clause and justification at the same time. Parents
+   *  must apply both fields in one setState call — otherwise the second
+   *  field write clobbers the first via stale-closure. */
+  onApplyEdit: (updates: { bs_clause: string; justification: string }) => void;
   disabled?: boolean;
 }
 
@@ -70,7 +74,7 @@ export function BsClauseSuggester({
   justification,
   value,
   onChange,
-  onJustificationChange,
+  onApplyEdit,
   disabled,
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -124,24 +128,23 @@ export function BsClauseSuggester({
       // line from the justification. Other refs / other lines are
       // preserved so the engineer's edits stick around.
       const newRefs = selectedRefs.filter((r) => r !== s.clause).join(", ");
-      onChange(newRefs);
-
       const newJustification = (justification ?? "")
         .split("\n")
         .filter((row) => row.trim() !== line)
         .join("\n")
-        .replace(/\n{3,}/g, "\n\n")  // collapse runs of blanks left behind
+        .replace(/\n{3,}/g, "\n\n")  // collapse blank runs left behind
         .trim();
-      onJustificationChange(newJustification);
+      // Single atomic update — see Props.onApplyEdit. Two back-to-back
+      // setStates would race because the second one's payload was
+      // precomputed using the closure-captured stale variations array.
+      onApplyEdit({ bs_clause: newRefs, justification: newJustification });
     } else {
       // Append — clause to comma-list, full "Cl. X — reasoning" line to
       // justification (preceded by a newline if the field has content).
       const newRefs = value.trim() ? `${value.trim()}, ${s.clause}` : s.clause;
-      onChange(newRefs);
-
       const base = (justification ?? "").trim();
       const newJustification = base ? `${base}\n${line}` : line;
-      onJustificationChange(newJustification);
+      onApplyEdit({ bs_clause: newRefs, justification: newJustification });
     }
   }
 
