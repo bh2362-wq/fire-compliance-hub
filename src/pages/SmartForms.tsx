@@ -257,7 +257,11 @@ export default function SmartForms() {
       } else {
         await generateBS5839CertificatePDF(p, { autoSign: true });
       }
-    } catch (err) { console.error(err); toast.error("Failed to generate PDF"); }
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Failed to generate PDF", { description: message });
+    }
   };
 
   const buildMailto = (sub: SmartFormSubmission) => {
