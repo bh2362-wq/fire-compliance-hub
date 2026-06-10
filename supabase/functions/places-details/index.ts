@@ -81,16 +81,41 @@ Deno.serve(async (req) => {
     // Build structured address
     const streetNumber = getComponent('street_number');
     const route = getComponent('route');
-    const address = [streetNumber, route].filter(Boolean).join(' ');
+    let address = [streetNumber, route].filter(Boolean).join(' ');
     const city = getComponent('postal_town') || getComponent('locality');
     const postcode = getComponent('postal_code');
+    const country = getComponent('country');
 
     // Check if this is a business/establishment and get the name
     const types = detailsData.result.types || [];
-    const isEstablishment = types.some((t: string) => 
+    const isEstablishment = types.some((t: string) =>
       ['establishment', 'point_of_interest', 'store', 'food', 'health', 'finance', 'lodging', 'premise'].includes(t)
     );
     const businessName = isEstablishment ? (detailsData.result.name || '') : '';
+
+    // Fallback for buildings / premises where Google has no
+    // street_number + route (e.g. "York House") — derive the address
+    // from formatted_address by stripping the city, postcode, country
+    // (returned in their own fields) and the business name (returned
+    // separately too, so the caller can place it in a "name" field
+    // without doubling up). What's left is the building + street.
+    if (!address && detailsData.result.formatted_address) {
+      const formatted = String(detailsData.result.formatted_address);
+      const stripWords = [postcode, city, country, 'UK', 'United Kingdom', businessName]
+        .filter((s): s is string => !!s && s.trim() !== '');
+      const parts = formatted.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const kept = parts.filter((part: string) => {
+        // Drop a chunk if it matches one of our known facets exactly,
+        // or if it contains the postcode (Google sometimes emits
+        // "City PostCode" as a single chunk).
+        for (const w of stripWords) {
+          if (part === w) return false;
+          if (postcode && part.includes(postcode)) return false;
+        }
+        return true;
+      });
+      address = kept.join(', ');
+    }
 
     console.log('Parsed address:', { address, city, postcode, businessName, types });
 
