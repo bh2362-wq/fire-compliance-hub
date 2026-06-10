@@ -144,7 +144,21 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
       return;
     }
     const saved = await persist("completed");
-    await generateModificationCertificatePDF((saved?.payload ?? payload) as ModificationPayload, { autoSign: true });
+    try {
+      await generateModificationCertificatePDF((saved?.payload ?? payload) as ModificationPayload, { autoSign: true });
+    } catch (err) {
+      // The submission is already saved as completed at this point —
+      // surface the actual PDF error so the engineer knows whether to
+      // hit the Download button again (transient) or escalate (template
+      // / edge-function broken). Generic "Failed to generate PDF"
+      // hides exactly that signal.
+      console.error("[ModificationCert] PDF generation failed:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error("Couldn't generate PDF", {
+        description: message,
+        duration: 10000,
+      });
+    }
   }
 
   const F = Field;
