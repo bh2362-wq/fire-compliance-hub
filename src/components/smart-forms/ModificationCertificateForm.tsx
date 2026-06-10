@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { SmartSignature } from "@/components/ui/smart-signature";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Save, FileDown, AlertCircle, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { DocDialogShell, StickyHeader, StickyFooter, DocBody, DocBlock, TitleBlock, AIAssistBlock, SitePrefillBlock, PhotoAnalysisBlock, PdfPreviewBlock } from "./_DocLayout";
 import { toast } from "sonner";
@@ -169,7 +170,30 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
       case 1: return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <F label="Premises Name" required><Input value={payload.premises_name || ""} onChange={(e) => up("premises_name", e.target.value)} /></F>
-          <div className="md:col-span-2"><F label="Address" required><Textarea rows={2} value={payload.premises_address || ""} onChange={(e) => up("premises_address", e.target.value)} /></F></div>
+          <div className="md:col-span-2">
+            <F label="Address" required>
+              {/* Google Places lookup — same component used by Sites,
+                  Customers, Suppliers, Quotations. Picking a result
+                  auto-fills address + postcode (and the premises name
+                  when the result is a business and the name field is
+                  empty). User can still free-type if Places doesn't
+                  recognise the site. */}
+              <AddressAutocomplete
+                value={payload.premises_address || ""}
+                onChange={(v) => up("premises_address", v)}
+                onAddressSelect={(details) => {
+                  const joined = [details.address, details.city]
+                    .filter(Boolean).join(", ");
+                  up("premises_address", joined || details.address);
+                  if (details.postcode) up("premises_postcode", details.postcode);
+                  if (details.businessName && !payload.premises_name) {
+                    up("premises_name", details.businessName);
+                  }
+                }}
+                placeholder="Start typing the site address..."
+              />
+            </F>
+          </div>
           <F label="Postcode"><Input value={payload.premises_postcode || ""} onChange={(e) => up("premises_postcode", e.target.value)} /></F>
         </div>
       );
