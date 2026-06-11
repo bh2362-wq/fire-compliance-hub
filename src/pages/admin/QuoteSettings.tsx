@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Upload, CheckCircle2, XCircle, AlertTriangle, Loader2, RefreshCw,
-  FileText, Sparkles, FileType, ChevronDown, ChevronRight, Settings,
+  FileText, Sparkles, FileType, ChevronDown, ChevronRight, Settings, Download,
 } from "lucide-react";
 
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -322,15 +322,49 @@ export default function QuoteSettings() {
             )}
             <div className="flex items-start gap-4">
               {templateExists ? (
-                <div className="border rounded p-3 bg-muted/30 min-w-[160px]">
-                  <FileText className="w-8 h-8 text-muted-foreground mb-2" />
-                  <p className="text-xs font-medium">master-template.docx</p>
-                  {templateSize != null && (
-                    <p className="text-[10px] text-muted-foreground">{(templateSize / 1024).toFixed(1)} KB</p>
-                  )}
-                  {templateModified && (
-                    <p className="text-[10px] text-muted-foreground">Updated {new Date(templateModified).toLocaleString("en-GB")}</p>
-                  )}
+                <div className="border rounded p-3 bg-muted/30 min-w-[160px] space-y-2">
+                  <div>
+                    <FileText className="w-8 h-8 text-muted-foreground mb-2" />
+                    <p className="text-xs font-medium">master-template.docx</p>
+                    {templateSize != null && (
+                      <p className="text-[10px] text-muted-foreground">{(templateSize / 1024).toFixed(1)} KB</p>
+                    )}
+                    {templateModified && (
+                      <p className="text-[10px] text-muted-foreground">Updated {new Date(templateModified).toLocaleString("en-GB")}</p>
+                    )}
+                  </div>
+                  {/* Download — needed so the user can grab the
+                      current template, edit in Word, and re-upload.
+                      Storage.download respects bucket RLS so it
+                      works for admins (the same role gate the upload
+                      uses). */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-7 text-xs gap-1.5"
+                    onClick={async () => {
+                      try {
+                        const { data, error } = await supabase.storage
+                          .from(LOGO_BUCKET).download(TEMPLATE_PATH);
+                        if (error || !data) throw new Error(error?.message || "Empty response");
+                        const url = URL.createObjectURL(data);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = TEMPLATE_PATH;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        setTimeout(() => URL.revokeObjectURL(url), 0);
+                      } catch (e) {
+                        toast.error("Couldn't download template", {
+                          description: e instanceof Error ? e.message : String(e),
+                        });
+                      }
+                    }}
+                  >
+                    <Download className="w-3 h-3" />
+                    Download
+                  </Button>
                 </div>
               ) : (
                 <div className="border rounded h-24 w-40 flex items-center justify-center text-xs text-muted-foreground">No template</div>
