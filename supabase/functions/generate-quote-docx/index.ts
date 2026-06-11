@@ -744,16 +744,19 @@ function renderAIFillPlaceholders(xml: string, q: QuoteInput): string {
     worksExtra,
   );
 
-  // §4 Exclusions / §5 Assumptions — append project-specific entries.
-  x = replaceAllWtText(
+  // §4 Exclusions / §5 Assumptions — render each entry as its own bulleted
+  // paragraph (was joining them into one run-on string with "  " separators
+  // which printed as an unreadable wall of text). Empty arrays strip the
+  // placeholder paragraph cleanly.
+  x = renderBulletedListAtMarker(
     x,
     "[Copilot: Add project-specific exclusions identified in the spec review.]",
-    (q.exclusions ?? []).join("  "),
+    q.exclusions ?? [],
   );
-  x = replaceAllWtText(
+  x = renderBulletedListAtMarker(
     x,
     "[Copilot: Add project-specific assumptions.]",
-    (q.assumptions ?? []).join("  "),
+    q.assumptions ?? [],
   );
 
   // Anything still containing "[Copilot:" — Programme bullets, leftover
@@ -916,6 +919,48 @@ function renderDetailedScope(xml: string, scope: string[]): string {
     return xml.substring(0, pStart) + xml.substring(pEnd);
   }
   const paragraphs = items.map((t, i) => buildScopeItemParagraph(i + 1, t)).join("");
+  return xml.substring(0, pStart) + paragraphs + xml.substring(pEnd);
+}
+
+// Bullet paragraph for free-floating lists (Exclusions §4, Assumptions
+// §5). Uses a Unicode • prefix with a hanging indent so wrapped lines
+// align under the text not the bullet. Same body style as scope items
+// so the three list sections (Scope / Exclusions / Assumptions) share
+// one visual language.
+function buildBulletParagraph(text: string): string {
+  const body = escapeXmlText(text.trim());
+  return '<w:p>'
+    + '<w:pPr>'
+      + '<w:spacing w:after="100" w:line="260" w:lineRule="auto"/>'
+      + '<w:ind w:left="360" w:hanging="360"/>'
+      + '<w:jc w:val="both"/>'
+    + '</w:pPr>'
+    + `<w:r>${BODY_RPR}<w:t xml:space="preserve">•   </w:t></w:r>`
+    + `<w:r>${BODY_RPR}<w:t xml:space="preserve">${body}</w:t></w:r>`
+    + '</w:p>';
+}
+
+// Locate the [Copilot:] placeholder paragraph at the given marker and
+// replace it with N bulleted paragraphs. Returns xml unchanged if the
+// placeholder isn't found (template variant); strips the placeholder
+// paragraph cleanly when items is empty (no orphan label left behind).
+function renderBulletedListAtMarker(
+  xml: string,
+  markerPrefix: string,
+  items: string[],
+): string {
+  const phIdx = xml.indexOf(markerPrefix);
+  if (phIdx < 0) return xml;
+  const pStart = findEnclosingWpStart(xml, phIdx);
+  if (pStart < 0) return xml;
+  const pEnd = xml.indexOf("</w:p>", phIdx) + "</w:p>".length;
+  if (pEnd <= 0) return xml;
+
+  const clean = items.filter((s) => s && s.trim().length > 0);
+  if (clean.length === 0) {
+    return xml.substring(0, pStart) + xml.substring(pEnd);
+  }
+  const paragraphs = clean.map(buildBulletParagraph).join("");
   return xml.substring(0, pStart) + paragraphs + xml.substring(pEnd);
 }
 
