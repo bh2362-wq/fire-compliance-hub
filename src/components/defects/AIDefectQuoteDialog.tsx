@@ -67,9 +67,13 @@ function isMissingColumnError(err: unknown, column: string): boolean {
   const e = err as Record<string, unknown>;
   const code = typeof e.code === "string" ? e.code : "";
   const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
-  // 42703 = undefined_column. Also match on text — Supabase clients
-  // sometimes surface the error text without the SQLSTATE code.
-  if (code !== "42703" && !message.includes("does not exist")) return false;
+  // 42703 = Postgres undefined_column (raw DB error).
+  // PGRST204 = PostgREST "Could not find the column ... in the schema cache" —
+  //            same root cause, different surface. The message variants are
+  //            "does not exist" (Postgres) and "could not find" (PostgREST).
+  const codeMatch  = code === "42703" || code === "PGRST204";
+  const phraseMatch = message.includes("does not exist") || message.includes("could not find");
+  if (!codeMatch && !phraseMatch) return false;
   return message.includes(column.toLowerCase());
 }
 
