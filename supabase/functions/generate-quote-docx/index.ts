@@ -964,6 +964,169 @@ function renderBulletedListAtMarker(
   return xml.substring(0, pStart) + paragraphs + xml.substring(pEnd);
 }
 
+// ── Scope / summary rewriter ─────────────────────────────────────────
+//
+// Why
+//   AI Defect Quotes (and any other automation that dumps content into
+//   quotations.introduction) save a markdown-formatted numbered list like
+//     1. **Sounder/VAD Investigation** Inspect the local...
+//     2. **Lift Interface Fault** Investigate the fire alarm interface...
+//   straight onto the row. The §1 Summary placeholder is meant to take a
+//   3-5 sentence prose synopsis, not a 1500-char run-on with ** markers
+//   that print literally in Word. Result: ugly summary, no per-item
+//   scope breakdown in §2.2.
+//
+// What this does
+//   Once per render, before any placeholder fills:
+//     - Cleans markdown emphasis (** __ * _ `).
+//     - If introduction looks like a numbered list, parses each item out.
+//     - Calls Claude (claude-sonnet-4-5, same model the rest of the repo
+//       uses) to rewrite into a clean { summary, scope_items[] } pair.
+//       Prompt preserves voice when the input is already clean prose;
+//       only reformats markdown-dump / list-dump inputs.
+//     - Falls back to a deterministic cleanup if ANTHROPIC_API_KEY isn't
+//       set, the call errors, or the response doesn't parse.
+//   Writes results onto quote.summary_paragraph + quote.scope so the
+//   existing renderTopFields / renderDetailedScope flow picks them up
+//   without changes.
+//
+//   Adds <2 s + ~$0.002 per quote PDF. Acceptable for the readability win.
+
+function stripMarkdown(s: string): string {
+  return s
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/(?<!\w)_([^_]+)_(?!\w)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+}
+
+function parseNumberedItems(text: string): string[] {
+  const cleaned = stripMarkdown(text);
+  // Match "1. ", "2)", etc. at line start or after blank/double-space.
+  // Lookahead caps each item at the next numbered marker.
+  const re = /(?:^|\n\s*|\s{2,})(\d{1,2})[.)]\s+([\s\S]+?)(?=(?:\n\s*|\s{2,})\d{1,2}[.)]\s|$)/g;
+  const items: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cleaned)) !== null) {
+    const body = m[2].trim().replace(/\s+/g, " ");
+    if (body) items.push(body);
+  }
+  return items;
+}
+
+function deterministicScopeCleanup(
+  introText: string,
+  scopeArr: string[],
+  projectTitle: string,
+): { summary: string; scope_items: string[] } {
+  const cleanedIntro = stripMarkdown(introText);
+  const cleanedScope = scopeArr.map(stripMarkdown).filter((s) => s.length > 0);
+
+  // If scope is already an array, use that. Otherwise try to parse
+  // the introduction as a numbered list.
+  const items = cleanedScope.length > 0 ? cleanedScope : parseNumberedItems(introText);
+
+  if (items.length === 0) {
+    return { summary: cleanedIntro, scope_items: [] };
+  }
+  const summary = `BHO Fire Ltd will undertake ${items.length} item${items.length === 1 ? "" : "s"} of fire detection and alarm works${projectTitle ? ` at ${projectTitle}` : ""}. All works will be carried out by FIA-accredited engineers in accordance with BS 5839-1:2025. A breakdown of the proposed works is provided in §2.2 below.`;
+  return { summary, scope_items: items };
+}
+
+async function rewriteScopeForPresentation(
+  quote: QuoteInput,
+): Promise<{ summary: string; scope_items: string[] }> {
+  const rawIntro = (quote.summary_paragraph ?? quote.introduction ?? "").toString();
+  const rawScope = (quote.scope ?? []).filter((s): s is string => typeof s === "string" && s.trim() !== "");
+  const projectTitle = (quote.project_title ?? "").toString();
+
+  if (!rawIntro.trim() && rawScope.length === 0) {
+    return { summary: "", scope_items: [] };
+  }
+
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!apiKey) {
+    return deterministicScopeCleanup(rawIntro, rawScope, projectTitle);
+  }
+
+  const systemPrompt = `You are a senior UK fire-safety estimator writing a quotation
+for a client (commercial / public-sector building owner). The user will give you the
+raw scope content for a single quote. It may be a clean prose introduction, a markdown
+numbered list, a wall of text with ** bold markers, or any mix. Produce two outputs:
+
+1. "summary" — 3-4 sentence plain prose for the §1 Scope at a Glance section. Crisp,
+   professional, no jargon overload. Lead with what BHO Fire Ltd will do and the
+   standard / category if known. Don't list every work item — that goes in scope_items.
+   If the raw content is already clean professional prose, preserve its voice and
+   meaning; only reformat. Do not introduce facts that aren't present in the input.
+
+2. "scope_items" — an array of clean strings, one per discrete work item. Strip all
+   markdown (**, __, *, _, \`, #). Strip leading numbering ("1.", "2."). Each item
+   should be a complete sentence or two — readable on its own, suitable for a
+   bulleted/numbered §2.2 list in the PDF. Preserve technical precision (clauses,
+   device counts, room names) verbatim from the input where present.
+
+Return STRICT JSON only — no markdown fences, no preamble:
+{ "summary": "...", "scope_items": ["...", "...", "..."] }`;
+
+  const userContent = [
+    `Project: ${projectTitle || "(untitled)"}`,
+    rawIntro ? `\nRaw introduction / summary:\n${rawIntro.trim()}` : "",
+    rawScope.length > 0
+      ? `\nExisting scope array (one item per line):\n${rawScope.map((s, i) => `${i + 1}. ${s.trim()}`).join("\n")}`
+      : "",
+  ].filter(Boolean).join("");
+
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 2500,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userContent }],
+      }),
+      // Hard cap so a slow Anthropic doesn't block the PDF render forever.
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!resp.ok) {
+      console.warn("[generate-quote-docx] scope rewriter Anthropic non-200:", resp.status);
+      return deterministicScopeCleanup(rawIntro, rawScope, projectTitle);
+    }
+    const data = await resp.json();
+    const raw = (data.content ?? [])
+      .filter((b: { type: string }) => b.type === "text")
+      .map((b: { text: string }) => b.text)
+      .join("")
+      .trim();
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    const parsed = JSON.parse(cleaned);
+    const summary = typeof parsed.summary === "string" ? parsed.summary.trim() : "";
+    const items = Array.isArray(parsed.scope_items)
+      ? parsed.scope_items
+          .filter((s: unknown): s is string => typeof s === "string")
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0)
+      : [];
+    return {
+      summary: summary || deterministicScopeCleanup(rawIntro, rawScope, projectTitle).summary,
+      scope_items: items.length > 0 ? items : deterministicScopeCleanup(rawIntro, rawScope, projectTitle).scope_items,
+    };
+  } catch (err) {
+    console.warn("[generate-quote-docx] scope rewriter failed, falling back:", err);
+    return deterministicScopeCleanup(rawIntro, rawScope, projectTitle);
+  }
+}
+
 // ── Handler ────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -974,6 +1137,20 @@ Deno.serve(async (req) => {
     const quote = (await req.json()) as QuoteInput;
     const required: (keyof QuoteInput)[] = ["ref", "issued_date", "project_title", "client"];
     for (const k of required) if (quote[k] == null) throw new Error(`Missing required field: ${k}`);
+
+    // AI-powered scope cleanup — strip markdown, parse numbered-list
+    // dumps from AI Defect Quotes, write a tight 3-4 sentence §1
+    // summary, and produce a clean scope_items array for §2.2. Falls
+    // back to deterministic markdown strip + numbered-list parse if
+    // ANTHROPIC_API_KEY isn't set or the Claude call errors / times
+    // out, so a flaky AI never blocks PDF generation.
+    try {
+      const { summary, scope_items } = await rewriteScopeForPresentation(quote);
+      if (summary) quote.summary_paragraph = summary;
+      if (scope_items.length > 0) quote.scope = scope_items;
+    } catch (err) {
+      console.warn("[generate-quote-docx] scope rewrite skipped:", err);
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
