@@ -93,7 +93,49 @@ interface CeReportRow {
 
 type UnifiedReportRow =
   | (ReportWithSite & { _kind: "service" })
-  | CeReportRow;
+  | CeReportRow
+  | SmartFormReportRow;
+
+// Smart-form cert submissions live in their own table; the user expects
+// to see them alongside service + C&E reports in one feed (the merge the
+// user asked for — "make sense to merge the 2 into one job report
+// system"). Each form_type maps to a friendly label so the row reads as
+// e.g. "Modification Certificate" rather than "bs5839_modification".
+interface SmartFormReportRow {
+  _kind: "smartform";
+  id: string;
+  form_type: string;
+  certificate_reference: string | null;
+  status: string | null;
+  visit_id: string | null;
+  site_id: string | null;
+  customer_id: string | null;
+  job_number: string | null;
+  completed_at: string | null;
+  created_at: string;
+  sites: { name: string; address?: string | null; customers?: { name: string } | null } | null;
+  visits: { visit_type: string; visit_date: string; client_po_number?: string | null } | null;
+}
+
+const SMART_FORM_LABELS: Record<string, string> = {
+  bs5839_installation: "BS 5839-1 Installation Certificate",
+  bs5839_commissioning: "BS 5839-1 Commissioning Certificate",
+  bs5839_modification: "BS 5839-1 Modification Certificate",
+  bs5839_inspection_servicing: "BS 5839-1 Inspection & Servicing",
+  el_installation: "Emergency Lighting — Installation",
+  el_commissioning: "Emergency Lighting — Commissioning",
+  el_periodic_inspection: "Emergency Lighting — Periodic Inspection",
+  el_periodic_servicing: "Emergency Lighting — Periodic Servicing",
+  asd_servicing: "ASD Servicing",
+  asd_commissioning: "ASD Commissioning",
+  dr_servicing: "Dry Riser Servicing",
+  dr_periodic_inspection: "Dry Riser Inspection",
+  declination_of_works: "Declination of Works",
+};
+
+function smartFormLabel(formType: string): string {
+  return SMART_FORM_LABELS[formType] ?? formType.replace(/_/g, " ");
+}
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   completed: {
@@ -699,7 +741,7 @@ const Reports = () => {
         .order("created_at", { ascending: false });
     };
 
-    const [serviceRes, ceRes] = await Promise.all([
+    const [serviceRes, ceRes, smartFormRes] = await Promise.all([
       supabase
         .from("service_reports")
         .select(`
@@ -709,6 +751,19 @@ const Reports = () => {
         `)
         .order("created_at", { ascending: false }),
       fetchCeRows(),
+      // Smart-form cert submissions — merged into the Reports feed so
+      // engineers see every job document in one place rather than
+      // bouncing between Reports and Smart Forms.
+      (supabase as { from: (t: string) => { select: (s: string) => { order: (c: string, o: { ascending: boolean }) => Promise<{ data: unknown; error: unknown }> } } })
+        .from("smart_form_submissions")
+        .select(`
+          id, form_type, certificate_reference, status,
+          visit_id, site_id, customer_id, job_number,
+          completed_at, created_at,
+          sites:site_id(name, address, customers:customer_id(name)),
+          visits:visit_id(visit_type, visit_date, client_po_number)
+        `)
+        .order("created_at", { ascending: false }),
     ]);
 
     const serviceRows: UnifiedReportRow[] =
@@ -730,9 +785,20 @@ const Reports = () => {
           }))
         : [];
 
-    const merged = [...serviceRows, ...ceRows].sort((a, b) => {
-      const ad = a._kind === "service" ? (a.created_at ?? "") : a.created_at;
-      const bd = b._kind === "service" ? (b.created_at ?? "") : b.created_at;
+    // Smart-form submissions — tolerate the table being unavailable
+    // (auth flake, env mid-migration) by surfacing the other two row
+    // sources rather than blanking the whole page.
+    const smartFormRows: UnifiedReportRow[] =
+      !smartFormRes.error && Array.isArray(smartFormRes.data)
+        ? (smartFormRes.data as Array<Omit<SmartFormReportRow, "_kind">>).map((r) => ({
+            ...r,
+            _kind: "smartform" as const,
+          }))
+        : [];
+
+    const merged = [...serviceRows, ...ceRows, ...smartFormRows].sort((a, b) => {
+      const ad = a.created_at ?? "";
+      const bd = b.created_at ?? "";
       return bd.localeCompare(ad);
     });
 
@@ -1117,6 +1183,51 @@ const Reports = () => {
         ) : (
           <div className="bg-card rounded-xl border border-border divide-y divide-border">
             {filteredReports.map((report) => {
+              // Smart-form cert submissions — render a compact row that
+              // opens the matching cert wizard via the Smart Forms page.
+              // Read-only summary here (no inline download/email yet —
+              // engineer can do those from the SmartForms list); the
+              // win is just seeing every job document in one feed.
+              if (report._kind === "smartform") {
+                const label = smartFormLabel(report.form_type);
+                const dateStr = report.completed_at || report.created_at;
+                const cfg = statusConfig[(report.status ?? "draft").toLowerCase()] ?? statusConfig.draft;
+                return (
+                  <div key={report.id} className="p-4 sm:p-6 hover:bg-accent/50 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {report.certificate_reference ?? "DRAFT"}
+                          </Badge>
+                          <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Smart form
+                          </span>
+                          {cfg && (
+                            <Badge variant="outline" className={cfg.className}>
+                              {cfg.label}
+                            </Badge>
+                          )}
+                        </div>
+                        <h3 className="text-sm font-semibold text-foreground truncate">{label}</h3>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {report.sites?.name ?? "No site"}
+                          {report.sites?.customers?.name ? ` · ${report.sites.customers.name}` : ""}
+                          {dateStr ? ` · ${new Date(dateStr).toLocaleDateString("en-GB")}` : ""}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate("/dashboard/smart-forms")}
+                      >
+                        Open
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+
               // C&E + Audibility test reports live in a separate table —
               // render them with their own simplified row, then narrow the
               // type and fall through to the service-report rendering.
