@@ -1125,8 +1125,8 @@ const Reports = () => {
     const matchesSearch =
       searchTerm === "" ||
       report.sites?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.engineer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.report_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      (report as { engineer_name?: string }).engineer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (report as { report_number?: string }).report_number?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === "all" || report.status === statusFilter;
 
