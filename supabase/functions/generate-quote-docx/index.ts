@@ -1124,6 +1124,12 @@ Return STRICT JSON only — no markdown fences, no preamble:
           .map((s: string) => s.trim())
           .filter((s: string) => s.length > 0)
       : [];
+    console.log(
+      `[generate-quote-docx] rewriter Anthropic returned summaryLen=${summary.length}, itemsCount=${items.length}`,
+    );
+    console.log(
+      `[generate-quote-docx] rewriter output: summary[0:200]=${JSON.stringify(summary.slice(0, 200))}, scope_items[0]=${JSON.stringify((items[0] ?? "").slice(0, 200))}`,
+    );
     return {
       summary: summary || deterministicScopeCleanup(rawIntro, rawScope, projectTitle).summary,
       scope_items: items.length > 0 ? items : deterministicScopeCleanup(rawIntro, rawScope, projectTitle).scope_items,
@@ -1133,6 +1139,7 @@ Return STRICT JSON only — no markdown fences, no preamble:
     return deterministicScopeCleanup(rawIntro, rawScope, projectTitle);
   }
 }
+
 
 // ── Handler ────────────────────────────────────────────────────────────────────
 
