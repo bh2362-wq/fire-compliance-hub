@@ -1044,14 +1044,21 @@ async function rewriteScopeForPresentation(
   const rawScope = (quote.scope ?? []).filter((s): s is string => typeof s === "string" && s.trim() !== "");
   const projectTitle = (quote.project_title ?? "").toString();
 
+  console.log(
+    `[generate-quote-docx] rewriter input: introLen=${rawIntro.length}, scopeLen=${rawScope.length}, intro[0:200]=${JSON.stringify(rawIntro.slice(0, 200))}`,
+  );
+
   if (!rawIntro.trim() && rawScope.length === 0) {
+    console.log("[generate-quote-docx] rewriter: empty input, skipping");
     return { summary: "", scope_items: [] };
   }
 
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) {
+    console.log("[generate-quote-docx] rewriter: ANTHROPIC_API_KEY missing, using deterministic fallback");
     return deterministicScopeCleanup(rawIntro, rawScope, projectTitle);
   }
+
 
   const systemPrompt = `You are a senior UK fire-safety estimator writing a quotation
 for a client (commercial / public-sector building owner). The user will give you the
@@ -1117,6 +1124,12 @@ Return STRICT JSON only — no markdown fences, no preamble:
           .map((s: string) => s.trim())
           .filter((s: string) => s.length > 0)
       : [];
+    console.log(
+      `[generate-quote-docx] rewriter Anthropic returned summaryLen=${summary.length}, itemsCount=${items.length}`,
+    );
+    console.log(
+      `[generate-quote-docx] rewriter output: summary[0:200]=${JSON.stringify(summary.slice(0, 200))}, scope_items[0]=${JSON.stringify((items[0] ?? "").slice(0, 200))}`,
+    );
     return {
       summary: summary || deterministicScopeCleanup(rawIntro, rawScope, projectTitle).summary,
       scope_items: items.length > 0 ? items : deterministicScopeCleanup(rawIntro, rawScope, projectTitle).scope_items,
@@ -1126,6 +1139,7 @@ Return STRICT JSON only — no markdown fences, no preamble:
     return deterministicScopeCleanup(rawIntro, rawScope, projectTitle);
   }
 }
+
 
 // ── Handler ────────────────────────────────────────────────────────────────────
 
@@ -1148,9 +1162,13 @@ Deno.serve(async (req) => {
       const { summary, scope_items } = await rewriteScopeForPresentation(quote);
       if (summary) quote.summary_paragraph = summary;
       if (scope_items.length > 0) quote.scope = scope_items;
+      console.log(
+        `[generate-quote-docx] post-assign: q.summary_paragraph[0:200]=${JSON.stringify((quote.summary_paragraph ?? "").slice(0, 200))}, q.scope.length=${(quote.scope ?? []).length}`,
+      );
     } catch (err) {
       console.warn("[generate-quote-docx] scope rewrite skipped:", err);
     }
+
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
