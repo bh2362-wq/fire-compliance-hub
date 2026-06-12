@@ -253,6 +253,45 @@ function SortableLineRow({
   );
 }
 
+// Belt-and-braces markdown cleanup, applied at INSERT time so the saved
+// `introduction` and `scope[]` are already presentation-clean. The DOCX
+// edge function (generate-quote-docx) ALSO runs an AI rewriter pre-render
+// — but Supabase edge functions don't auto-deploy on merge to main, so
+// until a human ships the function the engineer would get raw "**bold**"
+// wall-of-text PDFs (which is exactly what happened with QUO-00499).
+// Doing the cleanup here too means a fresh quote renders cleanly even on
+// the OLD deployed edge function, and the rewriter's prompt explicitly
+// says "preserve voice when input is already clean prose" so pre-cleaning
+// doesn't fight it.
+//
+// Mirror of the Deno helpers in generate-quote-docx/index.ts:
+//   stripScopeMarkdown   — kills **bold**, __bold__, *italic*, `code`, # heads
+//   parseScopeNumberedItems — pulls items out of "1. ", "2)" style dumps
+function stripScopeMarkdown(s: string): string {
+  return s
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/(?<!\w)_([^_]+)_(?!\w)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\r\n/g, "\n")
+    .trim();
+}
+function parseScopeNumberedItems(text: string): string[] {
+  const cleaned = stripScopeMarkdown(text);
+  // "1. ", "2)" at line start or after blank/double-space; lookahead caps
+  // each item at the next numbered marker.
+  const re = /(?:^|\n\s*|\s{2,})(\d{1,2})[.)]\s+([\s\S]+?)(?=(?:\n\s*|\s{2,})\d{1,2}[.)]\s|$)/g;
+  const out: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cleaned)) !== null) {
+    const body = m[2].trim().replace(/\s+/g, " ");
+    if (body) out.push(body);
+  }
+  return out;
+}
+
 export function AIDefectQuoteDialog({
   open, onOpenChange, defects, onQuoteCreated,
   skipDefectLink = false,
@@ -505,11 +544,24 @@ export function AIDefectQuoteDialog({
       // summary blocks rather than empty-state branches. NULL fields stay NULL.
       const inherited = siteId ? await inheritMetadataFromPriorQuote(siteId) : { values: {}, sourceQuotationNumber: null, fieldsFound: [] };
 
+      // Clean the markdown scope BEFORE the row hits Postgres. The DOCX
+      // template renders quotations.introduction verbatim in §1 and the
+      // quotations.scope[] array as the §2.2 numbered list — pre-cleaning
+      // here means both sections look right even if the AI rewriter in
+      // generate-quote-docx hasn't been redeployed (Supabase Functions
+      // ship out-of-band from main).
+      const cleanedIntroduction = stripScopeMarkdown(scopeContent);
+      const parsedScopeItems = parseScopeNumberedItems(scopeContent);
+
       const insertPayload: Record<string, unknown> = {
         site_id: siteId,
         customer_id: siteData?.customer_id ?? null,
         title: quoteTitle,
-        introduction: scopeContent,
+        introduction: cleanedIntroduction,
+        // Only set scope when parsing actually pulled items out — otherwise
+        // leave NULL so the DOCX template's empty-state branch fires
+        // instead of rendering an empty list.
+        ...(parsedScopeItems.length > 0 ? { scope: parsedScopeItems } : {}),
         status: "draft",
         quotation_number: quotationNumber,
         total_amount: totals.exVat,
