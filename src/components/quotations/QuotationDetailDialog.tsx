@@ -68,6 +68,7 @@ import {
 } from "@/services/quoteMetadataInheritanceService";
 import { ImproveTitleButton } from "./ImproveTitleButton";
 import { DuplicateQuotationDialog } from "./DuplicateQuotationDialog";
+import { parseScopeNumberedItems } from "@/lib/scopeMarkdown";
 
 // Snapshot of a pre-merge line item stored in the survivor's merged_from
 // JSONB. Shape matches what useQuoteGeneration.ts and the DB column comment
@@ -395,12 +396,24 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       setVatRate((quotationData as any).vat_rate ?? 20);
       // Hydrate the scope editor. Stamp a uid on every row so the multi-
       // select / drag / merge ops survive without an index dependency.
+      //
+      // Fallback: when quotations.scope is empty (or never populated —
+      // covers any quote inserted before PR #217 wired up the scope
+      // column at INSERT, e.g. QUO-00499), derive the items from the
+      // numbered list embedded in quotations.introduction. The DOCX
+      // rewriter does the same thing in-memory at render time but never
+      // persists it back, so the column would otherwise stay empty
+      // forever and the engineer would see "No scope items" even though
+      // the introduction is full of them. First save from the Scope tab
+      // persists the parsed items properly.
       const rawScope = Array.isArray((quotationData as any).scope) ? (quotationData as any).scope as unknown[] : [];
-      setScopeItems(
-        rawScope
-          .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
-          .map((s) => ({ uid: newScopeUid(), text: s })),
-      );
+      const cleanedScope = rawScope
+        .filter((s): s is string => typeof s === "string" && s.trim().length > 0);
+      const derivedFromIntro = cleanedScope.length === 0 && typeof quotationData.introduction === "string"
+        ? parseScopeNumberedItems(quotationData.introduction)
+        : [];
+      const effectiveScope = cleanedScope.length > 0 ? cleanedScope : derivedFromIntro;
+      setScopeItems(effectiveScope.map((s) => ({ uid: newScopeUid(), text: s })));
       setSelectedScopeUids(new Set());
 
       if (customerData) {
