@@ -1162,9 +1162,13 @@ Deno.serve(async (req) => {
       const { summary, scope_items } = await rewriteScopeForPresentation(quote);
       if (summary) quote.summary_paragraph = summary;
       if (scope_items.length > 0) quote.scope = scope_items;
+      console.log(
+        `[generate-quote-docx] post-assign: q.summary_paragraph[0:200]=${JSON.stringify((quote.summary_paragraph ?? "").slice(0, 200))}, q.scope.length=${(quote.scope ?? []).length}`,
+      );
     } catch (err) {
       console.warn("[generate-quote-docx] scope rewrite skipped:", err);
     }
+
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
