@@ -1,13 +1,27 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import {
   Sparkles, Plus, Trash2, Send, Loader2, AlertOctagon, AlertTriangle, Info, Briefcase, Package, Receipt,
+  Copy, Merge, MoveRight, GripVertical,
 } from "lucide-react";
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,6 +110,149 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return code ? `${primary} (${code})` : primary;
 }
 
+// ── Sortable line row ──────────────────────────────────────────────────────
+//
+// Defined at module scope so dnd-kit doesn't see a new component identity
+// every render (would tank the drag overlay). Stable _uid drives the
+// useSortable id so selection / collapse / drag all survive reorders.
+
+interface SortableLineRowProps {
+  row: CostLine;
+  bucket: BucketKey;
+  index: number;
+  showRegRef: boolean;
+  isSelected: boolean;
+  tbc: boolean;
+  onToggleSelect: (uid: string) => void;
+  onUpdate: (bucket: BucketKey, index: number, field: keyof CostLine, value: string | number) => void;
+  onRemove: (bucket: BucketKey, index: number) => void;
+  onDuplicate: (bucket: BucketKey, index: number) => void;
+}
+
+function SortableLineRow({
+  row, bucket, index, showRegRef, isSelected, tbc,
+  onToggleSelect, onUpdate, onRemove, onDuplicate,
+}: SortableLineRowProps) {
+  const uid = row._uid ?? `${bucket}:${index}`;
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging,
+  } = useSortable({ id: uid });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-md border bg-card p-2.5 space-y-2 transition-colors ${
+        isSelected ? "border-primary/60 bg-primary/5" : ""
+      } ${tbc ? "ring-1 ring-amber-500/40" : ""}`}
+    >
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          aria-label="Drag to reorder"
+          className="cursor-grab touch-none text-muted-foreground hover:text-foreground mt-1 flex-shrink-0"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => row._uid && onToggleSelect(row._uid)}
+          className="mt-1 flex-shrink-0"
+          aria-label="Select line"
+        />
+        <span className="text-[10px] font-bold text-muted-foreground w-5 mt-1 flex-shrink-0">
+          {index + 1}.
+        </span>
+        <div className="flex-1 space-y-2 min-w-0">
+          <div className="flex items-center gap-2">
+            <Input
+              value={row.description}
+              onChange={(e) => onUpdate(bucket, index, "description", e.target.value)}
+              placeholder="Description"
+              className="text-sm h-8 flex-1 min-w-0"
+            />
+            {tbc && (
+              <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 text-[10px] gap-1 shrink-0">
+                <AlertTriangle className="h-3 w-3" />TBC
+              </Badge>
+            )}
+          </div>
+          <div className={`grid gap-2 ${showRegRef ? "grid-cols-5" : "grid-cols-4"}`}>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">Qty</Label>
+              <Input
+                type="number" min={1}
+                value={row.quantity}
+                onChange={(e) => onUpdate(bucket, index, "quantity", Number(e.target.value) || 1)}
+                className="h-7 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">Unit £</Label>
+              <Input
+                type="number" min={0} step={0.01}
+                value={row.unit_price}
+                onChange={(e) => onUpdate(bucket, index, "unit_price", parseFloat(e.target.value) || 0)}
+                className="h-7 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] text-muted-foreground">Line £</Label>
+              <div className="h-7 flex items-center text-sm font-semibold">
+                £{((Number(row.quantity) || 1) * (Number(row.unit_price) || 0)).toFixed(2)}
+              </div>
+            </div>
+            <div className="col-span-1">
+              <Label className="text-[10px] text-muted-foreground">Notes</Label>
+              <Input
+                value={row.notes}
+                onChange={(e) => onUpdate(bucket, index, "notes", e.target.value)}
+                placeholder="Engineer notes"
+                className="h-7 text-xs"
+              />
+            </div>
+            {showRegRef && (
+              <div>
+                <Label className="text-[10px] text-muted-foreground">Reg ref</Label>
+                <Input
+                  value={row.regulation_reference || ""}
+                  onChange={(e) => onUpdate(bucket, index, "regulation_reference", e.target.value)}
+                  placeholder="BS 5839-1 Cl."
+                  className="h-7 text-xs"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1 flex-shrink-0">
+          <Button
+            variant="ghost" size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={() => onDuplicate(bucket, index)}
+            title="Duplicate line"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost" size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={() => onRemove(bucket, index)}
+            title="Delete line"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AIDefectQuoteDialog({
   open, onOpenChange, defects, onQuoteCreated,
   skipDefectLink = false,
@@ -129,6 +286,73 @@ export function AIDefectQuoteDialog({
     if (!quoteTitle) setQuoteTitle(defaultTitle);
   }
 
+  // ── Stable IDs, selection, drag sensors ──────────────────────────────────────
+  //
+  // Editor-level state. Every row gets a _uid stamped when it lands in the
+  // editor so multi-select, drag-reorder and merge survive any of those
+  // operations. _uid is stripped before INSERT in toLineItemRows — the
+  // DB never sees it.
+
+  const newUid = () =>
+    (typeof crypto !== "undefined" && "randomUUID" in crypto)
+      ? crypto.randomUUID()
+      : `r-${Math.random().toString(36).slice(2, 10)}-${Date.now()}`;
+
+  useEffect(() => {
+    // Stamp _uid on any rows that arrived without one. Runs whenever the
+    // hook re-populates lineItems (after Generate or Re-generate).
+    let dirty = false;
+    const next: CategorisedLineItems = {
+      labour:    lineItems.labour,
+      materials: lineItems.materials,
+      extras:    lineItems.extras,
+    };
+    (Object.keys(next) as BucketKey[]).forEach((b) => {
+      if (next[b].some((r) => !r._uid)) {
+        dirty = true;
+        next[b] = next[b].map((r) => r._uid ? r : { ...r, _uid: newUid() });
+      }
+    });
+    if (dirty) setLineItems(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lineItems]);
+
+  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set());
+  const toggleSelected = (uid: string) => {
+    setSelectedUids((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedUids(new Set());
+
+  // Selection grouped by bucket — drives the toolbar (Merge only works within
+  // a single bucket) and the bulk actions.
+  const selectionByBucket = useMemo(() => {
+    const out: Record<BucketKey, string[]> = { labour: [], materials: [], extras: [] };
+    (Object.keys(out) as BucketKey[]).forEach((b) => {
+      lineItems[b].forEach((r) => {
+        if (r._uid && selectedUids.has(r._uid)) out[b].push(r._uid);
+      });
+    });
+    return out;
+  }, [lineItems, selectedUids]);
+
+  const selectedCount = selectedUids.size;
+  const onlyBucketWithSelection = (() => {
+    const buckets = (Object.keys(selectionByBucket) as BucketKey[])
+      .filter((b) => selectionByBucket[b].length > 0);
+    return buckets.length === 1 ? buckets[0] : null;
+  })();
+
+  // dnd-kit sensors. Tightened activation distance so a quick tap on the
+  // grip doesn't accidentally start a drag while the user is selecting.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   // ── Bucket editing helpers ───────────────────────────────────────────────────
 
   function updateBucketLine(bucket: BucketKey, index: number, field: keyof CostLine, value: string | number) {
@@ -138,12 +362,115 @@ export function AIDefectQuoteDialog({
     });
   }
   function removeBucketLine(bucket: BucketKey, index: number) {
+    const uid = lineItems[bucket][index]?._uid;
     setLineItems({ ...lineItems, [bucket]: lineItems[bucket].filter((_, i) => i !== index) });
+    if (uid) {
+      setSelectedUids((prev) => {
+        const next = new Set(prev);
+        next.delete(uid);
+        return next;
+      });
+    }
   }
   function addBucketLine(bucket: BucketKey) {
-    const empty: CostLine = { description: "", quantity: 1, unit_price: 0, notes: "" };
+    const empty: CostLine = { description: "", quantity: 1, unit_price: 0, notes: "", _uid: newUid() };
     setLineItems({ ...lineItems, [bucket]: [...lineItems[bucket], empty] });
   }
+  function duplicateBucketLine(bucket: BucketKey, index: number) {
+    const src = lineItems[bucket][index];
+    if (!src) return;
+    const copy: CostLine = { ...src, _uid: newUid() };
+    const next = [...lineItems[bucket]];
+    next.splice(index + 1, 0, copy);
+    setLineItems({ ...lineItems, [bucket]: next });
+  }
+
+  // Bulk actions — driven by selectedUids.
+  function bulkDeleteSelected() {
+    if (selectedCount === 0) return;
+    const next: CategorisedLineItems = {
+      labour:    lineItems.labour.filter((r) => !r._uid || !selectedUids.has(r._uid)),
+      materials: lineItems.materials.filter((r) => !r._uid || !selectedUids.has(r._uid)),
+      extras:    lineItems.extras.filter((r) => !r._uid || !selectedUids.has(r._uid)),
+    };
+    setLineItems(next);
+    clearSelection();
+  }
+  function bulkMoveSelectedTo(target: BucketKey) {
+    if (selectedCount === 0) return;
+    const moving: CostLine[] = [];
+    const next: CategorisedLineItems = {
+      labour:    lineItems.labour.filter((r) => {
+        if (r._uid && selectedUids.has(r._uid)) { moving.push(r); return false; }
+        return true;
+      }),
+      materials: lineItems.materials.filter((r) => {
+        if (r._uid && selectedUids.has(r._uid)) { moving.push(r); return false; }
+        return true;
+      }),
+      extras:    lineItems.extras.filter((r) => {
+        if (r._uid && selectedUids.has(r._uid)) { moving.push(r); return false; }
+        return true;
+      }),
+    };
+    next[target] = [...next[target], ...moving];
+    setLineItems(next);
+    // Keep selection so the user can immediately re-act on the moved rows.
+  }
+  function mergeSelectedInBucket() {
+    if (!onlyBucketWithSelection) {
+      toast.warning("Select 2 or more lines in a single section to merge.");
+      return;
+    }
+    const bucket = onlyBucketWithSelection;
+    const uids = new Set(selectionByBucket[bucket]);
+    if (uids.size < 2) {
+      toast.warning("Pick at least two lines to merge.");
+      return;
+    }
+    const rows = lineItems[bucket].filter((r) => r._uid && uids.has(r._uid));
+    const totalQty = rows.reduce((s, r) => s + (Number(r.quantity) || 1), 0);
+    const totalLine = rows.reduce(
+      (s, r) => s + (Number(r.quantity) || 1) * (Number(r.unit_price) || 0), 0,
+    );
+    // Weighted average unit price so the line total stays correct after merge.
+    const newUnit = totalQty > 0 ? totalLine / totalQty : 0;
+    const merged: CostLine = {
+      _uid: newUid(),
+      description: rows.map((r) => r.description).filter(Boolean).join(" + "),
+      quantity: totalQty,
+      unit_price: Number(newUnit.toFixed(2)),
+      notes: rows.map((r) => r.notes).filter(Boolean).join(" · "),
+      regulation_reference: rows.map((r) => r.regulation_reference).filter(Boolean).join(", ") || undefined,
+    };
+    // Insert at the first selected row's position, drop the rest.
+    const firstIdx = lineItems[bucket].findIndex((r) => r._uid && uids.has(r._uid));
+    const survivors = lineItems[bucket].filter((r) => !r._uid || !uids.has(r._uid));
+    const next = [...survivors];
+    next.splice(Math.max(0, firstIdx), 0, merged);
+    setLineItems({ ...lineItems, [bucket]: next });
+    clearSelection();
+  }
+
+  // Drag-reorder handler. dnd-kit fires onDragEnd with active+over uids.
+  function onDragEnd(bucket: BucketKey, ev: DragEndEvent) {
+    const { active, over } = ev;
+    if (!over || active.id === over.id) return;
+    const rows = lineItems[bucket];
+    const oldIdx = rows.findIndex((r) => r._uid === active.id);
+    const newIdx = rows.findIndex((r) => r._uid === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    setLineItems({ ...lineItems, [bucket]: arrayMove(rows, oldIdx, newIdx) });
+  }
+
+  // TBC detection — £0 unit or "Engineer to confirm" wording. Used for the
+  // per-row badge and the top-of-section warning banner.
+  function isTbc(row: CostLine): boolean {
+    if ((Number(row.unit_price) || 0) === 0) return true;
+    return (row.description ?? "").toLowerCase().includes("engineer to confirm");
+  }
+  const tbcCount = (Object.keys(lineItems) as BucketKey[])
+    .reduce((s, b) => s + lineItems[b].filter(isTbc).length, 0);
 
   const totalLines = lineItems.labour.length + lineItems.materials.length + lineItems.extras.length;
 
@@ -352,7 +679,68 @@ export function AIDefectQuoteDialog({
                 />
               </div>
 
-              {/* Line item buckets */}
+              {/* TBC warning banner — fires when any line is £0 unit or
+                  contains "Engineer to confirm" wording. Surfaces the
+                  pre-save review the engineer keeps forgetting. */}
+              {tbcCount > 0 && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 flex items-start gap-2 text-xs">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p>
+                    <strong>{tbcCount}</strong> line{tbcCount !== 1 ? "s" : ""} marked TBC
+                    ({" "}£0 unit cost or "Engineer to confirm"{" "}wording).
+                    Review and price before saving — they pass through to the quotation as-is.
+                  </p>
+                </div>
+              )}
+
+              {/* Selection toolbar — appears when any rows are checked. */}
+              {selectedCount > 0 && (
+                <div className="rounded-lg border bg-primary/5 p-2 flex items-center gap-1.5 flex-wrap text-xs sticky top-0 z-10 backdrop-blur">
+                  <Badge variant="secondary" className="text-[10px]">{selectedCount} selected</Badge>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-7 gap-1 text-xs"
+                    onClick={mergeSelectedInBucket}
+                    disabled={!onlyBucketWithSelection || selectionByBucket[onlyBucketWithSelection!].length < 2}
+                    title={onlyBucketWithSelection
+                      ? `Merge ${selectionByBucket[onlyBucketWithSelection].length} lines in ${BUCKET_META[onlyBucketWithSelection].label}`
+                      : "Select 2+ lines in a single section to merge"}
+                  >
+                    <Merge className="h-3.5 w-3.5" />Merge
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs">
+                        <MoveRight className="h-3.5 w-3.5" />Move to…
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {(Object.keys(BUCKET_META) as BucketKey[]).map(b => (
+                        <DropdownMenuItem key={b} onClick={() => bulkMoveSelectedTo(b)}>
+                          {BUCKET_META[b].label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-7 gap-1 text-xs text-destructive hover:text-destructive"
+                    onClick={bulkDeleteSelected}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />Delete
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-7 text-xs ml-auto"
+                    onClick={clearSelection}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              )}
+
+              {/* Line item buckets — each its own dnd-kit context so drags
+                  stay scoped to one section. */}
               {(Object.keys(BUCKET_META) as BucketKey[]).map(bucket => {
                 const meta = BUCKET_META[bucket];
                 const rows = lineItems[bucket];
@@ -360,6 +748,7 @@ export function AIDefectQuoteDialog({
                 const bucketTotal = rows.reduce(
                   (s, r) => s + (Number(r.quantity) || 1) * (Number(r.unit_price) || 0), 0,
                 );
+                const rowUids = rows.map((r, i) => r._uid ?? `${bucket}:${i}`);
                 return (
                   <div key={bucket} className="rounded-lg border p-3 space-y-2">
                     <div className="flex items-center justify-between">
@@ -380,78 +769,31 @@ export function AIDefectQuoteDialog({
                         No {meta.label.toLowerCase()} lines.
                       </p>
                     ) : (
-                      <div className="space-y-2">
-                        {rows.map((row, idx) => (
-                          <div key={idx} className="rounded-md border bg-card p-2.5 space-y-2">
-                            <div className="flex items-start gap-2">
-                              <span className="text-[10px] font-bold text-muted-foreground w-5 mt-1 flex-shrink-0">
-                                {idx + 1}.
-                              </span>
-                              <div className="flex-1 space-y-2">
-                                <Input
-                                  value={row.description}
-                                  onChange={e => updateBucketLine(bucket, idx, "description", e.target.value)}
-                                  placeholder="Description"
-                                  className="text-sm h-8"
-                                />
-                                <div className={`grid gap-2 ${meta.showRegRef ? "grid-cols-5" : "grid-cols-4"}`}>
-                                  <div>
-                                    <Label className="text-[10px] text-muted-foreground">Qty</Label>
-                                    <Input
-                                      type="number" min={1}
-                                      value={row.quantity}
-                                      onChange={e => updateBucketLine(bucket, idx, "quantity", Number(e.target.value) || 1)}
-                                      className="h-7 text-sm"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-[10px] text-muted-foreground">Unit £</Label>
-                                    <Input
-                                      type="number" min={0} step={0.01}
-                                      value={row.unit_price}
-                                      onChange={e => updateBucketLine(bucket, idx, "unit_price", parseFloat(e.target.value) || 0)}
-                                      className="h-7 text-sm"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-[10px] text-muted-foreground">Line £</Label>
-                                    <div className="h-7 flex items-center text-sm font-semibold">
-                                      £{((Number(row.quantity) || 1) * (Number(row.unit_price) || 0)).toFixed(2)}
-                                    </div>
-                                  </div>
-                                  <div className={meta.showRegRef ? "col-span-1" : "col-span-1"}>
-                                    <Label className="text-[10px] text-muted-foreground">Notes</Label>
-                                    <Input
-                                      value={row.notes}
-                                      onChange={e => updateBucketLine(bucket, idx, "notes", e.target.value)}
-                                      placeholder="Engineer notes"
-                                      className="h-7 text-xs"
-                                    />
-                                  </div>
-                                  {meta.showRegRef && (
-                                    <div>
-                                      <Label className="text-[10px] text-muted-foreground">Reg ref</Label>
-                                      <Input
-                                        value={row.regulation_reference || ""}
-                                        onChange={e => updateBucketLine(bucket, idx, "regulation_reference", e.target.value)}
-                                        placeholder="BS 5839-1 Cl."
-                                        className="h-7 text-xs"
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <Button
-                                variant="ghost" size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-                                onClick={() => removeBucketLine(bucket, idx)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(e) => onDragEnd(bucket, e)}
+                      >
+                        <SortableContext items={rowUids} strategy={verticalListSortingStrategy}>
+                          <div className="space-y-2">
+                            {rows.map((row, idx) => (
+                              <SortableLineRow
+                                key={row._uid ?? `${bucket}:${idx}`}
+                                row={row}
+                                bucket={bucket}
+                                index={idx}
+                                showRegRef={meta.showRegRef}
+                                isSelected={!!row._uid && selectedUids.has(row._uid)}
+                                tbc={isTbc(row)}
+                                onToggleSelect={toggleSelected}
+                                onUpdate={updateBucketLine}
+                                onRemove={removeBucketLine}
+                                onDuplicate={duplicateBucketLine}
+                              />
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </SortableContext>
+                      </DndContext>
                     )}
                   </div>
                 );

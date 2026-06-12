@@ -24,6 +24,12 @@ export interface CostLine {
   unit_price: number;
   notes: string;
   regulation_reference?: string;
+  /** Stable identifier used by editor UI for multi-select, drag-reorder
+   *  and merge operations. Stamped when the row enters the editor;
+   *  stripped before INSERT to quotation_line_items so the DB never
+   *  sees it. Optional so DB-fetched rows / fresh empties without a uid
+   *  don't break the type. */
+  _uid?: string;
 }
 
 export interface CategorisedLineItems {
