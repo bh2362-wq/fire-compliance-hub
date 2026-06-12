@@ -1428,13 +1428,33 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                         />
                                       )}
                                       <div className="flex-1 space-y-2">
-                                        <Textarea
-                                          rows={2}
-                                          value={item.description}
-                                          onChange={(e) => handleItemChange(index, "description", e.target.value)}
-                                          placeholder="Description of work..."
-                                          disabled={isLocked}
-                                        />
+                                        <div className="relative">
+                                          <Textarea
+                                            rows={2}
+                                            value={item.description}
+                                            onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                                            placeholder="Description of work..."
+                                            disabled={isLocked}
+                                            className="pr-10"
+                                          />
+                                          {/* Per-row "Improve with AI" — floats top-right inside
+                                              the Textarea so it doesn't push the qty/unit grid
+                                              down. Uses the same rewrite-text edge function as
+                                              the bulk Improve button at the top of the tab, but
+                                              targets just this one row's description. */}
+                                          {!isLocked && (
+                                            <div className="absolute top-1 right-1">
+                                              <AIRewriteButton
+                                                text={item.description ?? ""}
+                                                type="quotation_items"
+                                                compact
+                                                disabled={isLocked || !item.description?.trim()}
+                                                context={`Quote: ${title || ""}`}
+                                                onRewrite={(newText) => handleItemChange(index, "description", newText)}
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
                                         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 md:gap-2">
                                           <div>
                                             <Label className="text-xs">Item / Part</Label>

@@ -15,12 +15,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AIRewriteButtonProps {
   text: string;
-  type: "defects" | "defect_simplify" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_title" | "quotation_summary" | "bs5839_guidance";
+  type: "defects" | "defect_simplify" | "recommendations" | "works" | "comments" | "parts" | "notes" | "quotation_items" | "quotation_title" | "quotation_summary" | "bs5839_guidance";
   onRewrite: (newText: string) => void;
   disabled?: boolean;
   generateRecommendations?: boolean;
   onRecommendationsGenerated?: (recommendations: string) => void;
   context?: string;
+  /** Compact icon-only variant — for inline use next to a small input
+   *  (e.g. per-line in a quotation editor) where a full button with
+   *  "Improve with AI" label would crowd the row. Defaults to false. */
+  compact?: boolean;
 }
 
 // The guidance prompt appends a fixed verification tag to every
@@ -135,17 +139,23 @@ export function AIRewriteButton({
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size={compact ? "icon" : "sm"}
           onClick={handleRewrite}
           disabled={disabled || loading || !text.trim()}
-          className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
+          className={
+            compact
+              ? "h-7 w-7 text-muted-foreground hover:text-primary"
+              : "h-7 px-2 text-xs text-muted-foreground hover:text-primary"
+          }
+          title={compact ? (loading ? busyLabel : idleLabel) : undefined}
+          aria-label={compact ? (loading ? busyLabel : idleLabel) : undefined}
         >
           {loading ? (
-            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+            <Loader2 className={compact ? "w-3.5 h-3.5 animate-spin" : "w-3 h-3 animate-spin mr-1"} />
           ) : (
-            <IdleIcon className="w-3 h-3 mr-1" />
+            <IdleIcon className={compact ? "w-3.5 h-3.5" : "w-3 h-3 mr-1"} />
           )}
-          {loading ? busyLabel : idleLabel}
+          {!compact && (loading ? busyLabel : idleLabel)}
         </Button>
         {originalText && !loading && !previewOpen && (
           <Button
