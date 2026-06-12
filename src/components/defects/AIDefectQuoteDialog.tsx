@@ -33,6 +33,7 @@ import {
   type CategorisedLineItems,
 } from "@/hooks/useQuoteGeneration";
 import { inheritMetadataFromPriorQuote } from "@/services/quoteMetadataInheritanceService";
+import { stripScopeMarkdown, parseScopeNumberedItems } from "@/lib/scopeMarkdown";
 
 interface Props {
   open: boolean;
@@ -264,33 +265,9 @@ function SortableLineRow({
 // says "preserve voice when input is already clean prose" so pre-cleaning
 // doesn't fight it.
 //
-// Mirror of the Deno helpers in generate-quote-docx/index.ts:
-//   stripScopeMarkdown   — kills **bold**, __bold__, *italic*, `code`, # heads
-//   parseScopeNumberedItems — pulls items out of "1. ", "2)" style dumps
-function stripScopeMarkdown(s: string): string {
-  return s
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/__([^_]+)__/g, "$1")
-    .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/(?<!\w)_([^_]+)_(?!\w)/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/\r\n/g, "\n")
-    .trim();
-}
-function parseScopeNumberedItems(text: string): string[] {
-  const cleaned = stripScopeMarkdown(text);
-  // "1. ", "2)" at line start or after blank/double-space; lookahead caps
-  // each item at the next numbered marker.
-  const re = /(?:^|\n\s*|\s{2,})(\d{1,2})[.)]\s+([\s\S]+?)(?=(?:\n\s*|\s{2,})\d{1,2}[.)]\s|$)/g;
-  const out: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(cleaned)) !== null) {
-    const body = m[2].trim().replace(/\s+/g, " ");
-    if (body) out.push(body);
-  }
-  return out;
-}
+// Helpers live in src/lib/scopeMarkdown.ts so QuotationDetailDialog can
+// share them (it derives a scope[] from introduction when the scope
+// column is empty — covers quotes inserted before this PR landed).
 
 export function AIDefectQuoteDialog({
   open, onOpenChange, defects, onQuoteCreated,
