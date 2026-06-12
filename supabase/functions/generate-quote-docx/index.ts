@@ -683,12 +683,12 @@ function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo, ctx: Qu
   x = fieldOrOmit(x, "[Project Name]", q.project_title);
   x = fieldOrOmit(x, "[Site Name & Address]", siteForRender);
 
-  // System cell: "Gent Vigilon" — manufacturer + system_type. Where the
-  // schema only carries the panel model (system_panel) it stands in for type.
-  const systemLabel = [
-    ctx.systemManufacturer,
-    ctx.systemType ?? ctx.systemPanel,
-  ].map((s) => (s ?? "").trim()).filter(Boolean).join(" ");
+  // System cell: just the manufacturer (e.g. "Gent"). Engineer wants the
+  // model/type dropped — for the at-a-glance header table the manufacturer
+  // alone reads cleaner ("Gent" vs "Gent gent_vigilon" / "Gent Vigilon").
+  // Detailed system info (panel, loops, category) belongs in §2.1, not in
+  // the title-block table.
+  const systemLabel = (ctx.systemManufacturer ?? "").trim();
   x = fieldOrOmit(x, "[e.g. Gent S-Quad / Vigilon]", systemLabel);
 
   // Standard cell: "BS 5839-1:2025 Cat L2" — driven by quotations.bs5839_category.
@@ -723,11 +723,18 @@ function renderAIFillPlaceholders(xml: string, q: QuoteInput): string {
     || scope[0]
     || (q.project_title && `BHO Fire Ltd is pleased to submit this quotation for ${q.project_title.trim()}.`)
     || "";
-  x = replaceAllWtText(
-    x,
-    "[Copilot: Insert a 3–5 sentence plain-English summary of the works — system type, scale, key interfaces, programme highlights.]",
-    exec,
-  );
+  // Paragraph-aware replacement: the AI rewriter is instructed to emit one
+  // blank line between logical paragraphs (works overview / standards-and-
+  // compliance), so we split on \n\n and emit one <w:p> per chunk. Falls
+  // back to replaceAllWtText if the placeholder paragraph isn't found
+  // (template variant) or if the value is a single paragraph anyway.
+  const summaryMarker =
+    "[Copilot: Insert a 3–5 sentence plain-English summary of the works — system type, scale, key interfaces, programme highlights.]";
+  if (exec.includes("\n\n")) {
+    x = renderBodyParagraphsAtMarker(x, summaryMarker, exec);
+  } else {
+    x = replaceAllWtText(x, summaryMarker, exec);
+  }
 
   // §2.1 System Description — first scope paragraph (panel & architecture).
   x = replaceAllWtText(
@@ -940,6 +947,50 @@ function buildBulletParagraph(text: string): string {
     + '</w:p>';
 }
 
+// Build a body-text paragraph (no bullet, no number, justified) matching
+// the Verdana 8pt body style used for §1 / scope items. Used by the
+// paragraph-split renderer below to split a multi-paragraph summary into
+// real <w:p> elements rather than one run-on text run.
+function buildBodyParagraph(text: string): string {
+  const body = escapeXmlText(text.trim());
+  return '<w:p>'
+    + '<w:pPr>'
+      + '<w:spacing w:after="160" w:line="260" w:lineRule="auto"/>'
+      + '<w:jc w:val="both"/>'
+    + '</w:pPr>'
+    + `<w:r>${BODY_RPR}<w:t xml:space="preserve">${body}</w:t></w:r>`
+    + '</w:p>';
+}
+
+// Find the [Copilot:] placeholder paragraph at the given marker and replace
+// it with N body paragraphs split from `text`. Use this instead of
+// replaceAllWtText when the value spans multiple paragraphs — the single-
+// <w:t> path collapses \n\n breaks into a literal newline character that
+// Word renders as a space.
+//
+// Split heuristic: prefer explicit `\n\n` breaks from the AI rewriter.
+// When none are present, fall back to a single paragraph so we don't
+// invent breaks the author didn't intend.
+function renderBodyParagraphsAtMarker(
+  xml: string,
+  markerPrefix: string,
+  text: string,
+): string {
+  const trimmed = text.trim();
+  if (!trimmed) return xml; // empty value — let the fieldOrOmit fallback strip
+  const phIdx = xml.indexOf(markerPrefix);
+  if (phIdx < 0) return xml;
+  const pStart = findEnclosingWpStart(xml, phIdx);
+  if (pStart < 0) return xml;
+  const pEnd = xml.indexOf("</w:p>", phIdx) + "</w:p>".length;
+  if (pEnd <= 0) return xml;
+
+  const chunks = trimmed.split(/\n\s*\n+/).map((s) => s.trim()).filter(Boolean);
+  if (chunks.length === 0) return xml;
+  const paragraphs = chunks.map(buildBodyParagraph).join("");
+  return xml.substring(0, pStart) + paragraphs + xml.substring(pEnd);
+}
+
 // Locate the [Copilot:] placeholder paragraph at the given marker and
 // replace it with N bulleted paragraphs. Returns xml unchanged if the
 // placeholder isn't found (template variant); strips the placeholder
@@ -1065,11 +1116,17 @@ for a client (commercial / public-sector building owner). The user will give you
 raw scope content for a single quote. It may be a clean prose introduction, a markdown
 numbered list, a wall of text with ** bold markers, or any mix. Produce two outputs:
 
-1. "summary" — 3-4 sentence plain prose for the §1 Scope at a Glance section. Crisp,
+1. "summary" — 3-5 sentence plain prose for the §1 Scope at a Glance section. Crisp,
    professional, no jargon overload. Lead with what BHO Fire Ltd will do and the
    standard / category if known. Don't list every work item — that goes in scope_items.
    If the raw content is already clean professional prose, preserve its voice and
    meaning; only reformat. Do not introduce facts that aren't present in the input.
+   Structure the summary as TWO short paragraphs separated by a single blank line
+   ("\n\n"): paragraph 1 = what BHO Fire Ltd will do at a high level; paragraph 2 =
+   standards / compliance / acceptance criteria. The blank line is rendered as a
+   real paragraph break in the PDF — without it the §1 block prints as one wall of
+   text. If the content genuinely only warrants one paragraph, return one paragraph
+   with no blank line; don't pad with a second paragraph that adds nothing.
 
 2. "scope_items" — an array of clean strings, one per discrete work item. Strip all
    markdown (**, __, *, _, \`, #). Strip leading numbering ("1.", "2."). Each item
