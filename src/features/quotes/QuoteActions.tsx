@@ -60,11 +60,11 @@ export function QuoteActions({
     if (!fresh) return;
     setPdfBusy(true);
     try {
-      let docxPath = fresh.latest_docx_path;
-      if (!docxPath) {
-        const d = await docx.mutateAsync(fresh);
-        docxPath = d.storage_path;
-      }
+      // Always regenerate the DOCX first. Reusing latest_docx_path
+      // means a previously-broken render gets re-converted forever,
+      // producing the same Office "cannotOpenFile" 406 every time.
+      const d = await docx.mutateAsync(fresh);
+      const docxPath = d.storage_path;
       const r = await pdf.mutateAsync({ docx_storage_path: docxPath, quotation_id: fresh.id });
       await downloadSignedUrl(r.signed_url, `${fresh.quotation_number}.pdf`);
       toast.success("PDF downloaded");
