@@ -218,6 +218,86 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     setHasChanges(true);
   };
 
+  // ── Scope of Works editor ────────────────────────────────────────────────
+  //
+  // Mirrors the AI Defect Quote line-item editor's UX: checkbox per row,
+  // drag-handle, merge selected, delete selected, duplicate, plus inline
+  // text edit. Stable uid (not array index) drives selection so reorder
+  // and delete don't shift the selection onto the wrong row.
+
+  const toggleScopeSelected = (uid: string) => {
+    setSelectedScopeUids((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
+  };
+  const clearScopeSelection = () => setSelectedScopeUids(new Set());
+
+  const updateScopeText = (uid: string, text: string) => {
+    setScopeItems((prev) => prev.map((r) => r.uid === uid ? { ...r, text } : r));
+    setHasChanges(true);
+  };
+  const addScopeRow = () => {
+    setScopeItems((prev) => [...prev, { uid: newScopeUid(), text: "" }]);
+    setHasChanges(true);
+  };
+  const removeScopeRow = (uid: string) => {
+    setScopeItems((prev) => prev.filter((r) => r.uid !== uid));
+    setSelectedScopeUids((prev) => {
+      const next = new Set(prev);
+      next.delete(uid);
+      return next;
+    });
+    setHasChanges(true);
+  };
+  const duplicateScopeRow = (uid: string) => {
+    setScopeItems((prev) => {
+      const idx = prev.findIndex((r) => r.uid === uid);
+      if (idx < 0) return prev;
+      const next = [...prev];
+      next.splice(idx + 1, 0, { uid: newScopeUid(), text: prev[idx].text });
+      return next;
+    });
+    setHasChanges(true);
+  };
+  const bulkDeleteScope = () => {
+    if (selectedScopeUids.size === 0) return;
+    setScopeItems((prev) => prev.filter((r) => !selectedScopeUids.has(r.uid)));
+    clearScopeSelection();
+    setHasChanges(true);
+  };
+  const mergeSelectedScope = () => {
+    if (selectedScopeUids.size < 2) {
+      toast.warning("Pick at least two scope items to merge.");
+      return;
+    }
+    const selected = scopeItems.filter((r) => selectedScopeUids.has(r.uid));
+    const merged: ScopeRow = {
+      uid: newScopeUid(),
+      // " · " separator keeps the boundary visible so the engineer can
+      // edit the result down to one sentence rather than having two
+      // sentences silently glued together.
+      text: selected.map((r) => r.text.trim()).filter(Boolean).join(" · "),
+    };
+    const firstIdx = scopeItems.findIndex((r) => selectedScopeUids.has(r.uid));
+    const survivors = scopeItems.filter((r) => !selectedScopeUids.has(r.uid));
+    const next = [...survivors];
+    next.splice(Math.max(0, firstIdx), 0, merged);
+    setScopeItems(next);
+    clearScopeSelection();
+    setHasChanges(true);
+  };
+  const handleScopeDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = scopeItems.findIndex((r) => r.uid === active.id);
+    const newIdx = scopeItems.findIndex((r) => r.uid === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    setScopeItems(arrayMove(scopeItems, oldIdx, newIdx));
+    setHasChanges(true);
+  };
+
   // Editable fields
   const [quotationNumber, setQuotationNumber] = useState("");
   const [title, setTitle] = useState("");
@@ -226,6 +306,19 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [terms, setTerms] = useState(DEFAULT_TERMS);
   const [validUntil, setValidUntil] = useState("");
   const [vatRate, setVatRate] = useState(20);
+
+  // Scope of Works — quotations.scope is a string[] populated by the AI
+  // rewriter in generate-quote-docx (PR #213) and rendered as the §2.2
+  // numbered list in the PDF. Each entry is stamped with a transient _uid
+  // so multi-select / drag-reorder / merge survive operations the same way
+  // the AI Defect Quote dialog does. The uid is stripped before write.
+  interface ScopeRow { uid: string; text: string }
+  const newScopeUid = () =>
+    (typeof crypto !== "undefined" && "randomUUID" in crypto)
+      ? crypto.randomUUID()
+      : `s-${Math.random().toString(36).slice(2, 10)}-${Date.now()}`;
+  const [scopeItems, setScopeItems] = useState<ScopeRow[]>([]);
+  const [selectedScopeUids, setSelectedScopeUids] = useState<Set<string>>(new Set());
 
   // Editable customer fields
   const [customerName, setCustomerName] = useState("");
@@ -300,6 +393,15 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       setTerms((quotationData as any).terms || DEFAULT_TERMS);
       setValidUntil(quotationData.valid_until || "");
       setVatRate((quotationData as any).vat_rate ?? 20);
+      // Hydrate the scope editor. Stamp a uid on every row so the multi-
+      // select / drag / merge ops survive without an index dependency.
+      const rawScope = Array.isArray((quotationData as any).scope) ? (quotationData as any).scope as unknown[] : [];
+      setScopeItems(
+        rawScope
+          .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+          .map((s) => ({ uid: newScopeUid(), text: s })),
+      );
+      setSelectedScopeUids(new Set());
 
       if (customerData) {
         setCustomerName(customerData.name || "");
@@ -663,6 +765,12 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      // Drop the editor-only _uid before writing; collapse whitespace and
+      // strip empties so an accidentally-blank row doesn't leave a hole in
+      // the §2.2 numbered list.
+      const scopeToWrite = scopeItems
+        .map((r) => r.text.trim())
+        .filter((s) => s.length > 0);
       const { error: quotationError } = await supabase
         .from("quotations")
         .update({
@@ -674,6 +782,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           terms,
           vat_rate: vatRate,
           valid_until: validUntil || null,
+          scope: scopeToWrite,
           status: "sent",
           locked_at: new Date().toISOString(),
           locked_by: user?.id || null,
@@ -1095,8 +1204,9 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
               <p className="text-center py-12 text-muted-foreground">Quotation not found</p>
             ) : (
               <Tabs defaultValue="items" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="items">Line Items</TabsTrigger>
+                  <TabsTrigger value="scope">Scope</TabsTrigger>
                   <TabsTrigger value="customer">Customer</TabsTrigger>
                   <TabsTrigger value="details">Details</TabsTrigger>
                   <TabsTrigger value="terms">Terms & PDF</TabsTrigger>
@@ -1437,6 +1547,145 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                       </div>
                     </CardContent>
                   </Card>
+                </TabsContent>
+
+                {/* ── Scope of Works ─────────────────────────────────────
+                    Renders the quotations.scope[] array as the §2.2
+                    numbered list in the PDF. Same multi-select + drag-
+                    reorder + merge / delete / duplicate UX as the AI
+                    Defect Quote line-item editor (PR #216) — so an
+                    engineer can clean up the AI-generated scope items
+                    without having to re-run scope generation or hand-
+                    edit the DB. */}
+                <TabsContent value="scope" className="space-y-3 mt-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-semibold">Scope of Works</Label>
+                      <span className="text-[10px] text-muted-foreground">
+                        {scopeItems.length} item{scopeItems.length !== 1 ? "s" : ""} · §2.2 of the PDF
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline" size="sm"
+                      className="h-7 gap-1 text-xs"
+                      onClick={addScopeRow}
+                      disabled={isLocked}
+                    >
+                      <Plus className="h-3.5 w-3.5" />Add Item
+                    </Button>
+                  </div>
+
+                  {/* Selection toolbar — only when the user has picked
+                      rows; sticks to top-of-tab so it stays visible while
+                      scrolling longer scope lists. */}
+                  {selectedScopeUids.size > 0 && (
+                    <div className="rounded-lg border bg-primary/5 p-2 flex items-center gap-1.5 flex-wrap text-xs sticky top-0 z-10 backdrop-blur">
+                      <Badge variant="secondary" className="text-[10px]">{selectedScopeUids.size} selected</Badge>
+                      <Button
+                        size="sm" variant="ghost"
+                        className="h-7 gap-1 text-xs"
+                        onClick={mergeSelectedScope}
+                        disabled={selectedScopeUids.size < 2 || isLocked}
+                      >
+                        <Merge className="h-3.5 w-3.5" />Merge
+                      </Button>
+                      <Button
+                        size="sm" variant="ghost"
+                        className="h-7 gap-1 text-xs text-destructive hover:text-destructive"
+                        onClick={bulkDeleteScope}
+                        disabled={isLocked}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />Delete
+                      </Button>
+                      <Button
+                        size="sm" variant="ghost"
+                        className="h-7 text-xs ml-auto"
+                        onClick={clearScopeSelection}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  )}
+
+                  {scopeItems.length === 0 ? (
+                    <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
+                      No scope items. The §2.2 list in the PDF will be empty.
+                      Add an item or regenerate the scope to populate it.
+                    </div>
+                  ) : (
+                    <DndContext
+                      sensors={dndSensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleScopeDragEnd}
+                    >
+                      <SortableContext
+                        items={scopeItems.map((r) => r.uid)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-2">
+                          {scopeItems.map((row, idx) => (
+                            <SortableItemRow key={row.uid} id={row.uid} disabled={isLocked}>
+                              {({ attributes, listeners }) => (
+                                <div className={`rounded-md border bg-card p-2.5 transition-colors ${
+                                  selectedScopeUids.has(row.uid) ? "border-primary/60 bg-primary/5" : ""
+                                }`}>
+                                  <div className="flex items-start gap-2">
+                                    <button
+                                      type="button"
+                                      aria-label="Drag to reorder"
+                                      className="cursor-grab touch-none text-muted-foreground hover:text-foreground mt-1 flex-shrink-0"
+                                      {...attributes}
+                                      {...listeners}
+                                    >
+                                      <GripVertical className="h-3.5 w-3.5" />
+                                    </button>
+                                    <Checkbox
+                                      checked={selectedScopeUids.has(row.uid)}
+                                      onCheckedChange={() => toggleScopeSelected(row.uid)}
+                                      className="mt-1 flex-shrink-0"
+                                      aria-label="Select scope item"
+                                      disabled={isLocked}
+                                    />
+                                    <span className="text-[10px] font-bold text-muted-foreground w-5 mt-1.5 flex-shrink-0">
+                                      {idx + 1}.
+                                    </span>
+                                    <Textarea
+                                      value={row.text}
+                                      onChange={(e) => updateScopeText(row.uid, e.target.value)}
+                                      placeholder="Describe one discrete work item…"
+                                      className="flex-1 min-w-0 text-sm"
+                                      rows={Math.min(6, Math.max(2, row.text.split("\n").length))}
+                                      disabled={isLocked}
+                                    />
+                                    <div className="flex flex-col gap-1 flex-shrink-0">
+                                      <Button
+                                        variant="ghost" size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                        onClick={() => duplicateScopeRow(row.uid)}
+                                        title="Duplicate item"
+                                        disabled={isLocked}
+                                      >
+                                        <Copy className="h-3.5 w-3.5" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost" size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                        onClick={() => removeScopeRow(row.uid)}
+                                        title="Delete item"
+                                        disabled={isLocked}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </SortableItemRow>
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="customer" className="space-y-3 mt-4">
