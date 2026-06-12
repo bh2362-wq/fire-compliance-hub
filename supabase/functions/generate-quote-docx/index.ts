@@ -1044,14 +1044,21 @@ async function rewriteScopeForPresentation(
   const rawScope = (quote.scope ?? []).filter((s): s is string => typeof s === "string" && s.trim() !== "");
   const projectTitle = (quote.project_title ?? "").toString();
 
+  console.log(
+    `[generate-quote-docx] rewriter input: introLen=${rawIntro.length}, scopeLen=${rawScope.length}, intro[0:200]=${JSON.stringify(rawIntro.slice(0, 200))}`,
+  );
+
   if (!rawIntro.trim() && rawScope.length === 0) {
+    console.log("[generate-quote-docx] rewriter: empty input, skipping");
     return { summary: "", scope_items: [] };
   }
 
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) {
+    console.log("[generate-quote-docx] rewriter: ANTHROPIC_API_KEY missing, using deterministic fallback");
     return deterministicScopeCleanup(rawIntro, rawScope, projectTitle);
   }
+
 
   const systemPrompt = `You are a senior UK fire-safety estimator writing a quotation
 for a client (commercial / public-sector building owner). The user will give you the
