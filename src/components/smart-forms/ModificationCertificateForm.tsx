@@ -88,7 +88,7 @@ export default function ModificationCertificateForm({ open, onOpenChange, visitI
       // all fields blanking on re-open and the file vanishing on
       // re-download).
       setSubmissionId(existing.id);
-      setPayload({ ...emptyPayload(), ...(existing.payload as ModificationPayload) });
+      setPayload({ ...emptyPayload(), ...(existing.payload as unknown as ModificationPayload) });
     } else {
       setSubmissionId(null);
       setPayload(prefill ? { ...emptyPayload(), ...prefill } : emptyPayload());

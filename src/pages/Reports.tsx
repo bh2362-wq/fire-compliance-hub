@@ -754,7 +754,7 @@ const Reports = () => {
       // Smart-form cert submissions — merged into the Reports feed so
       // engineers see every job document in one place rather than
       // bouncing between Reports and Smart Forms.
-      (supabase as { from: (t: string) => { select: (s: string) => { order: (c: string, o: { ascending: boolean }) => Promise<{ data: unknown; error: unknown }> } } })
+      (supabase as unknown as { from: (t: string) => { select: (s: string) => { order: (c: string, o: { ascending: boolean }) => Promise<{ data: unknown; error: unknown }> } } })
         .from("smart_form_submissions")
         .select(`
           id, form_type, certificate_reference, status,
@@ -1125,8 +1125,8 @@ const Reports = () => {
     const matchesSearch =
       searchTerm === "" ||
       report.sites?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.engineer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.report_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      (report as { engineer_name?: string }).engineer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (report as { report_number?: string }).report_number?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === "all" || report.status === statusFilter;
 

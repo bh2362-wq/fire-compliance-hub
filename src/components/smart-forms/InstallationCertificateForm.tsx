@@ -63,7 +63,7 @@ export default function InstallationCertificateForm({ open, onOpenChange, visitI
     setStep(0);
     if (existing) {
       setSubmissionId(existing.id);
-      setPayload({ ...emptyPayload(), ...(existing.payload as InstallationPayload) });
+      setPayload({ ...emptyPayload(), ...(existing.payload as unknown as InstallationPayload) });
     } else {
       setSubmissionId(null);
       setPayload(prefill ? { ...emptyPayload(), ...prefill } : emptyPayload());
