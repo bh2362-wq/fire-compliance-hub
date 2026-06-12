@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -203,6 +204,12 @@ export default function SmartForms() {
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
   const [editing, setEditing] = useState<SmartFormSubmission | null>(null);
   const [emailingSub, setEmailingSub] = useState<SmartFormSubmission | null>(null);
+  // ?open=<submission-id> deep-link from the unified Reports feed
+  // (PR #214 surfaces smart-form rows there; tapping Open routes here).
+  // We pop the param off the URL once we've opened the form so a
+  // browser back doesn't immediately re-open it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openParam = searchParams.get("open");
 
   const load = async () => {
     setLoading(true);
@@ -225,6 +232,26 @@ export default function SmartForms() {
     if (ft === "declination_of_works")     { setActiveForm("declination"); return; }
     setActiveForm(sub.form_type as ActiveForm);
   };
+
+  // Open the deep-linked submission once it loads. We don't want this
+  // firing every render — guard on (loading, openParam, submissions
+  // length, and the open-param staying the same) so editing isn't
+  // bounced if the user navigates inside the page.
+  useEffect(() => {
+    if (loading || !openParam || submissions.length === 0) return;
+    const sub = submissions.find((s) => s.id === openParam);
+    if (!sub) {
+      toast.error("That smart form submission could not be found.");
+    } else {
+      handleEdit(sub);
+    }
+    // Strip the param so back-navigation / refresh doesn't re-open.
+    setSearchParams((prev) => {
+      prev.delete("open");
+      return prev;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, openParam, submissions.length]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this submission?")) return;

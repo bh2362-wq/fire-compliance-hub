@@ -766,13 +766,37 @@ const Reports = () => {
         .order("created_at", { ascending: false }),
     ]);
 
+    // service_reports stubs get auto-created by useServiceReportDraft
+    // the moment a visit is opened, so the Reports feed used to fill
+    // up with empty drafts the engineer never touched. Filter them
+    // out: a stub has status=draft, no report_number assigned, no
+    // notes / signatures / defects / work / recommendations text.
+    // Any field touched means it's a real draft the engineer was
+    // working on — keep those.
+    const isEmptyServiceStub = (r: Record<string, unknown>): boolean => {
+      const status = String(r.status ?? "draft").toLowerCase();
+      if (status !== "draft" && status !== "") return false;
+      if (r.report_number) return false;
+      const filledTextFields = [
+        "notes", "defects_found", "recommendations",
+        "work_carried_out", "parts_used", "engineer_signature",
+        "client_signature", "client_name",
+      ];
+      return filledTextFields.every((f) => {
+        const v = r[f];
+        return v == null || (typeof v === "string" && v.trim() === "");
+      });
+    };
+
     const serviceRows: UnifiedReportRow[] =
       !serviceRes.error && serviceRes.data
-        ? serviceRes.data.map((r) => ({
-            ...r,
-            _kind: "service" as const,
-            checklist: (r.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
-          })) as UnifiedReportRow[]
+        ? (serviceRes.data as Array<Record<string, unknown>>)
+            .filter((r) => !isEmptyServiceStub(r))
+            .map((r) => ({
+              ...r,
+              _kind: "service" as const,
+              checklist: (r.checklist as unknown as BS5839Checklist) || getDefaultChecklist(),
+            })) as UnifiedReportRow[]
         : [];
 
     // Tolerate the C&E table being unmigrated on an older env — just
@@ -1219,7 +1243,7 @@ const Reports = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => navigate("/dashboard/smart-forms")}
+                        onClick={() => navigate(`/dashboard/smart-forms?open=${report.id}`)}
                       >
                         Open
                       </Button>
