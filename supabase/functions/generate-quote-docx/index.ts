@@ -246,6 +246,18 @@ const gbp = (n: number) => n.toLocaleString("en-GB", { minimumFractionDigits: 2,
 
 function escapeXmlText(s: string): string {
   return String(s ?? "")
+    // Strip XML 1.0-illegal control chars (keep \t \n \r). Office's
+    // PDF converter rejects the whole document with "cannotOpenFile"
+    // if any of these slip through, even though Word will open it.
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
+    // Normalise CRLF/CR to LF so newline handling below is uniform.
+    .replace(/\r\n?/g, "\n")
+    // Collapse any remaining bare newlines to a single space — multi-
+    // paragraph values are handled by renderBodyParagraphsAtMarker
+    // which splits on \n\n *before* calling here; anything reaching
+    // this function is a single <w:t> run and must not contain raw
+    // newlines (Office's converter trips on them).
+    .replace(/\n+/g, " ")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
