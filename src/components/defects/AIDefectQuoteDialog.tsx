@@ -34,6 +34,7 @@ import {
 } from "@/hooks/useQuoteGeneration";
 import { inheritMetadataFromPriorQuote } from "@/services/quoteMetadataInheritanceService";
 import { stripScopeMarkdown, parseScopeNumberedItems } from "@/lib/scopeMarkdown";
+import { AIRewriteButton } from "@/components/reports/AIRewriteButton";
 
 interface Props {
   open: boolean;
@@ -177,6 +178,18 @@ function SortableLineRow({
               onChange={(e) => onUpdate(bucket, index, "description", e.target.value)}
               placeholder="Description"
               className="text-sm h-8 flex-1 min-w-0"
+            />
+            {/* Per-row "Improve with AI" — same compact button as the
+                Quote edit dialog (PR #221). Rewrites just this row's
+                description via rewrite-text. Preview-and-accept flow
+                keeps the engineer in control of AI changes to precise
+                technical wording. */}
+            <AIRewriteButton
+              text={row.description ?? ""}
+              type="quotation_items"
+              compact
+              disabled={!row.description?.trim()}
+              onRewrite={(newText) => onUpdate(bucket, index, "description", newText)}
             />
             {tbc && (
               <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 text-[10px] gap-1 shrink-0">
