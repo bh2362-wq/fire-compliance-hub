@@ -44,6 +44,7 @@ export function AIRewriteButton({
   generateRecommendations = false,
   onRecommendationsGenerated,
   context,
+  compact = false,
 }: AIRewriteButtonProps) {
   const [loading, setLoading] = useState(false);
   const [originalText, setOriginalText] = useState<string | null>(null);
