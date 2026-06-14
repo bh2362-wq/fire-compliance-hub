@@ -414,7 +414,12 @@ const EmailScanner = () => {
 
         {/* Active flows take over full page */}
         {activeFlow === "quote" && extractedData && (
-          <EmailScannerQuoteFlow data={extractedData} onBack={handleReset} initialDraftState={quoteDraftState} />
+          <EmailScannerQuoteFlow
+            key={quoteDraftState ? `draft-${quoteDraft?.savedAt ?? "restored"}` : `new-${extractedData.scope_summary ?? extractedData.description ?? "quote"}`}
+            data={extractedData}
+            onBack={handleReset}
+            initialDraftState={quoteDraftState}
+          />
         )}
         {activeFlow === "visit" && extractedData && (
           <EmailScannerVisitFlow data={extractedData} onBack={handleReset} />
