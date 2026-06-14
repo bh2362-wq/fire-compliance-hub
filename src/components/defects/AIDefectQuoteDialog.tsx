@@ -385,10 +385,10 @@ export function AIDefectQuoteDialog({
   // ── Bucket editing helpers ───────────────────────────────────────────────────
 
   function updateBucketLine(bucket: BucketKey, index: number, field: keyof CostLine, value: string | number) {
-    setLineItems({
-      ...lineItems,
-      [bucket]: lineItems[bucket].map((row, i) => (i === index ? { ...row, [field]: value } : row)),
-    });
+    setLineItems((prev) => ({
+      ...prev,
+      [bucket]: prev[bucket].map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    }));
   }
   function removeBucketLine(bucket: BucketKey, index: number) {
     const uid = lineItems[bucket][index]?._uid;
