@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SignaturePad } from "@/components/ui/signature-pad";
+import { TypedSignature } from "@/components/ui/typed-signature";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -143,8 +144,8 @@ const AcceptQuote = () => {
       setError("Please enter your name");
       return;
     }
-    if (!signature) {
-      setError("Please provide your digital signature");
+    if (!signature.trim()) {
+      setError("Please type your name into the signature field");
       return;
     }
 
@@ -165,7 +166,11 @@ const AcceptQuote = () => {
           token,
           accepted_by_name: name.trim(),
           po_number: poNumber.trim() || null,
-          signature,
+          // "typed:" prefix matches the convention used by the cert PDF
+          // generator (certPdfMasterTemplate.ts) and RamsPreviewDialog —
+          // tells the renderer to display the value as text in a script
+          // font rather than try to inline-render it as an image.
+          signature: `typed:${signature.trim()}`,
         }),
       });
 
@@ -373,15 +378,25 @@ const AcceptQuote = () => {
                 />
               </div>
 
+              {/* Typed signature — engineer's request. Drawing a signature
+                  on a customer's phone was friction (some browsers don't
+                  pass touch events to canvas cleanly, fat-finger smudges,
+                  etc.). Type your full name and it renders in a cursive
+                  script as your digital signature; same value flows to
+                  the "accepted_by_name" field on submit so we capture
+                  the printed-name and the signature in one input. */}
               <div className="space-y-2">
-                <Label>Digital Signature *</Label>
+                <Label htmlFor="accept-signature">Digital Signature *</Label>
                 <div ref={sigContainerRef} className="w-full">
-                  <SignaturePad
+                  <TypedSignature
                     value={signature}
-                    onChange={setSignature}
-                    width={sigWidth}
-                    height={140}
-                    label="Sign to accept"
+                    onChange={(v) => {
+                      setSignature(v);
+                      // Mirror into the Name field if the engineer hasn't
+                      // typed there yet — saves a duplicate step.
+                      if (!name.trim()) setName(v);
+                    }}
+                    placeholder="Type your full name"
                   />
                 </div>
               </div>

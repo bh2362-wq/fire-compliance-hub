@@ -120,6 +120,17 @@ interface QuoteContext {
   // quotation's own metadata columns.
   fallbackSiteName: string | null;
   fallbackSiteAddress: string | null;
+  // Customer acceptance — populated when the customer has digitally
+  // accepted via /accept-quote/<token>. The renderer fills the bottom
+  // "Accepted on behalf of client" cells from these. Signature comes
+  // through as "typed:<name>" (new flow, June '26 onward) or as a
+  // legacy "data:image/png;base64,…" PNG; we strip the typed: prefix
+  // here so the cell renders just the name in whatever script font
+  // the template applies.
+  acceptanceSignatureText: string | null;
+  acceptanceName: string | null;
+  acceptanceDate: string | null;    // formatted "d MMMM yyyy" or null
+  acceptancePoNumber: string | null;
 }
 
 // ── §2.2 Works Included bullets, per works_type ───────────────────────────────
@@ -739,6 +750,18 @@ function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo, ctx: Qu
   x = fieldOrOmit(x, "[Job Title]", issuer.position);
   x = fieldOrOmit(x, "[estimator@bhofire.com]", issuer.email);
   x = fieldOrOmit(x, "[Direct Phone]", issuer.direct);
+
+  // §8 ACCEPTED ON BEHALF OF CLIENT — populated when the customer has
+  // digitally accepted via /accept-quote/<token>. The master template
+  // needs these placeholders in the Acceptance table; format the
+  // [Customer Signature] cell with a script font (Lucida Handwriting,
+  // Brush Script MT, etc.) and the typed name will render as cursive.
+  // Until the template carries the placeholders, the fields just stay
+  // empty — no regression for unaccepted quotes or older templates.
+  x = fieldOrOmit(x, "[Customer Signature]",  ctx.acceptanceSignatureText ?? "");
+  x = fieldOrOmit(x, "[Customer Print Name]", ctx.acceptanceName ?? "");
+  x = fieldOrOmit(x, "[Customer Date]",       ctx.acceptanceDate ?? "");
+  x = fieldOrOmit(x, "[Customer PO Number]",  ctx.acceptancePoNumber ?? "");
   return x;
 }
 
@@ -825,6 +848,10 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
       bs5839Category: null,
       fallbackSiteName: null,
       fallbackSiteAddress: null,
+      acceptanceSignatureText: null,
+      acceptanceName: null,
+      acceptanceDate: null,
+      acceptancePoNumber: null,
     },
   };
   if (!quotationId) return empty;
@@ -834,9 +861,10 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
   // ever quote on a site, where inheritMetadataFromPriorQuote has nothing
   // to inherit from). Without this fallback the SITE DETAILS panel
   // renders almost empty for those quotes (only Enquiry Ref shows).
+  // Acceptance columns drive the bottom signature block.
   const { data: q } = await supabase
     .from("quotations")
-    .select("created_by, works_type, system_manufacturer, system_type, system_panel, bs5839_category, site_id")
+    .select("created_by, works_type, system_manufacturer, system_type, system_panel, bs5839_category, site_id, client_acceptance_signature, accepted_by_name, client_accepted_at, client_po_number")
     .eq("id", quotationId)
     .maybeSingle();
   type QuotationRow = {
@@ -847,6 +875,10 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
     system_panel?: string | null;
     bs5839_category?: string | null;
     site_id?: string | null;
+    client_acceptance_signature?: string | null;
+    accepted_by_name?: string | null;
+    client_accepted_at?: string | null;
+    client_po_number?: string | null;
   };
   const quotation = (q as QuotationRow | null) ?? null;
   if (!quotation) return empty;
@@ -913,8 +945,41 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
       bs5839Category: quotation.bs5839_category ?? site?.bs5839_category ?? null,
       fallbackSiteName: site?.name ?? null,
       fallbackSiteAddress: siteAddressParts.length > 0 ? siteAddressParts.join(", ") : null,
+      // Acceptance block — strip the "typed:" prefix so the cursive cell
+      // shows just the name; for legacy data:image signatures we leave
+      // the cell blank (image embed isn't worth the XML complexity for
+      // signatures that may also exist in the DB from before the
+      // typed-name switchover).
+      acceptanceSignatureText: (() => {
+        const sig = quotation.client_acceptance_signature ?? null;
+        if (!sig) return null;
+        if (sig.startsWith("typed:")) return sig.slice("typed:".length).trim() || null;
+        return null;
+      })(),
+      acceptanceName: quotation.accepted_by_name ?? null,
+      acceptanceDate: quotation.client_accepted_at
+        ? formatDateDdMMMMyyyy(quotation.client_accepted_at)
+        : null,
+      acceptancePoNumber: quotation.client_po_number ?? null,
     },
   };
+}
+
+// "12 June 2026" style date formatter, mirrors how issued_date is
+// formatted on the caller side via date-fns. Done inline here so the
+// edge function doesn't need to import date-fns; the surface is small.
+function formatDateDdMMMMyyyy(iso: string): string | null {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    const months = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ];
+    return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  } catch {
+    return null;
+  }
 }
 
 // ── §2.2 Works Included — bullet swap per works_type ───────────────────────
