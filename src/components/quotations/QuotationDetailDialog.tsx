@@ -1669,7 +1669,20 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                             />
                                           </div>
                                           <div>
-                                            <Label className="text-xs">Unit Cost £</Label>
+                                            <div className="flex items-center justify-between gap-1">
+                                              <Label className="text-xs">Unit Cost £</Label>
+                                              {!isLocked && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setPriceLookupIndex(index)}
+                                                  className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5"
+                                                  title="Look up trade price in catalog"
+                                                >
+                                                  <Search className="h-3 w-3" />
+                                                  {(item.unit_price || 0) > 0 ? "Change" : "Lookup"}
+                                                </button>
+                                              )}
+                                            </div>
                                             <Input
                                               type="number"
                                               min={0}
