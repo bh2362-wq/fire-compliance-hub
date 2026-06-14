@@ -158,8 +158,8 @@ async function callClaudeJson(
       system,
       messages: [{ role: "user", content: user }],
     }),
-    // PDF-render path budget — fail fast rather than hold the engineer.
-    signal: AbortSignal.timeout(30_000),
+    // Claude can take 60-90s for large inventories; give it room.
+    signal: AbortSignal.timeout(120_000),
   });
   if (!resp.ok) {
     const errText = await resp.text();
