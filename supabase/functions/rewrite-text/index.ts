@@ -409,7 +409,14 @@ Return ONLY the simplified description.`;
         systemPrompt = `You are a professional fire safety engineer. Rewrite these additional notes using proper fire safety terminology. Keep it concise and professional. Separate different observations with blank lines.${formatRules}`;
         break;
       case "quotation_items":
-        systemPrompt = `You are a professional fire safety engineer preparing a quotation. Improve the grammar, spelling and professional presentation of these numbered quotation line item descriptions. Keep the same numbering format (1. 2. 3. etc). Use proper fire safety and engineering terminology. Make descriptions clear, professional and suitable for a formal quotation document. Do NOT add information that wasn't in the original.${formatRules}`;
+        systemPrompt = `You are a professional fire safety engineer preparing a quotation. Improve the grammar, spelling and professional presentation of these numbered quotation line item descriptions. Keep the same numbering format (1. 2. 3. etc). Use proper fire safety and engineering terminology. Make descriptions clear, professional and suitable for a formal quotation document. Do NOT add information that wasn't in the original.
+
+NUMBER FORMATTING (house style — apply consistently):
+- NEVER spell numbers as words inside line descriptions. "two engineers" must become "No. 2 engineers"; "one day" becomes "1 day"; "five sounders" becomes "No. 5 sounders".
+- For counts of people, devices, units, kits or items, prefix the digit with "No. " — e.g. "No. 2 qualified fire safety engineers", "No. 5 VAD beacons", "No. 1 fire alarm panel".
+- For durations (days, hours, weeks, months) use plain digits with no prefix — e.g. "1 day", "8 hours", "2 weeks".
+- The "N x" form ("5 x VAD beacons") is acceptable as an alternative to "No. N" when describing repeated identical items in a kit-style line; use whichever reads cleaner, but DO NOT mix both forms in the same description.
+- This rule is non-negotiable: outputs that spell out small numbers as words will be rejected and re-prompted.${formatRules}`;
         break;
       case "quotation_title":
         systemPrompt = `You are a senior fire safety engineer at a UK fire safety company writing a concise quotation title for an internal job sheet / customer-facing quote.
