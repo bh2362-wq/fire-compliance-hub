@@ -113,6 +113,13 @@ interface QuoteContext {
   systemType: string | null;
   systemPanel: string | null;
   bs5839Category: string | null;
+  // Site fallback — populated from the linked sites row when the quotation
+  // has a site_id. Used by the renderer to fill SITE DETAILS cells that
+  // would otherwise be blank because the quote was created via a path
+  // (manual / duplicate / first-on-site) that didn't populate the
+  // quotation's own metadata columns.
+  fallbackSiteName: string | null;
+  fallbackSiteAddress: string | null;
 }
 
 // ── §2.2 Works Included bullets, per works_type ───────────────────────────────
@@ -688,11 +695,24 @@ function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo, ctx: Qu
   x = fieldOrOmit(x, "[Contact Email]", q.client.email ?? "");
   x = fieldOrOmit(x, "[Contact Phone]", q.client.phone ?? "");
 
-  // Site Details block — site address (which already includes the site
-  // name as its first component) is distinct from the billing address.
-  // Falls back to client.address if the caller didn't split them.
-  const siteForRender = (q.site?.address && q.site.address.trim()) || q.client.address;
-  x = fieldOrOmit(x, "[Project Name]", q.project_title);
+  // Site Details block — payload site address (caller already includes
+  // name as first component) → site-table fallback → client.address as
+  // last resort. Without the site-table fallback, quotes created outside
+  // the AI Defect Quote flow show an empty SITE DETAILS panel because
+  // the dialog passes empty strings when q.sites isn't joined onto the
+  // quotation query.
+  const siteForRender =
+    (q.site?.address && q.site.address.trim())
+    || ctx.fallbackSiteAddress
+    || q.client.address;
+  // Project title: payload first, then a derived "Remedial Works — {site}"
+  // when we have a site name. Better to show *something* meaningful than
+  // omit the Project row entirely.
+  const projectForRender =
+    (q.project_title && q.project_title.trim())
+    || (ctx.fallbackSiteName && `Remedial Works — ${ctx.fallbackSiteName}`)
+    || "";
+  x = fieldOrOmit(x, "[Project Name]", projectForRender);
   x = fieldOrOmit(x, "[Site Name & Address]", siteForRender);
 
   // System cell: just the manufacturer (e.g. "Gent"). Engineer wants the
@@ -802,12 +822,20 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
       systemType: null,
       systemPanel: null,
       bs5839Category: null,
+      fallbackSiteName: null,
+      fallbackSiteAddress: null,
     },
   };
   if (!quotationId) return empty;
+  // Also pull site_id so we can fall back to the sites profile when the
+  // quotation's own metadata columns are NULL — happens on quotes created
+  // outside the AI Defect Quote flow (manual entry / duplicate / first-
+  // ever quote on a site, where inheritMetadataFromPriorQuote has nothing
+  // to inherit from). Without this fallback the SITE DETAILS panel
+  // renders almost empty for those quotes (only Enquiry Ref shows).
   const { data: q } = await supabase
     .from("quotations")
-    .select("created_by, works_type, system_manufacturer, system_type, system_panel, bs5839_category")
+    .select("created_by, works_type, system_manufacturer, system_type, system_panel, bs5839_category, site_id")
     .eq("id", quotationId)
     .maybeSingle();
   type QuotationRow = {
@@ -817,6 +845,7 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
     system_type?: string | null;
     system_panel?: string | null;
     bs5839_category?: string | null;
+    site_id?: string | null;
   };
   const quotation = (q as QuotationRow | null) ?? null;
   if (!quotation) return empty;
@@ -829,6 +858,32 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
       .maybeSingle();
     profile = (p as typeof profile) ?? null;
   }
+  // Pull the site profile when one is linked. panel_make_model is the
+  // single combined "Gent Vigilon"-style string on sites; we take its
+  // first whitespace-delimited token as the manufacturer (matches the
+  // PR #220 decision to abbreviate the System cell to just the make).
+  // bs5839_category on sites is exactly the per-site BS 5839-1
+  // classification a quote should default to.
+  let site: {
+    name?: string | null;
+    address?: string | null;
+    city?: string | null;
+    postcode?: string | null;
+    panel_make_model?: string | null;
+    bs5839_category?: string | null;
+  } | null = null;
+  if (quotation.site_id) {
+    const { data: s } = await supabase
+      .from("sites")
+      .select("name, address, city, postcode, panel_make_model, bs5839_category")
+      .eq("id", quotation.site_id)
+      .maybeSingle();
+    site = (s as typeof site) ?? null;
+  }
+  const sitePanelMake = site?.panel_make_model?.trim().split(/\s+/)[0] ?? null;
+  const siteAddressParts = [site?.name, site?.address, site?.city, site?.postcode]
+    .map((p) => (p ?? "").trim())
+    .filter(Boolean);
   return {
     issuer: {
       name: profile?.full_name?.trim() ?? "",
@@ -838,10 +893,13 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
     },
     ctx: {
       worksType: quotation.works_type ?? null,
-      systemManufacturer: quotation.system_manufacturer ?? null,
+      // Quotation values take precedence; fall back to site profile.
+      systemManufacturer: quotation.system_manufacturer ?? sitePanelMake,
       systemType: quotation.system_type ?? null,
       systemPanel: quotation.system_panel ?? null,
-      bs5839Category: quotation.bs5839_category ?? null,
+      bs5839Category: quotation.bs5839_category ?? site?.bs5839_category ?? null,
+      fallbackSiteName: site?.name ?? null,
+      fallbackSiteAddress: siteAddressParts.length > 0 ? siteAddressParts.join(", ") : null,
     },
   };
 }
