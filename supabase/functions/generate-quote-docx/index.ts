@@ -753,15 +753,24 @@ function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo, ctx: Qu
 
   // §8 ACCEPTED ON BEHALF OF CLIENT — populated when the customer has
   // digitally accepted via /accept-quote/<token>. The master template
-  // needs these placeholders in the Acceptance table; format the
-  // [Customer Signature] cell with a script font (Lucida Handwriting,
-  // Brush Script MT, etc.) and the typed name will render as cursive.
-  // Until the template carries the placeholders, the fields just stay
-  // empty — no regression for unaccepted quotes or older templates.
-  x = fieldOrOmit(x, "[Customer Signature]",  ctx.acceptanceSignatureText ?? "");
-  x = fieldOrOmit(x, "[Customer Print Name]", ctx.acceptanceName ?? "");
-  x = fieldOrOmit(x, "[Customer Date]",       ctx.acceptanceDate ?? "");
-  x = fieldOrOmit(x, "[Customer PO Number]",  ctx.acceptancePoNumber ?? "");
+  // carries these four placeholders in the Acceptance table cells.
+  // Format the [Customer Signature] cell with a script font (Lucida
+  // Handwriting, Brush Script MT, etc.) and the typed name renders as
+  // cursive.
+  //
+  // Use replaceAllWtText (not fieldOrOmit) because the placeholders sit
+  // INSIDE table cells, not in the paired Label-then-[Value] paragraph
+  // structure fieldOrOmit's removePairedParagraphs helper expects. With
+  // fieldOrOmit, an empty value leaves the raw "[Customer Signature]"
+  // text visible because removePairedParagraphs can't match a sensible
+  // pair across cell boundaries. With replaceAllWtText + empty string,
+  // the placeholder text is replaced with "" — the cell stays in the
+  // table layout but renders blank until the customer accepts. Same
+  // visual result as a fresh paper acceptance form.
+  x = replaceAllWtText(x, "[Customer Signature]",  ctx.acceptanceSignatureText ?? "");
+  x = replaceAllWtText(x, "[Customer Print Name]", ctx.acceptanceName ?? "");
+  x = replaceAllWtText(x, "[Customer Date]",       ctx.acceptanceDate ?? "");
+  x = replaceAllWtText(x, "[Customer PO Number]",  ctx.acceptancePoNumber ?? "");
   return x;
 }
 
