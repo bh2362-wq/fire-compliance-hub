@@ -2162,6 +2162,33 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           }
         }}
       />
+
+      <QuotationPriceLookupDialog
+        open={priceLookupIndex !== null}
+        onOpenChange={(o) => { if (!o) setPriceLookupIndex(null); }}
+        searchTerm={
+          priceLookupIndex !== null
+            ? (lineItems[priceLookupIndex]?.item_name?.trim() ||
+               lineItems[priceLookupIndex]?.description?.split("\n")[0]?.slice(0, 80) ||
+               "")
+            : ""
+        }
+        quantity={priceLookupIndex !== null ? (lineItems[priceLookupIndex]?.quantity || 1) : 1}
+        onAddToQuote={(description, unitPrice) => {
+          if (priceLookupIndex === null) return;
+          const idx = priceLookupIndex;
+          const current = lineItems[idx];
+          if (!current) return;
+          // Apply the catalog price to this row's cost. Stamp item_name
+          // from the catalog code when empty so the next lookup re-finds it.
+          handleItemChange(idx, "unit_price", unitPrice);
+          if (!current.item_name?.trim()) {
+            const code = description.split(" - ")[0]?.trim();
+            if (code) handleItemChange(idx, "item_name", code);
+          }
+          setPriceLookupIndex(null);
+        }}
+      />
     </>
   );
 }
