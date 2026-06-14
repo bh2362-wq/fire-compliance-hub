@@ -196,7 +196,7 @@ interface GenerateQuotationDialogProps {
            site_id: report.site_id,
            customer_id: report.sites?.customer_id || null,
            status: "draft",
-           title: `Remedial Works - ${report.sites?.name || "Site"}`,
+           title: "Remedial",
            summary,
            total_amount: totalAmount,
            valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],

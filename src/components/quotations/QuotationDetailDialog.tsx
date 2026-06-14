@@ -388,7 +388,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       }
 
       setQuotationNumber(quotationData.quotation_number || "");
-      setTitle(quotationData.title || `Remedial Works - ${quotationData.sites?.name || "Site"}`);
+      setTitle(quotationData.title || "Remedial");
       setSummary(quotationData.summary || "");
       setNotes(quotationData.notes || "");
       setTerms((quotationData as any).terms || DEFAULT_TERMS);
