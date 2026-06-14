@@ -315,7 +315,7 @@ export function InventoryQuoteDialog({ open, onOpenChange, siteId, siteName }: P
                                   </Badge>
                                 )}
                                 <div className="text-right text-[11px] whitespace-nowrap shrink-0">
-                                  <div>{r.quantity} × £{r.unit_price.toFixed(2)}</div>
+                                  <div>{Number(r.quantity) || 1} × £{(Number(r.unit_price) || 0).toFixed(2)}</div>
                                   <div className="font-semibold">£{line.toFixed(2)}</div>
                                 </div>
                               </div>
