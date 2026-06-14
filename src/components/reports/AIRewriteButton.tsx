@@ -158,16 +158,27 @@ export function AIRewriteButton({
           )}
           {!compact && (loading ? busyLabel : idleLabel)}
         </Button>
+        {/* Undo lingers as long as the row remembers the pre-rewrite
+            text — engineer asked for this so an AI change can be
+            walked back at any time, not just inside the preview
+            dialog. Compact variant mirrors the sparkle button's size
+            so they sit side-by-side cleanly in tight rows. */}
         {originalText && !loading && !previewOpen && (
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size={compact ? "icon" : "sm"}
             onClick={handleUndo}
-            className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+            className={
+              compact
+                ? "h-7 w-7 text-muted-foreground hover:text-destructive"
+                : "h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+            }
+            title={compact ? "Undo AI rewrite" : undefined}
+            aria-label={compact ? "Undo AI rewrite" : undefined}
           >
-            <Undo2 className="w-3 h-3 mr-1" />
-            Undo
+            <Undo2 className={compact ? "w-3.5 h-3.5" : "w-3 h-3 mr-1"} />
+            {!compact && "Undo"}
           </Button>
         )}
       </div>
