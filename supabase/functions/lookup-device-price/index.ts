@@ -115,20 +115,25 @@ async function lookupInternal(
   if (tokens.length === 0) return [];
   const orClause = (cols: string[]) =>
     tokens.flatMap((t) => cols.map((c) => `${c}.ilike.%${t}%`)).join(",");
+  // Per-table fetch cap. Raised from 50 → 250 because engineer flagged
+  // common queries were missing parts that lived deeper in the price
+  // lists. 250 each (× 3 tables) gives the scorer a much bigger
+  // candidate pool to rank from before the result cap kicks in.
+  const PER_TABLE_LIMIT = 250;
   const [h, c, s] = await Promise.all([
     sb.from("price_list_items")
       .select("part_number,description,short_name,unit_cost,manufacturer,category")
       .or(orClause(["description", "short_name", "part_number", "manufacturer", "category"]))
       .eq("is_active", true)
-      .limit(50),
+      .limit(PER_TABLE_LIMIT),
     sb.from("materials_catalog")
       .select("part_number,description,retail_price,supplier_name,category")
       .or(orClause(["description", "part_number", "category"]))
-      .limit(50),
+      .limit(PER_TABLE_LIMIT),
     sb.from("supplier_products")
       .select("product_code,description,trade_price,supplier_name,category")
       .or(orClause(["description", "product_code", "category"]))
-      .limit(50),
+      .limit(PER_TABLE_LIMIT),
   ]);
   const rows: InternalResult[] = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -292,7 +297,11 @@ Deno.serve(async (req) => {
   // (5-30s typical). Don't block the internal results on the online
   // call when the caller opted out.
   const includeOnline = body.include_online !== false;
-  const maxInternal = Math.max(1, Math.min(50, body.max_internal ?? 20));
+  // Raised the result cap from 20 → 200 — engineer asked to see "all
+  // parts" rather than a tight top-N. 200 covers the long tail of
+  // similarly-named items (e.g. 6 colour variants × 4 base options ×
+  // 3 manufacturers) without overwhelming the dialog list.
+  const maxInternal = Math.max(1, Math.min(500, body.max_internal ?? 200));
   const internalP = lookupInternal(sb, body.query, body.manufacturer_hint ?? null, maxInternal);
   const onlineP = includeOnline
     ? lookupOnline(apiKey, body.query, body.manufacturer_hint ?? null).catch((err) => {
