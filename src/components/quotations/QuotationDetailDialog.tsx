@@ -299,6 +299,74 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     setHasChanges(true);
   };
 
+  // Import source defects — when a quote was generated from the AI
+  // Defect Quote flow, the defect/remedial UUIDs land in the quotation's
+  // `notes` text as "Source IDs: <uuid>, <uuid>, …". The Scope tab
+  // exposes this so the engineer can re-pull the original defect
+  // descriptions back into scope[] (handy when the AI rewriter dropped
+  // detail they wanted, or when the engineer wiped scope and now wants
+  // to start over). Tries site_defects first, falls back to ce_remedials
+  // for any IDs not found there.
+  const [importingDefects, setImportingDefects] = useState(false);
+  const sourceDefectIds: string[] = (() => {
+    const uuidRe = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+    const ids = new Set<string>();
+    for (const m of (notes || "").matchAll(uuidRe)) ids.add(m[0].toLowerCase());
+    return Array.from(ids);
+  })();
+  const handleImportSourceDefects = async () => {
+    if (sourceDefectIds.length === 0) {
+      toast.info("No source defect IDs found in the Notes field of this quote.");
+      return;
+    }
+    setImportingDefects(true);
+    try {
+      const found = new Map<string, { description: string; location: string | null }>();
+      const { data: defectRows } = await supabase
+        .from("site_defects")
+        .select("id, description, location")
+        .in("id", sourceDefectIds);
+      for (const r of (defectRows ?? []) as Array<{ id: string; description: string | null; location: string | null }>) {
+        if (r.description?.trim()) found.set(r.id, { description: r.description.trim(), location: r.location });
+      }
+      const missing = sourceDefectIds.filter((id) => !found.has(id));
+      if (missing.length > 0) {
+        const { data: remRows } = await supabase
+          .from("ce_remedials")
+          .select("id, description, location")
+          .in("id", missing);
+        for (const r of (remRows ?? []) as Array<{ id: string; description: string | null; location: string | null }>) {
+          if (r.description?.trim()) found.set(r.id, { description: r.description.trim(), location: r.location });
+        }
+      }
+      if (found.size === 0) {
+        toast.warning("Source IDs were found in Notes but no matching defects or remedials are in the database.");
+        return;
+      }
+      const newRows: ScopeRow[] = sourceDefectIds
+        .map((id) => found.get(id))
+        .filter((d): d is { description: string; location: string | null } => !!d)
+        .map((d) => ({
+          uid: newScopeUid(),
+          // Lead with the location when set — gives the engineer the
+          // "where" the AI rewriter sometimes loses ("Panel Room: ..." etc.).
+          text: d.location?.trim() ? `${d.location.trim()} — ${d.description}` : d.description,
+        }));
+      setScopeItems((prev) => [...prev, ...newRows]);
+      setHasChanges(true);
+      const missingCount = sourceDefectIds.length - found.size;
+      toast.success(
+        `Added ${newRows.length} defect${newRows.length === 1 ? "" : "s"} to scope` +
+        (missingCount > 0 ? ` (${missingCount} not found)` : ""),
+      );
+    } catch (err) {
+      console.error("Import defects failed:", err);
+      toast.error("Failed to import source defects");
+    } finally {
+      setImportingDefects(false);
+    }
+  };
+
   // Editable fields
   const [quotationNumber, setQuotationNumber] = useState("");
   const [title, setTitle] = useState("");
@@ -1608,14 +1676,38 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                         {scopeItems.length} item{scopeItems.length !== 1 ? "s" : ""} · §2.2 of the PDF
                       </span>
                     </div>
-                    <Button
-                      variant="outline" size="sm"
-                      className="h-7 gap-1 text-xs"
-                      onClick={addScopeRow}
-                      disabled={isLocked}
-                    >
-                      <Plus className="h-3.5 w-3.5" />Add Item
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {/* Visible only when the quotation's notes carry the
+                          "Source IDs: …" trail the AI Defect Quote flow
+                          writes on insert. Lets the engineer re-pull the
+                          original defect descriptions back into scope when
+                          the AI rewriter trimmed them too aggressively or
+                          they wiped scope and want a clean restart. */}
+                      {sourceDefectIds.length > 0 && (
+                        <Button
+                          variant="outline" size="sm"
+                          className="h-7 gap-1 text-xs"
+                          onClick={handleImportSourceDefects}
+                          disabled={isLocked || importingDefects}
+                          title={`Pull the ${sourceDefectIds.length} source defect${sourceDefectIds.length === 1 ? "" : "s"} referenced in this quote's Notes back into the scope list`}
+                        >
+                          {importingDefects ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Plus className="h-3.5 w-3.5" />
+                          )}
+                          Import {sourceDefectIds.length} source defect{sourceDefectIds.length === 1 ? "" : "s"}
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline" size="sm"
+                        className="h-7 gap-1 text-xs"
+                        onClick={addScopeRow}
+                        disabled={isLocked}
+                      >
+                        <Plus className="h-3.5 w-3.5" />Add Item
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Selection toolbar — only when the user has picked
