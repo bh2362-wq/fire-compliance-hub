@@ -412,6 +412,7 @@ const SiteDetail = () => {
         onOpenChange={setInventoryQuoteOpen}
         siteId={site.id}
         siteName={site.name}
+        panelMakeModel={(site as { panel_make_model?: string | null }).panel_make_model ?? null}
       />
     </DashboardLayout>
   );

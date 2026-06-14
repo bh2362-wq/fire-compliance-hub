@@ -75,27 +75,96 @@ interface AIResult {
 
 // ── Pricing lookup — same set auto-quote-builder uses ─────────────────────────
 
+// Fire-alarm device-type abbreviation dictionary. Engineers' imported
+// inventory tends to be terse ("OP DET", "MCP", "VAD") while pricing-table
+// descriptions tend to be wordy ("Apollo XP95 Optical Smoke Detector"). The
+// raw ILIKE match between the two misses most of the time. We expand each
+// device_type into a set of search tokens: the original words plus their
+// expansions plus a small set of well-known synonyms. Hand-curated rather
+// than AI-derived because (a) latency matters here and (b) the vocabulary
+// in UK BS 5839-1 installations is small and stable.
+const DEVICE_SYNONYMS: Record<string, string[]> = {
+  op:        ["optical", "smoke"],
+  opt:       ["optical", "smoke"],
+  optical:   ["optical", "smoke"],
+  smoke:     ["smoke", "optical"],
+  heat:      ["heat", "thermal"],
+  ht:        ["heat", "thermal"],
+  thermal:   ["thermal", "heat"],
+  multi:     ["multi-criteria", "multi-sensor", "multicriteria"],
+  mc:        ["multi-criteria", "multi-sensor"],
+  mcp:       ["manual", "call", "point", "break", "glass"],
+  cp:        ["call", "point", "manual"],
+  break:     ["break", "glass"],
+  glass:     ["break", "glass", "call", "point"],
+  call:      ["call", "point", "manual"],
+  det:       ["detector"],
+  detector:  ["detector"],
+  sounder:   ["sounder", "alarm"],
+  sdr:       ["sounder"],
+  vad:       ["visual", "alarm", "device", "beacon"],
+  beacon:    ["beacon", "visual", "alarm"],
+  visual:    ["visual", "alarm", "device", "beacon"],
+  beam:      ["beam", "detector"],
+  asp:       ["aspirating", "asd"],
+  asd:       ["aspirating", "asd"],
+  duct:      ["duct", "detector"],
+  io:        ["input", "output", "module", "i/o"],
+  "i/o":     ["input", "output", "module"],
+  zone:      ["zone", "monitor", "module"],
+  interface: ["interface", "module", "relay"],
+  isolator:  ["isolator", "loop"],
+  base:      ["base", "sounder"],
+  panel:     ["panel", "control"],
+  repeater:  ["repeater"],
+  ip:        ["intrinsically", "safe", "ip-rated"],
+};
+
+function tokenize(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9/\s-]/g, " ")
+    .split(/[\s-]+/)
+    .filter((t) => t.length > 1);
+}
+
+function expandDeviceType(deviceType: string): { tokens: string[]; raw: string } {
+  const raw = deviceType.toLowerCase();
+  const base = tokenize(raw);
+  const expanded = new Set<string>(base);
+  for (const t of base) {
+    const synonyms = DEVICE_SYNONYMS[t];
+    if (synonyms) for (const w of synonyms) expanded.add(w);
+  }
+  return { tokens: Array.from(expanded), raw };
+}
+
 async function lookupPricesForType(
   sb: SupabaseClient,
   deviceType: string,
+  manufacturerHint: string | null,
 ): Promise<PriceCandidate[]> {
-  const q = deviceType.toLowerCase();
+  const { tokens } = expandDeviceType(deviceType);
+  // OR query across description / short_name / part_number / manufacturer
+  // for every expanded token. Done in a single OR clause per table to
+  // avoid 3N queries.
+  const orClause = (cols: string[]) =>
+    tokens.flatMap((t) => cols.map((c) => `${c}.ilike.%${t}%`)).join(",");
   const [h, c, s] = await Promise.all([
     sb.from("price_list_items")
-      .select("part_number,description,short_name,unit_cost,manufacturer")
-      .or(`description.ilike.%${q}%,short_name.ilike.%${q}%`)
+      .select("part_number,description,short_name,unit_cost,manufacturer,category")
+      .or(orClause(["description", "short_name", "part_number", "manufacturer", "category"]))
       .eq("is_active", true)
-      .limit(5),
+      .limit(20),
     sb.from("materials_catalog")
-      .select("part_number,description,retail_price,supplier_name")
-      .ilike("description", `%${q}%`)
-      .limit(5),
+      .select("part_number,description,retail_price,supplier_name,category")
+      .or(orClause(["description", "part_number", "category"]))
+      .limit(20),
     sb.from("supplier_products")
-      .select("product_code,description,trade_price,supplier_name")
-      .ilike("description", `%${q}%`)
-      .limit(5),
+      .select("product_code,description,trade_price,supplier_name,category")
+      .or(orClause(["description", "product_code", "category"]))
+      .limit(20),
   ]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows: PriceCandidate[] = [];
   for (const r of ((h.data ?? []) as Array<Record<string, unknown>>)) {
     rows.push({
@@ -124,18 +193,28 @@ async function lookupPricesForType(
       supplier: (r.supplier_name as string) ?? null,
     });
   }
-  // Confidence-rank by shared word count with the device_type term (mirrors
-  // auto-quote-builder's heuristic). Cap at 3 per type to keep the prompt
-  // tight — Claude picks one and we keep the rest as TBC fallbacks.
-  const words = q.split(/\s+/).filter((w) => w.length > 2);
-  const scored = rows
-    .map((p) => {
-      const desc = (p.description ?? "").toLowerCase();
-      const matches = words.filter((w) => desc.includes(w)).length;
-      return { ...p, confidence: words.length > 0 ? matches / words.length : 0 };
-    })
-    .sort((a, b) => b.confidence - a.confidence);
-  return scored.slice(0, 3);
+  // Confidence scoring: token-overlap fraction + bonus for manufacturer
+  // match (when we have a hint from sites.panel_make_model). Sounders
+  // from Gent score higher than sounders from "any" if the site is on a
+  // Gent panel — engineers can still override on review.
+  const manuHint = manufacturerHint?.toLowerCase().split(/\s+/)[0] ?? null;
+  const scored = rows.map((p) => {
+    const haystack = `${p.description ?? ""} ${p.supplier ?? ""} ${p.part_number ?? ""}`.toLowerCase();
+    const overlap = tokens.filter((t) => haystack.includes(t)).length / Math.max(1, tokens.length);
+    const manuBonus = manuHint && (p.supplier ?? "").toLowerCase().includes(manuHint) ? 0.25 : 0;
+    return { ...p, confidence: Math.min(1, overlap + manuBonus) };
+  });
+  // De-dup by part_number + description to avoid 3 listings of the
+  // same product across the source tables.
+  const seen = new Set<string>();
+  const deduped = scored.filter((p) => {
+    const key = `${(p.part_number ?? "").toLowerCase()}|${(p.description ?? "").toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  deduped.sort((a, b) => b.confidence - a.confidence);
+  return deduped.slice(0, 3);
 }
 
 // ── Claude call ──────────────────────────────────────────────────────────────
@@ -297,7 +376,24 @@ Deno.serve(async (req) => {
       }), { status: 400, headers: { ...CORS, "Content-Type": "application/json" } });
     }
 
-    // 2. Group by device_type, count, then look up prices for the unique
+    // 2. Resolve site name + panel manufacturer for context. The
+    //    manufacturer hint biases price matching toward the site's
+    //    existing manufacturer (Gent panel → prefer Gent products) —
+    //    surfacing the right options most of the time when we'd
+    //    otherwise list Apollo XP95 alongside Gent S-Quad sounders
+    //    indiscriminately. Done before pricing lookup so the bias
+    //    feeds into every per-type query.
+    let siteName = body.site_name?.trim() ?? "";
+    const { data: siteRow } = await sb
+      .from("sites")
+      .select("name, panel_make_model")
+      .eq("id", body.site_id)
+      .maybeSingle();
+    const siteData = siteRow as { name?: string; panel_make_model?: string | null } | null;
+    if (!siteName) siteName = siteData?.name ?? "";
+    const manufacturerHint: string | null = siteData?.panel_make_model?.trim() ?? null;
+
+    // 3. Group by device_type, count, then look up prices for the unique
     //    types in bulk. Keeps the prompt small and the lookup queries
     //    proportional to the type variety, not the device count.
     const counts = new Map<string, number>();
@@ -311,15 +407,8 @@ Deno.serve(async (req) => {
     const uniqueTypes = Array.from(counts.keys());
     const priceMap = new Map<string, PriceCandidate[]>();
     await Promise.all(uniqueTypes.map(async (t) => {
-      priceMap.set(t, await lookupPricesForType(sb, t));
+      priceMap.set(t, await lookupPricesForType(sb, t, manufacturerHint));
     }));
-
-    // 3. Resolve site name for the scope context.
-    let siteName = body.site_name?.trim() ?? "";
-    if (!siteName) {
-      const { data: s } = await sb.from("sites").select("name").eq("id", body.site_id).maybeSingle();
-      siteName = ((s as { name?: string } | null)?.name) ?? "";
-    }
 
     // 4. Build the user message — structured inventory + structured prices.
     const inventoryBlock = uniqueTypes.map((t) => {
