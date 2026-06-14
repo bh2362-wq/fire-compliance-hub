@@ -228,16 +228,37 @@ Deno.serve(async (req) => {
         });
       }
 
-      if (!signature || typeof signature !== "string" || !signature.startsWith("data:image/")) {
+      // Accept two signature shapes now:
+      //   - "typed:<name>"          — new typed-name flow (AcceptQuote
+      //                                page uses TypedSignature, engineer
+      //                                asked for this in June '26).
+      //   - "data:image/<…>;base64" — legacy SignaturePad PNGs, kept so
+      //                                older browsers or any in-flight
+      //                                links don't break mid-acceptance.
+      if (!signature || typeof signature !== "string") {
         return new Response(JSON.stringify({ error: "Digital signature is required" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
-      // Limit signature size (max 500KB base64)
-      if (signature.length > 500000) {
+      const isTyped = signature.startsWith("typed:");
+      const isImage = signature.startsWith("data:image/");
+      if (!isTyped && !isImage) {
+        return new Response(JSON.stringify({ error: "Digital signature is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Length caps differ — typed names are tiny, base64 PNGs are huge.
+      const maxLen = isTyped ? 250 : 500000;
+      if (signature.length > maxLen) {
         return new Response(JSON.stringify({ error: "Signature data too large" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (isTyped && signature.length <= "typed:".length) {
+        return new Response(JSON.stringify({ error: "Please type your name into the signature field" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

@@ -284,10 +284,19 @@ export function EmailQuotationDialog({
         .map((email) => email.trim())
         .filter((email) => email.length > 0);
 
-      // Append accept link to body if toggled on
+      // Append accept link to body if toggled on. Prefer the explicit
+      // VITE_PUBLIC_APP_URL env so the customer-facing link is on the BHO
+      // domain (e.g. https://bhofire.com) rather than whatever preview /
+      // staging subdomain the dashboard happens to be served from when
+      // the estimator clicks Send — typically a *.lovable.app URL during
+      // development or shortly after a deploy before custom-domain
+      // routing settles. Set VITE_PUBLIC_APP_URL in the production
+      // Lovable env to "https://bhofire.com".
       let finalBody = body;
       if (includeAcceptLink && quotation.acceptance_token) {
-        const acceptUrl = `${window.location.origin}/accept-quote/${quotation.acceptance_token}`;
+        const baseUrl = (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined)?.replace(/\/+$/, "")
+          || window.location.origin;
+        const acceptUrl = `${baseUrl}/accept-quote/${quotation.acceptance_token}`;
         finalBody += `\n\nTo accept this quotation online, please click the link below:\n${acceptUrl}`;
       }
 
