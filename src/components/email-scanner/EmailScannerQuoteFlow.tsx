@@ -134,6 +134,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack, initialDraftState }: Props
       let matchedCustId = "";
       if (cust) {
         setCustomers(cust);
+        if (hydratedFromDraft.current) return;
         if (data.company_name) {
           const match = cust.find(
             (c) => c.name.toLowerCase() === data.company_name!.toLowerCase() ||
@@ -150,6 +151,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack, initialDraftState }: Props
       }
       if (sit) {
         setSites(sit);
+        if (hydratedFromDraft.current) return;
         // Try to match an existing site for this customer
         if (matchedCustId) {
           const customerSites = sit.filter((s) => s.customer_id === matchedCustId);
@@ -180,6 +182,59 @@ export const EmailScannerQuoteFlow = ({ data, onBack, initialDraftState }: Props
     };
     fetchData();
   }, [data.company_name, data.site_name, data.site_address, data.site_postcode]);
+
+  useEffect(() => {
+    const state: EmailScannerQuoteDraftState = {
+      matchedCustomerId,
+      selectedSiteId,
+      createNewCustomer,
+      createNewSite,
+      title,
+      summary,
+      terms,
+      notes,
+      vatRate,
+      newCustomerName,
+      newCustomerEmail,
+      newCustomerPhone,
+      newCustomerContact,
+      newCustomerAddress,
+      newCustomerCity,
+      newCustomerPostcode,
+      newSiteName,
+      newSiteAddress,
+      newSiteCity,
+      newSitePostcode,
+      lineItems,
+    };
+    const id = window.setTimeout(() => {
+      saveEmailScannerQuoteDraft({ savedAt: new Date().toISOString(), data, state });
+    }, 250);
+    return () => window.clearTimeout(id);
+  }, [
+    data,
+    matchedCustomerId,
+    selectedSiteId,
+    createNewCustomer,
+    createNewSite,
+    title,
+    summary,
+    terms,
+    notes,
+    vatRate,
+    newCustomerName,
+    newCustomerEmail,
+    newCustomerPhone,
+    newCustomerContact,
+    newCustomerAddress,
+    newCustomerCity,
+    newCustomerPostcode,
+    newSiteName,
+    newSiteAddress,
+    newSiteCity,
+    newSitePostcode,
+    lineItems,
+  ]);
 
   const filteredSites = matchedCustomerId
     ? sites.filter((s) => s.customer_id === matchedCustomerId)
@@ -297,6 +352,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack, initialDraftState }: Props
         if (itemsErr) throw itemsErr;
       }
 
+      clearEmailScannerQuoteDraft();
       toast({ title: "Quotation created", description: `${quoteNum} has been created as a draft.` });
       navigate("/dashboard/quotations");
     } catch (err: any) {
