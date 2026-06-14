@@ -1049,6 +1049,9 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
 
       toast.success("Quotation saved");
       setHasChanges(false);
+      if (draftStorageKey) {
+        try { localStorage.removeItem(draftStorageKey); } catch { /* ignore */ }
+      }
       onUpdate?.();
       await fetchQuotation();
       return true;
