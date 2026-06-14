@@ -620,7 +620,13 @@ const Quotations = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => setSelectedQuotation(quotation)}
+                              onSelect={(e) => {
+                                // Defer state update until after Radix finishes closing
+                                // the dropdown; otherwise focus return races with the
+                                // Dialog mount and the modal silently fails to open.
+                                e.preventDefault();
+                                setTimeout(() => setSelectedQuotation(quotation), 0);
+                              }}
                             >
                               <Pencil className="w-4 h-4 mr-2" />
                               Edit Quote
