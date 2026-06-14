@@ -175,6 +175,11 @@ Deno.serve(async (req) => {
             // saves a schema column; the column is semantically "the
             // person who clicked the final button on the portal".
             accepted_by_name: escapeHtml(name),
+            // Invalidate the cached DOCX/PDF — the quotation's status
+            // is in the rendered footer so a stale cache would show
+            // "Sent" on a quote that's now "declined".
+            latest_docx_path: null,
+            latest_pdf_path: null,
           })
           .eq("id", q.id);
         if (updErr) {
@@ -303,7 +308,11 @@ Deno.serve(async (req) => {
       const safeName = escapeHtml(accepted_by_name.trim());
       const safePo = po_number ? escapeHtml(po_number.trim()) : null;
 
-      // Update quotation with client acceptance
+      // Update quotation with client acceptance. Clear the cached
+      // DOCX / PDF paths too — the next download needs to re-render so
+      // the customer's signature and acceptance details appear in the
+      // §8 block (rendered from these new columns by PR #228 and made
+      // hide-when-blank by PR #230).
       const { error: updateError } = await supabase
         .from("quotations")
         .update({
@@ -312,6 +321,8 @@ Deno.serve(async (req) => {
           client_acceptance_signature: signature,
           client_accepted_at: new Date().toISOString(),
           client_po_number: safePo,
+          latest_docx_path: null,
+          latest_pdf_path: null,
         })
         .eq("id", quotation.id);
 

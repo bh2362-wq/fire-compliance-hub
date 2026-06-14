@@ -883,6 +883,14 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           status: "sent",
           locked_at: new Date().toISOString(),
           locked_by: user?.id || null,
+          // Invalidate the cached DOCX / PDF so the next download
+          // reflects whatever just changed. generate-quote-docx and
+          // convert-quote-pdf will both write fresh paths after
+          // re-rendering. Skipping this would let a stale cached PDF
+          // be served indefinitely after an edit (the very bug the
+          // engineer asked us to FIX with caching — direction matters).
+          latest_docx_path: null,
+          latest_pdf_path: null,
         })
         .eq("id", quotationId);
       if (quotationError) throw quotationError;
@@ -996,7 +1004,16 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       } = await supabase.auth.getUser();
       await supabase
         .from("quotations")
-        .update({ locked_at: null, locked_by: null, status: "recalled" })
+        .update({
+          locked_at: null,
+          locked_by: null,
+          status: "recalled",
+          // Invalidate the cached DOCX/PDF — status appears in the
+          // rendered footer so a stale cache would show "Sent" on a
+          // now-recalled quote.
+          latest_docx_path: null,
+          latest_pdf_path: null,
+        })
         .eq("id", quotationId);
       if (user)
         await supabase

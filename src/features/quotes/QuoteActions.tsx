@@ -7,6 +7,7 @@ import {
   useGenerateQuoteDocx,
   useConvertQuotePdf,
   downloadSignedUrl,
+  getSignedQuoteFileUrl,
 } from "@/features/quotes/useQuoteGeneration";
 import { ScopeWriterDialog } from "./ScopeWriterDialog";
 import { extractEdgeError } from "@/lib/edgeError";
@@ -45,6 +46,19 @@ export function QuoteActions({
     const fresh = await flushAndReload();
     if (!fresh) return;
     try {
+      // Cache-first: every save / accept clears latest_docx_path, so a
+      // populated path here means the saved DOCX is still up-to-date.
+      // Skip the edge function call and stream from storage directly.
+      if (fresh.latest_docx_path) {
+        const signed = await getSignedQuoteFileUrl(fresh.latest_docx_path);
+        if (signed) {
+          await downloadSignedUrl(signed, `${fresh.quotation_number}.docx`);
+          toast.success("Word document downloaded");
+          return;
+        }
+        // Signed-URL failed (file missing / RLS) — fall through to
+        // regen rather than hard-error on the engineer.
+      }
       const r = await docx.mutateAsync(fresh);
       await downloadSignedUrl(r.signed_url, `${fresh.quotation_number}.docx`);
       toast.success("Word document downloaded");
@@ -60,11 +74,27 @@ export function QuoteActions({
     if (!fresh) return;
     setPdfBusy(true);
     try {
-      // Always regenerate the DOCX first. Reusing latest_docx_path
-      // means a previously-broken render gets re-converted forever,
-      // producing the same Office "cannotOpenFile" 406 every time.
-      const d = await docx.mutateAsync(fresh);
-      const docxPath = d.storage_path;
+      // Cache-first for the PDF — same invalidation contract as DOCX
+      // (every save / accept clears latest_pdf_path). The original
+      // "always regenerate" behaviour was a workaround for a stale
+      // bad-DOCX bug fixed by PR #224 onward; the cache path here is
+      // safe again. Engineers who want to force regeneration can edit
+      // and save the quote (no-op save still clears the path).
+      if (fresh.latest_pdf_path) {
+        const signed = await getSignedQuoteFileUrl(fresh.latest_pdf_path);
+        if (signed) {
+          await downloadSignedUrl(signed, `${fresh.quotation_number}.pdf`);
+          toast.success("PDF downloaded");
+          return;
+        }
+      }
+      // No PDF cache — reuse latest_docx_path if we have it (skips
+      // generate-quote-docx), otherwise generate fresh, then convert.
+      let docxPath = fresh.latest_docx_path;
+      if (!docxPath) {
+        const d = await docx.mutateAsync(fresh);
+        docxPath = d.storage_path;
+      }
       const r = await pdf.mutateAsync({ docx_storage_path: docxPath, quotation_id: fresh.id });
       await downloadSignedUrl(r.signed_url, `${fresh.quotation_number}.pdf`);
       toast.success("PDF downloaded");
