@@ -69,6 +69,7 @@ import {
 } from "@/services/quoteMetadataInheritanceService";
 import { ImproveTitleButton } from "./ImproveTitleButton";
 import { DuplicateQuotationDialog } from "./DuplicateQuotationDialog";
+import { QuotationPriceLookupDialog } from "./QuotationPriceLookupDialog";
 import { parseScopeNumberedItems } from "@/lib/scopeMarkdown";
 
 // Snapshot of a pre-merge line item stored in the survivor's merged_from
