@@ -5,11 +5,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, Loader2, Send, AlertTriangle, Briefcase, Package, Receipt, ArrowRight } from "lucide-react";
+import { Sparkles, Loader2, Send, AlertTriangle, Briefcase, Package, Receipt, ArrowRight, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { stripScopeMarkdown, parseScopeNumberedItems } from "@/lib/scopeMarkdown";
+import { PriceLookupDialog, type PriceLookupApply } from "./PriceLookupDialog";
 
 interface CostLine {
   description: string;
@@ -38,6 +39,8 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   siteId: string;
   siteName: string;
+  /** Site's panel manufacturer for biasing price lookups. Optional. */
+  panelMakeModel?: string | null;
 }
 
 type Status = "idle" | "generating" | "ready" | "error" | "creating";
@@ -95,19 +98,65 @@ function totalFor(lineItems: CategorisedLineItems): number {
 
 // ────────────────────────────────────────────────────────────────────────────
 
-export function InventoryQuoteDialog({ open, onOpenChange, siteId, siteName }: Props) {
+export function InventoryQuoteDialog({ open, onOpenChange, siteId, siteName, panelMakeModel }: Props) {
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<InventoryQuoteResult | null>(null);
+  // Price-lookup dialog state — opens when an engineer clicks the
+  // Lookup button on a TBC row in the review screen. We track which
+  // bucket+index is being edited so the onApply callback knows where
+  // to write the chosen price back.
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const [lookupTarget, setLookupTarget] = useState<{ bucket: keyof CategorisedLineItems; index: number; query: string } | null>(null);
 
   const reset = () => {
     setPrompt("");
     setStatus("idle");
     setError(null);
     setResult(null);
+    setLookupOpen(false);
+    setLookupTarget(null);
   };
+
+  // Update a single line item in the result — used both by the price
+  // lookup apply callback and by future inline-edit UI on the review
+  // screen. Mutating the result state lets the engineer fix prices
+  // before "Create Quote" without having to re-prompt.
+  function patchLine(bucket: keyof CategorisedLineItems, index: number, patch: Partial<CostLine>) {
+    setResult((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, line_items: { ...prev.line_items } };
+      next.line_items[bucket] = next.line_items[bucket].map((row, i) =>
+        i === index ? { ...row, ...patch } : row,
+      );
+      return next;
+    });
+  }
+
+  function openLookupForRow(bucket: keyof CategorisedLineItems, index: number) {
+    const row = result?.line_items[bucket][index];
+    if (!row) return;
+    setLookupTarget({ bucket, index, query: row.description });
+    setLookupOpen(true);
+  }
+
+  function handleLookupApply(picked: PriceLookupApply) {
+    if (!lookupTarget) return;
+    patchLine(lookupTarget.bucket, lookupTarget.index, {
+      description: picked.description,
+      unit_price: picked.unit_price,
+      // Clear the TBC note when the engineer accepts a price — the
+      // amber TBC ring will drop on the next render.
+      notes: picked.source === "online"
+        ? `Price sourced online (${picked.supplier ?? "unknown supplier"}) — verify before sending`
+        : `Price from internal ${picked.supplier ?? "list"}`,
+    });
+    setLookupOpen(false);
+    setLookupTarget(null);
+    toast.success("Price applied to line");
+  }
 
   function handleClose() {
     reset();
@@ -317,6 +366,22 @@ export function InventoryQuoteDialog({ open, onOpenChange, siteId, siteName }: P
                                 <div className="text-right text-[11px] whitespace-nowrap shrink-0">
                                   <div>{Number(r.quantity) || 1} × £{(Number(r.unit_price) || 0).toFixed(2)}</div>
                                   <div className="font-semibold">£{line.toFixed(2)}</div>
+                                  {/* TBC lines get a Lookup button so the
+                                      engineer can resolve unmatched prices
+                                      against internal lists and online
+                                      sources before Create Quote. Non-TBC
+                                      rows can still re-look-up via the
+                                      same button if they want a different
+                                      part — keeps the UI consistent. */}
+                                  <Button
+                                    size="sm" variant="ghost"
+                                    className="h-6 px-1.5 mt-0.5 text-[10px] gap-1"
+                                    onClick={() => openLookupForRow(b.key, i)}
+                                    disabled={status === "creating"}
+                                  >
+                                    <Search className="h-3 w-3" />
+                                    {tbc ? "Lookup price" : "Change"}
+                                  </Button>
                                 </div>
                               </div>
                             </div>
@@ -365,6 +430,20 @@ export function InventoryQuoteDialog({ open, onOpenChange, siteId, siteName }: P
           ) : null}
         </div>
       </DialogContent>
+
+      {/* Nested price lookup — opens off a per-row Lookup button. The
+          parent InventoryQuoteDialog stays mounted so its result state
+          isn't lost when the engineer closes the lookup. */}
+      <PriceLookupDialog
+        open={lookupOpen}
+        onOpenChange={(v) => {
+          setLookupOpen(v);
+          if (!v) setLookupTarget(null);
+        }}
+        initialQuery={lookupTarget?.query ?? ""}
+        manufacturerHint={panelMakeModel ?? null}
+        onApply={handleLookupApply}
+      />
     </Dialog>
   );
 }
