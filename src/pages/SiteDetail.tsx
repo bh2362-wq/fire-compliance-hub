@@ -35,7 +35,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import DeleteSiteDialog from "@/components/sites/DeleteSiteDialog";
 import { MergeSitesDialog } from "@/components/sites/MergeSitesDialog";
-import { GitMerge } from "lucide-react";
+import { InventoryQuoteDialog } from "@/components/sites/InventoryQuoteDialog";
+import { GitMerge, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Site } from "@/services/siteService";
 import { Customer } from "@/services/customerService";
@@ -61,6 +62,7 @@ const SiteDetail = () => {
   const [aiRamsData, setAiRamsData] = useState<AIRamsResult | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [inventoryQuoteOpen, setInventoryQuoteOpen] = useState(false);
 
   const fetchSite = async () => {
     if (!siteId) return;
@@ -216,6 +218,16 @@ const SiteDetail = () => {
                 </Button>
               }
             />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setInventoryQuoteOpen(true)}
+              className="gap-1"
+              title="Generate a quote from this site's device inventory using AI"
+            >
+              <Sparkles className="w-4 h-4" />
+              Quote from inventory (AI)
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setRamsJobSelectorOpen(true)}>
               <HardHat className="w-4 h-4 mr-2" />
               New RAMS
@@ -394,6 +406,12 @@ const SiteDetail = () => {
         onOpenChange={setMergeOpen}
         targetSiteId={site.id}
         onSuccess={() => fetchSite()}
+      />
+      <InventoryQuoteDialog
+        open={inventoryQuoteOpen}
+        onOpenChange={setInventoryQuoteOpen}
+        siteId={site.id}
+        siteName={site.name}
       />
     </DashboardLayout>
   );
