@@ -34,6 +34,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import DeleteSiteDialog from "@/components/sites/DeleteSiteDialog";
+import { MergeSitesDialog } from "@/components/sites/MergeSitesDialog";
+import { GitMerge } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Site } from "@/services/siteService";
 import { Customer } from "@/services/customerService";
@@ -57,6 +59,7 @@ const SiteDetail = () => {
   const [ramsJobSelectorOpen, setRamsJobSelectorOpen] = useState(false);
   const [aiRamsData, setAiRamsData] = useState<AIRamsResult | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
 
   const fetchSite = async () => {
     if (!siteId) return;
@@ -231,6 +234,10 @@ const SiteDetail = () => {
                   <Pencil className="w-4 h-4 mr-2" />
                   Edit Site
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMergeOpen(true)}>
+                  <GitMerge className="w-4 h-4 mr-2" />
+                  Merge with another site…
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => setDeleteOpen(true)}
@@ -371,6 +378,15 @@ const SiteDetail = () => {
         siteId={site.id}
         siteName={site.name}
         onSuccess={() => navigate("/dashboard/sites")}
+      />
+      {/* The current site is pinned as the TARGET (keeper) — the engineer
+          just picks which duplicate row to fold in. Avoids the easy
+          mistake of archiving the site whose page they're on. */}
+      <MergeSitesDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        targetSiteId={site.id}
+        onSuccess={() => fetchSite()}
       />
     </DashboardLayout>
   );
