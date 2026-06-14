@@ -140,12 +140,10 @@ const AcceptQuote = () => {
   };
 
   const handleSubmit = async () => {
-    if (!name.trim()) {
-      setError("Please enter your name");
-      return;
-    }
+    // Single source of truth — `signature` is the typed name, and the
+    // onChange handler keeps `name` in sync, so we just check signature.
     if (!signature.trim()) {
-      setError("Please type your name into the signature field");
+      setError("Please type your name to sign");
       return;
     }
 
@@ -356,17 +354,9 @@ const AcceptQuote = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="accept-name">Your Full Name *</Label>
-                <Input
-                  id="accept-name"
-                  placeholder="Enter your full name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  maxLength={200}
-                />
-              </div>
-
+              {/* PO Number stays first — engineer often wants this set before
+                  the customer signs because once they hit Accept, the quote
+                  flips to a locked customer_accepted state. */}
               <div className="space-y-2">
                 <Label htmlFor="accept-po">Purchase Order Number (optional)</Label>
                 <Input
@@ -378,27 +368,31 @@ const AcceptQuote = () => {
                 />
               </div>
 
-              {/* Typed signature — engineer's request. Drawing a signature
-                  on a customer's phone was friction (some browsers don't
-                  pass touch events to canvas cleanly, fat-finger smudges,
-                  etc.). Type your full name and it renders in a cursive
-                  script as your digital signature; same value flows to
-                  the "accepted_by_name" field on submit so we capture
-                  the printed-name and the signature in one input. */}
+              {/* Single typed-signature field — engineer's spec is "the
+                  customer should print their name as the signature". One
+                  field; the value is sent as both `accepted_by_name`
+                  (plain) and `signature` ("typed:" prefix) on submit so
+                  the DB and the PDF renderer each get what they need. */}
               <div className="space-y-2">
-                <Label htmlFor="accept-signature">Digital Signature *</Label>
+                <Label htmlFor="accept-signature">Your Full Name (Digital Signature) *</Label>
                 <div ref={sigContainerRef} className="w-full">
                   <TypedSignature
                     value={signature}
                     onChange={(v) => {
                       setSignature(v);
-                      // Mirror into the Name field if the engineer hasn't
-                      // typed there yet — saves a duplicate step.
-                      if (!name.trim()) setName(v);
+                      // Keep `name` in sync unconditionally — we send it
+                      // as accepted_by_name on submit. (Previous half-
+                      // mirrored version blocked customers who'd type
+                      // into a since-removed Name field but skipped the
+                      // signature, leaving signature empty at submit.)
+                      setName(v);
                     }}
                     placeholder="Type your full name"
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Typing your name here is your digital signature on this quotation.
+                </p>
               </div>
 
               {error && (
