@@ -309,6 +309,12 @@ const EmailScanner = () => {
     toast.success("Saved quote draft cleared");
   };
 
+  useEffect(() => {
+    if (sessionStorage.getItem("emailScanner.resumeQuote") !== "1") return;
+    sessionStorage.removeItem("emailScanner.resumeQuote");
+    handleContinueQuoteDraft();
+  }, []);
+
   const handleProceedToQuote = () => {
     if (!extractedData) return;
     setActiveFlow("quote");

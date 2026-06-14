@@ -527,7 +527,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   variant="secondary"
                   size="sm"
                   className="h-8 gap-1.5 text-xs"
-                  onClick={() => navigate("/dashboard/email-scanner")}
+                  onClick={() => {
+                    sessionStorage.setItem("emailScanner.resumeQuote", "1");
+                    navigate("/dashboard/email-scanner");
+                  }}
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   Continue quote
@@ -616,7 +619,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {(quoteDraft || recentJob || recentSite) && (
           <div className="md:hidden border-b border-border bg-card px-3 py-2 flex items-center gap-2 overflow-x-auto scrollbar-thin shrink-0">
             {quoteDraft && location.pathname !== "/dashboard/email-scanner" && (
-              <Button variant="secondary" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => navigate("/dashboard/email-scanner")}>
+              <Button variant="secondary" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => {
+                sessionStorage.setItem("emailScanner.resumeQuote", "1");
+                navigate("/dashboard/email-scanner");
+              }}>
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 Continue quote
               </Button>
