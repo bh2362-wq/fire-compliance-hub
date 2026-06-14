@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { CommissioningWizard } from "@/features/bs5839Commissioning/CommissioningWizard";
+import { writeRecentContext } from "@/services/recentContextService";
 
 // Route handler for /dashboard/visits/:visitId/bs5839-commissioning/capture
 // Thin wrapper — the wizard owns all loading + error UI via its own
@@ -12,6 +14,16 @@ export default function BS5839CommissioningCapture() {
   const visitIdValid =
     !!visitId &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(visitId);
+
+  useEffect(() => {
+    if (!visitIdValid || !visitId) return;
+    writeRecentContext("job", {
+      id: visitId,
+      label: "Commissioning",
+      subtitle: "BS 5839",
+      href: `/dashboard/visits/${visitId}/bs5839-commissioning/capture`,
+    });
+  }, [visitId, visitIdValid]);
 
   if (!visitIdValid) {
     return (

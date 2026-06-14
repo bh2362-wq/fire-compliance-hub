@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Visit } from "@/hooks/useVisits";
 import { CauseEffectTestWizard } from "@/features/causeEffectTest/CauseEffectTestWizard";
+import { writeRecentContext } from "@/services/recentContextService";
 
 export default function CauseEffectTestCapture() {
   const { visitId } = useParams<{ visitId: string }>();
@@ -39,7 +40,22 @@ export default function CauseEffectTestCapture() {
         setLoading(false);
         return;
       }
-      setVisit(data as unknown as Visit);
+      const loadedVisit = data as unknown as Visit;
+      setVisit(loadedVisit);
+      writeRecentContext("job", {
+        id: loadedVisit.id,
+        label: loadedVisit.job_number || loadedVisit.site?.name || "C&E test",
+        subtitle: loadedVisit.site?.name || loadedVisit.visit_type,
+        href: `/dashboard/visits/${loadedVisit.id}/cause-effect-test/capture`,
+      });
+      if (loadedVisit.site_id && loadedVisit.site?.name) {
+        writeRecentContext("site", {
+          id: loadedVisit.site_id,
+          label: loadedVisit.site.name,
+          subtitle: "From C&E test",
+          href: `/dashboard/sites/${loadedVisit.site_id}`,
+        });
+      }
       setLoading(false);
     })();
     return () => {

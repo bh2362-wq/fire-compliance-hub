@@ -41,6 +41,7 @@ import { Site } from "@/services/siteService";
 import { Customer } from "@/services/customerService";
 import SiteFormDialog from "@/components/sites/SiteFormDialog";
 import { useToast } from "@/hooks/use-toast";
+import { writeRecentContext } from "@/services/recentContextService";
 const statusConfig = {
   active: { label: "Active", className: "bg-success/10 text-success border-success/20" },
   inactive: { label: "Inactive", className: "bg-muted text-muted-foreground border-border" },
@@ -73,6 +74,12 @@ const SiteDetail = () => {
 
     if (!error && data) {
       setSite(data as Site);
+      writeRecentContext("site", {
+        id: data.id,
+        label: data.name,
+        subtitle: [data.address, data.city, data.postcode].filter(Boolean).join(", "),
+        href: `/dashboard/sites/${data.id}`,
+      });
       
       // Fetch customer if site has customer_id
       if (data.customer_id) {

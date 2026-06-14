@@ -40,6 +40,8 @@ import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
 import FloatingActionButton from "@/components/dashboard/FloatingActionButton";
+import { EMAIL_SCANNER_QUOTE_DRAFT_EVENT, readEmailScannerQuoteDraft } from "@/components/email-scanner/quoteDraftCache";
+import { RECENT_CONTEXT_EVENT, readRecentContext } from "@/services/recentContextService";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -244,10 +246,36 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const [quoteDraft, setQuoteDraft] = useState(() => readEmailScannerQuoteDraft());
+  const [recentSite, setRecentSite] = useState(() => readRecentContext("site"));
+  const [recentJob, setRecentJob] = useState(() => readRecentContext("job"));
 
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const refreshQuoteDraft = () => setQuoteDraft(readEmailScannerQuoteDraft());
+    window.addEventListener(EMAIL_SCANNER_QUOTE_DRAFT_EVENT, refreshQuoteDraft);
+    window.addEventListener("storage", refreshQuoteDraft);
+    return () => {
+      window.removeEventListener(EMAIL_SCANNER_QUOTE_DRAFT_EVENT, refreshQuoteDraft);
+      window.removeEventListener("storage", refreshQuoteDraft);
+    };
+  }, []);
+
+  useEffect(() => {
+    const refreshRecentContext = () => {
+      setRecentSite(readRecentContext("site"));
+      setRecentJob(readRecentContext("job"));
+    };
+    window.addEventListener(RECENT_CONTEXT_EVENT, refreshRecentContext);
+    window.addEventListener("storage", refreshRecentContext);
+    return () => {
+      window.removeEventListener(RECENT_CONTEXT_EVENT, refreshRecentContext);
+      window.removeEventListener("storage", refreshRecentContext);
+    };
+  }, []);
 
   const isClientsRoute = ["/customers", "/sites", "/dashboard/email-logs"].some((p) =>
     location.pathname.startsWith(p)
@@ -493,6 +521,46 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <span className="text-[17px] sm:text-base md:text-[15px] font-semibold text-foreground truncate">
               {isMobile ? "FireLogbook" : `Welcome back, ${userName.split(" ")[0]}`}
             </span>
+            <div className="hidden md:flex items-center gap-1.5 min-w-0">
+              {quoteDraft && location.pathname !== "/dashboard/email-scanner" && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => {
+                    sessionStorage.setItem("emailScanner.resumeQuote", "1");
+                    navigate("/dashboard/email-scanner");
+                  }}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  Continue quote
+                </Button>
+              )}
+              {recentJob && location.pathname !== recentJob.href && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 max-w-[220px] gap-1.5 text-xs border-primary/25 text-primary hover:bg-primary/5"
+                  onClick={() => navigate(recentJob.href)}
+                  title={recentJob.subtitle ? `${recentJob.label} — ${recentJob.subtitle}` : recentJob.label}
+                >
+                  <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Last job: {recentJob.label}</span>
+                </Button>
+              )}
+              {recentSite && location.pathname !== recentSite.href && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 max-w-[220px] gap-1.5 text-xs"
+                  onClick={() => navigate(recentSite.href)}
+                  title={recentSite.subtitle ? `${recentSite.label} — ${recentSite.subtitle}` : recentSite.label}
+                >
+                  <Building2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Last site: {recentSite.label}</span>
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
@@ -547,6 +615,32 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 the clutter. */}
           </div>
         </header>
+
+        {(quoteDraft || recentJob || recentSite) && (
+          <div className="md:hidden border-b border-border bg-card px-3 py-2 flex items-center gap-2 overflow-x-auto scrollbar-thin shrink-0">
+            {quoteDraft && location.pathname !== "/dashboard/email-scanner" && (
+              <Button variant="secondary" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => {
+                sessionStorage.setItem("emailScanner.resumeQuote", "1");
+                navigate("/dashboard/email-scanner");
+              }}>
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                Continue quote
+              </Button>
+            )}
+            {recentJob && location.pathname !== recentJob.href && (
+              <Button variant="outline" size="sm" className="h-8 max-w-[190px] shrink-0 gap-1.5 text-xs border-primary/25 text-primary" onClick={() => navigate(recentJob.href)}>
+                <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Last job: {recentJob.label}</span>
+              </Button>
+            )}
+            {recentSite && location.pathname !== recentSite.href && (
+              <Button variant="outline" size="sm" className="h-8 max-w-[190px] shrink-0 gap-1.5 text-xs" onClick={() => navigate(recentSite.href)}>
+                <Building2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Last site: {recentSite.label}</span>
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Page content */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 scrollbar-thin">

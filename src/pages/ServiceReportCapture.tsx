@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Visit } from "@/hooks/useVisits";
 import { CaptureWizard } from "@/features/serviceReport/CaptureWizard";
+import { writeRecentContext } from "@/services/recentContextService";
 
 export default function ServiceReportCapture() {
   const { visitId } = useParams<{ visitId: string }>();
@@ -41,7 +42,22 @@ export default function ServiceReportCapture() {
         setLoading(false);
         return;
       }
-      setVisit(data as unknown as Visit);
+      const loadedVisit = data as unknown as Visit;
+      setVisit(loadedVisit);
+      writeRecentContext("job", {
+        id: loadedVisit.id,
+        label: loadedVisit.job_number || loadedVisit.site?.name || "Service report",
+        subtitle: loadedVisit.site?.name || loadedVisit.visit_type,
+        href: `/dashboard/visits/${loadedVisit.id}/service-report/capture`,
+      });
+      if (loadedVisit.site_id && loadedVisit.site?.name) {
+        writeRecentContext("site", {
+          id: loadedVisit.site_id,
+          label: loadedVisit.site.name,
+          subtitle: "From service report",
+          href: `/dashboard/sites/${loadedVisit.site_id}`,
+        });
+      }
       setLoading(false);
     })();
     return () => {

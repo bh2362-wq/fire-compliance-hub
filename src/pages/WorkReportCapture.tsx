@@ -11,6 +11,7 @@ import type {
   CompleteSiteInfo,
   CompleteCustomerInfo,
 } from "@/features/workReport/completeWorkReport";
+import { writeRecentContext } from "@/services/recentContextService";
 
 export default function WorkReportCapture() {
   const { visitId } = useParams<{ visitId: string }>();
@@ -59,6 +60,18 @@ export default function WorkReportCapture() {
           postcode: siteRow.postcode,
           contact_name: siteRow.contact_name,
           contact_phone: siteRow.contact_phone,
+        });
+        writeRecentContext("job", {
+          id: visitRow.id,
+          label: visitRow.job_number || siteRow.name || "Work report",
+          subtitle: siteRow.name,
+          href: `/dashboard/visits/${visitRow.id}/work-report/capture`,
+        });
+        writeRecentContext("site", {
+          id: siteRow.id,
+          label: siteRow.name,
+          subtitle: [siteRow.address, siteRow.city, siteRow.postcode].filter(Boolean).join(", "),
+          href: `/dashboard/sites/${siteRow.id}`,
         });
 
         const cust = siteRow.customers as

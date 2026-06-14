@@ -8,7 +8,7 @@
  * Wrap the ENTIRE file content below.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +36,13 @@ import { SupplierPriceImport } from "@/components/email-scanner/SupplierPriceImp
 import { WhatsAppScanner } from "@/components/email-scanner/WhatsAppScanner";
 import { AutoQuoteReview } from "@/components/email-scanner/AutoQuoteReview";
 import { IntentReviewQueue } from "@/components/email-scanner/IntentReviewQueue";
+import {
+  clearEmailScannerQuoteDraft,
+  EMAIL_SCANNER_QUOTE_DRAFT_EVENT,
+  readEmailScannerQuoteDraft,
+  type EmailScannerQuoteDraft,
+  type EmailScannerQuoteDraftState,
+} from "@/components/email-scanner/quoteDraftCache";
 import { saveScannedIntents, type ScannedIntent } from "@/services/emailActionItemsService";
 import type { SmartQuoteLine } from "@/components/email-scanner/SmartQuoteGenerator";
 
@@ -78,7 +85,19 @@ const EmailScanner = () => {
   const [pendingPdfs, setPendingPdfs] = useState<{ name: string; contentBytes: string }[]>([]);
   const [supplierPreview, setSupplierPreview] = useState<{ rows: ParsedPriceRow[]; sourceName: string } | null>(null);
   const [lastSourceEmail, setLastSourceEmail] = useState<{ subject?: string; from?: string }>({});
+  const [quoteDraft, setQuoteDraft] = useState<EmailScannerQuoteDraft | null>(() => readEmailScannerQuoteDraft());
+  const [quoteDraftState, setQuoteDraftState] = useState<EmailScannerQuoteDraftState | null>(null);
   const qc = useQueryClient();
+
+  useEffect(() => {
+    const refreshDraft = () => setQuoteDraft(readEmailScannerQuoteDraft());
+    window.addEventListener(EMAIL_SCANNER_QUOTE_DRAFT_EVENT, refreshDraft);
+    window.addEventListener("storage", refreshDraft);
+    return () => {
+      window.removeEventListener(EMAIL_SCANNER_QUOTE_DRAFT_EVENT, refreshDraft);
+      window.removeEventListener("storage", refreshDraft);
+    };
+  }, []);
 
   // Load price list
   const { data: priceList = [] } = useQuery({
@@ -263,7 +282,38 @@ const EmailScanner = () => {
     setShowSmartQuote(false);
     setSmartLines([]);
     setPendingPdfs([]);
+    setQuoteDraftState(null);
   };
+
+  const handleContinueQuoteDraft = () => {
+    const draft = readEmailScannerQuoteDraft();
+    if (!draft) {
+      setQuoteDraft(null);
+      toast.info("No saved quote draft found");
+      return;
+    }
+    setQuoteDraft(draft);
+    setQuoteDraftState(draft.state);
+    setExtractedData(draft.data);
+    setScanMode("quote");
+    setActiveFlow("quote");
+    setShowSmartQuote(false);
+    setActiveTab("scanner");
+    toast.success("Quote draft restored");
+  };
+
+  const handleDiscardQuoteDraft = () => {
+    clearEmailScannerQuoteDraft();
+    setQuoteDraft(null);
+    setQuoteDraftState(null);
+    toast.success("Saved quote draft cleared");
+  };
+
+  useEffect(() => {
+    if (sessionStorage.getItem("emailScanner.resumeQuote") !== "1") return;
+    sessionStorage.removeItem("emailScanner.resumeQuote");
+    handleContinueQuoteDraft();
+  }, []);
 
   const handleProceedToQuote = () => {
     if (!extractedData) return;
@@ -349,11 +399,27 @@ const EmailScanner = () => {
               Paste an email → AI identifies devices and quantities → matches your price list → ready-to-send quote
             </p>
           </div>
+          {quoteDraft && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" className="gap-2" onClick={handleContinueQuoteDraft}>
+                <FileSpreadsheet className="w-4 h-4" />
+                Continue quote
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleDiscardQuoteDraft}>
+                Clear
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Active flows take over full page */}
         {activeFlow === "quote" && extractedData && (
-          <EmailScannerQuoteFlow data={extractedData} onBack={handleReset} />
+          <EmailScannerQuoteFlow
+            key={quoteDraftState ? `draft-${quoteDraft?.savedAt ?? "restored"}` : `new-${extractedData.scope_summary ?? extractedData.description ?? "quote"}`}
+            data={extractedData}
+            onBack={handleReset}
+            initialDraftState={quoteDraftState}
+          />
         )}
         {activeFlow === "visit" && extractedData && (
           <EmailScannerVisitFlow data={extractedData} onBack={handleReset} />
