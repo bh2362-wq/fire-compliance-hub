@@ -404,11 +404,43 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [customerCity, setCustomerCity] = useState("");
   const [customerPostcode, setCustomerPostcode] = useState("");
 
+  // ── Local draft autosave ────────────────────────────────────────────────
+  // Browser-crash / accidental-close safety net. handleSave re-locks the
+  // quote and rewrites every line item, so we cannot call it on each
+  // keystroke. Instead we debounce a JSON snapshot of editable fields to
+  // localStorage and offer to restore it next time the quote is opened.
+  const draftStorageKey = quotationId ? `quotation-draft:v1:${quotationId}` : null;
+
   useEffect(() => {
     if (open && quotationId) {
       fetchQuotation();
     }
   }, [open, quotationId]);
+
+  useEffect(() => {
+    if (!open || !draftStorageKey || !hasChanges || saving || loading) return;
+    const handle = setTimeout(() => {
+      try {
+        const snapshot = {
+          savedAt: Date.now(),
+          quotationNumber, title, summary, notes, terms, validUntil, vatRate,
+          scopeItems, lineItems,
+          customerName, customerContactName, customerContactEmail, customerContactPhone,
+          customerAddress, customerCity, customerPostcode,
+        };
+        localStorage.setItem(draftStorageKey, JSON.stringify(snapshot));
+      } catch {
+        // Quota / serialization issues — drafts are best-effort.
+      }
+    }, 800);
+    return () => clearTimeout(handle);
+  }, [
+    open, draftStorageKey, hasChanges, saving, loading,
+    quotationNumber, title, summary, notes, terms, validUntil, vatRate,
+    scopeItems, lineItems,
+    customerName, customerContactName, customerContactEmail, customerContactPhone,
+    customerAddress, customerCity, customerPostcode,
+  ]);
 
   const fetchQuotation = async () => {
     setLoading(true);
