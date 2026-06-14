@@ -884,6 +884,18 @@ async function loadQuotationData(quotationId: string | undefined, supabase: Supa
   const siteAddressParts = [site?.name, site?.address, site?.city, site?.postcode]
     .map((p) => (p ?? "").trim())
     .filter(Boolean);
+  // Sentinel log — proves PR #224's site fallback is live in the deployed
+  // function. If you don't see this line in the Supabase logs after a
+  // regeneration, the edge function hasn't picked up the PR yet.
+  console.log(
+    `[generate-quote-docx] PR #224 site fallback: quotation_site_id=${quotation.site_id ?? "null"},` +
+    ` site_loaded=${site != null}, site_name=${site?.name ?? "null"},` +
+    ` panel_make_model=${site?.panel_make_model ?? "null"},` +
+    ` sitePanelMake=${sitePanelMake ?? "null"},` +
+    ` site_bs5839_category=${site?.bs5839_category ?? "null"},` +
+    ` quotation_system_manufacturer=${quotation.system_manufacturer ?? "null"},` +
+    ` quotation_bs5839_category=${quotation.bs5839_category ?? "null"}`,
+  );
   return {
     issuer: {
       name: profile?.full_name?.trim() ?? "",
