@@ -176,14 +176,14 @@ export function InventoryQuoteDialog({ open, onOpenChange, siteId, siteName }: P
       };
 
       const { data: quoteRow, error: insErr } = await supabase
-        .from("quotations").insert(insertPayload).select("id").single();
+        .from("quotations").insert(insertPayload as never).select("id").single();
       if (insErr) throw insErr;
       const quotationId = (quoteRow as { id: string }).id;
 
       const lineRows = buildLineItemRows(quotationId, result.line_items);
       if (lineRows.length > 0) {
         const { error: lineErr } = await supabase
-          .from("quotation_line_items").insert(lineRows);
+          .from("quotation_line_items").insert(lineRows as never);
         if (lineErr) throw lineErr;
       }
 
