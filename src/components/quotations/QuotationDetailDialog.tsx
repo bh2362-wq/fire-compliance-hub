@@ -308,12 +308,8 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   // to start over). Tries site_defects first, falls back to ce_remedials
   // for any IDs not found there.
   const [importingDefects, setImportingDefects] = useState(false);
-  const sourceDefectIds: string[] = (() => {
-    const uuidRe = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
-    const ids = new Set<string>();
-    for (const m of (notes || "").matchAll(uuidRe)) ids.add(m[0].toLowerCase());
-    return Array.from(ids);
-  })();
+  // sourceDefectIds is derived from `notes`, which is declared further down.
+  // We compute it inline at render time where it's needed (see below).
   const handleImportSourceDefects = async () => {
     if (sourceDefectIds.length === 0) {
       toast.info("No source defect IDs found in the Notes field of this quote.");
@@ -375,6 +371,16 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [terms, setTerms] = useState(DEFAULT_TERMS);
   const [validUntil, setValidUntil] = useState("");
   const [vatRate, setVatRate] = useState(20);
+
+  // Derived: UUIDs embedded in the Notes field by the AI Defect Quote flow
+  // ("Source IDs: <uuid>, <uuid>, …"). Used by the Scope tab to re-pull the
+  // original defect descriptions. Declared here so it lands after `notes`.
+  const sourceDefectIds: string[] = (() => {
+    const uuidRe = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+    const ids = new Set<string>();
+    for (const m of (notes || "").matchAll(uuidRe)) ids.add(m[0].toLowerCase());
+    return Array.from(ids);
+  })();
 
   // Scope of Works — quotations.scope is a string[] populated by the AI
   // rewriter in generate-quote-docx (PR #213) and rendered as the §2.2
