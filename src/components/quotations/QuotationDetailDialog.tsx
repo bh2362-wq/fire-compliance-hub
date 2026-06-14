@@ -17,6 +17,7 @@ import {
   GripVertical,
   Copy,
   Volume2,
+  Search,
 } from "lucide-react";
 import {
   DndContext,
