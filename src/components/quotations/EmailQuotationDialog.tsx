@@ -257,13 +257,23 @@ export function EmailQuotationDialog({
       toast.error("Please enter at least one recipient");
       return;
     }
+    if (!subject.trim()) {
+      toast.error("Please enter an email subject");
+      return;
+    }
+    if (!body.trim()) {
+      toast.error("Please enter an email message");
+      return;
+    }
 
     setSending(true);
+    const loadingToast = toast.loading("Preparing quotation email...");
     try {
       // Render the email attachment from the master Word template via
       // generate-quote-docx → convert-quote-pdf so it matches the Download
       // PDF byte-for-byte. Single source of truth — see renderQuotePdfBase64.
       const full = await fetchQuotationFull(quotation.id);
+      toast.loading("Generating quotation PDF...", { id: loadingToast });
       const pdfBase64 = await renderQuotePdfBase64(full);
       if (!pdfBase64) {
         throw new Error("Failed to generate PDF");
@@ -302,6 +312,7 @@ export function EmailQuotationDialog({
         }
       }
 
+      toast.loading(`Sending quotation to ${recipientList.length} recipient(s)...`, { id: loadingToast });
       const { data, error } = await supabase.functions.invoke("send-report-email", {
         body: {
           to: recipientList,
@@ -317,6 +328,19 @@ export function EmailQuotationDialog({
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      const sendSummary = (data as any)?.summary;
+      const failedResults = Array.isArray((data as any)?.results)
+        ? (data as any).results.filter((result: any) => !result?.success)
+        : [];
+      if ((data as any)?.success === false || failedResults.length > 0 || sendSummary?.failed > 0) {
+        const failedEmails = failedResults.map((result: any) => result.email).filter(Boolean).join(", ");
+        const firstError = failedResults.find((result: any) => result?.error)?.error;
+        throw new Error(
+          firstError
+            ? `Quotation email failed: ${firstError}`
+            : `Quotation email failed${failedEmails ? ` for ${failedEmails}` : ""}`
+        );
+      }
 
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("email_logs").insert({
@@ -338,7 +362,7 @@ export function EmailQuotationDialog({
         })
         .eq("id", quotation.id);
 
-      toast.success(`Quotation sent to ${recipientList.length} recipient(s)`);
+      toast.success(`Quotation sent to ${recipientList.length} recipient(s)`, { id: loadingToast });
 
       // Save any new emails back to customer for future use
       if (quotation.customer_id) {
@@ -377,7 +401,7 @@ export function EmailQuotationDialog({
       onOpenChange(false);
     } catch (error) {
       console.error("Error sending quotation:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to send quotation");
+      toast.error(error instanceof Error ? error.message : "Failed to send quotation", { id: loadingToast });
     } finally {
       setSending(false);
     }

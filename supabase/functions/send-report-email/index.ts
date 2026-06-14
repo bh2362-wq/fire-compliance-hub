@@ -179,10 +179,15 @@ serve(async (req) => {
     const successful = results.filter((r) => r.success);
     const failed = results.filter((r) => !r.success);
 
+    if (failed.length > 0) {
+      console.error("send-report-email completed with failures:", failed);
+    }
+
     return new Response(
       JSON.stringify({
         success: failed.length === 0,
         results,
+        error: failed.length > 0 ? failed.map((r) => `${r.email}: ${r.error || "Send failed"}`).join("; ") : undefined,
         summary: {
           total: recipients.length,
           sent: successful.length,
