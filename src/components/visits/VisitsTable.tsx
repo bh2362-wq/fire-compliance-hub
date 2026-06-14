@@ -74,6 +74,7 @@ import { getVisitTypeLabel as getRamsVisitLabel } from "@/constants/visitTypes";
 import { toast as sonnerToast } from "sonner";
 import { LinkExistingCertDialog } from "./LinkExistingCertDialog";
 import { SiteLink, CustomerLink } from "@/components/common/EntityLinks";
+import { writeRecentContext } from "@/services/recentContextService";
 
 interface InvoiceInfo {
   xero_invoice_number: string | null;
@@ -1088,6 +1089,13 @@ const VisitsTable = ({
   // anything else uses the preview dialog where the report-type
   // detection lives.
   const openReportForVisit = (visit: Visit) => {
+    const jobLabel = (visit as any).job_number || visit.site?.name || getVisitTypeLabel(visit.visit_type);
+    writeRecentContext("job", {
+      id: visit.id,
+      label: jobLabel,
+      subtitle: `${getVisitTypeLabel(visit.visit_type)} · ${format(new Date(visit.visit_date), "dd MMM yy")}`,
+      href: `/dashboard/visits/${visit.id}/service-report/capture`,
+    });
     const isBs5839 = SERVICE_FREQUENCY_TYPES.some((t) => t.value === visit.visit_type);
     if (isBs5839) {
       navigate(`/dashboard/visits/${visit.id}/service-report/capture`);
@@ -1410,13 +1418,29 @@ const VisitsTable = ({
           {reportInfo?.id ? "Open Report" : "Create Report"}
         </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => navigate(`/dashboard/visits/${visit.id}/cause-effect-test/capture`)}
+                  onClick={() => {
+                    writeRecentContext("job", {
+                      id: visit.id,
+                      label: (visit as any).job_number || visit.site?.name || "Cause & Effect Test",
+                      subtitle: `${getVisitTypeLabel(visit.visit_type)} · ${format(new Date(visit.visit_date), "dd MMM yy")}`,
+                      href: `/dashboard/visits/${visit.id}/cause-effect-test/capture`,
+                    });
+                    navigate(`/dashboard/visits/${visit.id}/cause-effect-test/capture`);
+                  }}
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   Cause &amp; Effect Test
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate(`/dashboard/sites/${visit.site_id}`)}>
+                <DropdownMenuItem onClick={() => {
+                  writeRecentContext("site", {
+                    id: visit.site_id,
+                    label: visit.site?.name || "Site",
+                    subtitle: `${getVisitTypeLabel(visit.visit_type)} · ${format(new Date(visit.visit_date), "dd MMM yy")}`,
+                    href: `/dashboard/sites/${visit.site_id}`,
+                  });
+                  navigate(`/dashboard/sites/${visit.site_id}`);
+                }}>
                   <Eye className="w-4 h-4 mr-2" />
                   View Site
                 </DropdownMenuItem>
