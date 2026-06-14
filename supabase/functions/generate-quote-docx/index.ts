@@ -705,13 +705,14 @@ function renderTopFields(xml: string, q: QuoteInput, issuer: IssuerInfo, ctx: Qu
     (q.site?.address && q.site.address.trim())
     || ctx.fallbackSiteAddress
     || q.client.address;
-  // Project title: payload first, then a derived "Remedial Works — {site}"
-  // when we have a site name. Better to show *something* meaningful than
-  // omit the Project row entirely.
+  // Project title: payload first, then a plain "Remedial" placeholder
+  // when nothing's set. The Site row already names the site, so we
+  // don't duplicate it here (the old "Remedial Works — {site}" form did,
+  // and broke ugly as "Remedial Works — site" when siteName fell back
+  // to its literal placeholder).
   const projectForRender =
     (q.project_title && q.project_title.trim())
-    || (ctx.fallbackSiteName && `Remedial Works — ${ctx.fallbackSiteName}`)
-    || "";
+    || (ctx.fallbackSiteName ? "Remedial" : "");
   x = fieldOrOmit(x, "[Project Name]", projectForRender);
   x = fieldOrOmit(x, "[Site Name & Address]", siteForRender);
 

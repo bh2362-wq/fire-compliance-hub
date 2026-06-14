@@ -298,7 +298,12 @@ export function AIDefectQuoteDialog({
   const siteName = primarySite?.site_name || "site";
   const siteId = primarySite?.site_id || "";
 
-  const defaultTitle = useMemo(() => `Remedial Works — ${siteName}`, [siteName]);
+  // Default Quote Title — kept minimal. Engineer routinely overrides
+  // with descriptive titles like "Fire Alarm Remedial Works and Cause
+  // & Effect Testing"; the prior "Remedial Works — {siteName}" default
+  // duplicated the Site cell in the PDF and broke ugly ("Remedial
+  // Works — site") when siteName fell back to the literal placeholder.
+  const defaultTitle = "Remedial";
   const [quoteTitle, setQuoteTitle] = useState(defaultTitle);
 
   function handleClose() {
