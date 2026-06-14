@@ -201,6 +201,10 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [bulkMarkup, setBulkMarkup] = useState("");
+  // Per-row catalog price lookup — opens the same QuotationPriceLookupDialog
+  // used by the inventory-quote review screen. Applies the picked trade
+  // price to this row's unit_price (and stamps item_name if empty).
+  const [priceLookupIndex, setPriceLookupIndex] = useState<number | null>(null);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
