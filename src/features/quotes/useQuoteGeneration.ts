@@ -142,6 +142,32 @@ export function useConvertQuotePdf() {
   });
 }
 
+// Cache-first download helper. Both generate-quote-docx and convert-quote-pdf
+// write back to quotations.latest_docx_path / latest_pdf_path after a
+// successful render. When those paths exist on the row the download
+// flow can serve the cached artifact directly — no edge function call,
+// no Microsoft Graph conversion, just a signed URL straight from
+// storage. QuotationDetailDialog.handleSave clears both paths on every
+// save so this is only a cache hit when the quote really hasn't changed
+// since the last render. accept-quotation does the same on customer
+// accept so the next download picks up the new signature.
+const QUOTE_OUTPUTS_BUCKET = "quote-outputs";
+export async function getSignedQuoteFileUrl(
+  storagePath: string,
+  expirySeconds = 3600,
+): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from(QUOTE_OUTPUTS_BUCKET)
+    .createSignedUrl(storagePath, expirySeconds);
+  if (error) {
+    // Missing-file / invalid-path / RLS-denied — caller should fall
+    // back to regeneration rather than surface a hard error.
+    console.warn("[getSignedQuoteFileUrl]", error.message);
+    return null;
+  }
+  return data?.signedUrl ?? null;
+}
+
 export async function downloadSignedUrl(signedUrl: string, suggestedFilename: string): Promise<void> {
   const remoteUrl = new URL(signedUrl);
   remoteUrl.searchParams.set("download", suggestedFilename);
