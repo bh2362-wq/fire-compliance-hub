@@ -30,6 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
    getDefaultTemplate,
    applyTemplate,
  } from "@/services/emailTemplateService";
+import { rememberLastRecipients } from "@/services/emailMemoryService";
  import { getCompanySettings } from "@/services/companySettingsService";
 
 interface EmailReportDialogProps {
@@ -290,6 +291,11 @@ export function EmailReportDialog({
         toast.success(
           `Report sent to ${summary.sent} recipient${summary.sent > 1 ? "s" : ""}`
         );
+
+        // Cross-document recipient memory — overwrite customers.last_email_recipients
+        // so every other email dialog (quote, RAMS, PO) prefills with
+        // this list next time.
+        void rememberLastRecipients(customerId, recipients);
 
         // Save any new emails back to customer for future use
         if (customerId) {

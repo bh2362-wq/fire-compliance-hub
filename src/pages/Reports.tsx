@@ -446,15 +446,15 @@ const Reports = () => {
     // Fetch customer info for this site
     const { data: siteData } = await supabase
       .from("sites")
-      .select("customer_id, customers(name, contact_email, email_recipients, report_email_recipients)")
+      .select("customer_id, customers(name, contact_email, email_recipients, report_email_recipients, last_email_recipients)")
       .eq("id", report.site_id)
       .maybeSingle();
 
-    const customer = siteData?.customers as { name: string; contact_email: string; email_recipients: string; report_email_recipients: string } | null;
+    const customer = siteData?.customers as { name: string; contact_email: string; email_recipients: string; report_email_recipients: string; last_email_recipients: string | null } | null;
 
     setEmailRecipientInfo({
       email: customer?.contact_email || "",
-      recipients: customer?.report_email_recipients || customer?.email_recipients || "",
+      recipients: customer?.last_email_recipients || customer?.report_email_recipients || customer?.email_recipients || "",
       customerName: customer?.name || "",
       customerId: siteData?.customer_id || "",
     });
@@ -469,15 +469,15 @@ const Reports = () => {
   const handleEmailCeReport = async (report: CeReportRow) => {
     const { data: siteData } = await supabase
       .from("sites")
-      .select("customer_id, customers(name, contact_email, email_recipients, report_email_recipients)")
+      .select("customer_id, customers(name, contact_email, email_recipients, report_email_recipients, last_email_recipients)")
       .eq("id", report.site_id)
       .maybeSingle();
 
-    const customer = siteData?.customers as { name: string; contact_email: string; email_recipients: string; report_email_recipients: string } | null;
+    const customer = siteData?.customers as { name: string; contact_email: string; email_recipients: string; report_email_recipients: string; last_email_recipients: string | null } | null;
 
     setEmailRecipientInfo({
       email: customer?.contact_email || "",
-      recipients: customer?.report_email_recipients || customer?.email_recipients || "",
+      recipients: customer?.last_email_recipients || customer?.report_email_recipients || customer?.email_recipients || "",
       customerName: customer?.name || "",
       customerId: siteData?.customer_id || "",
     });

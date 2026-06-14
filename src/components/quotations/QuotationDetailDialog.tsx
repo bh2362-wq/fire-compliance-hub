@@ -135,6 +135,9 @@ interface QuotationFull {
     address?: string | null;
     city?: string | null;
     postcode?: string | null;
+    last_email_recipients?: string | null;
+    quote_email_recipients?: string | null;
+    email_recipients?: string | null;
   } | null;
 }
 
@@ -345,7 +348,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           `
           *,
           sites:site_id(name, address, city, postcode, customer_id),
-          customers:customer_id(name, contact_name, contact_email, contact_phone, address, city, postcode)
+          customers:customer_id(name, contact_name, contact_email, contact_phone, address, city, postcode, last_email_recipients, quote_email_recipients, email_recipients)
         `,
         )
         .eq("id", quotationId)
@@ -1878,6 +1881,12 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             sites: quotation.sites,
           }}
           customerEmail={customerContactEmail}
+          defaultRecipients={
+            quotation.customers?.last_email_recipients ||
+            quotation.customers?.quote_email_recipients ||
+            quotation.customers?.email_recipients ||
+            ""
+          }
           customerName={customerContactName || customerName}
           sourceCauseEffectReportId={quotation.source_cause_effect_report_id}
           sourceCauseEffectReportLabel={sourceCeReportNumber}

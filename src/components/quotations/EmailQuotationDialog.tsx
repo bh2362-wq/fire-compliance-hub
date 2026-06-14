@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchQuotationFull, renderQuotePdfBase64 } from "@/features/quotes/useQuoteGeneration";
 import { getCauseEffectReportPdfBase64 } from "@/features/causeEffectTest/useCauseEffectGeneration";
+import { rememberLastRecipients } from "@/services/emailMemoryService";
 import { getCompanySettings } from "@/services/companySettingsService";
 import {
   EmailTemplate,
@@ -331,12 +332,17 @@ export function EmailQuotationDialog({
 
       await supabase
         .from("quotations")
-        .update({ 
+        .update({
           status: "sent",
           locked_at: new Date().toISOString(),
           locked_by: user?.id
         })
         .eq("id", quotation.id);
+
+      // Cross-document recipient memory — every future quote, report,
+      // RAMS, or PO email for this customer prefills with the list
+      // that just went out.
+      void rememberLastRecipients(quotation.customer_id, recipientList);
 
       toast.success(`Quotation sent to ${recipientList.length} recipient(s)`);
 
