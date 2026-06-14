@@ -7,12 +7,15 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ASDServiceWizard } from "@/features/asdServiceReport/ASDServiceWizard";
 import type { ASDAsset } from "@/features/asdServiceReport/useASDDraft";
+import { writeRecentContext } from "@/services/recentContextService";
 
 interface VisitRow {
   id: string;
   visit_type: string;
   visit_date: string;
   site_id: string;
+  job_number?: string | null;
+  site?: { id: string; name: string } | null;
 }
 
 export default function ASDServiceReportCapture() {
@@ -37,7 +40,7 @@ export default function ASDServiceReportCapture() {
       try {
         const { data: visitData, error: visitErr } = await supabase
           .from("service_visits")
-          .select("id, visit_type, visit_date, site_id")
+          .select("id, visit_type, visit_date, site_id, job_number, site:sites(id, name)")
           .eq("id", visitId!)
           .maybeSingle();
         if (visitErr || !visitData) throw new Error(visitErr?.message ?? "Visit not found");
@@ -51,7 +54,22 @@ export default function ASDServiceReportCapture() {
         if (assetErr) throw assetErr;
 
         if (cancelled) return;
-        setVisit(visitData as VisitRow);
+        const loadedVisit = visitData as VisitRow;
+        setVisit(loadedVisit);
+        writeRecentContext("job", {
+          id: loadedVisit.id,
+          label: loadedVisit.job_number || loadedVisit.site?.name || "ASD report",
+          subtitle: loadedVisit.site?.name || "ASD service report",
+          href: `/dashboard/visits/${loadedVisit.id}/asd-report/capture`,
+        });
+        if (loadedVisit.site?.name) {
+          writeRecentContext("site", {
+            id: loadedVisit.site_id,
+            label: loadedVisit.site.name,
+            subtitle: "From ASD report",
+            href: `/dashboard/sites/${loadedVisit.site_id}`,
+          });
+        }
         setAssets((assetData ?? []) as ASDAsset[]);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
