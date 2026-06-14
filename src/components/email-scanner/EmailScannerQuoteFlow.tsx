@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { AIExpandButton } from "@/components/quotations/AIExpandButton";
 import { useToast } from "@/hooks/use-toast";
 import type { ExtractedEmailData } from "@/pages/EmailScanner";
+import {
+  clearEmailScannerQuoteDraft,
+  saveEmailScannerQuoteDraft,
+  type EmailScannerQuoteDraftState,
+} from "./quoteDraftCache";
 
 interface Customer {
   id: string;
@@ -40,19 +45,21 @@ interface LineItem {
 interface Props {
   data: ExtractedEmailData;
   onBack: () => void;
+  initialDraftState?: EmailScannerQuoteDraftState | null;
 }
 
-export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
+export const EmailScannerQuoteFlow = ({ data, onBack, initialDraftState }: Props) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const hydratedFromDraft = useRef(Boolean(initialDraftState));
   const [saving, setSaving] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
-  const [matchedCustomerId, setMatchedCustomerId] = useState<string>("");
-  const [selectedSiteId, setSelectedSiteId] = useState<string>("");
-  const [createNewCustomer, setCreateNewCustomer] = useState(false);
-  const [createNewSite, setCreateNewSite] = useState(false);
-  const [title, setTitle] = useState(data.scope_summary || data.description || "");
+  const [matchedCustomerId, setMatchedCustomerId] = useState<string>(initialDraftState?.matchedCustomerId ?? "");
+  const [selectedSiteId, setSelectedSiteId] = useState<string>(initialDraftState?.selectedSiteId ?? "");
+  const [createNewCustomer, setCreateNewCustomer] = useState(initialDraftState?.createNewCustomer ?? false);
+  const [createNewSite, setCreateNewSite] = useState(initialDraftState?.createNewSite ?? false);
+  const [title, setTitle] = useState(initialDraftState?.title ?? data.scope_summary ?? data.description ?? "");
 
   // Build full scope of works from all extracted details
   const buildScopeOfWorks = () => {
@@ -76,25 +83,26 @@ export const EmailScannerQuoteFlow = ({ data, onBack }: Props) => {
     return sections.join('\n');
   };
 
-  const [summary, setSummary] = useState(buildScopeOfWorks());
-  const [terms, setTerms] = useState("This quotation is valid for 30 days from the date of issue.");
-  const [notes, setNotes] = useState("");
-  const [vatRate, setVatRate] = useState(20);
+  const [summary, setSummary] = useState(initialDraftState?.summary ?? buildScopeOfWorks());
+  const [terms, setTerms] = useState(initialDraftState?.terms ?? "This quotation is valid for 30 days from the date of issue.");
+  const [notes, setNotes] = useState(initialDraftState?.notes ?? "");
+  const [vatRate, setVatRate] = useState(initialDraftState?.vatRate ?? 20);
 
   // New customer/site fields
-  const [newCustomerName, setNewCustomerName] = useState(data.company_name || "");
-  const [newCustomerEmail, setNewCustomerEmail] = useState(data.contact_email || data.sender_email || "");
-  const [newCustomerPhone, setNewCustomerPhone] = useState(data.contact_phone || "");
-  const [newCustomerContact, setNewCustomerContact] = useState(data.contact_name || data.sender_name || "");
-  const [newCustomerAddress, setNewCustomerAddress] = useState(data.site_address || "");
-  const [newCustomerCity, setNewCustomerCity] = useState(data.site_city || "");
-  const [newCustomerPostcode, setNewCustomerPostcode] = useState(data.site_postcode || "");
-  const [newSiteName, setNewSiteName] = useState(data.site_name || "");
-  const [newSiteAddress, setNewSiteAddress] = useState(data.site_address || "");
-  const [newSiteCity, setNewSiteCity] = useState(data.site_city || "");
-  const [newSitePostcode, setNewSitePostcode] = useState(data.site_postcode || "");
+  const [newCustomerName, setNewCustomerName] = useState(initialDraftState?.newCustomerName ?? data.company_name ?? "");
+  const [newCustomerEmail, setNewCustomerEmail] = useState(initialDraftState?.newCustomerEmail ?? data.contact_email ?? data.sender_email ?? "");
+  const [newCustomerPhone, setNewCustomerPhone] = useState(initialDraftState?.newCustomerPhone ?? data.contact_phone ?? "");
+  const [newCustomerContact, setNewCustomerContact] = useState(initialDraftState?.newCustomerContact ?? data.contact_name ?? data.sender_name ?? "");
+  const [newCustomerAddress, setNewCustomerAddress] = useState(initialDraftState?.newCustomerAddress ?? data.site_address ?? "");
+  const [newCustomerCity, setNewCustomerCity] = useState(initialDraftState?.newCustomerCity ?? data.site_city ?? "");
+  const [newCustomerPostcode, setNewCustomerPostcode] = useState(initialDraftState?.newCustomerPostcode ?? data.site_postcode ?? "");
+  const [newSiteName, setNewSiteName] = useState(initialDraftState?.newSiteName ?? data.site_name ?? "");
+  const [newSiteAddress, setNewSiteAddress] = useState(initialDraftState?.newSiteAddress ?? data.site_address ?? "");
+  const [newSiteCity, setNewSiteCity] = useState(initialDraftState?.newSiteCity ?? data.site_city ?? "");
+  const [newSitePostcode, setNewSitePostcode] = useState(initialDraftState?.newSitePostcode ?? data.site_postcode ?? "");
 
   const [lineItems, setLineItems] = useState<LineItem[]>(() => {
+    if (initialDraftState?.lineItems?.length) return initialDraftState.lineItems;
     const smart = (data as any).smart_lines;
     if (smart && Array.isArray(smart) && smart.length > 0) {
       return smart.map((l: any) => {
