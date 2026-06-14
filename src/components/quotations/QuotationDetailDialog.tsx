@@ -17,6 +17,7 @@ import {
   GripVertical,
   Copy,
   Volume2,
+  Search,
 } from "lucide-react";
 import {
   DndContext,
@@ -68,6 +69,7 @@ import {
 } from "@/services/quoteMetadataInheritanceService";
 import { ImproveTitleButton } from "./ImproveTitleButton";
 import { DuplicateQuotationDialog } from "./DuplicateQuotationDialog";
+import { QuotationPriceLookupDialog } from "./QuotationPriceLookupDialog";
 import { parseScopeNumberedItems } from "@/lib/scopeMarkdown";
 
 // Snapshot of a pre-merge line item stored in the survivor's merged_from
@@ -199,6 +201,10 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [bulkMarkup, setBulkMarkup] = useState("");
+  // Per-row catalog price lookup — opens the same QuotationPriceLookupDialog
+  // used by the inventory-quote review screen. Applies the picked trade
+  // price to this row's unit_price (and stamps item_name if empty).
+  const [priceLookupIndex, setPriceLookupIndex] = useState<number | null>(null);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -1663,7 +1669,20 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                             />
                                           </div>
                                           <div>
-                                            <Label className="text-xs">Unit Cost £</Label>
+                                            <div className="flex items-center justify-between gap-1">
+                                              <Label className="text-xs">Unit Cost £</Label>
+                                              {!isLocked && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setPriceLookupIndex(index)}
+                                                  className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5"
+                                                  title="Look up trade price in catalog"
+                                                >
+                                                  <Search className="h-3 w-3" />
+                                                  {(item.unit_price || 0) > 0 ? "Change" : "Lookup"}
+                                                </button>
+                                              )}
+                                            </div>
                                             <Input
                                               type="number"
                                               min={0}
@@ -2141,6 +2160,33 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             onOpenChange(false);
             onDuplicated(newQ);
           }
+        }}
+      />
+
+      <QuotationPriceLookupDialog
+        open={priceLookupIndex !== null}
+        onOpenChange={(o) => { if (!o) setPriceLookupIndex(null); }}
+        searchTerm={
+          priceLookupIndex !== null
+            ? (lineItems[priceLookupIndex]?.item_name?.trim() ||
+               lineItems[priceLookupIndex]?.description?.split("\n")[0]?.slice(0, 80) ||
+               "")
+            : ""
+        }
+        quantity={priceLookupIndex !== null ? (lineItems[priceLookupIndex]?.quantity || 1) : 1}
+        onAddToQuote={(description, unitPrice) => {
+          if (priceLookupIndex === null) return;
+          const idx = priceLookupIndex;
+          const current = lineItems[idx];
+          if (!current) return;
+          // Apply the catalog price to this row's cost. Stamp item_name
+          // from the catalog code when empty so the next lookup re-finds it.
+          handleItemChange(idx, "unit_price", unitPrice);
+          if (!current.item_name?.trim()) {
+            const code = description.split(" - ")[0]?.trim();
+            if (code) handleItemChange(idx, "item_name", code);
+          }
+          setPriceLookupIndex(null);
         }}
       />
     </>
