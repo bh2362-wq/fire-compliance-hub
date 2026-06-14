@@ -476,14 +476,24 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   };
 
   const handleItemChange = (index: number, field: keyof LineItem, value: any) => {
-    const updated = [...lineItems];
-    updated[index] = { ...updated[index], [field]: value };
-    if (field === "quantity" || field === "unit_price" || field === "labour_cost" || field === "markup_percent") {
-      const i = updated[index];
-      updated[index].total_price =
-        i.quantity * i.unit_price * (1 + (i.markup_percent || 0) / 100) + (i.labour_cost || 0);
-    }
-    setLineItems(updated);
+    // Use a functional updater so async callbacks (e.g. the AI Improve
+    // dialog's Accept handler, which can fire many seconds after render)
+    // always operate on the latest lineItems array — not the snapshot
+    // captured when the per-row onRewrite arrow was created. Without
+    // this, a stale closure can silently overwrite the row with its
+    // own pre-edit values, making the AI's improved description
+    // appear to "not update".
+    setLineItems((prev) => {
+      const updated = [...prev];
+      if (!updated[index]) return prev;
+      updated[index] = { ...updated[index], [field]: value };
+      if (field === "quantity" || field === "unit_price" || field === "labour_cost" || field === "markup_percent") {
+        const i = updated[index];
+        updated[index].total_price =
+          i.quantity * i.unit_price * (1 + (i.markup_percent || 0) / 100) + (i.labour_cost || 0);
+      }
+      return updated;
+    });
     setHasChanges(true);
   };
 
