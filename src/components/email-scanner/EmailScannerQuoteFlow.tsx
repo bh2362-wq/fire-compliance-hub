@@ -134,8 +134,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack, initialDraftState }: Props
       let matchedCustId = "";
       if (cust) {
         setCustomers(cust);
-        if (hydratedFromDraft.current) return;
-        if (data.company_name) {
+        if (!hydratedFromDraft.current && data.company_name) {
           const match = cust.find(
             (c) => c.name.toLowerCase() === data.company_name!.toLowerCase() ||
               c.name.toLowerCase().includes(data.company_name!.toLowerCase()) ||
@@ -151,9 +150,8 @@ export const EmailScannerQuoteFlow = ({ data, onBack, initialDraftState }: Props
       }
       if (sit) {
         setSites(sit);
-        if (hydratedFromDraft.current) return;
         // Try to match an existing site for this customer
-        if (matchedCustId) {
+        if (!hydratedFromDraft.current && matchedCustId) {
           const customerSites = sit.filter((s) => s.customer_id === matchedCustId);
           const siteMatch = customerSites.find((s) => {
             const nameMatch = data.site_name && s.name.toLowerCase().includes(data.site_name.toLowerCase());
@@ -166,7 +164,7 @@ export const EmailScannerQuoteFlow = ({ data, onBack, initialDraftState }: Props
           } else if (data.site_name || data.site_address) {
             setCreateNewSite(true);
           }
-        } else if (data.site_name || data.site_address) {
+        } else if (!hydratedFromDraft.current && (data.site_name || data.site_address)) {
           const siteMatch = sit.find((s) => {
             const nameMatch = data.site_name && s.name.toLowerCase().includes(data.site_name.toLowerCase());
             const postcodeMatch = data.site_postcode && s.postcode?.toLowerCase().replace(/\s/g, '') === data.site_postcode.toLowerCase().replace(/\s/g, '');
