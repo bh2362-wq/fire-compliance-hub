@@ -56,7 +56,11 @@ export function QuotationPriceLookupDialog({
     lastSearchRef.current = term;
 
     try {
-      const { data: local } = await searchSupplierProducts(term, 30);
+      // Cap raised 30 → 200 so SKU-prefix searches like "s4*" return the
+      // full set of starts-with matches rather than an arbitrary first 30.
+      // Engineers asked for this; 200 fits in the scrolling table without
+      // hammering the bundle.
+      const { data: local } = await searchSupplierProducts(term, 200);
       setCatalogResults(local);
       if (local.length === 0) toast.info("No results found in catalog");
     } catch {
@@ -136,7 +140,14 @@ export function QuotationPriceLookupDialog({
                               className="h-7 px-2"
                               disabled={added}
                               onClick={() => {
-                                onAddToQuote(`${p.product_code} - ${p.description}`, p.trade_price);
+                                // Pass JUST the catalog description so the
+                                // caller can replace the line's existing
+                                // description verbatim. Engineer wants the
+                                // exact catalog text in the quote, not the
+                                // older "CODE - description" composite that
+                                // duplicated the part_number (already
+                                // surfaced via item_name in the row).
+                                onAddToQuote(p.description, p.trade_price);
                                 setAddedIndices((prev) => new Set(prev).add(key));
                                 toast.success(`Added ${p.product_code} at £${Number(p.trade_price).toFixed(2)}`);
                               }}

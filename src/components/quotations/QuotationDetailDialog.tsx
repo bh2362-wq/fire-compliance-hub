@@ -2179,13 +2179,15 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           const idx = priceLookupIndex;
           const current = lineItems[idx];
           if (!current) return;
-          // Apply the catalog price to this row's cost. Stamp item_name
-          // from the catalog code when empty so the next lookup re-finds it.
+          // Engineer asked for the catalog description to REPLACE the line's
+          // description verbatim — "the exact text in the quote". Earlier
+          // build only updated price + item_name and left the original
+          // (often wrong) description in place. Now: write description,
+          // unit_price, and item_name (the part code, when we can derive
+          // it). The dialog now passes JUST the description string, so
+          // there's no "CODE - description" splitting to do here anymore.
+          handleItemChange(idx, "description", description);
           handleItemChange(idx, "unit_price", unitPrice);
-          if (!current.item_name?.trim()) {
-            const code = description.split(" - ")[0]?.trim();
-            if (code) handleItemChange(idx, "item_name", code);
-          }
           setPriceLookupIndex(null);
         }}
       />
