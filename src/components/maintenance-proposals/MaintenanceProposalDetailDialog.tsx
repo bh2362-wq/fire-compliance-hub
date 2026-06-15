@@ -13,8 +13,10 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Loader2, Save, Wrench, Trash2, Lock, LockOpen, AlertTriangle,
+  Loader2, Save, Wrench, Trash2, Lock, LockOpen, AlertTriangle, FileText, FileType, Link2,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { downloadSignedUrl, getSignedQuoteFileUrl } from "@/features/quotes/useQuoteGeneration";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -53,6 +55,8 @@ export function MaintenanceProposalDetailDialog({ open, proposalId, onOpenChange
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [docxBusy, setDocxBusy] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   // Editable fields
   const [status, setStatus] = useState<MaintenanceProposalStatus>("draft");
@@ -135,6 +139,93 @@ export function MaintenanceProposalDetailDialog({ open, proposalId, onOpenChange
     } finally {
       setSaving(false);
     }
+  }
+
+  // Word / PDF — same cache-first contract as PR #232 for quotations.
+  // generate-maintenance-proposal-docx writes latest_docx_path after
+  // a successful render; updateMaintenanceProposal clears both paths
+  // on every save so the cache only persists when nothing changed.
+  async function onExportDocx() {
+    if (!proposalId) return;
+    setDocxBusy(true);
+    try {
+      if (proposal?.latest_docx_path) {
+        const signed = await getSignedQuoteFileUrl(proposal.latest_docx_path);
+        if (signed) {
+          await downloadSignedUrl(signed, `${proposal.proposal_number}.docx`);
+          toast.success("Word document downloaded");
+          return;
+        }
+      }
+      const { data, error } = await supabase.functions.invoke("generate-maintenance-proposal-docx", {
+        body: { proposal_id: proposalId },
+      });
+      if (error) throw new Error(error.message);
+      const r = data as { signed_url: string };
+      await downloadSignedUrl(r.signed_url, `${proposal?.proposal_number}.docx`);
+      toast.success("Word document downloaded");
+      // Refresh so latest_docx_path is picked up on the next click.
+      onUpdated?.();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Word export failed", { duration: 10000 });
+    } finally {
+      setDocxBusy(false);
+    }
+  }
+
+  async function onGeneratePdf() {
+    if (!proposalId) return;
+    setPdfBusy(true);
+    try {
+      if (proposal?.latest_pdf_path) {
+        const signed = await getSignedQuoteFileUrl(proposal.latest_pdf_path);
+        if (signed) {
+          await downloadSignedUrl(signed, `${proposal.proposal_number}.pdf`);
+          toast.success("PDF downloaded");
+          return;
+        }
+      }
+      let docxPath = proposal?.latest_docx_path ?? null;
+      if (!docxPath) {
+        const { data, error } = await supabase.functions.invoke("generate-maintenance-proposal-docx", {
+          body: { proposal_id: proposalId },
+        });
+        if (error) throw new Error(error.message);
+        docxPath = (data as { storage_path: string }).storage_path;
+      }
+      const { data, error } = await supabase.functions.invoke("convert-quote-pdf", {
+        body: { docx_storage_path: docxPath, maintenance_proposal_id: proposalId },
+      });
+      if (error) throw new Error(error.message);
+      const r = data as { signed_url: string };
+      await downloadSignedUrl(r.signed_url, `${proposal?.proposal_number}.pdf`);
+      toast.success("PDF downloaded");
+      onUpdated?.();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "PDF generation failed", { duration: 10000 });
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
+  // Copy the customer-facing accept link to clipboard. Engineer pastes it
+  // into their own email client (we don't lock them into any send-from
+  // address). Uses VITE_PUBLIC_APP_URL when set so the URL stays on the
+  // BHO domain regardless of where the dashboard is being served from —
+  // same plumbing as the quote accept link (PR #228).
+  function copyAcceptLink() {
+    if (!proposal?.acceptance_token) {
+      toast.warning("This proposal has no acceptance token yet — save it first");
+      return;
+    }
+    const base = (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined)?.replace(/\/+$/, "")
+      || window.location.origin;
+    const url = `${base}/accept-proposal/${proposal.acceptance_token}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success("Accept link copied — paste into your email");
+    }).catch(() => {
+      toast.error("Couldn't copy to clipboard. Link: " + url);
+    });
   }
 
   async function handleDelete() {
@@ -362,6 +453,26 @@ export function MaintenanceProposalDetailDialog({ open, proposalId, onOpenChange
               />
             </TabsContent>
           </Tabs>
+        )}
+
+        {/* Action row — separate from the save / delete row so the
+            destructive control stays visually distinct from the export
+            controls the engineer hits often. */}
+        {!loading && proposal && (
+          <div className="flex items-center gap-2 flex-wrap pt-3 border-t">
+            <Button variant="outline" size="sm" onClick={onExportDocx} disabled={docxBusy} className="gap-1.5">
+              {docxBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+              Export to Word
+            </Button>
+            <Button variant="outline" size="sm" onClick={onGeneratePdf} disabled={pdfBusy} className="gap-1.5">
+              {pdfBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileType className="w-4 h-4" />}
+              Generate PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={copyAcceptLink} className="gap-1.5" title="Copy the customer-facing accept link to your clipboard">
+              <Link2 className="w-4 h-4" />
+              Copy accept link
+            </Button>
+          </div>
         )}
 
         <DialogFooter className="flex items-center justify-between gap-2 flex-wrap">
