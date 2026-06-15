@@ -36,7 +36,8 @@ import {
 import DeleteSiteDialog from "@/components/sites/DeleteSiteDialog";
 import { MergeSitesDialog } from "@/components/sites/MergeSitesDialog";
 import { InventoryQuoteDialog } from "@/components/sites/InventoryQuoteDialog";
-import { GitMerge, Sparkles } from "lucide-react";
+import { MaintenanceProposalCreateDialog } from "@/components/maintenance-proposals/MaintenanceProposalCreateDialog";
+import { GitMerge, Sparkles, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Site } from "@/services/siteService";
 import { Customer } from "@/services/customerService";
@@ -63,6 +64,7 @@ const SiteDetail = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [inventoryQuoteOpen, setInventoryQuoteOpen] = useState(false);
+  const [maintenanceProposalOpen, setMaintenanceProposalOpen] = useState(false);
 
   const fetchSite = async () => {
     if (!siteId) return;
@@ -227,6 +229,16 @@ const SiteDetail = () => {
             >
               <Sparkles className="w-4 h-4" />
               Quote from inventory (AI)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMaintenanceProposalOpen(true)}
+              className="gap-1"
+              title="Draft a maintenance proposal for this site"
+            >
+              <Wrench className="w-4 h-4" />
+              Maintenance Proposal
             </Button>
             <Button variant="outline" size="sm" onClick={() => setRamsJobSelectorOpen(true)}>
               <HardHat className="w-4 h-4 mr-2" />
@@ -413,6 +425,16 @@ const SiteDetail = () => {
         siteId={site.id}
         siteName={site.name}
         panelMakeModel={(site as { panel_make_model?: string | null }).panel_make_model ?? null}
+      />
+      <MaintenanceProposalCreateDialog
+        open={maintenanceProposalOpen}
+        onOpenChange={setMaintenanceProposalOpen}
+        initialSiteId={site.id}
+        initialCustomerId={(site as { customer_id?: string | null }).customer_id ?? null}
+        onCreated={() => {
+          setMaintenanceProposalOpen(false);
+          navigate("/dashboard/maintenance-proposals");
+        }}
       />
     </DashboardLayout>
   );

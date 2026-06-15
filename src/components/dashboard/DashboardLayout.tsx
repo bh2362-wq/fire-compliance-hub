@@ -78,6 +78,7 @@ const certsNav = [
 const financeNav = [
   { name: "Invoices",          href: "/dashboard/invoices",          icon: Receipt },
   { name: "Quotations",        href: "/dashboard/quotations",        icon: FileSpreadsheet },
+  { name: "Maintenance Proposals", href: "/dashboard/maintenance-proposals", icon: Wrench },
   { name: "Remittance Advice", href: "/dashboard/remittance-advice", icon: Mail },
   { name: "Credit Control",    href: "/dashboard/credit-control",    icon: CreditCard },
   { name: "Purchase Orders",   href: "/dashboard/purchase-orders",   icon: ShoppingCart },
@@ -285,6 +286,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const isFinanceRoute = [
     "/dashboard/invoices", "/dashboard/quotations", "/dashboard/credit-control",
     "/dashboard/purchase-orders", "/dashboard/reconciliation",
+    "/dashboard/maintenance-proposals",
   ].some((p) => location.pathname.startsWith(p));
   const isToolsRoute = [
     "/dashboard/email-scanner", "/dashboard/device-pricing",
