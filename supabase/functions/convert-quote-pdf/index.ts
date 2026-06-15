@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     // can reuse this conversion path without each needing their own
     // edge function. Defaults to quote-outputs so existing quote flow
     // is unchanged.
-    const { docx_storage_path, quotation_id, bucket } = await req.json();
+    const { docx_storage_path, quotation_id, maintenance_proposal_id, bucket } = await req.json();
     if (!docx_storage_path) throw new Error("Missing docx_storage_path");
     const storageBucket = (typeof bucket === "string" && bucket.length > 0) ? bucket : "quote-outputs";
 
@@ -151,8 +151,14 @@ Deno.serve(async (req) => {
     const { data: signed, error: signErr } = await supabase.storage.from(storageBucket).createSignedUrl(pdfStoragePath, 3600);
     if (signErr || !signed) throw new Error(`Sign failed: ${signErr?.message}`);
 
+    // Write back to whichever parent the caller named. Both cases mirror
+    // the quotations contract (PR #232 / PR #244) — store the path so the
+    // next download serves from cache.
     if (quotation_id) {
       await supabase.from("quotations").update({ latest_pdf_path: pdfStoragePath }).eq("id", quotation_id);
+    }
+    if (maintenance_proposal_id) {
+      await supabase.from("maintenance_proposals").update({ latest_pdf_path: pdfStoragePath }).eq("id", maintenance_proposal_id);
     }
 
     return new Response(JSON.stringify({
