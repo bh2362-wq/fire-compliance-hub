@@ -39,6 +39,7 @@ import NotFound from "./pages/NotFound";
 import EmailLogs from "./pages/EmailLogs";
 import CreditControl from "./pages/CreditControl";
 import Quotations from "./pages/Quotations";
+import MaintenanceProposals from "./pages/MaintenanceProposals";
 import PurchaseOrders from "./pages/PurchaseOrders";
 import SharedReport from "./pages/SharedReport";
 import AcceptQuote from "./pages/AcceptQuote";
@@ -314,6 +315,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Quotations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/maintenance-proposals"
+              element={
+                <ProtectedRoute>
+                  <MaintenanceProposals />
                 </ProtectedRoute>
               }
             />
