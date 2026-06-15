@@ -58,21 +58,32 @@ function toIlikePattern(token: string): string {
 export async function searchSupplierProducts(
   query: string,
   limit = 200,
+  options: { broad?: boolean } = {},
 ): Promise<{ data: SupplierProduct[]; error: Error | null }> {
   const trimmed = query.trim();
   if (!trimmed) return { data: [], error: null };
 
-  // model column also searched — engineer's data has SKUs like
-  // "S4-OPT-W" in model rather than part_number / description, and
-  // the previous narrower search was missing them.
-  const pattern = toIlikePattern(trimmed);
+  // Broad mode tokenizes the query on whitespace and OR-matches every
+  // token across every searchable column. Catches phrases like "smoke
+  // detector white" by returning rows that contain ANY of those
+  // tokens. Plain mode keeps the single-pattern semantics (wildcard
+  // or contains) the engineer is used to.
+  const cols = ["part_number", "description", "short_name", "model"];
+  const orClause = options.broad
+    ? trimmed
+        .split(/\s+/)
+        .filter((t) => t.length >= 2)
+        .flatMap((t) => cols.map((c) => `${c}.ilike.${toIlikePattern(t)}`))
+        .join(",")
+    : cols.map((c) => `${c}.ilike.${toIlikePattern(trimmed)}`).join(",");
+
+  if (!orClause) return { data: [], error: null };
+
   const { data, error } = await supabase
     .from("price_list_items")
     .select("id, part_number, description, short_name, model, unit_cost, manufacturer, category, created_at, updated_at")
     .eq("is_active", true)
-    .or(
-      `part_number.ilike.${pattern},description.ilike.${pattern},short_name.ilike.${pattern},model.ilike.${pattern}`,
-    )
+    .or(orClause)
     .order("part_number")
     .limit(limit);
 

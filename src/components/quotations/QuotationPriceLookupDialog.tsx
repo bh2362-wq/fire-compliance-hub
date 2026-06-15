@@ -9,8 +9,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2, SearchX, RefreshCw, Database } from "lucide-react";
+import { Plus, Loader2, SearchX, RefreshCw, Database, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
   TableBody,
@@ -38,9 +39,12 @@ export function QuotationPriceLookupDialog({
   onAddToQuote,
 }: QuotationPriceLookupDialogProps) {
   const [catalogResults, setCatalogResults] = useState<SupplierProduct[]>([]);
+  const [aiSuggestions, setAiSuggestions] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
   const [searched, setSearched] = useState(false);
   const [refinedSearch, setRefinedSearch] = useState("");
+  const [broad, setBroad] = useState(false);
   const [addedIndices, setAddedIndices] = useState<Set<string>>(new Set());
   const lastSearchRef = useRef("");
 
@@ -52,15 +56,15 @@ export function QuotationPriceLookupDialog({
     setLoading(true);
     setSearched(true);
     setCatalogResults([]);
+    setAiSuggestions([]);
     setAddedIndices(new Set());
     lastSearchRef.current = term;
 
     try {
-      // Cap raised 30 → 200 so SKU-prefix searches like "s4*" return the
-      // full set of starts-with matches rather than an arbitrary first 30.
-      // Engineers asked for this; 200 fits in the scrolling table without
-      // hammering the bundle.
-      const { data: local } = await searchSupplierProducts(term, 200);
+      // Cap 200, with optional broad mode tokenizing the term across the
+      // searchable columns so "smoke detector white" catches rows that
+      // match any of those tokens — not just the literal phrase.
+      const { data: local } = await searchSupplierProducts(term, 200, { broad });
       setCatalogResults(local);
       if (local.length === 0) toast.info("No results found in catalog");
     } catch {
@@ -70,14 +74,92 @@ export function QuotationPriceLookupDialog({
     }
   };
 
+  // AI suggest — uses the candidate set already on screen (or a fresh
+  // broad search if nothing's loaded) and asks Claude to rank the top
+  // 3 most-likely matches for the row's description / item name. The
+  // ranked list lands above the catalog table as a separate section
+  // so engineers can act on it without losing the full result set.
+  const doAiSuggest = async () => {
+    const term = lastSearchRef.current || refinedSearch.trim() || searchTerm.trim();
+    if (!term) {
+      toast.error("Search first or type a description to suggest from");
+      return;
+    }
+    setAiBusy(true);
+    try {
+      let candidates = catalogResults;
+      if (candidates.length === 0) {
+        const { data: local } = await searchSupplierProducts(term, 200, { broad: true });
+        candidates = local;
+        setCatalogResults(local);
+        setSearched(true);
+      }
+      if (candidates.length === 0) {
+        toast.info("No catalog candidates to rank — refine the search first");
+        return;
+      }
+      const candidateBlock = candidates
+        .slice(0, 50)
+        .map((c, i) =>
+          `${i}: code="${c.product_code}" desc="${c.description}" supplier="${c.supplier_name}" cat="${c.category ?? ""}" price=£${Number(c.trade_price).toFixed(2)}`,
+        )
+        .join("\n");
+      const systemPrompt =
+        "You are helping a UK fire-safety estimator pick the best catalog match for a quotation line. " +
+        "Given the engineer's search term and a list of candidate catalog rows, return STRICT JSON " +
+        "naming the indexes of the top 3 most-likely matches (best first). Consider device type, " +
+        "manufacturer family, colour / variant suffixes, and price-list source quality (Huvo > " +
+        "generic supplier rows). Return: {\"indexes\":[<int>,<int>,<int>]}";
+      const userMsg =
+        `Engineer is looking for: "${term}"\n\nCandidates (index: details):\n${candidateBlock}\n\nReturn STRICT JSON, no fences.`;
+
+      // Reuse the existing rewrite-text infra? No — different shape.
+      // Use the lookup-device-price function's online path? Also no —
+      // that's for online search. Call Claude directly via the
+      // claude-chat edge function we already deploy.
+      const { data, error } = await supabase.functions.invoke("claude-chat", {
+        body: {
+          model: "claude-sonnet-4-6",
+          max_tokens: 300,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userMsg }],
+        },
+      });
+      if (error) throw new Error(error.message);
+      const raw: string = (data?.text ?? data?.content ?? "").toString();
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      const parsed = JSON.parse(cleaned);
+      const idxs: number[] = Array.isArray(parsed.indexes) ? parsed.indexes : [];
+      const picked: SupplierProduct[] = [];
+      for (const i of idxs) {
+        if (Number.isInteger(i) && i >= 0 && i < candidates.length) {
+          picked.push(candidates[i]);
+        }
+      }
+      if (picked.length === 0) {
+        toast.info("AI didn't return any ranked matches");
+        return;
+      }
+      setAiSuggestions(picked);
+      toast.success(`AI suggested ${picked.length} match${picked.length === 1 ? "" : "es"}`);
+    } catch (err) {
+      console.error("AI suggest failed:", err);
+      toast.error(err instanceof Error ? err.message : "AI suggest failed");
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (open && searchTerm.trim() && lastSearchRef.current !== searchTerm) {
       doSearch(searchTerm);
     }
     if (!open) {
       setCatalogResults([]);
+      setAiSuggestions([]);
       setSearched(false);
       setRefinedSearch("");
+      setBroad(false);
       setAddedIndices(new Set());
       lastSearchRef.current = "";
     }
@@ -105,6 +187,59 @@ export function QuotationPriceLookupDialog({
             <div className="text-center py-8 space-y-4">
               <SearchX className="h-10 w-10 mx-auto text-muted-foreground" />
               <p className="text-muted-foreground">No match found in catalog. Try refining your search below.</p>
+            </div>
+          )}
+
+          {/* AI Suggestions — ranked subset of catalog results. Surfaced
+              above the full table so engineers see the top picks first
+              while keeping the long list available below. */}
+          {!loading && aiSuggestions.length > 0 && (
+            <div className="border rounded-lg p-3 space-y-2 bg-primary/5 border-primary/30">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <p className="font-semibold text-sm">AI Suggestions</p>
+                <Badge variant="outline" className="text-xs">{aiSuggestions.length}</Badge>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Code</TableHead>
+                      <TableHead className="text-xs">Description</TableHead>
+                      <TableHead className="text-xs text-right">Trade Price</TableHead>
+                      <TableHead className="text-xs text-center">Add</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {aiSuggestions.map((p) => {
+                      const key = `ai-${p.id}`;
+                      const added = addedIndices.has(key);
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell className="font-mono text-sm font-medium py-2">{p.product_code}</TableCell>
+                          <TableCell className="text-sm py-2 max-w-[250px]">{p.description}</TableCell>
+                          <TableCell className="text-sm text-right font-bold py-2">£{Number(p.trade_price).toFixed(2)}</TableCell>
+                          <TableCell className="text-center py-2">
+                            <Button
+                              variant={added ? "secondary" : "outline"}
+                              size="sm"
+                              className="h-7 px-2"
+                              disabled={added}
+                              onClick={() => {
+                                onAddToQuote(p.description, p.trade_price);
+                                setAddedIndices((prev) => new Set(prev).add(key));
+                                toast.success(`Added ${p.product_code} at £${Number(p.trade_price).toFixed(2)}`);
+                              }}
+                            >
+                              {added ? "Added" : <Plus className="h-3.5 w-3.5" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
 
@@ -171,7 +306,7 @@ export function QuotationPriceLookupDialog({
                 <Input
                   value={refinedSearch}
                   onChange={(e) => setRefinedSearch(e.target.value)}
-                  placeholder="Enter part number or description…"
+                  placeholder="Enter part number or description… (use * for wildcards, e.g. s4*)"
                   className="flex-1"
                   onKeyDown={(e) => e.key === "Enter" && doSearch(refinedSearch)}
                 />
@@ -183,7 +318,26 @@ export function QuotationPriceLookupDialog({
                 >
                   <RefreshCw className="h-4 w-4 mr-1" /> Search Again
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={doAiSuggest}
+                  disabled={aiBusy || (catalogResults.length === 0 && !refinedSearch.trim() && !searchTerm.trim())}
+                  title="Ask AI to rank the top matches for the current search term"
+                >
+                  {aiBusy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
+                  AI Suggest
+                </Button>
               </div>
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={broad}
+                  onChange={(e) => setBroad(e.target.checked)}
+                />
+                Broad search — match each word separately, OR'd across all columns.
+                Catches phrases like "smoke detector white" against rows containing any of those terms.
+              </label>
             </div>
           )}
         </div>
