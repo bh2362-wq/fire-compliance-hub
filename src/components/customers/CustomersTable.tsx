@@ -153,8 +153,16 @@ export function CustomersTable({ onEdit, refreshTrigger }: CustomersTableProps) 
                     <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
                       <Building2 className="w-4 h-4 text-primary" />
                     </div>
-                    <div>
-                      <p className="font-medium text-foreground">{customer.name}</p>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-medium text-foreground">{customer.name}</p>
+                        {customer.category === "direct" && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/40 bg-primary/5 text-primary">Direct</Badge>
+                        )}
+                        {customer.category === "main_contractor" && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-amber-500/40 bg-amber-500/5 text-amber-700">Main contractor</Badge>
+                        )}
+                      </div>
                       {customer.contact_email && (
                         <p className="text-sm text-muted-foreground">{customer.contact_email}</p>
                       )}

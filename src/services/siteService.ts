@@ -14,6 +14,12 @@ export interface Site {
   sharepoint_folder: string | null;
   created_at: string;
   updated_at: string;
+  customer_id?: string | null;
+  // Inherited from sites.customers.category via the join in getSites().
+  // Drives the Direct / Main contractor badge on the Sites listing.
+  // Optional because not every call site uses the joined fetch.
+  customer_category?: "direct" | "main_contractor" | null;
+  customer_name?: string | null;
 }
 
 export interface SiteFormData {
@@ -38,13 +44,20 @@ export interface DeviceImport {
 
 export async function getSites(): Promise<{ sites: Site[]; error: Error | null }> {
   try {
+    // Join the customer category through so the Sites list can render
+    // the Direct / Main contractor badge without N+1 lookups.
     const { data, error } = await supabase
       .from("sites")
-      .select("*")
+      .select("*, customer:customers(id, name, category)")
       .order("name", { ascending: true });
 
     if (error) throw error;
-    return { sites: data || [], error: null };
+    const sites: Site[] = (data || []).map((row: any) => ({
+      ...row,
+      customer_category: row.customer?.category ?? null,
+      customer_name: row.customer?.name ?? null,
+    }));
+    return { sites, error: null };
   } catch (error) {
     console.error("Error fetching sites:", error);
     return { sites: [], error: error as Error };

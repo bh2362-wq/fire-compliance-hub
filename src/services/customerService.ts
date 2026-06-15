@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export type CustomerCategory = "direct" | "main_contractor";
+
 export interface Customer {
   id: string;
   name: string;
@@ -11,6 +13,10 @@ export interface Customer {
   postcode: string | null;
   notes: string | null;
   status: string | null;
+  // "direct" = BHO works directly for this customer.
+  // "main_contractor" = BHO sub-contracts for them; end-site belongs to a
+  // third party (school / hospital / etc.). Null until categorised.
+  category: CustomerCategory | null;
   xero_contact_id: string | null;
   email_recipients: string | null;
   invoice_email_recipients: string | null;
@@ -84,6 +90,7 @@ export interface CreateCustomerData {
   postcode?: string | null;
   notes?: string | null;
   status?: string;
+  category?: CustomerCategory | null;
   xero_contact_id?: string | null;
   email_recipients?: string | null;
   invoice_email_recipients?: string | null;
