@@ -19,6 +19,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -45,6 +52,11 @@ import { cn } from "@/lib/utils";
 
 const customerSchema = z.object({
   name: z.string().min(1, "Customer name is required"),
+  // Relationship category — "direct" (BHO works directly for them) vs
+  // "main_contractor" (BHO sub-contracts; end-site is third-party).
+  // "" allowed so the form's default value stays valid until the
+  // engineer picks one. Nulled before DB write when empty.
+  category: z.enum(["direct", "main_contractor"]).or(z.literal("")).optional(),
   contact_name: z.string().optional(),
   contact_email: z.string().email().optional().or(z.literal("")),
   contact_phone: z.string().optional(),
@@ -89,6 +101,7 @@ export function CustomerFormDialog({
     resolver: zodResolver(customerSchema),
     defaultValues: {
       name: customer?.name || "",
+      category: (customer?.category ?? "") as "direct" | "main_contractor" | "",
       contact_name: customer?.contact_name || "",
       contact_email: customer?.contact_email || "",
       contact_phone: customer?.contact_phone || "",
@@ -132,6 +145,7 @@ export function CustomerFormDialog({
     if (open) {
       form.reset({
         name: customer?.name || "",
+        category: (customer?.category ?? "") as "direct" | "main_contractor" | "",
         contact_name: customer?.contact_name || "",
         contact_email: customer?.contact_email || "",
         contact_phone: customer?.contact_phone || "",
@@ -252,6 +266,10 @@ export function CustomerFormDialog({
 
     const customerData = {
       name: data.name,
+      // Null when blank — the customers_category_check constraint
+      // permits NULL; "" would fail the IN ('direct', 'main_contractor')
+      // check.
+      category: data.category ? data.category : null,
       contact_name: data.contact_name || null,
       contact_email: data.contact_email || null,
       contact_phone: data.contact_phone || null,
@@ -464,6 +482,40 @@ export function CustomerFormDialog({
                   <FormControl>
                     <Input placeholder="Company Ltd" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Relationship category — distinguishes BHO's direct
+                customers from main contractors we sub for (Mitie,
+                Bouygues, etc.). Drives the badge + filter on the
+                Customers / Sites list pages. */}
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Relationship</FormLabel>
+                  <Select
+                    value={field.value || ""}
+                    onValueChange={(v) => field.onChange(v === "_unset" ? "" : v)}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select relationship type…" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="_unset">Not set</SelectItem>
+                      <SelectItem value="direct">
+                        Direct — BHO works directly for this customer
+                      </SelectItem>
+                      <SelectItem value="main_contractor">
+                        Main contractor — BHO sub-contracts; end-site is a third party
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

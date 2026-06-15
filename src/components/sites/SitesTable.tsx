@@ -204,10 +204,23 @@ const SitesTable = () => {
                         )}
                       </div>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-2 space-y-1">
                       <Badge variant="outline" className={status.className}>
                         {status.label}
                       </Badge>
+                      {/* Inherited from sites.customers.category — surfaces
+                          whether BHO works directly here or sub-contracts
+                          for a main contractor on someone else's site. */}
+                      {site.customer_category === "direct" && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-primary/40 bg-primary/5 text-primary block w-fit">
+                          Direct
+                        </Badge>
+                      )}
+                      {site.customer_category === "main_contractor" && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 border-amber-500/40 bg-amber-500/5 text-amber-700 block w-fit">
+                          Sub-contract
+                        </Badge>
+                      )}
                     </div>
                     <div className="col-span-2 flex items-center justify-end gap-2">
                       <Button
