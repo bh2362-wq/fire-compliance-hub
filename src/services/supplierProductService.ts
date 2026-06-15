@@ -30,19 +30,48 @@ const mapPriceListRow = (r: any): SupplierProduct => ({
   updated_at: r.updated_at,
 });
 
+// Translate engineer-typed search tokens into a Postgres ILIKE pattern.
+//   "s4*"   → "s4%"     (starts with s4)
+//   "*4w"   → "%4w"     (ends with 4w)
+//   "*det*" → "%det%"   (contains; same as default)
+//   "s4"    → "%s4%"    (plain text — still contains for back-compat)
+// Engineers asked for the `s4*` form explicitly so a SKU-prefix search
+// pulls every result starting with that prefix instead of being polluted
+// by mid-string matches. The * is treated as an end-anchored wildcard
+// rather than a SQL `_`-style placeholder.
+function toIlikePattern(token: string): string {
+  const t = token.trim();
+  if (!t) return "%";
+  const startsWild = t.startsWith("*");
+  const endsWild = t.endsWith("*");
+  const core = t.replace(/^\*/, "").replace(/\*$/, "");
+  // Escape Postgres LIKE metacharacters in the core (% and _) so a
+  // model column containing "50%-loaded" or "T_HEAT" doesn't match
+  // bogus things on a literal search.
+  const escaped = core.replace(/[%_]/g, "\\$&");
+  if (startsWild && endsWild) return `%${escaped}%`;
+  if (endsWild)               return `${escaped}%`;     // s4* → s4%
+  if (startsWild)             return `%${escaped}`;     // *4w → %4w
+  return `%${escaped}%`;                                  // default contains
+}
+
 export async function searchSupplierProducts(
   query: string,
-  limit = 20
+  limit = 200,
 ): Promise<{ data: SupplierProduct[]; error: Error | null }> {
   const trimmed = query.trim();
   if (!trimmed) return { data: [], error: null };
 
+  // model column also searched — engineer's data has SKUs like
+  // "S4-OPT-W" in model rather than part_number / description, and
+  // the previous narrower search was missing them.
+  const pattern = toIlikePattern(trimmed);
   const { data, error } = await supabase
     .from("price_list_items")
-    .select("id, part_number, description, short_name, unit_cost, manufacturer, category, created_at, updated_at")
+    .select("id, part_number, description, short_name, model, unit_cost, manufacturer, category, created_at, updated_at")
     .eq("is_active", true)
     .or(
-      `part_number.ilike.%${trimmed}%,description.ilike.%${trimmed}%,short_name.ilike.%${trimmed}%`
+      `part_number.ilike.${pattern},description.ilike.${pattern},short_name.ilike.${pattern},model.ilike.${pattern}`,
     )
     .order("part_number")
     .limit(limit);
@@ -66,13 +95,13 @@ export async function getSupplierProducts(
 ): Promise<{ data: SupplierProduct[]; total: number; error: Error | null }> {
   let query = supabase
     .from("price_list_items")
-    .select("id, part_number, description, short_name, unit_cost, manufacturer, category, created_at, updated_at", { count: "exact" })
+    .select("id, part_number, description, short_name, model, unit_cost, manufacturer, category, created_at, updated_at", { count: "exact" })
     .eq("is_active", true);
 
   if (search.trim()) {
-    const s = search.trim();
+    const pattern = toIlikePattern(search);
     query = query.or(
-      `part_number.ilike.%${s}%,description.ilike.%${s}%,short_name.ilike.%${s}%`
+      `part_number.ilike.${pattern},description.ilike.${pattern},short_name.ilike.${pattern},model.ilike.${pattern}`,
     );
   }
 
