@@ -17,6 +17,7 @@ import {
   GripVertical,
   Copy,
   Volume2,
+  Undo2,
   Search,
 } from "lucide-react";
 import {
@@ -205,6 +206,13 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   // used by the inventory-quote review screen. Applies the picked trade
   // price to this row's unit_price (and stamps item_name if empty).
   const [priceLookupIndex, setPriceLookupIndex] = useState<number | null>(null);
+  // Undo memory for catalog applies — engineer asked for a one-click
+  // walk-back if the picked catalog row turns out to be wrong. We
+  // remember the pre-apply description + unit_price keyed by line
+  // id; the per-row undo pill renders when an entry exists. Cleared
+  // on save (whole quote becomes the new baseline) and on a manual
+  // undo click.
+  const [catalogUndo, setCatalogUndo] = useState<Record<string, { description: string; unit_price: number }>>({});
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -1055,6 +1063,10 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
 
       toast.success("Quotation saved");
       setHasChanges(false);
+      // After save, the new state is the baseline — undo memory for
+      // catalog applies no longer makes sense (it'd "undo" to a value
+      // that's already been overwritten in the DB).
+      setCatalogUndo({});
       if (draftStorageKey) {
         try { localStorage.removeItem(draftStorageKey); } catch { /* ignore */ }
       }
@@ -1672,15 +1684,42 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                             <div className="flex items-center justify-between gap-1">
                                               <Label className="text-xs">Unit Cost £</Label>
                                               {!isLocked && (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => setPriceLookupIndex(index)}
-                                                  className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5"
-                                                  title="Look up trade price in catalog"
-                                                >
-                                                  <Search className="h-3 w-3" />
-                                                  {(item.unit_price || 0) > 0 ? "Change" : "Lookup"}
-                                                </button>
+                                                <div className="flex items-center gap-1">
+                                                  {/* Undo pill — only shows when a catalog
+                                                      apply has stashed pre-apply state for
+                                                      this row. Clears on save. */}
+                                                  {catalogUndo[item.id] && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => {
+                                                        const memo = catalogUndo[item.id];
+                                                        if (!memo) return;
+                                                        handleItemChange(index, "description", memo.description);
+                                                        handleItemChange(index, "unit_price", memo.unit_price);
+                                                        setCatalogUndo((prev) => {
+                                                          const next = { ...prev };
+                                                          delete next[item.id];
+                                                          return next;
+                                                        });
+                                                        toast.info("Reverted to pre-lookup value");
+                                                      }}
+                                                      className="text-[10px] text-muted-foreground hover:text-destructive inline-flex items-center gap-0.5"
+                                                      title="Undo the catalog lookup that changed this row"
+                                                    >
+                                                      <Undo2 className="h-3 w-3" />
+                                                      Undo
+                                                    </button>
+                                                  )}
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setPriceLookupIndex(index)}
+                                                    className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5"
+                                                    title="Look up trade price in catalog"
+                                                  >
+                                                    <Search className="h-3 w-3" />
+                                                    {(item.unit_price || 0) > 0 ? "Change" : "Lookup"}
+                                                  </button>
+                                                </div>
                                               )}
                                             </div>
                                             <Input
@@ -2179,13 +2218,19 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           const idx = priceLookupIndex;
           const current = lineItems[idx];
           if (!current) return;
-          // Engineer asked for the catalog description to REPLACE the line's
-          // description verbatim — "the exact text in the quote". Earlier
-          // build only updated price + item_name and left the original
-          // (often wrong) description in place. Now: write description,
-          // unit_price, and item_name (the part code, when we can derive
-          // it). The dialog now passes JUST the description string, so
-          // there's no "CODE - description" splitting to do here anymore.
+          // Stash the pre-apply state so the engineer can walk it back
+          // if the catalog pick turns out to be wrong. Only the most
+          // recent apply per row is recoverable — subsequent applies
+          // overwrite the memory, matching the AIRewriteButton pattern
+          // PR #223 uses for AI rewrites.
+          setCatalogUndo((prev) => ({
+            ...prev,
+            [current.id]: {
+              description: current.description ?? "",
+              unit_price: current.unit_price ?? 0,
+            },
+          }));
+          // Replace description + unit_price (PR #238 contract).
           handleItemChange(idx, "description", description);
           handleItemChange(idx, "unit_price", unitPrice);
           setPriceLookupIndex(null);
