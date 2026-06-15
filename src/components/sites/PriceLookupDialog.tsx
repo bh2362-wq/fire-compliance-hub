@@ -16,7 +16,45 @@ interface InternalResult {
   part_number: string | null;
   supplier: string | null;
   category: string | null;
+  model: string | null;
+  notes: string | null;
   confidence: number;
+}
+
+// Build the line-item description we write when the engineer clicks
+// Apply. Combines manufacturer + model + bare description + part code
+// so the quote line reads like "Apollo XP95 — Optical Smoke Detector
+// (55000-600APO)" rather than just the bare part code that some
+// imports leave in `description`. De-dups so we don't repeat the
+// part code if it's already inside the description string.
+function buildApplyDescription(r: InternalResult): string {
+  const desc = (r.description ?? "").trim();
+  const model = (r.model ?? "").trim();
+  const part = (r.part_number ?? "").trim();
+  const supplier = (r.supplier ?? "").trim();
+  const parts: string[] = [];
+  if (supplier && !desc.toLowerCase().includes(supplier.toLowerCase())) parts.push(supplier);
+  if (model && !desc.toLowerCase().includes(model.toLowerCase())) parts.push(model);
+  if (desc) parts.push(desc);
+  const head = parts.join(" — ").trim();
+  if (part && !head.toLowerCase().includes(part.toLowerCase())) {
+    return `${head} (${part})`.trim();
+  }
+  return head || part || "";
+}
+
+// Pick the most informative string to show as the dialog row's primary
+// line. Falls back through description → model → notes → part_number so
+// rows where the description was imported as the part code still read
+// usefully.
+function primaryLine(r: InternalResult): string {
+  const desc = (r.description ?? "").trim();
+  if (desc && desc.length > 4 && desc !== (r.part_number ?? "").trim()) return desc;
+  const model = (r.model ?? "").trim();
+  if (model) return model;
+  const notes = (r.notes ?? "").trim();
+  if (notes) return notes;
+  return r.part_number ?? desc ?? "";
 }
 
 interface OnlineResult {
@@ -102,7 +140,7 @@ export function PriceLookupDialog({ open, onOpenChange, initialQuery, manufactur
 
   function applyInternal(r: InternalResult) {
     onApply({
-      description: [r.part_number, r.description].filter(Boolean).join(" — ").trim() || r.description,
+      description: buildApplyDescription(r),
       unit_price: r.unit_cost,
       source: "internal",
       supplier: r.supplier,
@@ -189,7 +227,19 @@ export function PriceLookupDialog({ open, onOpenChange, initialQuery, manufactur
                   <Card key={`int-${i}`} className="hover:bg-muted/30 transition-colors">
                     <CardContent className="p-2.5 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0 space-y-0.5">
-                        <p className="text-sm font-medium">{r.description}</p>
+                        {/* Primary line is the most informative field
+                            available — falls through description /
+                            model / notes / part_number so terse imports
+                            still read usefully. */}
+                        <p className="text-sm font-medium">{primaryLine(r)}</p>
+                        {/* Show model + notes underneath when the
+                            primary line was description and they add
+                            information. */}
+                        {(r.model || r.notes) && primaryLine(r) === (r.description ?? "").trim() && (
+                          <p className="text-[11px] text-muted-foreground">
+                            {[r.model, r.notes].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
                         <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-muted-foreground">
                           <Badge variant="outline" className="text-[10px] capitalize">{r.source}</Badge>
                           {r.supplier && <span>· {r.supplier}</span>}

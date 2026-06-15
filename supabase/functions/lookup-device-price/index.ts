@@ -43,6 +43,13 @@ interface InternalResult {
   part_number: string | null;
   supplier: string | null;
   category: string | null;
+  // Enrichment — surfaced in the dialog and joined into the apply
+  // description when the bare description column is just the part
+  // code. Engineer flagged that Huvo imports sometimes have
+  // description = part_code, leaving the longer name in `model` or
+  // `notes`.
+  model: string | null;
+  notes: string | null;
   confidence: number;
 }
 
@@ -122,8 +129,13 @@ async function lookupInternal(
   const PER_TABLE_LIMIT = 250;
   const [h, c, s] = await Promise.all([
     sb.from("price_list_items")
-      .select("part_number,description,short_name,unit_cost,manufacturer,category")
-      .or(orClause(["description", "short_name", "part_number", "manufacturer", "category"]))
+      // model + notes pulled so descriptions don't render as bare
+      // part codes when the import dumped the long name into one of
+      // those columns. model also added to the OR so a query like
+      // "s4" hits SKUs like "S4-OPT-W" that live there, not in
+      // description / part_number.
+      .select("part_number,description,short_name,model,notes,unit_cost,manufacturer,category")
+      .or(orClause(["description", "short_name", "part_number", "model", "manufacturer", "category"]))
       .eq("is_active", true)
       .limit(PER_TABLE_LIMIT),
     sb.from("materials_catalog")
@@ -139,12 +151,14 @@ async function lookupInternal(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const r of ((h.data ?? []) as Array<Record<string, unknown>>)) {
     rows.push({
-      description: String(r.description ?? r.short_name ?? ""),
+      description: String(r.description ?? r.short_name ?? r.model ?? ""),
       unit_cost: Number(r.unit_cost) || 0,
       source: "huvo",
       part_number: (r.part_number as string) ?? null,
       supplier: (r.manufacturer as string) ?? "Huvo",
       category: (r.category as string) ?? null,
+      model: (r.model as string) ?? null,
+      notes: (r.notes as string) ?? null,
       confidence: 0,
     });
   }
@@ -156,6 +170,8 @@ async function lookupInternal(
       part_number: (r.part_number as string) ?? null,
       supplier: (r.supplier_name as string) ?? null,
       category: (r.category as string) ?? null,
+      model: null,
+      notes: null,
       confidence: 0,
     });
   }
@@ -167,13 +183,18 @@ async function lookupInternal(
       part_number: (r.product_code as string) ?? null,
       supplier: (r.supplier_name as string) ?? null,
       category: (r.category as string) ?? null,
+      model: null,
+      notes: null,
       confidence: 0,
     });
   }
   // Score and de-dup.
   const manuHint = manufacturerHint?.toLowerCase().split(/\s+/)[0] ?? null;
   const scored = rows.map((p) => {
-    const haystack = `${p.description ?? ""} ${p.supplier ?? ""} ${p.part_number ?? ""} ${p.category ?? ""}`.toLowerCase();
+    // Include model + notes in the haystack so SKU-style queries
+    // ("s4", "xp95") that match a row via its `model` column score
+    // as well as queries that match `description` directly.
+    const haystack = `${p.description ?? ""} ${p.supplier ?? ""} ${p.part_number ?? ""} ${p.category ?? ""} ${p.model ?? ""} ${p.notes ?? ""}`.toLowerCase();
     const overlap = tokens.filter((t) => haystack.includes(t)).length / Math.max(1, tokens.length);
     const manuBonus = manuHint && (p.supplier ?? "").toLowerCase().includes(manuHint) ? 0.25 : 0;
     return { ...p, confidence: Math.min(1, overlap + manuBonus) };
