@@ -1,4 +1,4 @@
-export type RecentContextKind = "site" | "job";
+export type RecentContextKind = "site" | "job" | "customer";
 
 export interface RecentContextItem {
   id: string;
@@ -11,6 +11,7 @@ export interface RecentContextItem {
 const KEYS: Record<RecentContextKind, string> = {
   site: "recentContext.site.v1",
   job: "recentContext.job.v1",
+  customer: "recentContext.customer.v1",
 };
 
 export const RECENT_CONTEXT_EVENT = "recent-context-updated";
