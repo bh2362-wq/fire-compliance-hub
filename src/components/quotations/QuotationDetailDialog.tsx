@@ -71,6 +71,7 @@ import {
 import { ImproveTitleButton } from "./ImproveTitleButton";
 import { DuplicateQuotationDialog } from "./DuplicateQuotationDialog";
 import { QuotationPriceLookupDialog } from "./QuotationPriceLookupDialog";
+import { DescriptionAutocomplete } from "./DescriptionAutocomplete";
 import { parseScopeNumberedItems } from "@/lib/scopeMarkdown";
 
 // Snapshot of a pre-merge line item stored in the survivor's merged_from
@@ -1633,12 +1634,34 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                       )}
                                       <div className="flex-1 space-y-2">
                                         <div className="relative">
-                                          <Textarea
-                                            rows={2}
+                                          {/* Description input doubles as a catalog autocomplete.
+                                              As the engineer types (≥3 chars, debounced 300ms) the
+                                              top 10 catalog matches surface in a popover below the
+                                              Textarea. Picking one replaces description + unit_price
+                                              same as the Catalog Price Lookup dialog — saves the
+                                              Lookup-click for the common "I know roughly what it's
+                                              called" case. Hidden via Escape / Hide / outside-click;
+                                              the explicit Lookup button still opens the full dialog
+                                              for harder searches. */}
+                                          <DescriptionAutocomplete
                                             value={item.description}
-                                            onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                                            onChange={(text) => handleItemChange(index, "description", text)}
+                                            onPickSuggestion={(desc, unitPrice) => {
+                                              // Same undo-memo contract as the Catalog dialog so
+                                              // either entry point gets a one-click walk-back.
+                                              setCatalogUndo((prev) => ({
+                                                ...prev,
+                                                [item.id]: {
+                                                  description: item.description ?? "",
+                                                  unit_price: item.unit_price ?? 0,
+                                                },
+                                              }));
+                                              handleItemChange(index, "description", desc);
+                                              handleItemChange(index, "unit_price", unitPrice);
+                                            }}
                                             placeholder="Description of work..."
                                             disabled={isLocked}
+                                            rows={2}
                                             className="pr-10"
                                           />
                                           {/* Per-row "Improve with AI" — floats top-right inside

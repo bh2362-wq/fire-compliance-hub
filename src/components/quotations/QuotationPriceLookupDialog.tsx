@@ -61,10 +61,13 @@ export function QuotationPriceLookupDialog({
     lastSearchRef.current = term;
 
     try {
-      // Cap 200, with optional broad mode tokenizing the term across the
-      // searchable columns so "smoke detector white" catches rows that
-      // match any of those tokens — not just the literal phrase.
-      const { data: local } = await searchSupplierProducts(term, 200, { broad });
+      // Auto-detect broad: any whitespace-separated multi-word query
+      // gets tokenised + OR'd across all columns. Single-token /
+      // wildcard queries (s4*, XP95) stay in narrow mode. Manual
+      // toggle still wins if the engineer ticked it explicitly.
+      const looksMultiWord = term.trim().split(/\s+/).filter((t) => t.length >= 2).length >= 2;
+      const useBroad = broad || looksMultiWord;
+      const { data: local } = await searchSupplierProducts(term, 200, { broad: useBroad });
       setCatalogResults(local);
       if (local.length === 0) toast.info("No results found in catalog");
     } catch {
@@ -335,8 +338,8 @@ export function QuotationPriceLookupDialog({
                   checked={broad}
                   onChange={(e) => setBroad(e.target.checked)}
                 />
-                Broad search — match each word separately, OR'd across all columns.
-                Catches phrases like "smoke detector white" against rows containing any of those terms.
+                Force broad search — multi-word queries already auto-broaden;
+                tick this to also broaden single-token queries.
               </label>
             </div>
           )}
