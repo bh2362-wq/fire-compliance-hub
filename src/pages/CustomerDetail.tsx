@@ -47,6 +47,7 @@ import {
   getCustomerSites,
   setCustomerActiveStatus,
 } from "@/services/customerService";
+import { writeRecentContext } from "@/services/recentContextService";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { CustomerInvoices } from "@/components/customers/CustomerInvoices";
 import { CustomerReports } from "@/components/customers/CustomerReports";
@@ -127,6 +128,14 @@ const CustomerDetail = () => {
       });
     } else {
       setCustomer(customerResult.customer);
+      // Drop a recent-customer chip so the engineer can jump back from
+      // any other page. Mirrors what SiteDetail does for sites.
+      writeRecentContext("customer", {
+        id: customerResult.customer.id,
+        label: customerResult.customer.name,
+        subtitle: customerResult.customer.contact_name || customerResult.customer.contact_email || null,
+        href: `/dashboard/customers/${customerResult.customer.id}`,
+      });
     }
 
     if (!sitesResult.error) {

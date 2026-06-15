@@ -249,6 +249,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [quoteDraft, setQuoteDraft] = useState(() => readEmailScannerQuoteDraft());
   const [recentSite, setRecentSite] = useState(() => readRecentContext("site"));
   const [recentJob, setRecentJob] = useState(() => readRecentContext("job"));
+  const [recentCustomer, setRecentCustomer] = useState(() => readRecentContext("customer"));
 
   useEffect(() => {
     setMobileOpen(false);
@@ -268,6 +269,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const refreshRecentContext = () => {
       setRecentSite(readRecentContext("site"));
       setRecentJob(readRecentContext("job"));
+      setRecentCustomer(readRecentContext("customer"));
     };
     window.addEventListener(RECENT_CONTEXT_EVENT, refreshRecentContext);
     window.addEventListener("storage", refreshRecentContext);
@@ -560,6 +562,18 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   <span className="truncate">Last site: {recentSite.label}</span>
                 </Button>
               )}
+              {recentCustomer && location.pathname !== recentCustomer.href && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 max-w-[220px] gap-1.5 text-xs"
+                  onClick={() => navigate(recentCustomer.href)}
+                  title={recentCustomer.subtitle ? `${recentCustomer.label} — ${recentCustomer.subtitle}` : recentCustomer.label}
+                >
+                  <Users className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Last customer: {recentCustomer.label}</span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -616,7 +630,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
         </header>
 
-        {(quoteDraft || recentJob || recentSite) && (
+        {(quoteDraft || recentJob || recentSite || recentCustomer) && (
           <div className="md:hidden border-b border-border bg-card px-3 py-2 flex items-center gap-2 overflow-x-auto scrollbar-thin shrink-0">
             {quoteDraft && location.pathname !== "/dashboard/email-scanner" && (
               <Button variant="secondary" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => {
@@ -637,6 +651,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <Button variant="outline" size="sm" className="h-8 max-w-[190px] shrink-0 gap-1.5 text-xs" onClick={() => navigate(recentSite.href)}>
                 <Building2 className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">Last site: {recentSite.label}</span>
+              </Button>
+            )}
+            {recentCustomer && location.pathname !== recentCustomer.href && (
+              <Button variant="outline" size="sm" className="h-8 max-w-[190px] shrink-0 gap-1.5 text-xs" onClick={() => navigate(recentCustomer.href)}>
+                <Users className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Last customer: {recentCustomer.label}</span>
               </Button>
             )}
           </div>
