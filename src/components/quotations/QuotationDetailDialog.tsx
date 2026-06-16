@@ -2270,26 +2270,22 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             : ""
         }
         quantity={priceLookupIndex !== null ? (lineItems[priceLookupIndex]?.quantity || 1) : 1}
-        onAddToQuote={(description, unitPrice) => {
+        onAddToQuote={(description, unitPrice, partNumber) => {
           if (priceLookupIndex === null) return;
           const idx = priceLookupIndex;
           const current = lineItems[idx];
           if (!current) return;
-          // Stash the pre-apply state so the engineer can walk it back
-          // if the catalog pick turns out to be wrong. Only the most
-          // recent apply per row is recoverable — subsequent applies
-          // overwrite the memory, matching the AIRewriteButton pattern
-          // PR #223 uses for AI rewrites.
           setCatalogUndo((prev) => ({
             ...prev,
             [current.id]: {
               description: current.description ?? "",
               unit_price: current.unit_price ?? 0,
+              item_name: current.item_name ?? "",
             },
           }));
-          // Replace description + unit_price (PR #238 contract).
           handleItemChange(idx, "description", description);
           handleItemChange(idx, "unit_price", unitPrice);
+          if (partNumber) handleItemChange(idx, "item_name", partNumber);
           setPriceLookupIndex(null);
         }}
       />
