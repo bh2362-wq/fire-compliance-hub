@@ -28,7 +28,7 @@ interface QuotationPriceLookupDialogProps {
   onOpenChange: (open: boolean) => void;
   searchTerm: string;
   quantity: number;
-  onAddToQuote: (description: string, unitPrice: number) => void;
+  onAddToQuote: (description: string, unitPrice: number, partNumber: string) => void;
 }
 
 export function QuotationPriceLookupDialog({
