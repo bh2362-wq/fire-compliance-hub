@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -13,18 +14,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft, Plus, Upload, Download, FileText, FileType, Mail, ChevronDown,
-  Building2, Calendar, Loader2,
+  Building2, Calendar, Loader2, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   Bid, BidQuestion, BidStatus, BID_STATUS_LABELS,
-  getBid, listQuestions, createQuestion, updateBid, countWords,
+  getBid, listQuestions, createQuestion, updateBid, countWords, draftAllAnswers,
 } from "@/services/bidService";
 import { getCompanySettings, CompanySettings } from "@/services/companySettingsService";
 import { BidQuestionCard } from "@/components/bids/BidQuestionCard";
 import { ImportQuestionsDialog } from "@/components/bids/ImportQuestionsDialog";
 import { EmailBidDialog } from "@/components/bids/EmailBidDialog";
+import { BidPackPanel } from "@/components/bids/BidPackPanel";
+import { BidAnalysisPanel } from "@/components/bids/BidAnalysisPanel";
 import { generateBidPDF, bidFileBaseName } from "@/lib/bidPdfGenerator";
 import { generateBidDocx } from "@/lib/bidDocxGenerator";
 
@@ -39,6 +42,7 @@ const BidDetail = () => {
   const [importOpen, setImportOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [draftingAll, setDraftingAll] = useState<null | { done: number; total: number }>(null);
 
   const load = useCallback(async () => {
     if (!bidId) return;
@@ -84,6 +88,23 @@ const BidDetail = () => {
       refreshQuestions();
     } catch (e: any) {
       toast.error(e.message || "Failed to add question");
+    }
+  };
+
+  const handleDraftAll = async () => {
+    if (!bid) return;
+    const todo = questions.filter((q) => !(q.answer || "").trim());
+    if (!todo.length) { toast.info("Every question already has an answer"); return; }
+    if (!window.confirm(`Draft answers for ${todo.length} unanswered question${todo.length === 1 ? "" : "s"} with AI?`)) return;
+    setDraftingAll({ done: 0, total: todo.length });
+    try {
+      const res = await draftAllAnswers(bid, questions, companyCtx, (done, total) => setDraftingAll({ done, total }));
+      await refreshQuestions();
+      toast.success(`Drafted ${res.drafted} answer${res.drafted === 1 ? "" : "s"}${res.failed ? `, ${res.failed} failed` : ""}`);
+    } catch (e: any) {
+      toast.error(e.message || "Draft all failed");
+    } finally {
+      setDraftingAll(null);
     }
   };
 
@@ -192,41 +213,64 @@ const BidDetail = () => {
             <span className="text-muted-foreground">{stats.pct}%</span>
           </div>
           <Progress value={stats.pct} className="h-2" />
-          {bid.summary && <p className="text-sm text-muted-foreground pt-1">{bid.summary}</p>}
         </div>
 
-        {/* Questions toolbar */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Questions</h2>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-              <Upload className="w-4 h-4 mr-1.5" /> Import
-            </Button>
-            <Button size="sm" onClick={handleAddQuestion}>
-              <Plus className="w-4 h-4 mr-1.5" /> Add question
-            </Button>
-          </div>
-        </div>
+        <Tabs defaultValue={questions.length === 0 ? "pack" : "questions"} className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="pack">Pack &amp; Analysis</TabsTrigger>
+            <TabsTrigger value="questions">Questions{stats.total ? ` (${stats.total})` : ""}</TabsTrigger>
+          </TabsList>
 
-        {questions.length === 0 ? (
-          <div className="text-center py-12 border border-dashed rounded-xl">
-            <p className="text-muted-foreground">No questions yet.</p>
-            <p className="text-sm text-muted-foreground mt-1">Use <span className="font-medium">Import</span> to paste questions from the ITT, or add one manually.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {questions.map((q, i) => (
-              <BidQuestionCard
-                key={q.id}
-                index={i}
-                question={q}
-                bid={bid}
-                company={companyCtx}
-                onChanged={refreshQuestions}
-              />
-            ))}
-          </div>
-        )}
+          {/* Pack & Analysis */}
+          <TabsContent value="pack" className="space-y-4">
+            <BidPackPanel bidId={bid.id} onAnalysed={load} />
+            <BidAnalysisPanel analysis={bid.analysis} analysedAt={bid.analysed_at} />
+          </TabsContent>
+
+          {/* Questions */}
+          <TabsContent value="questions" className="space-y-4">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="text-lg font-semibold">Questions</h2>
+              <div className="flex items-center gap-2">
+                {questions.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={handleDraftAll} disabled={!!draftingAll}>
+                    {draftingAll
+                      ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Drafting {draftingAll.done}/{draftingAll.total}…</>
+                      : <><Sparkles className="w-4 h-4 mr-1.5" /> Draft all</>}
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                  <Upload className="w-4 h-4 mr-1.5" /> Import
+                </Button>
+                <Button size="sm" onClick={handleAddQuestion}>
+                  <Plus className="w-4 h-4 mr-1.5" /> Add question
+                </Button>
+              </div>
+            </div>
+
+            {questions.length === 0 ? (
+              <div className="text-center py-12 border border-dashed rounded-xl">
+                <p className="text-muted-foreground">No questions yet.</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Upload the tender pack under <span className="font-medium">Pack &amp; Analysis</span> and click Analyse, or add questions manually.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {questions.map((q, i) => (
+                  <BidQuestionCard
+                    key={q.id}
+                    index={i}
+                    question={q}
+                    bid={bid}
+                    company={companyCtx}
+                    onChanged={refreshQuestions}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       <ImportQuestionsDialog

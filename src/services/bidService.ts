@@ -8,6 +8,25 @@ export type BidStatus = "draft" | "in_progress" | "submitted" | "won" | "lost" |
 export type QuestionStatus = "todo" | "drafted" | "reviewed" | "final";
 export type RefineInstruction = "improve" | "expand" | "shorten" | "fit_limit" | "custom";
 
+export interface BidAnalysis {
+  summary?: string;
+  buyer_name?: string | null;
+  key_dates?: Array<{ label: string; date: string | null; notes?: string }>;
+  evaluation?: { price_weight?: number | null; quality_weight?: number | null; method?: string | null };
+  mandatory_requirements?: string[];
+  compliance_matrix?: Array<{ requirement: string; where?: string; met_by?: string }>;
+  risks?: string[];
+  win_themes?: string[];
+  questions?: unknown[];
+}
+
+export interface CompanyEvidence {
+  id: string;
+  title: string;
+  category: string;
+  description: string | null;
+}
+
 export interface Bid {
   id: string;
   bid_reference: string | null;
@@ -23,6 +42,8 @@ export interface Bid {
   outcome_notes: string | null;
   sharepoint_url: string | null;
   sharepoint_folder: string | null;
+  analysis: BidAnalysis | null;
+  analysed_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -43,6 +64,7 @@ export interface BidQuestion {
   weighting: number | null;
   answer: string | null;
   status: QuestionStatus;
+  auto_extracted: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -155,10 +177,29 @@ export interface GenerateAnswerParams {
   company: { company_name?: string; accreditations?: string; about?: string };
   instruction?: RefineInstruction;
   custom_instruction?: string;
+  /** Pass to avoid a per-call fetch (e.g. when drafting all questions). */
+  evidence?: CompanyEvidence[];
+}
+
+export async function getCompanyEvidence(): Promise<CompanyEvidence[]> {
+  const { data, error } = await sb
+    .from("company_documents")
+    .select("id, title, category, description")
+    .eq("is_archived", false)
+    .order("category", { ascending: true });
+  if (error) {
+    // Non-fatal: drafting can proceed without the evidence library.
+    console.warn("Could not load company evidence:", error.message);
+    return [];
+  }
+  return (data ?? []) as CompanyEvidence[];
 }
 
 export async function generateAnswer(params: GenerateAnswerParams): Promise<string> {
   const { question, bid, company, mode, instruction, custom_instruction } = params;
+  const evidence = params.evidence ?? (await getCompanyEvidence());
+  const analysis = bid.analysis ?? undefined;
+
   const { data, error } = await supabase.functions.invoke("generate-bid-answer", {
     body: {
       mode,
@@ -170,7 +211,14 @@ export async function generateAnswer(params: GenerateAnswerParams): Promise<stri
       instruction,
       custom_instruction,
       company,
-      bid: { bid_title: bid.title, buyer_name: bid.buyer_name ?? undefined, section: question.section ?? undefined },
+      evidence: evidence.map((e) => ({ title: e.title, category: e.category, description: e.description })),
+      bid: {
+        bid_title: bid.title,
+        buyer_name: bid.buyer_name ?? undefined,
+        section: question.section ?? undefined,
+        win_themes: analysis?.win_themes,
+        evaluation: analysis?.evaluation?.method ?? undefined,
+      },
       bid_id: bid.id,
       question_id: question.id,
     },
@@ -178,6 +226,41 @@ export async function generateAnswer(params: GenerateAnswerParams): Promise<stri
   if (error) throw error;
   if ((data as any)?.error) throw new Error((data as any).error);
   return (data as any).answer as string;
+}
+
+/** Run the AI tender-pack analysis. Populates bid.analysis + auto-extracts questions. */
+export async function analysePack(bidId: string): Promise<{ questions_inserted: number; analysis: BidAnalysis }> {
+  const { data, error } = await supabase.functions.invoke("analyse-tender-pack", { body: { bid_id: bidId } });
+  if (error) throw error;
+  if ((data as any)?.error) throw new Error((data as any).error);
+  return data as { questions_inserted: number; analysis: BidAnalysis };
+}
+
+/** Draft answers for every question that has no answer yet. */
+export async function draftAllAnswers(
+  bid: Bid,
+  questions: BidQuestion[],
+  company: { company_name?: string; accreditations?: string; about?: string },
+  onProgress?: (done: number, total: number, current: BidQuestion) => void,
+): Promise<{ drafted: number; failed: number }> {
+  const targets = questions.filter((q) => !(q.answer || "").trim());
+  const evidence = await getCompanyEvidence();
+  let drafted = 0;
+  let failed = 0;
+  for (let i = 0; i < targets.length; i++) {
+    const q = targets[i];
+    onProgress?.(i, targets.length, q);
+    try {
+      const answer = await generateAnswer({ mode: "draft", question: q, bid, company, evidence });
+      await updateQuestion(q.id, { answer, status: q.status === "todo" ? "drafted" : q.status });
+      drafted++;
+    } catch (e) {
+      console.error(`Draft failed for question ${q.question_ref || q.id}:`, e);
+      failed++;
+    }
+  }
+  onProgress?.(targets.length, targets.length, targets[targets.length - 1]);
+  return { drafted, failed };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────

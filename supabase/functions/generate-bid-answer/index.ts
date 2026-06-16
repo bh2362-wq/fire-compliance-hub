@@ -2,9 +2,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ════════════════════════════════════════════════════════════════════
 // generate-bid-answer
-// Drafts and refines answers to tender / ITT questions.
-// Mirrors generate-bs5839-scope: Lovable AI gateway + bid_generations audit.
+// Drafts and refines answers to tender / ITT questions, using Claude
+// (Anthropic), the company evidence library, and the tender analysis.
+// Logs to bid_generations.
 // ════════════════════════════════════════════════════════════════════
+
+// Proven-working model id from claude-chat. Bump to claude-sonnet-4-6 /
+// claude-opus-4-8 if the account has access and more depth is wanted.
+const MODEL = "claude-sonnet-4-5";
 
 type Mode = "draft" | "refine";
 type RefineInstruction = "improve" | "expand" | "shorten" | "fit_limit" | "custom";
@@ -19,6 +24,14 @@ interface BidContext {
   bid_title?: string;
   buyer_name?: string;
   section?: string;
+  win_themes?: string[];       // from the tender analysis
+  evaluation?: string;         // how this question is scored, if known
+}
+
+interface EvidenceItem {
+  title: string;
+  category: string;
+  description?: string | null;
 }
 
 interface GenerateBidAnswerInput {
@@ -32,6 +45,7 @@ interface GenerateBidAnswerInput {
   custom_instruction?: string; // free text when instruction === 'custom'
   company?: CompanyContext;
   bid?: BidContext;
+  evidence?: EvidenceItem[];   // company_documents the model may cite/flag
   bid_id?: string;
   question_id?: string;
 }
@@ -78,11 +92,20 @@ function buildUserMessage(input: GenerateBidAnswerInput): string {
   if (c.about) lines.push(`- Capability summary: ${c.about}`);
   lines.push("");
 
-  if (b.bid_title || b.buyer_name || b.section) {
+  if (b.bid_title || b.buyer_name || b.section || b.win_themes?.length || b.evaluation) {
     lines.push("TENDER CONTEXT");
     if (b.bid_title) lines.push(`- Bid: ${b.bid_title}`);
     if (b.buyer_name) lines.push(`- Buyer / contracting authority: ${b.buyer_name}`);
     if (b.section) lines.push(`- Section: ${b.section}`);
+    if (b.evaluation) lines.push(`- How this is scored: ${b.evaluation}`);
+    if (b.win_themes?.length) lines.push(`- Win themes to weave in where relevant: ${b.win_themes.join("; ")}`);
+    lines.push("");
+  }
+
+  if (input.evidence?.length) {
+    lines.push("COMPANY EVIDENCE LIBRARY (real, verifiable assets you MAY reference by name — do not cite anything not listed here):");
+    input.evidence.slice(0, 40).forEach((e) =>
+      lines.push(`- [${e.category}] ${e.title}${e.description ? ` — ${e.description}` : ""}`));
     lines.push("");
   }
 
@@ -129,32 +152,35 @@ function buildUserMessage(input: GenerateBidAnswerInput): string {
 }
 
 async function callAI(input: GenerateBidAnswerInput) {
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: buildUserMessage(input) },
-      ],
-      response_format: { type: "json_object" },
+      model: MODEL,
       max_tokens: 4000,
       temperature: 0.4,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: buildUserMessage(input) }],
     }),
   });
 
   if (!response.ok) {
-    if (response.status === 429) throw new Error("AI rate limit exceeded. Please try again in a moment.");
-    if (response.status === 402) throw new Error("AI credits exhausted. Please add credits to continue.");
-    throw new Error(`AI gateway error ${response.status}: ${(await response.text()).slice(0, 500)}`);
+    if (response.status === 401) throw new Error("Invalid Anthropic API key");
+    if (response.status === 429) throw new Error("Claude rate limit exceeded. Please try again in a moment.");
+    throw new Error(`Claude API error ${response.status}: ${(await response.text()).slice(0, 500)}`);
   }
 
   const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
+  const content = Array.isArray(data?.content)
+    ? data.content.map((c: any) => c?.text || "").join("\n").trim()
+    : "";
   if (!content) throw new Error("No text content in AI response");
 
   const rawText = String(content).trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
@@ -173,9 +199,9 @@ async function callAI(input: GenerateBidAnswerInput) {
   return {
     answer: parsed.answer.trim(),
     usage: {
-      input_tokens: data.usage?.prompt_tokens ?? 0,
-      output_tokens: data.usage?.completion_tokens ?? 0,
-      model: data.model ?? "google/gemini-2.5-flash",
+      input_tokens: data.usage?.input_tokens ?? 0,
+      output_tokens: data.usage?.output_tokens ?? 0,
+      model: data.model ?? MODEL,
     },
   };
 }
