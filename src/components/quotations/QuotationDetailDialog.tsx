@@ -213,7 +213,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   // id; the per-row undo pill renders when an entry exists. Cleared
   // on save (whole quote becomes the new baseline) and on a manual
   // undo click.
-  const [catalogUndo, setCatalogUndo] = useState<Record<string, { description: string; unit_price: number }>>({});
+  const [catalogUndo, setCatalogUndo] = useState<Record<string, { description: string; unit_price: number; item_name?: string }>>({});
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -1753,6 +1753,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                                         if (!memo) return;
                                                         handleItemChange(index, "description", memo.description);
                                                         handleItemChange(index, "unit_price", memo.unit_price);
+                                                        if (memo.item_name !== undefined) handleItemChange(index, "item_name", memo.item_name);
                                                         setCatalogUndo((prev) => {
                                                           const next = { ...prev };
                                                           delete next[item.id];
@@ -2270,26 +2271,22 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             : ""
         }
         quantity={priceLookupIndex !== null ? (lineItems[priceLookupIndex]?.quantity || 1) : 1}
-        onAddToQuote={(description, unitPrice) => {
+        onAddToQuote={(description, unitPrice, partNumber) => {
           if (priceLookupIndex === null) return;
           const idx = priceLookupIndex;
           const current = lineItems[idx];
           if (!current) return;
-          // Stash the pre-apply state so the engineer can walk it back
-          // if the catalog pick turns out to be wrong. Only the most
-          // recent apply per row is recoverable — subsequent applies
-          // overwrite the memory, matching the AIRewriteButton pattern
-          // PR #223 uses for AI rewrites.
           setCatalogUndo((prev) => ({
             ...prev,
             [current.id]: {
               description: current.description ?? "",
               unit_price: current.unit_price ?? 0,
+              item_name: current.item_name ?? "",
             },
           }));
-          // Replace description + unit_price (PR #238 contract).
           handleItemChange(idx, "description", description);
           handleItemChange(idx, "unit_price", unitPrice);
+          if (partNumber) handleItemChange(idx, "item_name", partNumber);
           setPriceLookupIndex(null);
         }}
       />
