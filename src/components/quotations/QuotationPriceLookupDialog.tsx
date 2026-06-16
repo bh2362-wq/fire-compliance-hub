@@ -285,7 +285,7 @@ export function QuotationPriceLookupDialog({
                                 // older "CODE - description" composite that
                                 // duplicated the part_number (already
                                 // surfaced via item_name in the row).
-                                onAddToQuote(p.description, p.trade_price);
+                                onAddToQuote(p.description, p.trade_price, p.product_code);
                                 setAddedIndices((prev) => new Set(prev).add(key));
                                 toast.success(`Added ${p.product_code} at £${Number(p.trade_price).toFixed(2)}`);
                               }}
