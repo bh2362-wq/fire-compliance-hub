@@ -1355,9 +1355,16 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       <Dialog open={open} onOpenChange={(o) => { if (!o) { requestClose(); } else { onOpenChange(true); } }}>
         <DialogContent
           className="max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[95dvh] flex flex-col p-0 gap-0 rounded-none sm:rounded-lg"
-          onPointerDownOutside={(e) => { if (hasChanges) e.preventDefault(); }}
-          onInteractOutside={(e) => { if (hasChanges) e.preventDefault(); }}
-          onEscapeKeyDown={(e) => { if (hasChanges) { e.preventDefault(); requestClose(); } }}
+          onPointerDownOutside={(e) => {
+            // Sonner toasts (incl. the "Restore unsaved draft" action) render in
+            // a portal outside this Dialog. Treating those clicks as "outside"
+            // would close the dialog before the restore handler's state updates
+            // render. Always preventDefault — users close via the Close button
+            // or Escape, both of which run requestClose for unsaved edits.
+            e.preventDefault();
+          }}
+          onInteractOutside={(e) => { e.preventDefault(); }}
+          onEscapeKeyDown={(e) => { e.preventDefault(); requestClose(); }}
         >
           <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0">
             <div className="flex items-center justify-between gap-3">
