@@ -2019,6 +2019,7 @@ export type Database = {
       customers: {
         Row: {
           address: string | null
+          category: string | null
           city: string | null
           client_signature: string | null
           company_number: string | null
@@ -2042,6 +2043,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          category?: string | null
           city?: string | null
           client_signature?: string | null
           company_number?: string | null
@@ -2065,6 +2067,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          category?: string | null
           city?: string | null
           client_signature?: string | null
           company_number?: string | null
@@ -2916,6 +2919,135 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maintenance_proposals: {
+        Row: {
+          acceptance_token: string | null
+          accepted_by_name: string | null
+          annual_fee: number | null
+          callout_charge: number | null
+          client_acceptance_signature: string | null
+          client_accepted_at: string | null
+          client_decline_reason: string | null
+          client_declined_at: string | null
+          client_po_number: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          fault_response_hours: number | null
+          id: string
+          introduction: string | null
+          latest_docx_path: string | null
+          latest_pdf_path: string | null
+          locked_at: string | null
+          locked_by: string | null
+          notes: string | null
+          ooh_callout_charge: number | null
+          ooh_response_hours: number | null
+          parts_markup_percent: number | null
+          payment_terms: string | null
+          ppm_interval_months: number | null
+          proposal_number: string
+          scope: Json | null
+          service_visits_per_year: number | null
+          site_id: string | null
+          sla_tier: string | null
+          status: string
+          title: string | null
+          updated_at: string
+          valid_until: string | null
+          vat_rate: number | null
+        }
+        Insert: {
+          acceptance_token?: string | null
+          accepted_by_name?: string | null
+          annual_fee?: number | null
+          callout_charge?: number | null
+          client_acceptance_signature?: string | null
+          client_accepted_at?: string | null
+          client_decline_reason?: string | null
+          client_declined_at?: string | null
+          client_po_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          fault_response_hours?: number | null
+          id?: string
+          introduction?: string | null
+          latest_docx_path?: string | null
+          latest_pdf_path?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          notes?: string | null
+          ooh_callout_charge?: number | null
+          ooh_response_hours?: number | null
+          parts_markup_percent?: number | null
+          payment_terms?: string | null
+          ppm_interval_months?: number | null
+          proposal_number: string
+          scope?: Json | null
+          service_visits_per_year?: number | null
+          site_id?: string | null
+          sla_tier?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          vat_rate?: number | null
+        }
+        Update: {
+          acceptance_token?: string | null
+          accepted_by_name?: string | null
+          annual_fee?: number | null
+          callout_charge?: number | null
+          client_acceptance_signature?: string | null
+          client_accepted_at?: string | null
+          client_decline_reason?: string | null
+          client_declined_at?: string | null
+          client_po_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          fault_response_hours?: number | null
+          id?: string
+          introduction?: string | null
+          latest_docx_path?: string | null
+          latest_pdf_path?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          notes?: string | null
+          ooh_callout_charge?: number | null
+          ooh_response_hours?: number | null
+          parts_markup_percent?: number | null
+          payment_terms?: string | null
+          ppm_interval_months?: number | null
+          proposal_number?: string
+          scope?: Json | null
+          service_visits_per_year?: number | null
+          site_id?: string | null
+          sla_tier?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_proposals_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_proposals_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -7358,6 +7490,7 @@ export type Database = {
           total_cost: number
         }[]
       }
+      get_next_maintenance_proposal_number: { Args: never; Returns: string }
       get_next_po_number: { Args: never; Returns: string }
       get_next_qms_number: { Args: { prefix: string }; Returns: string }
       get_next_quotation_number: { Args: never; Returns: string }
