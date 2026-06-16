@@ -142,6 +142,26 @@ interface QuotationFull {
   } | null;
 }
 
+interface DraftSnapshot {
+  savedAt?: number;
+  quotationNumber?: string;
+  title?: string;
+  summary?: string;
+  notes?: string;
+  terms?: string;
+  validUntil?: string;
+  vatRate?: number;
+  scopeItems?: Array<{ uid: string; text: string }>;
+  lineItems?: LineItem[];
+  customerName?: string;
+  customerContactName?: string;
+  customerContactEmail?: string;
+  customerContactPhone?: string;
+  customerAddress?: string;
+  customerCity?: string;
+  customerPostcode?: string;
+}
+
 interface QuotationDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -425,7 +445,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   // keystroke. Instead we debounce a JSON snapshot of editable fields to
   // localStorage and offer to restore it next time the quote is opened.
   const draftStorageKey = quotationId ? `quotation-draft:v1:${quotationId}` : null;
-  const [pendingDraft, setPendingDraft] = useState<Record<string, any> | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<DraftSnapshot | null>(null);
 
   useEffect(() => {
     if (open && quotationId) {
@@ -479,7 +499,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     onOpenChange(false);
   };
 
-  const applyDraftSnapshot = (draft: Record<string, any> | null) => {
+  const applyDraftSnapshot = (draft: DraftSnapshot | null) => {
     if (!draft) return;
     setQuotationNumber(draft.quotationNumber ?? "");
     setTitle(draft.title ?? "");
