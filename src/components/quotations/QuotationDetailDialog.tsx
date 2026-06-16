@@ -1458,6 +1458,21 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             </div>
           </DialogHeader>
 
+          {pendingDraft && !loading && (
+            <div className="border-b bg-muted/40 px-4 sm:px-6 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shrink-0">
+              <p className="text-sm text-foreground">
+                Unsaved draft from {new Date(pendingDraft.savedAt).toLocaleString()} is available.
+              </p>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => applyDraftSnapshot(pendingDraft)}>
+                  Restore
+                </Button>
+                <Button size="sm" variant="outline" onClick={discardDraftSnapshot}>
+                  Discard
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 sm:py-4">
             {loading ? (
