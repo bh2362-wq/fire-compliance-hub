@@ -59,7 +59,7 @@ export async function getCustomers(): Promise<{ customers: CustomerWithSiteCount
       site_count: countMap[c.id] || 0,
     }));
 
-    return { customers: customersWithCounts, error: null };
+    return { customers: customersWithCounts as CustomerWithSiteCount[], error: null };
   } catch (error) {
     return { customers: [], error: error as Error };
   }
@@ -74,7 +74,8 @@ export async function getCustomer(id: string): Promise<{ customer: Customer | nu
       .maybeSingle();
 
     if (error) throw error;
-    return { customer: data, error: null };
+    return { customer: data as Customer | null, error: null };
+
   } catch (error) {
     return { customer: null, error: error as Error };
   }
@@ -107,7 +108,7 @@ export async function createCustomer(customer: CreateCustomerData): Promise<{ cu
       .single();
 
     if (error) throw error;
-    return { customer: data, error: null };
+    return { customer: data as Customer | null, error: null };
   } catch (error) {
     return { customer: null, error: error as Error };
   }
