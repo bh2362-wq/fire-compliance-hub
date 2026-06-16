@@ -17,7 +17,9 @@ interface CostLine {
   quantity: number;
   unit_price: number;
   notes: string;
+  part_number?: string;
 }
+
 
 interface CategorisedLineItems {
   labour: CostLine[];
