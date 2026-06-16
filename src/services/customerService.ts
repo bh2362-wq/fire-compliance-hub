@@ -59,7 +59,7 @@ export async function getCustomers(): Promise<{ customers: CustomerWithSiteCount
       site_count: countMap[c.id] || 0,
     }));
 
-    return { customers: customersWithCounts, error: null };
+    return { customers: customersWithCounts as CustomerWithSiteCount[], error: null };
   } catch (error) {
     return { customers: [], error: error as Error };
   }
