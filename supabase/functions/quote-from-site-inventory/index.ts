@@ -312,8 +312,11 @@ Your job:
    on one loop, with the count from the inventory and a unit price chosen
    from the price candidates supplied. Prefer the highest-confidence
    candidate from the "huvo" source, then "catalog", then "supplier".
-   When no price candidate exists for a type, set unit_price=0 and put
-   "Engineer to confirm — no matching price in pricing tables" in notes.
+   ALWAYS set the "part_number" field on each material row to the part_number
+   of the price candidate you priced from (verbatim, e.g. "S3-VAD-HPR-R").
+   If no candidate had a part number, leave part_number as an empty string.
+   When no price candidate exists for a type, set unit_price=0, part_number=""
+   and put "Engineer to confirm — no matching price in pricing tables" in notes.
 
 3. ADD a single labour line — "No. {N} qualified fire-safety engineers for
    {D} day(s) on-site". Estimate the days at 25 devices per engineer per
@@ -335,12 +338,13 @@ OUTPUT — strict JSON only, no markdown fences, no preamble:
   "interpretation": "<1-sentence summary of what the engineer asked for>",
   "scope_content": "1. <loop 1 work>\\n2. <loop 2 work>",
   "line_items": {
-    "labour":    [{ "description": "No. 2 engineers — 2 days on-site for device swap works", "quantity": 1, "unit_price": <hourly * hours * engineers>, "notes": "..." }],
-    "materials": [{ "description": "No. 47 Apollo XP95 optical detectors — Loop 1", "quantity": 47, "unit_price": 32.50, "notes": "" }],
-    "extras":    [{ "description": "Access equipment — step ladders / podiums", "quantity": 1, "unit_price": 0, "notes": "Engineer to confirm" }]
+    "labour":    [{ "description": "No. 2 engineers — 2 days on-site for device swap works", "quantity": 1, "unit_price": <hourly * hours * engineers>, "notes": "", "part_number": "" }],
+    "materials": [{ "description": "No. 47 Apollo XP95 optical detectors — Loop 1", "quantity": 47, "unit_price": 32.50, "notes": "", "part_number": "ORB-OP-12001-APO" }],
+    "extras":    [{ "description": "Access equipment — step ladders / podiums", "quantity": 1, "unit_price": 0, "notes": "Engineer to confirm", "part_number": "" }]
   },
   "labour_estimate": { "engineers": 2, "days": 2 }
 }`;
+
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
