@@ -152,12 +152,14 @@ export function InventoryQuoteDialog({ open, onOpenChange, siteId, siteName, pan
     patchLine(lookupTarget.bucket, lookupTarget.index, {
       description: picked.description,
       unit_price: picked.unit_price,
+      part_number: picked.part_number ?? "",
       // Clear the TBC note when the engineer accepts a price — the
       // amber TBC ring will drop on the next render.
       notes: picked.source === "online"
         ? `Price sourced online (${picked.supplier ?? "unknown supplier"}) — verify before sending`
         : `Price from internal ${picked.supplier ?? "list"}`,
     });
+
     setLookupOpen(false);
     setLookupTarget(null);
     toast.success("Price applied to line");
