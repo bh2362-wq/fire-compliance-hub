@@ -269,13 +269,20 @@ async function callClaudeJson(
       .replace(/[\x00-\x1F\x7F]/g, " ");
     parsed = JSON.parse(repaired);
   }
+  const normaliseLines = (arr: any[]) => arr.map((r) => ({
+    description: typeof r?.description === "string" ? r.description : "",
+    quantity: Number(r?.quantity) || 1,
+    unit_price: Number(r?.unit_price) || 0,
+    notes: typeof r?.notes === "string" ? r.notes : "",
+    part_number: typeof r?.part_number === "string" ? r.part_number : "",
+  }));
   return {
     interpretation: typeof parsed.interpretation === "string" ? parsed.interpretation : "",
     scope_content: typeof parsed.scope_content === "string" ? parsed.scope_content : "",
     line_items: {
-      labour:    Array.isArray(parsed.line_items?.labour)    ? parsed.line_items.labour    : [],
-      materials: Array.isArray(parsed.line_items?.materials) ? parsed.line_items.materials : [],
-      extras:    Array.isArray(parsed.line_items?.extras)    ? parsed.line_items.extras    : [],
+      labour:    normaliseLines(Array.isArray(parsed.line_items?.labour)    ? parsed.line_items.labour    : []),
+      materials: normaliseLines(Array.isArray(parsed.line_items?.materials) ? parsed.line_items.materials : []),
+      extras:    normaliseLines(Array.isArray(parsed.line_items?.extras)    ? parsed.line_items.extras    : []),
     },
     labour_estimate: parsed.labour_estimate && typeof parsed.labour_estimate === "object"
       ? {
@@ -284,6 +291,7 @@ async function callClaudeJson(
       }
       : null,
   };
+
 }
 
 // ── Prompt ───────────────────────────────────────────────────────────────────
