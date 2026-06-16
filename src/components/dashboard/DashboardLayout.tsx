@@ -5,7 +5,7 @@ import {
   Receipt, CalendarDays, Shield, FileCheck, AlertTriangle, ClipboardCheck,
   ShieldAlert, GraduationCap, Search, MessageSquare, TrendingUp, HardHat,
   Mail, Plus, CreditCard, FileSpreadsheet, ShoppingCart, ScanSearch,
-  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench, RefreshCw, Briefcase, ShieldCheck
+  Package, Menu, X, FileSignature, Route, Award, ExternalLink, Zap, Sparkles, BookOpen, Wrench, RefreshCw, Briefcase, ShieldCheck, PenLine
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -79,6 +79,7 @@ const financeNav = [
   { name: "Invoices",          href: "/dashboard/invoices",          icon: Receipt },
   { name: "Quotations",        href: "/dashboard/quotations",        icon: FileSpreadsheet },
   { name: "Maintenance Proposals", href: "/dashboard/maintenance-proposals", icon: Wrench },
+  { name: "Bid Writer",        href: "/dashboard/bids",              icon: PenLine },
   { name: "Remittance Advice", href: "/dashboard/remittance-advice", icon: Mail },
   { name: "Credit Control",    href: "/dashboard/credit-control",    icon: CreditCard },
   { name: "Purchase Orders",   href: "/dashboard/purchase-orders",   icon: ShoppingCart },
@@ -284,7 +285,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     location.pathname.startsWith(p)
   );
   const isFinanceRoute = [
-    "/dashboard/invoices", "/dashboard/quotations", "/dashboard/credit-control",
+    "/dashboard/invoices", "/dashboard/quotations", "/dashboard/bids", "/dashboard/credit-control",
     "/dashboard/purchase-orders", "/dashboard/reconciliation",
     "/dashboard/maintenance-proposals",
   ].some((p) => location.pathname.startsWith(p));

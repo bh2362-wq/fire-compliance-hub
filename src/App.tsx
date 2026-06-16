@@ -41,6 +41,8 @@ import CreditControl from "./pages/CreditControl";
 import Quotations from "./pages/Quotations";
 import MaintenanceProposals from "./pages/MaintenanceProposals";
 import PurchaseOrders from "./pages/PurchaseOrders";
+import Bids from "./pages/Bids";
+import BidDetail from "./pages/BidDetail";
 import SharedReport from "./pages/SharedReport";
 import AcceptQuote from "./pages/AcceptQuote";
 import AcceptProposal from "./pages/AcceptProposal";
@@ -341,6 +343,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <TenderLibrary />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/bids"
+              element={
+                <ProtectedRoute>
+                  <Bids />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/bids/:bidId"
+              element={
+                <ProtectedRoute>
+                  <BidDetail />
                 </ProtectedRoute>
               }
             />
