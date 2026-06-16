@@ -432,18 +432,26 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     }
   }, [open, quotationId]);
 
+  // Build a serialisable snapshot of editable state for crash-safe restore.
+  const buildDraftSnapshot = () => ({
+    savedAt: Date.now(),
+    quotationNumber, title, summary, notes, terms, validUntil, vatRate,
+    scopeItems, lineItems,
+    customerName, customerContactName, customerContactEmail, customerContactPhone,
+    customerAddress, customerCity, customerPostcode,
+  });
+
+  const flushDraftSnapshot = () => {
+    if (!draftStorageKey) return;
+    try { localStorage.setItem(draftStorageKey, JSON.stringify(buildDraftSnapshot())); }
+    catch { /* best-effort */ }
+  };
+
   useEffect(() => {
     if (!open || !draftStorageKey || !hasChanges || saving || loading) return;
     const handle = setTimeout(() => {
       try {
-        const snapshot = {
-          savedAt: Date.now(),
-          quotationNumber, title, summary, notes, terms, validUntil, vatRate,
-          scopeItems, lineItems,
-          customerName, customerContactName, customerContactEmail, customerContactPhone,
-          customerAddress, customerCity, customerPostcode,
-        };
-        localStorage.setItem(draftStorageKey, JSON.stringify(snapshot));
+        localStorage.setItem(draftStorageKey, JSON.stringify(buildDraftSnapshot()));
       } catch {
         // Quota / serialization issues — drafts are best-effort.
       }
@@ -456,6 +464,20 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     customerName, customerContactName, customerContactEmail, customerContactPhone,
     customerAddress, customerCity, customerPostcode,
   ]);
+
+  // Guarded close: confirm if there are unsaved edits, and always flush a
+  // snapshot to localStorage so a restore is offered next time.
+  const requestClose = () => {
+    if (hasChanges && !saving) {
+      flushDraftSnapshot();
+      const ok = typeof window !== "undefined"
+        ? window.confirm("You have unsaved changes. Close anyway? Your edits are saved locally and can be restored next time you open this quote.")
+        : true;
+      if (!ok) return;
+    }
+    onOpenChange(false);
+  };
+
 
   const fetchQuotation = async () => {
     setLoading(true);
