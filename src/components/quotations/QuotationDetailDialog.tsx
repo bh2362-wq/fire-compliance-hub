@@ -1753,6 +1753,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                                         if (!memo) return;
                                                         handleItemChange(index, "description", memo.description);
                                                         handleItemChange(index, "unit_price", memo.unit_price);
+                                                        if (memo.item_name !== undefined) handleItemChange(index, "item_name", memo.item_name);
                                                         setCatalogUndo((prev) => {
                                                           const next = { ...prev };
                                                           delete next[item.id];
