@@ -7,9 +7,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Logs to bid_generations.
 // ════════════════════════════════════════════════════════════════════
 
-// Proven-working model id from claude-chat. Bump to claude-sonnet-4-6 /
-// claude-opus-4-8 if the account has access and more depth is wanted.
-const MODEL = "claude-sonnet-4-5";
+// Sonnet for drafting/refine — runs per question (and fans out across every
+// question on "Draft all"), so favour speed/cost here. Analysis uses Opus.
+const MODEL = "claude-sonnet-4-6";
 
 type Mode = "draft" | "refine";
 type RefineInstruction = "improve" | "expand" | "shorten" | "fit_limit" | "custom";

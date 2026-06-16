@@ -9,10 +9,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 // Uses Claude (Anthropic) — long-context document reasoning.
 // ════════════════════════════════════════════════════════════════════
 
-// Proven-working model id from the existing claude-chat function. Bump to
-// claude-sonnet-4-6 / claude-opus-4-8 if the account has access and more
-// reasoning depth is wanted.
-const MODEL = "claude-sonnet-4-5";
+// Opus for pack analysis — runs once per bid; accuracy on weightings,
+// extracted questions and the compliance matrix is worth the cost here.
+const MODEL = "claude-opus-4-8";
 const MAX_PACK_CHARS = 320_000; // generous; Claude handles ~200k tokens
 
 const corsHeaders = {
