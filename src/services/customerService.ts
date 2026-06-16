@@ -108,7 +108,7 @@ export async function createCustomer(customer: CreateCustomerData): Promise<{ cu
       .single();
 
     if (error) throw error;
-    return { customer: data, error: null };
+    return { customer: data as Customer | null, error: null };
   } catch (error) {
     return { customer: null, error: error as Error };
   }
