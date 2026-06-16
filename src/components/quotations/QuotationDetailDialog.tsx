@@ -432,18 +432,26 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     }
   }, [open, quotationId]);
 
+  // Build a serialisable snapshot of editable state for crash-safe restore.
+  const buildDraftSnapshot = () => ({
+    savedAt: Date.now(),
+    quotationNumber, title, summary, notes, terms, validUntil, vatRate,
+    scopeItems, lineItems,
+    customerName, customerContactName, customerContactEmail, customerContactPhone,
+    customerAddress, customerCity, customerPostcode,
+  });
+
+  const flushDraftSnapshot = () => {
+    if (!draftStorageKey) return;
+    try { localStorage.setItem(draftStorageKey, JSON.stringify(buildDraftSnapshot())); }
+    catch { /* best-effort */ }
+  };
+
   useEffect(() => {
     if (!open || !draftStorageKey || !hasChanges || saving || loading) return;
     const handle = setTimeout(() => {
       try {
-        const snapshot = {
-          savedAt: Date.now(),
-          quotationNumber, title, summary, notes, terms, validUntil, vatRate,
-          scopeItems, lineItems,
-          customerName, customerContactName, customerContactEmail, customerContactPhone,
-          customerAddress, customerCity, customerPostcode,
-        };
-        localStorage.setItem(draftStorageKey, JSON.stringify(snapshot));
+        localStorage.setItem(draftStorageKey, JSON.stringify(buildDraftSnapshot()));
       } catch {
         // Quota / serialization issues — drafts are best-effort.
       }
@@ -456,6 +464,20 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     customerName, customerContactName, customerContactEmail, customerContactPhone,
     customerAddress, customerCity, customerPostcode,
   ]);
+
+  // Guarded close: confirm if there are unsaved edits, and always flush a
+  // snapshot to localStorage so a restore is offered next time.
+  const requestClose = () => {
+    if (hasChanges && !saving) {
+      flushDraftSnapshot();
+      const ok = typeof window !== "undefined"
+        ? window.confirm("You have unsaved changes. Close anyway? Your edits are saved locally and can be restored next time you open this quote.")
+        : true;
+      if (!ok) return;
+    }
+    onOpenChange(false);
+  };
+
 
   const fetchQuotation = async () => {
     setLoading(true);
@@ -1330,8 +1352,13 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[95dvh] flex flex-col p-0 gap-0 rounded-none sm:rounded-lg">
+      <Dialog open={open} onOpenChange={(o) => { if (!o) { requestClose(); } else { onOpenChange(true); } }}>
+        <DialogContent
+          className="max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[95dvh] flex flex-col p-0 gap-0 rounded-none sm:rounded-lg"
+          onPointerDownOutside={(e) => { if (hasChanges) e.preventDefault(); }}
+          onInteractOutside={(e) => { if (hasChanges) e.preventDefault(); }}
+          onEscapeKeyDown={(e) => { if (hasChanges) { e.preventDefault(); requestClose(); } }}
+        >
           <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b shrink-0">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 flex-wrap">
@@ -2110,7 +2137,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           <DialogFooter className="px-4 sm:px-6 py-3 border-t shrink-0 flex-col sm:flex-row sm:justify-between gap-2">
             {/* Left group — Close + extra actions. Stacks under main actions on mobile. */}
             <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-              <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-initial">
+              <Button variant="outline" onClick={requestClose} className="flex-1 sm:flex-initial">
                 Close
               </Button>
               <QuoteActions
