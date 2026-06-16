@@ -425,6 +425,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   // keystroke. Instead we debounce a JSON snapshot of editable fields to
   // localStorage and offer to restore it next time the quote is opened.
   const draftStorageKey = quotationId ? `quotation-draft:v1:${quotationId}` : null;
+  const [pendingDraft, setPendingDraft] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
     if (open && quotationId) {
@@ -476,6 +477,37 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       if (!ok) return;
     }
     onOpenChange(false);
+  };
+
+  const applyDraftSnapshot = (draft: Record<string, any> | null) => {
+    if (!draft) return;
+    setQuotationNumber(draft.quotationNumber ?? "");
+    setTitle(draft.title ?? "");
+    setSummary(draft.summary ?? "");
+    setNotes(draft.notes ?? "");
+    setTerms(draft.terms ?? DEFAULT_TERMS);
+    setValidUntil(draft.validUntil ?? "");
+    setVatRate(draft.vatRate ?? 20);
+    if (Array.isArray(draft.scopeItems)) setScopeItems(draft.scopeItems);
+    if (Array.isArray(draft.lineItems)) setLineItems(draft.lineItems);
+    setCustomerName(draft.customerName ?? "");
+    setCustomerContactName(draft.customerContactName ?? "");
+    setCustomerContactEmail(draft.customerContactEmail ?? "");
+    setCustomerContactPhone(draft.customerContactPhone ?? "");
+    setCustomerAddress(draft.customerAddress ?? "");
+    setCustomerCity(draft.customerCity ?? "");
+    setCustomerPostcode(draft.customerPostcode ?? "");
+    setHasChanges(true);
+    setPendingDraft(null);
+    toast.success("Draft restored — review and click Save to persist");
+  };
+
+  const discardDraftSnapshot = () => {
+    if (draftStorageKey) {
+      try { localStorage.removeItem(draftStorageKey); } catch { /* ignore */ }
+    }
+    setPendingDraft(null);
+    toast.info("Unsaved draft discarded");
   };
 
 
