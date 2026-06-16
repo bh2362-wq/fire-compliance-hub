@@ -1105,6 +1105,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       if (draftStorageKey) {
         try { localStorage.removeItem(draftStorageKey); } catch { /* ignore */ }
       }
+      setPendingDraft(null);
       onUpdate?.();
       await fetchQuotation();
       return true;
