@@ -71,9 +71,11 @@ function buildLineItemRows(quotationId: string, lineItems: CategorisedLineItems)
     for (const item of items) {
       const qty = Number(item.quantity) || 1;
       const unit = Number(item.unit_price) || 0;
+      const partNo = (item.part_number ?? "").trim();
       rows.push({
         quotation_id: quotationId,
         is_section: false,
+        item_name: partNo || null,
         description: item.description,
         quantity: qty,
         unit_price: isLabour ? 0 : unit,
@@ -86,6 +88,7 @@ function buildLineItemRows(quotationId: string, lineItems: CategorisedLineItems)
       });
     }
   };
+
   push(lineItems.labour,    true);
   push(lineItems.materials, false);
   push(lineItems.extras,    false);
