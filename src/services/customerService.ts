@@ -74,7 +74,8 @@ export async function getCustomer(id: string): Promise<{ customer: Customer | nu
       .maybeSingle();
 
     if (error) throw error;
-    return { customer: data, error: null };
+    return { customer: data as Customer | null, error: null };
+
   } catch (error) {
     return { customer: null, error: error as Error };
   }
