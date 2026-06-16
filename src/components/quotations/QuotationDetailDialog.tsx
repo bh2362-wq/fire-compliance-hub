@@ -142,6 +142,26 @@ interface QuotationFull {
   } | null;
 }
 
+interface DraftSnapshot {
+  savedAt?: number;
+  quotationNumber?: string;
+  title?: string;
+  summary?: string;
+  notes?: string;
+  terms?: string;
+  validUntil?: string;
+  vatRate?: number;
+  scopeItems?: Array<{ uid: string; text: string }>;
+  lineItems?: LineItem[];
+  customerName?: string;
+  customerContactName?: string;
+  customerContactEmail?: string;
+  customerContactPhone?: string;
+  customerAddress?: string;
+  customerCity?: string;
+  customerPostcode?: string;
+}
+
 interface QuotationDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -425,6 +445,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   // keystroke. Instead we debounce a JSON snapshot of editable fields to
   // localStorage and offer to restore it next time the quote is opened.
   const draftStorageKey = quotationId ? `quotation-draft:v1:${quotationId}` : null;
+  const [pendingDraft, setPendingDraft] = useState<DraftSnapshot | null>(null);
 
   useEffect(() => {
     if (open && quotationId) {
@@ -476,6 +497,37 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       if (!ok) return;
     }
     onOpenChange(false);
+  };
+
+  const applyDraftSnapshot = (draft: DraftSnapshot | null) => {
+    if (!draft) return;
+    setQuotationNumber(draft.quotationNumber ?? "");
+    setTitle(draft.title ?? "");
+    setSummary(draft.summary ?? "");
+    setNotes(draft.notes ?? "");
+    setTerms(draft.terms ?? DEFAULT_TERMS);
+    setValidUntil(draft.validUntil ?? "");
+    setVatRate(draft.vatRate ?? 20);
+    if (Array.isArray(draft.scopeItems)) setScopeItems(draft.scopeItems);
+    if (Array.isArray(draft.lineItems)) setLineItems(draft.lineItems);
+    setCustomerName(draft.customerName ?? "");
+    setCustomerContactName(draft.customerContactName ?? "");
+    setCustomerContactEmail(draft.customerContactEmail ?? "");
+    setCustomerContactPhone(draft.customerContactPhone ?? "");
+    setCustomerAddress(draft.customerAddress ?? "");
+    setCustomerCity(draft.customerCity ?? "");
+    setCustomerPostcode(draft.customerPostcode ?? "");
+    setHasChanges(true);
+    setPendingDraft(null);
+    toast.success("Draft restored — review and click Save to persist");
+  };
+
+  const discardDraftSnapshot = () => {
+    if (draftStorageKey) {
+      try { localStorage.removeItem(draftStorageKey); } catch { /* ignore */ }
+    }
+    setPendingDraft(null);
+    toast.info("Unsaved draft discarded");
   };
 
 
@@ -594,37 +646,17 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
               ? new Date(quotationData.updated_at as string).getTime()
               : 0;
             if (draft?.savedAt && draft.savedAt > serverUpdated + 1000) {
+              setPendingDraft(draft);
               toast.message("Unsaved changes from your last session", {
                 description: `Draft from ${new Date(draft.savedAt).toLocaleString()}. Restore?`,
                 duration: 15000,
                 action: {
                   label: "Restore",
-                  onClick: () => {
-                    setQuotationNumber(draft.quotationNumber ?? "");
-                    setTitle(draft.title ?? "");
-                    setSummary(draft.summary ?? "");
-                    setNotes(draft.notes ?? "");
-                    setTerms(draft.terms ?? DEFAULT_TERMS);
-                    setValidUntil(draft.validUntil ?? "");
-                    setVatRate(draft.vatRate ?? 20);
-                    if (Array.isArray(draft.scopeItems)) setScopeItems(draft.scopeItems);
-                    if (Array.isArray(draft.lineItems)) setLineItems(draft.lineItems);
-                    setCustomerName(draft.customerName ?? "");
-                    setCustomerContactName(draft.customerContactName ?? "");
-                    setCustomerContactEmail(draft.customerContactEmail ?? "");
-                    setCustomerContactPhone(draft.customerContactPhone ?? "");
-                    setCustomerAddress(draft.customerAddress ?? "");
-                    setCustomerCity(draft.customerCity ?? "");
-                    setCustomerPostcode(draft.customerPostcode ?? "");
-                    setHasChanges(true);
-                    toast.success("Draft restored — review and click Save to persist");
-                  },
+                  onClick: () => applyDraftSnapshot(draft),
                 },
                 cancel: {
                   label: "Discard",
-                  onClick: () => {
-                    try { localStorage.removeItem(draftStorageKey); } catch { /* ignore */ }
-                  },
+                  onClick: discardDraftSnapshot,
                 },
               });
             }
@@ -1093,6 +1125,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
       if (draftStorageKey) {
         try { localStorage.removeItem(draftStorageKey); } catch { /* ignore */ }
       }
+      setPendingDraft(null);
       onUpdate?.();
       await fetchQuotation();
       return true;
@@ -1446,6 +1479,21 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
             </div>
           </DialogHeader>
 
+          {pendingDraft && !loading && (
+            <div className="border-b bg-muted/40 px-4 sm:px-6 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shrink-0">
+              <p className="text-sm text-foreground">
+                Unsaved draft from {new Date(pendingDraft.savedAt).toLocaleString()} is available.
+              </p>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => applyDraftSnapshot(pendingDraft)}>
+                  Restore
+                </Button>
+                <Button size="sm" variant="outline" onClick={discardDraftSnapshot}>
+                  Discard
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 sm:py-4">
             {loading ? (
