@@ -229,7 +229,7 @@ export function QuotationPriceLookupDialog({
                               className="h-7 px-2"
                               disabled={added}
                               onClick={() => {
-                                onAddToQuote(p.description, p.trade_price);
+                                onAddToQuote(p.description, p.trade_price, p.product_code);
                                 setAddedIndices((prev) => new Set(prev).add(key));
                                 toast.success(`Added ${p.product_code} at £${Number(p.trade_price).toFixed(2)}`);
                               }}
