@@ -2137,7 +2137,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           <DialogFooter className="px-4 sm:px-6 py-3 border-t shrink-0 flex-col sm:flex-row sm:justify-between gap-2">
             {/* Left group — Close + extra actions. Stacks under main actions on mobile. */}
             <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-              <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-initial">
+              <Button variant="outline" onClick={requestClose} className="flex-1 sm:flex-initial">
                 Close
               </Button>
               <QuoteActions
