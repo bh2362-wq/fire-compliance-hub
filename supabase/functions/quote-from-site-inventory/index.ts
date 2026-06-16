@@ -250,9 +250,25 @@ async function callClaudeJson(
     .map((b: { text: string }) => b.text)
     .join("")
     .trim();
-  // Tolerate ```json fences even though the prompt forbids them.
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
-  const parsed = JSON.parse(cleaned);
+  // Tolerate ```json fences and any prose Claude prepends/appends.
+  let cleaned = raw.replace(/```(?:json)?\s*/gi, "").replace(/```\s*/g, "").trim();
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    throw new Error(`Claude returned no JSON object. Response starts with: ${raw.slice(0, 200)}`);
+  }
+  cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  let parsed: any;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    // repair trailing commas + control chars
+    const repaired = cleaned
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/[\x00-\x1F\x7F]/g, " ");
+    parsed = JSON.parse(repaired);
+  }
   return {
     interpretation: typeof parsed.interpretation === "string" ? parsed.interpretation : "",
     scope_content: typeof parsed.scope_content === "string" ? parsed.scope_content : "",
