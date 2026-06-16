@@ -213,7 +213,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
   // id; the per-row undo pill renders when an entry exists. Cleared
   // on save (whole quote becomes the new baseline) and on a manual
   // undo click.
-  const [catalogUndo, setCatalogUndo] = useState<Record<string, { description: string; unit_price: number }>>({});
+  const [catalogUndo, setCatalogUndo] = useState<Record<string, { description: string; unit_price: number; item_name?: string }>>({});
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
