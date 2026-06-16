@@ -626,37 +626,17 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
               ? new Date(quotationData.updated_at as string).getTime()
               : 0;
             if (draft?.savedAt && draft.savedAt > serverUpdated + 1000) {
+              setPendingDraft(draft);
               toast.message("Unsaved changes from your last session", {
                 description: `Draft from ${new Date(draft.savedAt).toLocaleString()}. Restore?`,
                 duration: 15000,
                 action: {
                   label: "Restore",
-                  onClick: () => {
-                    setQuotationNumber(draft.quotationNumber ?? "");
-                    setTitle(draft.title ?? "");
-                    setSummary(draft.summary ?? "");
-                    setNotes(draft.notes ?? "");
-                    setTerms(draft.terms ?? DEFAULT_TERMS);
-                    setValidUntil(draft.validUntil ?? "");
-                    setVatRate(draft.vatRate ?? 20);
-                    if (Array.isArray(draft.scopeItems)) setScopeItems(draft.scopeItems);
-                    if (Array.isArray(draft.lineItems)) setLineItems(draft.lineItems);
-                    setCustomerName(draft.customerName ?? "");
-                    setCustomerContactName(draft.customerContactName ?? "");
-                    setCustomerContactEmail(draft.customerContactEmail ?? "");
-                    setCustomerContactPhone(draft.customerContactPhone ?? "");
-                    setCustomerAddress(draft.customerAddress ?? "");
-                    setCustomerCity(draft.customerCity ?? "");
-                    setCustomerPostcode(draft.customerPostcode ?? "");
-                    setHasChanges(true);
-                    toast.success("Draft restored — review and click Save to persist");
-                  },
+                  onClick: () => applyDraftSnapshot(draft),
                 },
                 cancel: {
                   label: "Discard",
-                  onClick: () => {
-                    try { localStorage.removeItem(draftStorageKey); } catch { /* ignore */ }
-                  },
+                  onClick: discardDraftSnapshot,
                 },
               });
             }
