@@ -130,7 +130,18 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing Authorization header");
 
-    const { bid_id } = await req.json();
+    const body = await req.json();
+
+    // Connectivity self-test: verify the key + this function's model are
+    // reachable, without touching the database.
+    if (body?.ping) {
+      const { text, model } = await callClaude(ANTHROPIC_API_KEY, "You are a connectivity probe.", "Reply with the single word OK.");
+      return new Response(JSON.stringify({ ok: true, model: model ?? MODEL, reply: (text || "").slice(0, 20) }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const bid_id = body?.bid_id;
     if (!bid_id) throw new Error("Missing bid_id");
 
     const supabase = createClient(

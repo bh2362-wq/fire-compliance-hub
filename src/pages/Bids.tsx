@@ -17,12 +17,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   PenLine, Search, Plus, Building2, Calendar, MoreVertical, Eye, Trash2,
-  PoundSterling, Clock, AlertTriangle,
+  PoundSterling, Clock, AlertTriangle, Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInCalendarDays, isPast } from "date-fns";
 import { Bid, BidStatus, BID_STATUS_LABELS, listBids, deleteBid } from "@/services/bidService";
 import { NewBidDialog } from "@/components/bids/NewBidDialog";
+import { BidDiagnosticsDialog } from "@/components/bids/BidDiagnosticsDialog";
 
 const statusClasses: Record<BidStatus, string> = {
   draft: "bg-muted text-muted-foreground border-muted",
@@ -40,6 +41,7 @@ const Bids = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [newOpen, setNewOpen] = useState(false);
+  const [diagOpen, setDiagOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Bid | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -103,9 +105,14 @@ const Bids = () => {
             <h1 className="text-3xl font-bold tracking-tight">Bid Writer</h1>
             <p className="text-muted-foreground mt-1">Draft and refine tender / ITT responses with AI assistance</p>
           </div>
-          <Button onClick={() => setNewOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" /> New Bid
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setDiagOpen(true)}>
+              <Stethoscope className="w-4 h-4 mr-2" /> Self-test
+            </Button>
+            <Button onClick={() => setNewOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" /> New Bid
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">
@@ -186,6 +193,7 @@ const Bids = () => {
       </div>
 
       <NewBidDialog open={newOpen} onOpenChange={setNewOpen} onCreated={fetchBids} />
+      <BidDiagnosticsDialog open={diagOpen} onOpenChange={setDiagOpen} />
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => { if (!o) setToDelete(null); }}>
         <AlertDialogContent>

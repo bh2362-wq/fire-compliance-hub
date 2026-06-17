@@ -211,7 +211,28 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405, headers: corsHeaders });
 
   try {
-    const input = (await req.json()) as GenerateBidAnswerInput;
+    const input = (await req.json()) as GenerateBidAnswerInput & { ping?: boolean };
+
+    // Connectivity self-test: verify the key + drafting model are reachable.
+    if (input?.ping) {
+      const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+      if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({ model: MODEL, max_tokens: 16, messages: [{ role: "user", content: "Reply with the single word OK." }] }),
+      });
+      if (!r.ok) {
+        if (r.status === 401) throw new Error("Invalid Anthropic API key");
+        throw new Error(`Claude API error ${r.status}: ${(await r.text()).slice(0, 300)}`);
+      }
+      const d = await r.json();
+      const reply = Array.isArray(d?.content) ? d.content.map((c: any) => c?.text || "").join("") : "";
+      return new Response(JSON.stringify({ ok: true, model: d?.model ?? MODEL, reply: reply.slice(0, 20) }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!input.mode || !input.question_text?.trim()) {
       throw new Error("Missing required fields: mode, question_text");
     }
