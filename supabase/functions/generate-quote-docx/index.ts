@@ -401,10 +401,14 @@ function flatPriceableItems(q: QuoteInput): QuoteItem[] {
       .filter((li) => !li.is_section)
       .map((li) => {
         const qty   = Number(li.quantity)   || 0;
-        let   unit  = Number(li.unit_price) || 0;
+        const rawUnit = Number(li.unit_price) || 0;
         const total = Number(li.total_price) || 0;
-        // Manual total entered without unit price → derive unit so qty*unit == total.
-        if (unit === 0 && total > 0 && qty > 0) unit = total / qty;
+        // Customer-facing unit MUST be the selling price (cost + markup + labour),
+        // never the raw cost. The stored `unit_price` is the cost; `total_price`
+        // already has markup + labour baked in. Derive unit from total/qty so
+        // the customer never sees our cost on the final quote.
+        let unit = rawUnit;
+        if (total > 0 && qty > 0) unit = total / qty;
         return { desc: li.description ?? "", qty, unit };
       });
   }
