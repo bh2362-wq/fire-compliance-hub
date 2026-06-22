@@ -1372,9 +1372,14 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     }
   };
 
-  const totalAmount = lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+  // Derive totals live from the editable fields (qty/unit/markup/labour)
+  // rather than the stored total_price so the footer updates the instant
+  // any input changes — even if total_price hasn't been re-synced yet.
+  const computeLineSell = (i: LineItem) =>
+    (i.quantity || 0) * (i.unit_price || 0) * (1 + (i.markup_percent || 0) / 100) + (i.labour_cost || 0);
+  const totalAmount = lineItems.reduce((sum, item) => sum + computeLineSell(item), 0);
   const totalCost = lineItems.reduce(
-    (sum, item) => sum + item.quantity * item.unit_price + (item.labour_cost || 0),
+    (sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0) + (item.labour_cost || 0),
     0
   );
   const profitAmount = totalAmount - totalCost;
@@ -1854,9 +1859,23 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                             <Label className="text-xs">Sell Price £</Label>
                                             <Input
                                               type="number"
-                                              readOnly
+                                              min={0}
+                                              step={0.01}
                                               value={(item.unit_price * (1 + (item.markup_percent || 0) / 100)).toFixed(2)}
-                                              className="h-8 bg-muted"
+                                              onChange={(e) => {
+                                                const sell = parseFloat(e.target.value) || 0;
+                                                const unit = item.unit_price || 0;
+                                                if (unit > 0) {
+                                                  const pct = ((sell / unit) - 1) * 100;
+                                                  handleItemChange(index, "markup_percent", Math.round(pct * 100) / 100);
+                                                } else {
+                                                  // No unit cost yet — treat sell as the unit price with 0% markup
+                                                  handleItemChange(index, "unit_price", sell);
+                                                  handleItemChange(index, "markup_percent", 0);
+                                                }
+                                              }}
+                                              disabled={isLocked}
+                                              className="h-8"
                                             />
                                           </div>
                                           <div>
@@ -1876,7 +1895,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                           <span className="text-xs text-muted-foreground">Total</span>
                                           <span className="text-sm font-semibold flex items-center">
                                             <PoundSterling className="w-3 h-3" />
-                                            {(item.total_price || 0).toFixed(2)}
+                                            {computeLineSell(item).toFixed(2)}
                                           </span>
                                         </div>
                                       </div>
