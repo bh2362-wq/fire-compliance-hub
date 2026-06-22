@@ -1506,10 +1506,19 @@ Deno.serve(async (req) => {
     // 7. Upload to quote-outputs and sign a URL (unchanged behaviour).
     const pathBase = quote.quotation_id ?? quote.ref.replace(/[^A-Za-z0-9_-]/g, "_");
     const storagePath = `${pathBase}/quote.docx`;
-    const { error: uploadErr } = await supabase.storage.from("quote-outputs").upload(storagePath, out, {
-      contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      upsert: true,
-    });
+    let uploadErr: { message: string } | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const res = await supabase.storage.from("quote-outputs").upload(storagePath, out, {
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        upsert: true,
+      });
+      uploadErr = res.error;
+      if (!uploadErr) break;
+      const isTimeout = /timeout|gateway|504|503/i.test(uploadErr.message);
+      console.warn(`[generate-quote-docx] upload attempt ${attempt} failed: ${uploadErr.message}`);
+      if (!isTimeout || attempt === 3) break;
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
     if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
 
     const { data: signed, error: signedErr } = await supabase.storage.from("quote-outputs").createSignedUrl(storagePath, 3600);
