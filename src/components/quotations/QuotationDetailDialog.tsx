@@ -1859,9 +1859,23 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                             <Label className="text-xs">Sell Price £</Label>
                                             <Input
                                               type="number"
-                                              readOnly
+                                              min={0}
+                                              step={0.01}
                                               value={(item.unit_price * (1 + (item.markup_percent || 0) / 100)).toFixed(2)}
-                                              className="h-8 bg-muted"
+                                              onChange={(e) => {
+                                                const sell = parseFloat(e.target.value) || 0;
+                                                const unit = item.unit_price || 0;
+                                                if (unit > 0) {
+                                                  const pct = ((sell / unit) - 1) * 100;
+                                                  handleItemChange(index, "markup_percent", Math.round(pct * 100) / 100);
+                                                } else {
+                                                  // No unit cost yet — treat sell as the unit price with 0% markup
+                                                  handleItemChange(index, "unit_price", sell);
+                                                  handleItemChange(index, "markup_percent", 0);
+                                                }
+                                              }}
+                                              disabled={isLocked}
+                                              className="h-8"
                                             />
                                           </div>
                                           <div>
