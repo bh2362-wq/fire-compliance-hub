@@ -1372,9 +1372,14 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     }
   };
 
-  const totalAmount = lineItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
+  // Derive totals live from the editable fields (qty/unit/markup/labour)
+  // rather than the stored total_price so the footer updates the instant
+  // any input changes — even if total_price hasn't been re-synced yet.
+  const computeLineSell = (i: LineItem) =>
+    (i.quantity || 0) * (i.unit_price || 0) * (1 + (i.markup_percent || 0) / 100) + (i.labour_cost || 0);
+  const totalAmount = lineItems.reduce((sum, item) => sum + computeLineSell(item), 0);
   const totalCost = lineItems.reduce(
-    (sum, item) => sum + item.quantity * item.unit_price + (item.labour_cost || 0),
+    (sum, item) => sum + (item.quantity || 0) * (item.unit_price || 0) + (item.labour_cost || 0),
     0
   );
   const profitAmount = totalAmount - totalCost;
