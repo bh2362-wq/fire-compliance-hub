@@ -1383,7 +1383,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
     0
   );
   const profitAmount = totalAmount - totalCost;
-  const profitMargin = totalAmount > 0 ? (profitAmount / totalAmount) * 100 : 0;
+  const profitMargin = totalCost > 0 ? (profitAmount / totalCost) * 100 : 0;
   const vatAmount = totalAmount * (vatRate / 100);
   const grandTotal = totalAmount + vatAmount;
   const isLocked = !!quotation?.locked_at && quotation?.status !== "recalled";
