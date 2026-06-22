@@ -1895,7 +1895,7 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
                                           <span className="text-xs text-muted-foreground">Total</span>
                                           <span className="text-sm font-semibold flex items-center">
                                             <PoundSterling className="w-3 h-3" />
-                                            {(item.total_price || 0).toFixed(2)}
+                                            {computeLineSell(item).toFixed(2)}
                                           </span>
                                         </div>
                                       </div>
