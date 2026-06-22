@@ -1254,11 +1254,20 @@ export function QuotationDetailDialog({ open, onOpenChange, quotationId, onUpdat
           .filter((i) => !i.is_section)
           .slice()
           .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-          .map((i) => ({
-            desc: i.description,
-            qty: i.quantity ?? 1,
-            unit: i.unit_price ?? 0,
-          })),
+          .map((i) => {
+            // Customer-facing unit MUST be sell, not cost. Compute
+            // sell here from cost + markup + labour so this payload
+            // can't leak the internal unit_price onto the PDF — same
+            // contract as quotationToQuoteInput in useQuoteGeneration.
+            const qty = i.quantity ?? 1;
+            const cost = Number(i.unit_price ?? 0);
+            const markupPct = Number(i.markup_percent ?? 0);
+            const labour = Number(i.labour_cost ?? 0);
+            const sellUnit = cost * (1 + markupPct / 100);
+            const lineTotal = qty * sellUnit + labour;
+            const unit = qty > 0 ? lineTotal / qty : sellUnit;
+            return { desc: i.description, qty, unit };
+          }),
         vat_rate: vatRate,
         quotation_id: quotation.id,
       };

@@ -32,14 +32,14 @@ export interface QuotationFull {
   existing_system_description: string | null;
   customers: { name: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null; address: string | null; city: string | null; postcode: string | null } | null;
   sites: { name: string; address: string | null; city: string | null; postcode: string | null } | null;
-  quotation_line_items: { description: string; quantity: number | null; unit_price: number | null; total_price: number | null; sort_order: number | null; is_section: boolean | null }[];
+  quotation_line_items: { description: string; quantity: number | null; unit_price: number | null; total_price: number | null; sort_order: number | null; is_section: boolean | null; markup_percent: number | null; labour_cost: number | null }[];
 }
 
 const QUOTATION_FULL_SELECT = `
   *,
   customers ( name, contact_name, contact_email, contact_phone, address, city, postcode ),
   sites ( name, address, city, postcode ),
-  quotation_line_items ( description, quantity, unit_price, total_price, sort_order, is_section )
+  quotation_line_items ( description, quantity, unit_price, total_price, sort_order, is_section, markup_percent, labour_cost )
 `;
 
 export async function fetchQuotationFull(quotationId: string): Promise<QuotationFull> {
@@ -95,11 +95,28 @@ export function quotationToQuoteInput(q: QuotationFull) {
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
       .map((li) => {
         const qty = li.quantity ?? 1;
-        // Defensive: some historical rows store only total_price. Derive
-        // unit from total when unit_price is missing so totals reconcile.
-        const unit = (li.unit_price ?? 0) > 0
-          ? (li.unit_price as number)
-          : (li.total_price && qty > 0 ? Number(li.total_price) / qty : 0);
+        // CUSTOMER-FACING unit MUST be cost + markup + labour, never the
+        // raw cost. The DB stores unit_price as the internal cost, with
+        // markup_percent and labour_cost held alongside. Compute sell
+        // here so the renderer never has to see the cost number.
+        //   sell_unit = cost × (1 + markup/100)
+        //   line_total = qty × sell_unit + labour_cost
+        //   per-unit displayed = line_total / qty
+        // Bundling labour into per-unit keeps the line total correct for
+        // the rare case where labour_cost is also set on a material row.
+        const cost = Number(li.unit_price ?? 0);
+        const markupPct = Number(li.markup_percent ?? 0);
+        const labour = Number(li.labour_cost ?? 0);
+        const sellUnit = cost * (1 + markupPct / 100);
+        const lineTotal = qty * sellUnit + labour;
+        // Fallbacks for historical rows that stored only total_price.
+        // total_price is trusted ONLY when no unit/markup data exists
+        // — modern saves write the sell-side total but legacy rows
+        // saved by the cost-side inventory flow may have qty×cost stored.
+        let unit = qty > 0 ? lineTotal / qty : 0;
+        if (unit <= 0 && Number(li.total_price ?? 0) > 0 && qty > 0) {
+          unit = Number(li.total_price) / qty;
+        }
         return { desc: li.description, qty, unit };
       }),
     assumptions: q.assumptions ?? [],

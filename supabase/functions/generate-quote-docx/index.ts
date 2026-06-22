@@ -50,6 +50,11 @@ interface SectionedLineItem {
   quantity?: number;
   unit_price?: number;
   total_price?: number;
+  // Sell-side fields — when present, renderer derives the customer
+  // unit as cost × (1 + markup/100) + labour/qty so a stale total_price
+  // (cost-side) can't leak the internal cost onto the PDF.
+  markup_percent?: number;
+  labour_cost?: number;
 }
 
 interface QuoteInput {
@@ -401,14 +406,21 @@ function flatPriceableItems(q: QuoteInput): QuoteItem[] {
       .filter((li) => !li.is_section)
       .map((li) => {
         const qty   = Number(li.quantity)   || 0;
-        const rawUnit = Number(li.unit_price) || 0;
-        const total = Number(li.total_price) || 0;
-        // Customer-facing unit MUST be the selling price (cost + markup + labour),
-        // never the raw cost. The stored `unit_price` is the cost; `total_price`
-        // already has markup + labour baked in. Derive unit from total/qty so
-        // the customer never sees our cost on the final quote.
-        let unit = rawUnit;
-        if (total > 0 && qty > 0) unit = total / qty;
+        const cost  = Number(li.unit_price) || 0;
+        const markupPct = Number(li.markup_percent) || 0;
+        const labour    = Number(li.labour_cost)    || 0;
+        // Customer-facing unit MUST be the sell price, never the raw cost.
+        // Compute sell here from cost + markup + labour so a legacy row
+        // where total_price was saved cost-side can't leak the internal
+        // cost onto the customer PDF. Fall back to total_price/qty only
+        // when no cost / markup data is available at all.
+        const sellUnit = cost * (1 + markupPct / 100);
+        const lineTotal = qty * sellUnit + labour;
+        let unit = qty > 0 ? lineTotal / qty : 0;
+        if (unit <= 0) {
+          const stored = Number(li.total_price) || 0;
+          if (stored > 0 && qty > 0) unit = stored / qty;
+        }
         return { desc: li.description ?? "", qty, unit };
       });
   }
