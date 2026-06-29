@@ -196,10 +196,14 @@ Deno.serve(async (req) => {
       // factoring control account "791"), trust it: match any ACTIVE account
       // with that code regardless of Type/EnablePaymentsToAccount. Otherwise
       // fall back to standard BANK + payments-enabled accounts.
+      // Xero only allows payments against ACTIVE BANK accounts. The
+      // EnablePaymentsToAccount flag is only meaningful for non-BANK
+      // accounts being used as payment targets, and is often returned as
+      // undefined for real bank accounts — don't filter on it.
       bankAccounts = allAccounts.filter((acc: any) => {
         if (acc.Status !== "ACTIVE") return false;
         if (bankAccountCode && acc.Code === bankAccountCode) return true;
-        return acc.Type === "BANK" && acc.EnablePaymentsToAccount !== false;
+        return acc.Type === "BANK";
       });
       console.log(`Fetched ${allAccountsCount} total accounts; ${bankAccounts.length} usable:`, bankAccounts.map((a: any) => `${a.Name} (Code=${a.Code}, Type=${a.Type})`));
 
