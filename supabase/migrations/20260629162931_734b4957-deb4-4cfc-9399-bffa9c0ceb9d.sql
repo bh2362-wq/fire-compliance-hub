@@ -1,0 +1,2 @@
+ALTER TABLE public.service_visits DROP CONSTRAINT IF EXISTS visits_visit_type_check;
+ALTER TABLE public.service_visits ADD CONSTRAINT visits_visit_type_check CHECK (visit_type = ANY (ARRAY['quarterly_service','biannual_service','annual_inspection','emergency','callout','remedial','supply_only','subcontract','room_integrity','gas_suppression']::text[]));
