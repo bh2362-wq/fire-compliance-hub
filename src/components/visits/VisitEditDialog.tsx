@@ -470,7 +470,7 @@ const VisitEditDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[95dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="w-5 h-5 text-primary" />
@@ -492,21 +492,20 @@ const VisitEditDialog = ({
           customerId={null}
         />
 
-        {/* Separate launcher for the annual Cause & Effect + Audibility
-            test report — it's BS 5839 annual-only and quite different in
-            shape from the routine service-report recommendation, so it
-            sits as its own action rather than inside the
-            recommend-by-visit-type card. */}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full justify-start gap-2"
-          onClick={() => navigate(`/dashboard/visits/${visit.id}/cause-effect-test/capture`)}
-        >
-          <ClipboardCheck className="w-4 h-4" />
-          Cause &amp; Effect + Audibility Test
-        </Button>
+        {/* Cause & Effect + Audibility is BS 5839 annual-only — only show
+            it for annual inspections so it doesn't clutter remedials/callouts. */}
+        {visit.visit_type === "annual_inspection" && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full justify-start gap-2"
+            onClick={() => navigate(`/dashboard/visits/${visit.id}/cause-effect-test/capture`)}
+          >
+            <ClipboardCheck className="w-4 h-4" />
+            Cause &amp; Effect + Audibility Test
+          </Button>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
